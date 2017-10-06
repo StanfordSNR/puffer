@@ -4,7 +4,7 @@
 AC_PREREQ([2.69])
 AC_INIT([tv-encoder], [0.1], [fyy@cs.stanford.edu])
 AM_INIT_AUTOMAKE([foreign])
-AC_CONFIG_SRCDIR([src/tv_encoder.cc])
+AC_CONFIG_SRCDIR([src/encoder/encoder.cc])
 AC_CONFIG_HEADERS([config.h])
 
 # Add picky CXXFLAGS
@@ -15,6 +15,7 @@ AC_SUBST([PICKY_CXXFLAGS])
 
 # Checks for programs.
 AC_PROG_CXX
+AC_PROG_RANLIB
 
 # Checks for libraries.
 
@@ -24,5 +25,9 @@ AC_PROG_CXX
 
 # Checks for library functions.
 
-AC_CONFIG_FILES([Makefile src/Makefile])
+AC_CONFIG_FILES([Makefile
+    src/Makefile
+    src/util/Makefile
+    src/encoder/Makefile
+    src/stream_source/Makefile])
 AC_OUTPUT

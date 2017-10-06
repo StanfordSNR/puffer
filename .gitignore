@@ -94,4 +94,5 @@ tags
 *.app
 
 ##### others
-/src/tv_encoder
+/src/tv_encoder/tv_encoder
+/src/tv_source/tv_source
