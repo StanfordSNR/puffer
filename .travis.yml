@@ -3,5 +3,25 @@ sudo: required
 services: docker
 
 branches:
-  except:
+  only:
     master
+
+addons:
+  apt:
+    sources:
+    - ubuntu-toolchain-r-test
+    packages:
+    - gcc-7
+    - g++-7
+
+install:
+  - sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-7 99
+  - sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-7 99
+
+script:
+  - ./autogen.sh
+  - ./configure
+  - make -j
+
+notifications:
+  email: false
