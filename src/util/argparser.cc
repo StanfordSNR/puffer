@@ -11,6 +11,9 @@ ArgParser::ArgParser(const string &name) :
   arg_values_(map<string, string>()), arg_helps_(map<string, string>())
 {}
 
+ArgParser::~ArgParser()
+{}
+
 bool ArgParser::parse(int argc, const char **argv)
 {
   int i = 0;
@@ -28,7 +31,7 @@ bool ArgParser::parse(int argc, const char **argv)
 
   // if some required args is missing, an exception will be thrown
   if (!this->required_args_.empty()) {
-    throw this->required_args_;
+    return false;
   }
   return true;
 }
@@ -56,6 +59,6 @@ void ArgParser::print_help()
 {
   cout << this->name_ << endl;
   for (auto it : this->arguments_) {
-    cout << "  " << it << setw(8) << ": " << this->arg_helps_[ it ] << endl;
+    cout << '\t' << left << setw(20) << setfill(' ') << it << ": " << this->arg_helps_[ it ] << endl;
   }
 }

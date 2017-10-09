@@ -15,6 +15,9 @@ XMLWriter::XMLWriter(): tag_open_(false), newline_( true),
   this->os_ << (XML_HEADER) << endl;
 }
 
+XMLWriter::~XMLWriter()
+{}
+
 XMLWriter& XMLWriter::open_elt(const char *tag)
 {
   this->close_tag();
