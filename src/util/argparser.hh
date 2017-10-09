@@ -21,7 +21,7 @@ class ArgParser
     ArgParser(const string &name);
     ~ArgParser();
     bool parse(int argc, const char* argv[]);
-    template<typename T> T get_arg_value(const string &arg, 
+    template<typename T> T get_arg_value(const string &arg,
         const T &default_value)
     {
       if (this->arguments_.find(arg) == this->arguments_.end())
@@ -29,7 +29,7 @@ class ArgParser
       else {
         if (this->arg_values_.find(arg) == this->arg_values_.end())
           return default_value;
-        else { 
+        else {
           string arg_value = this->arg_values_[arg];
           stringstream  stream(arg_value);
           // try to convert type
