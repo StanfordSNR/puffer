@@ -19,4 +19,5 @@ libutil_a_SOURCES = address.hh address.cc \
   timeit.hh timeit.cc \
   tokenize.hh \
   util.hh util.cc \
-  xml.hh xml.cc
+  xml.hh xml.cc \
+  strict_conversions.hh strict_conversions.cc
