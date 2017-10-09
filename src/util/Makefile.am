@@ -8,4 +8,6 @@ libutil_a_SOURCES = util.hh \
 	address.hh address.cc \
 	socket.hh socket.cc \
 	poller.hh poller.cc \
-	timestamp.hh timestamp.cc
+	timestamp.hh timestamp.cc \
+	xml.hh xml.cc \
+	argparser.hh argparser.cc
