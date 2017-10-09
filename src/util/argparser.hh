@@ -10,38 +10,40 @@ using namespace std;
 
 class ArgParser
 {
-private:
-    string name;
-    set<string> arguments;
-    set<string> requiredArgs;
-    map<string, string> argValues;
-    map<string, string> argHelps;
+  private:
+    string name_;
+    set<string> arguments_;
+    set<string> required_args_;
+    map<string, string> arg_values_;
+    map<string, string> arg_helps_;
 
-public:
-    ArgParser( const string &name );
-    bool parse( int argc, const char* argv[] );
-    template<typename T> T getArgValue( const string &arg, const T &defaultValue )
+  public:
+    ArgParser(const string &name);
+    ~ArgParser();
+    bool parse(int argc, const char* argv[]);
+    template<typename T> T get_arg_value(const string &arg, 
+        const T &default_value)
     {
-        if( this->arguments.find( arg ) == this->arguments.end() )
-            return defaultValue;
-        else
-        if( this->argValues.find( arg ) == this->argValues.end() )
-            return defaultValue;
-        else {
-            string argValue = this->argValues[arg];
-            stringstream  stream( argValue );
-            // try to convert type
-            T value;
-            stream >> value;
-            if ( stream.fail() )
-                return defaultValue;
-            return value;
+      if (this->arguments_.find(arg) == this->arguments_.end())
+        return default_value;
+      else {
+        if (this->arg_values_.find(arg) == this->arg_values_.end())
+          return default_value;
+        else { 
+          string arg_value = this->arg_values_[arg];
+          stringstream  stream(arg_value);
+          // try to convert type
+          T value;
+          stream >> value;
+          if (stream.fail())
+            return default_value;
+          return value;
         }
-
+      }
     }
-    bool addArgument( const string &arg, const string &desc );
-    bool addArgument( const string &arg, const string &desc, bool required );
-    void printHelp();
+    bool add_argument(const string &arg, const string &desc);
+    bool add_argument(const string &arg, const string &desc, bool required);
+    void print_help();
 };
 
 #endif //TV_ENCODER_ARGPARSER_HH

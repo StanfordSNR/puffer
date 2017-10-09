@@ -6,59 +6,56 @@
 
 using namespace std;
 
-ArgParser::ArgParser( const string &name ) :
-        name( name ), arguments( set<string>()),  requiredArgs( set<string>() ),
-        argValues( map<string, string>() ), argHelps( map<string, string>() )
-        { }
+ArgParser::ArgParser(const string &name) :
+  name_(name), arguments_(set<string>()),  required_args_(set<string>()),
+  arg_values_(map<string, string>()), arg_helps_(map<string, string>())
+{}
 
-
-
-bool ArgParser::parse( int argc, const char **argv )
+bool ArgParser::parse(int argc, const char **argv)
 {
-    int i = 0;
-    while( ++i < argc ){
-        const char *arg = argv[ i ];
-        if(this->arguments.find( arg ) != this->arguments.end()){
-            if( i == argc - 1 ){
-                return false; // missing the last arg value
-            }
-            // we found one arg
-            this->argValues[ arg ] = argv[ ++i ];
-            this->requiredArgs.erase( arg );
-        }
+  int i = 0;
+  while (++i < argc) {
+    const char *arg = argv[ i ];
+    if (this->arguments_.find(arg) != this->arguments_.end()) {
+      if (i == argc - 1) {
+        return false; // missing the last arg value
+      }
+      // we found one arg
+      this->arg_values_[ arg ] = argv[ ++i ];
+      this->required_args_.erase(arg);
     }
+  }
 
-    // if some required args is missing, an exception will be thrown
-    if( !this->requiredArgs.empty() ) {
-        throw this->requiredArgs;
-    }
-    return true;
+  // if some required args is missing, an exception will be thrown
+  if (!this->required_args_.empty()) {
+    throw this->required_args_;
+  }
+  return true;
 }
 
-bool ArgParser::addArgument( const string &arg, const string &desc )
+bool ArgParser::add_argument(const string &arg, const string &desc)
 {
-    return this->addArgument( arg, desc, false );
+  return this->add_argument(arg, desc, false);
 }
 
-bool ArgParser::addArgument( const string &arg, const string &desc, bool required)
+bool ArgParser::add_argument(const string &arg, const string &desc, bool required)
 {
-    if( this->arguments.find( arg ) != this->arguments.end() )
-        return false;
-    this->arguments.insert( arg );
-    this->argHelps[ arg ] = desc;
+  if (this->arguments_.find(arg) != this->arguments_.end())
+    return false;
+  this->arguments_.insert(arg);
+  this->arg_helps_[ arg ] = desc;
 
-    if( required ) {
-        this->requiredArgs.insert( arg );
-    }
+  if (required) {
+    this->required_args_.insert(arg);
+  }
 
-    return true;
+  return true;
 }
 
-
-void ArgParser::printHelp()
+void ArgParser::print_help()
 {
-    cout << this->name << endl;
-    for( auto it : this->arguments ){
-        cout << "  " << it << setw( 8 ) << ": " << this->argHelps[ it ] << endl;
-    }
+  cout << this->name_ << endl;
+  for (auto it : this->arguments_) {
+    cout << "  " << it << setw(8) << ": " << this->arg_helps_[ it ] << endl;
+  }
 }
