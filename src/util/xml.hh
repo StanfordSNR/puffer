@@ -6,45 +6,42 @@
 
 using namespace std;
 
-
 class XMLNode
 {
-public:
-    const char *tag;
+  public:
+    const char *tag_;
     bool hasContent;
-    XMLNode( const char *tag, bool hasContent): tag( tag ), hasContent( hasContent ) { }
-    XMLNode( const char *tag): XMLNode( tag, false ) { }
+    XMLNode(const char *tag, bool hasContent): tag_(tag), hasContent(hasContent) { }
+    XMLNode(const char *tag): XMLNode(tag, false) { }
 };
 
 // based on
 // https://gist.github.com/sebclaeys/1227644
 // significant improvements are made
-
 class XMLWriter
 {
-private:
-    bool tagOpen;
-    bool newLine;
-    ostringstream os;
-    stack<XMLNode> elt_stack;
-    inline void closeTag();
+  private:
+    bool tag_open_;
+    bool newline_;
+    ostringstream os_;
+    stack<XMLNode> elt_stack_;
+    inline void close_tag();
     inline void indent();
-    inline void write_escape( const char* str );
+    inline void write_escape(const char* str);
 
-public:
-    XMLWriter& openElt( const char* tag );
-    XMLWriter& closeElt();
-    XMLWriter& closeAll();
-    XMLWriter& attr( const char* key, const char* val );
-    XMLWriter& attr( const char* key, std::string val );
-    XMLWriter& content( const char* val);
+  public:
+    XMLWriter& open_elt(const char* tag);
+    XMLWriter& close_elt();
+    XMLWriter& close_all();
+    XMLWriter& attr(const char* key, const char* val);
+    XMLWriter& attr(const char* key, std::string val);
+    XMLWriter& content(const char* val);
 
     string str();
-    void outputToFile( ofstream &out );
+    void output(ofstream &out);
 
     XMLWriter();
+    ~XMLWriter();
 };
-
-
 
 #endif //TV_ENCODER_XML_HH
