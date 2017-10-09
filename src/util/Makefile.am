@@ -1,13 +1,22 @@
-AM_CPPFLAGS = $(CXX11_FLAGS)
+AM_CPPFLAGS = $(CXX14_FLAGS)
 AM_CXXFLAGS = $(PICKY_CXXFLAGS)
 
 noinst_LIBRARIES = libutil.a
 
-libutil_a_SOURCES = util.hh \
-	file_descriptor.hh file_descriptor.cc \
-	address.hh address.cc \
-	socket.hh socket.cc \
-	poller.hh poller.cc \
-	timestamp.hh timestamp.cc \
-	xml.hh xml.cc \
-	argparser.hh argparser.cc
+libutil_a_SOURCES = address.hh address.cc \
+  child_process.hh child_process.cc \
+  exception.hh \
+  file_descriptor.hh file_descriptor.cc \
+  optional.hh \
+  path.hh path.cc \
+  pipe.hh pipe.cc \
+  poller.hh poller.cc \
+  signalfd.hh signalfd.cc \
+  socket.hh socket.cc \
+  system_runner.hh system_runner.cc \
+  temp_dir.hh temp_dir.cc \
+  temp_file.hh temp_file.cc \
+  timeit.hh timeit.cc \
+  tokenize.hh \
+  util.hh util.cc \
+  xml.hh xml.cc
