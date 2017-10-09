@@ -6,44 +6,42 @@
 #include <map>
 #include <sstream>
 
-using namespace std;
-
 class ArgParser
 {
-  private:
-    string name_;
-    set<string> arguments_;
-    set<string> required_args_;
-    map<string, string> arg_values_;
-    map<string, string> arg_helps_;
+private:
+  std::string name_;
+  std::set<std::string> arguments_;
+  std::set<std::string> required_args_;
+  std::map<std::string, std::string> arg_values_;
+  std::map<std::string, std::string> arg_helps_;
 
-  public:
-    ArgParser(const string &name);
-    ~ArgParser();
-    bool parse(int argc, const char* argv[]);
-    template<typename T> T get_arg_value(const string &arg,
-        const T &default_value)
-    {
-      if (this->arguments_.find(arg) == this->arguments_.end())
+public:
+  ArgParser(const std::string &name);
+  ~ArgParser();
+  bool parse(int argc, const char* argv[]);
+  template<typename T> T get_arg_value(const std::string &arg,
+      const T &default_value)
+  {
+    if (this->arguments_.find(arg) == this->arguments_.end())
+      return default_value;
+    else {
+      if (this->arg_values_.find(arg) == this->arg_values_.end())
         return default_value;
       else {
-        if (this->arg_values_.find(arg) == this->arg_values_.end())
+        std::string arg_value = this->arg_values_[arg];
+        std::stringstream  stream(arg_value);
+        // try to convert type
+        T value;
+        stream >> value;
+        if (stream.fail())
           return default_value;
-        else {
-          string arg_value = this->arg_values_[arg];
-          stringstream  stream(arg_value);
-          // try to convert type
-          T value;
-          stream >> value;
-          if (stream.fail())
-            return default_value;
-          return value;
-        }
+        return value;
       }
     }
-    bool add_argument(const string &arg, const string &desc);
-    bool add_argument(const string &arg, const string &desc, bool required);
-    void print_help();
+  }
+  bool add_argument(const std::string &arg, const std::string &desc);
+  bool add_argument(const std::string &arg, const std::string &desc, bool required);
+  void print_help();
 };
 
-#endif //TV_ENCODER_ARGPARSER_HH
+#endif /* TV_ENCODER_ARGPARSER_HH */

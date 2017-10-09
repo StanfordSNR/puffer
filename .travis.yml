@@ -1,0 +1,7 @@
+language: cpp
+sudo: required
+services: docker
+
+branches:
+  except:
+    master
