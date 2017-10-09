@@ -4,15 +4,13 @@
 #include <stack>
 #include <sstream>
 
-using namespace std;
-
 class XMLNode
 {
-  public:
-    const char *tag_;
-    bool hasContent;
-    XMLNode(const char *tag, bool hasContent): tag_(tag), hasContent(hasContent) { }
-    XMLNode(const char *tag): XMLNode(tag, false) { }
+public:
+  const char *tag_;
+  bool hasContent;
+  XMLNode(const char *tag, bool hasContent): tag_(tag), hasContent(hasContent) { }
+  XMLNode(const char *tag): XMLNode(tag, false) { }
 };
 
 // based on
@@ -20,28 +18,28 @@ class XMLNode
 // significant improvements are made
 class XMLWriter
 {
-  private:
-    bool tag_open_;
-    bool newline_;
-    ostringstream os_;
-    stack<XMLNode> elt_stack_;
-    inline void close_tag();
-    inline void indent();
-    inline void write_escape(const char* str);
+private:
+  bool tag_open_;
+  bool newline_;
+  std::ostringstream os_;
+  std::stack<XMLNode> elt_stack_;
+  inline void close_tag();
+  inline void indent();
+  inline void write_escape(const char* str);
 
-  public:
-    XMLWriter& open_elt(const char* tag);
-    XMLWriter& close_elt();
-    XMLWriter& close_all();
-    XMLWriter& attr(const char* key, const char* val);
-    XMLWriter& attr(const char* key, std::string val);
-    XMLWriter& content(const char* val);
+public:
+  XMLWriter& open_elt(const char* tag);
+  XMLWriter& close_elt();
+  XMLWriter& close_all();
+  XMLWriter& attr(const char* key, const char* val);
+  XMLWriter& attr(const char* key, std::string val);
+  XMLWriter& content(const char* val);
 
-    string str();
-    void output(ofstream &out);
+  std::string str();
+  void output(std::ofstream &out);
 
-    XMLWriter();
-    ~XMLWriter();
+  XMLWriter();
+  ~XMLWriter();
 };
 
-#endif //TV_ENCODER_XML_HH
+#endif /* TV_ENCODER_XML_HH */
