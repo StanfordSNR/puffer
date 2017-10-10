@@ -15,6 +15,7 @@ addons:
     - g++-7
 
 install:
+  - sudo apt-get update -q
   - sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-7 99
   - sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-7 99
 
