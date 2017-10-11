@@ -152,8 +152,8 @@ void XMLWriter::output(ofstream &out)
 }
 
 
-MPD::AdaptionSet::AdaptionSet(std::string init_uri, std::string media_uri,
-    unsigned int framerate, unsigned int duration) : init_uri_(init_uri),
+MPD::AdaptionSet::AdaptionSet(int id, std::string init_uri, std::string media_uri,
+    unsigned int framerate, unsigned int duration) : id_(id), init_uri_(init_uri),
   media_uri_(media_uri), framerate_(framerate), duration_(duration),
   repr_set_(set<MPD::Representation>())
 {}
@@ -174,9 +174,15 @@ void MPD::AdaptionSet::add_repr(string id, unsigned int width, unsigned int heig
   this->repr_set_.insert(repr);
 }
 
-MPDWriter::MPDWriter(int64_t update_period, string title, string base_url):
-  update_period_(update_period), title_(title),
-  writer_(make_unique<XMLWriter>()), base_url_(base_url),
+void MPD::AdaptionSet::add_repr(Representation &repr)
+{
+  if(this->framerate_!= repr.framerate_)
+    throw "Multiple framerate in one adaption set is not supported";
+  this->repr_set_.insert(repr);
+}
+
+MPDWriter::MPDWriter(int64_t update_period, string base_url):
+  update_period_(update_period), writer_(make_unique<XMLWriter>()), base_url_(base_url),
   adaption_set_(set<MPD::AdaptionSet>())
 {}
 
@@ -211,7 +217,6 @@ string MPDWriter::write_codec(MPD::MimeType type, MPD::Representation & repr) {
           break;
         default:
           throw "Unsupported AVC profile";
-      break;
       }
     case MPD::MimeType::Audio:
       sprintf(buf, "mp4a.40.2");
@@ -234,7 +239,6 @@ void MPDWriter::write_repr(MPD::Representation & repr)
   this->writer_->attr("width", repr.width);
   this->writer_->attr("height", repr.height);
   this->writer_->attr("frameRate", repr.framerate_);
-  this->writer_->attr("sar", "1:1");
   this->writer_->attr("startWithSAP", "1");
   this->writer_->attr("bandwidth", repr.bitrate);
   this->writer_->close_elt();
@@ -244,7 +248,7 @@ void MPDWriter::write_repr(MPD::Representation & repr)
  * refactor this into subclass */
 void MPDWriter::write_adaption_set(MPD::AdaptionSet & set) {
   this->writer_->open_elt("AdaptationSet");
-  this->writer_->attr("segmentAlignment", "true");
+  this->writer_->attr("segmentAlignment", "true"); /* ISO base main profile 8.5.2 */
 
   /* write the segment template */
   this->writer_->open_elt("SegmentTemplate");
@@ -262,6 +266,35 @@ void MPDWriter::write_adaption_set(MPD::AdaptionSet & set) {
   this->writer_->close_elt();
 }
 
+std::string MPDWriter::convert_pt(unsigned int seconds)
+{
+  /* This is only computes to 24 hours*/
+  unsigned int hours = 0;
+  unsigned int minutes = 0;
+  if (seconds >= 3600) {
+    hours = seconds / (3600);
+    seconds %= 3600;
+  }
+  if(seconds >= 60) {
+    minutes = seconds / 60;
+    seconds %= 60;
+  }
+  // print out result
+  std::string result = "PT";
+  if(hours)
+    result += std::to_string(hours) + "H";
+  if(minutes)
+    result += std::to_string(minutes) + "M";
+  if(seconds)
+    result += std::to_string(seconds) + "S";
+  return result;
+}
+
+void MPDWriter::add_adaption_set(MPD::AdaptionSet &set)
+{
+  this->adaption_set_.insert(set);
+}
+
 string MPDWriter::flush()
 {
   this->writer_->open_elt("MPD");
@@ -273,22 +306,16 @@ string MPDWriter::flush()
       "urn:mpeg:DASH:schema:MPD:2011 http://standards.iso.org/ittf/PubliclyAvailableStandards/MPEG-DASH_schema_files/DASH-MPD.xsd");
   /* write the time when this MPD is flushed" */
   string t = this->format_time_now();
-  this->writer_->attr("availabilityStartTime", t);
+  this->writer_->attr("publishTime", t);
+  this->writer_->attr("availabilityStartTime", t); // TODO: fix these two time
   this->writer_->attr("profiles", "urn:mpeg:dash:profile:isoff-live:2011");
   this->writer_->attr("type", "dynamic");
-  //this->writer_->attr("mediaPresentationDuration", ""); // TODO
-  this->writer_->attr("minBufferTime", ""); // TODO
+  this->writer_->attr("minBufferTime", this->convert_pt(2)); // TODO: add this to ctor
+  this->writer_->attr("minimumUpdatePeriod", this->convert_pt(this->update_period_));
 
   /* Base URL */
   this->writer_->open_elt("BaseURL");
   this->writer_->content(this->base_url_);
-  this->writer_->close_elt();
-
-  /* Title */
-  this->writer_->open_elt("ProgramInformation");
-  this->writer_->open_elt("Title");
-  this->writer_->content(this->title_);
-  this->writer_->close_elt();
   this->writer_->close_elt();
 
   /* Period */
@@ -299,6 +326,9 @@ string MPDWriter::flush()
   for (auto it: this->adaption_set_) {
     this->write_adaption_set(it);
   }
+
+  /* Close all tags */
+  this->writer_->close_all();
 
   return this->writer_->str();
 }
