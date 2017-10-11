@@ -13,11 +13,11 @@ libutil_a_SOURCES = address.hh address.cc \
   poller.hh poller.cc \
   signalfd.hh signalfd.cc \
   socket.hh socket.cc \
+  strict_conversions.hh strict_conversions.cc \
   system_runner.hh system_runner.cc \
   temp_dir.hh temp_dir.cc \
   temp_file.hh temp_file.cc \
   timeit.hh timeit.cc \
   tokenize.hh \
   util.hh util.cc \
-  xml.hh xml.cc \
-  strict_conversions.hh strict_conversions.cc
+  mpd.hh mpd.cc
