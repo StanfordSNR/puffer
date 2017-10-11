@@ -44,3 +44,23 @@ double strict_atof( const string & str )
 
     return ret;
 }
+
+unsigned long int strict_atoui(const string & str, const int base)
+{
+  if (str.empty()) {
+    throw runtime_error("Invalid integer string: empty");
+  }
+
+  char * end;
+
+  errno = 0;
+  unsigned long int ret = strtoul(str.c_str(), &end, base);
+
+  if (errno != 0) {
+    throw unix_error("strtoul");
+  } else if (end != str.c_str() + str.size()) {
+    throw runtime_error("Invalid integer: " + str);
+  }
+
+  return ret;
+}

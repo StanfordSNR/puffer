@@ -67,7 +67,7 @@ int main(int argc, char * argv[])
 
   string video_ts = argv[1];
 
-  string output_audio = "audio.aac";
+  string output_audio = "audio.mp4";
   encode_audio(video_ts, output_audio);
 
   map<string, vector<string>> video_config = {
