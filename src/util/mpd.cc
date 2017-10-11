@@ -153,37 +153,37 @@ void XMLWriter::output(ofstream &out)
 
 
 MPD::AdaptionSet::AdaptionSet(int id, std::string init_uri, std::string media_uri,
-    unsigned int framerate, unsigned int duration) : id_(id), init_uri_(init_uri),
-  media_uri_(media_uri), framerate_(framerate), duration_(duration),
-  repr_set_(set<MPD::Representation>())
+    unsigned int duration, unsigned int timescale, MPD::MimeType type):
+  id_(id), init_uri_(init_uri), media_uri_(media_uri), duration_(duration), 
+  timescale_(timescale), type(type), repr_set_(std::set<Representation*>())
 {}
 
-MPD::AdaptionSet::~AdaptionSet()
+MPD::VideoAdaptionSet::VideoAdaptionSet(int id, std::string init_uri, std::string media_uri,
+    unsigned int framerate, unsigned int duration, unsigned int timescale) : AdaptionSet(id,
+    init_uri, media_uri, duration, timescale, MPD::MimeType::Video), framerate_(framerate)
 {}
 
 
-void MPD::AdaptionSet::add_repr(string id, unsigned int width, unsigned int height,
-    unsigned int bitrate, unsigned int avc_level, MPD::MimeType type,
-    unsigned int framerate)
+MPD::AudioAdaptionSet::AudioAdaptionSet(int id, std::string init_uri, std::string media_uri,
+    unsigned int duration, unsigned int timescale) : AdaptionSet(id,
+    init_uri, media_uri, duration, timescale, MPD::MimeType::Audio)
+{}
+
+void MPD::AudioAdaptionSet::add_repr(AudioRepresentation * repr)
 {
-  if(this->framerate_ != framerate)
-    throw "Multiple framerate in one adaption set is not supported";
-  Representation repr = Representation {
-    id, width, height, bitrate, MPD::ProfileLevel::Low,
-    avc_level, type, framerate};
   this->repr_set_.insert(repr);
 }
 
-void MPD::AdaptionSet::add_repr(Representation &repr)
+void MPD::VideoAdaptionSet::add_repr(VideoRepresentation* repr)
 {
-  if(this->framerate_!= repr.framerate_)
+  if(this->framerate_!= repr->framerate_)
     throw "Multiple framerate in one adaption set is not supported";
   this->repr_set_.insert(repr);
 }
 
 MPDWriter::MPDWriter(int64_t update_period, string base_url):
   update_period_(update_period), writer_(make_unique<XMLWriter>()), base_url_(base_url),
-  adaption_set_(set<MPD::AdaptionSet>())
+  adaption_set_(set<MPD::AdaptionSet*>())
 {}
 
 MPDWriter::~MPDWriter()
@@ -201,22 +201,26 @@ string MPDWriter::format_time_now()
 }
 
 
-string MPDWriter::write_codec(MPD::MimeType type, MPD::Representation & repr) {
+string MPDWriter::write_codec(MPD::MimeType type, MPD::Representation* repr) {
   char buf[20];
   switch (type) {
     case MPD::MimeType::Video:
-      switch (repr.profile) {
-        case MPD::ProfileLevel::Low:
-          sprintf(buf, "avc1.42E0%02X", repr.avc_level);
-          break;
-        case MPD::ProfileLevel::Main:
-          sprintf(buf, "4D40%02X", repr.avc_level);
-          break;
-        case MPD::ProfileLevel::High:
-          sprintf(buf, "6400%02x", repr.avc_level);
-          break;
-        default:
-          throw "Unsupported AVC profile";
+      {
+        auto repr_ = dynamic_cast<MPD::VideoRepresentation*>(repr);
+        switch (repr_->profile) {
+          case MPD::ProfileLevel::Low:
+            sprintf(buf, "avc1.42E0%02X", repr_->avc_level);
+            break;
+          case MPD::ProfileLevel::Main:
+            sprintf(buf, "4D40%02X", repr_->avc_level);
+            break;
+          case MPD::ProfileLevel::High:
+            sprintf(buf, "6400%02x", repr_->avc_level);
+            break;
+          default:
+            throw "Unsupported AVC profile";
+        }
+        break;
       }
     case MPD::MimeType::Audio:
       sprintf(buf, "mp4a.40.2");
@@ -228,39 +232,74 @@ string MPDWriter::write_codec(MPD::MimeType type, MPD::Representation & repr) {
 }
 
 
+void MPDWriter::write_repr(MPD::Representation * repr)
+{
+  switch(repr->type_) {
+    case MPD::MimeType::Audio:
+      {
+        auto a = dynamic_cast<MPD::AudioRepresentation*>(repr);
+        this->write_repr(a);
+        break;
+      }
+    case MPD::MimeType::Video:
+      {
+        auto v = dynamic_cast<MPD::VideoRepresentation*>(repr);
+        this->write_repr(v);
+        break;
+      }
+    default:
+      throw "Unsupported MIME type";
+  }
+}
+
 /* THIS IS FOR VIDEO ONLY */
-void MPDWriter::write_repr(MPD::Representation & repr)
+void MPDWriter::write_repr(MPD::VideoRepresentation * repr)
 {
   this->writer_->open_elt("Representation");
-  this->writer_->attr("id", "v" + repr.id_);
+  this->writer_->attr("id", "v" + repr->id_);
   this->writer_->attr("mimeType", "video/mp4");
   string codec = this->write_codec(MPD::MimeType::Video, repr);
   this->writer_->attr("codecs", codec);
-  this->writer_->attr("width", repr.width);
-  this->writer_->attr("height", repr.height);
-  this->writer_->attr("frameRate", repr.framerate_);
+  this->writer_->attr("width", repr->width);
+  this->writer_->attr("height", repr->height);
+  this->writer_->attr("frameRate", repr->framerate_);
   this->writer_->attr("startWithSAP", "1");
-  this->writer_->attr("bandwidth", repr.bitrate);
+  this->writer_->attr("bandwidth", repr->bitrate);
   this->writer_->close_elt();
 }
 
-/* TODO: Video only
- * refactor this into subclass */
-void MPDWriter::write_adaption_set(MPD::AdaptionSet & set) {
+void MPDWriter::write_repr(MPD::AudioRepresentation * repr)
+{
+    this->writer_->open_elt("Representation");
+    this->writer_->attr("id", "a" + repr->id_);
+    this->writer_->attr("mimeType", "audio/mp4");
+    string codec = this->write_codec(MPD::MimeType::Audio, repr);
+    this->writer_->attr("codecs", codec);
+    this->writer_->attr("audioSamplingRate", repr->sampling_rate_);
+    this->writer_->attr("startWithSAP", "1");
+    this->writer_->attr("bandwidth", repr->bitrate);
+    this->writer_->close_elt();
+}
+
+void MPDWriter::write_adaption_set(MPD::AdaptionSet * set) {
   this->writer_->open_elt("AdaptationSet");
   this->writer_->attr("segmentAlignment", "true"); /* ISO base main profile 8.5.2 */
 
+  /* Audio channel */
+  if(set->type == MPD::MimeType::Audio) {
+  }
+
   /* write the segment template */
   this->writer_->open_elt("SegmentTemplate");
-  this->writer_->attr("timescale", set.framerate_);
-  this->writer_->attr("duration", set.duration_ * set.framerate_); /* number of frames */
-  this->writer_->attr("media", set.media_uri_);
+  this->writer_->attr("timescale", set->timescale_);
+  this->writer_->attr("duration", set->duration_);
+  this->writer_->attr("media", set->media_uri_);
   this->writer_->attr("startNumber", 1); /* the initial segment number */
-  this->writer_->attr("initialization", set.init_uri_);
+  this->writer_->attr("initialization", set->init_uri_);
   this->writer_->close_elt();
 
   /* Write the segment */
-  for(auto repr: set.repr_set_)
+  for(auto repr: set->repr_set_)
     this->write_repr(repr);
 
   this->writer_->close_elt();
@@ -290,7 +329,7 @@ std::string MPDWriter::convert_pt(unsigned int seconds)
   return result;
 }
 
-void MPDWriter::add_adaption_set(MPD::AdaptionSet &set)
+void MPDWriter::add_adaption_set(MPD::AdaptionSet *set)
 {
   this->adaption_set_.insert(set);
 }

@@ -57,16 +57,39 @@ enum class MimeType{ Video,  Audio };
 
 enum class ProfileLevel { Low, Main, High };
 
-/* For videos now */
 struct Representation {
   std::string id_;
+  unsigned int bitrate;
+  MimeType type_;
+
+  Representation(std::string id, unsigned int bitrate, MimeType type):
+    id_(id), bitrate(bitrate), type_(type)
+  {}
+
+  virtual ~Representation() {}
+};
+
+struct VideoRepresentation: public Representation {
   unsigned int width;
   unsigned int height;
-  unsigned int bitrate;
   ProfileLevel profile;
   unsigned int avc_level;
-  MimeType type_;
   unsigned int framerate_;
+
+  VideoRepresentation(std::string id, unsigned int width, unsigned int height,
+          unsigned int bitrate, ProfileLevel profile, unsigned int avc_level,
+          unsigned int framerate): Representation(id, bitrate, MimeType::Video), 
+  width(width), height(height), profile(profile),  avc_level(avc_level), 
+  framerate_(framerate)
+  {}
+};
+
+struct AudioRepresentation: public Representation {
+  unsigned int sampling_rate_;
+
+  AudioRepresentation(std::string id, unsigned int bitrate, unsigned int sampling_rate)
+      : Representation(id, bitrate, MimeType::Audio), sampling_rate_(sampling_rate)
+  {}
 };
 
 inline bool operator<(const Representation & a, const Representation & b)
@@ -74,24 +97,41 @@ inline bool operator<(const Representation & a, const Representation & b)
   return a.id_ < b.id_;
 }
 
-class AdaptionSet{
+class AdaptionSet {
 public:
   int id_;
   std::string init_uri_;
   std::string media_uri_;
-  unsigned int framerate_;
   unsigned int duration_; /* This needs to be determined from mp4 info */
-
-  std::set<Representation> repr_set_;
+  unsigned int timescale_; /* this as well */
+  MimeType type;
 
   AdaptionSet(int id, std::string init_uri, std::string media_uri,
-      unsigned int framerate, unsigned int duration);
+      unsigned int duration, unsigned int timescale, MimeType type);
 
-  ~AdaptionSet();
-  void add_repr(std::string id, unsigned int width, unsigned int height,
-      unsigned int bitrate, unsigned int avc_level, MPD::MimeType type,
-      unsigned int framerate_);
-  void add_repr(Representation & repr);
+  virtual ~AdaptionSet() {} 
+
+  std::set<Representation*> repr_set_;
+
+};
+
+class AudioAdaptionSet : public AdaptionSet {
+public:
+  void add_repr(AudioRepresentation * repr);
+
+  AudioAdaptionSet(int id, std::string init_uri, std::string media_uri,
+    unsigned int duration, unsigned int timescale);
+
+};
+
+class VideoAdaptionSet : public AdaptionSet {
+public:
+  unsigned int framerate_;
+
+  VideoAdaptionSet(int id, std::string init_uri, std::string media_uri,
+      unsigned int framerate, unsigned int duration, unsigned int timescale);
+
+  void add_repr(VideoRepresentation * repr);
 };
 
 inline bool operator<(const AdaptionSet & a, const AdaptionSet & b)
@@ -106,16 +146,18 @@ public:
   MPDWriter(int64_t update_period, std::string base_url);
   ~MPDWriter();
   std::string flush();
-  void add_adaption_set(MPD::AdaptionSet & set);
+  void add_adaption_set(MPD::AdaptionSet * set);
 private:
   int64_t update_period_;
   std::unique_ptr<XMLWriter> writer_;
   std::string base_url_;
-  std::set<MPD::AdaptionSet> adaption_set_;
+  std::set<MPD::AdaptionSet*> adaption_set_;
   std::string format_time_now();
-  void write_adaption_set(MPD::AdaptionSet & set);
-  std::string write_codec(MPD::MimeType type, MPD::Representation & repr);
-  void write_repr(MPD::Representation & repr);
+  void write_adaption_set(MPD::AdaptionSet * set);
+  std::string write_codec(MPD::MimeType type, MPD::Representation * repr);
+  void write_repr(MPD::Representation * repr);
+  void write_repr(MPD::VideoRepresentation * repr);
+  void write_repr(MPD::AudioRepresentation * repr);
   std::string convert_pt(unsigned int seconds);
 };
 
