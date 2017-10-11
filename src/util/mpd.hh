@@ -33,7 +33,7 @@ public:
   XMLWriter& open_elt(const char* tag);
   XMLWriter& close_elt();
   XMLWriter& close_all();
-  
+
   XMLWriter& attr(const char* key, const char* val);
   XMLWriter& attr(const char* key, std::string val);
   XMLWriter& attr(const char* key, unsigned int val);
@@ -76,33 +76,39 @@ inline bool operator<(const Representation & a, const Representation & b)
 
 class AdaptionSet{
 public:
+  int id_;
   std::string init_uri_;
   std::string media_uri_;
   unsigned int framerate_;
-  unsigned int duration_; /* in seconds */
+  unsigned int duration_; /* This needs to be determined from mp4 info */
 
   std::set<Representation> repr_set_;
 
-  AdaptionSet(std::string init_uri, std::string media_uri,
+  AdaptionSet(int id, std::string init_uri, std::string media_uri,
       unsigned int framerate, unsigned int duration);
 
   ~AdaptionSet();
-  void add_repr(std::string id, unsigned int width, unsigned int height, 
+  void add_repr(std::string id, unsigned int width, unsigned int height,
       unsigned int bitrate, unsigned int avc_level, MPD::MimeType type,
       unsigned int framerate_);
+  void add_repr(Representation & repr);
 };
+
+inline bool operator<(const AdaptionSet & a, const AdaptionSet & b)
+{
+  return a.id_ < b.id_;
+}
 }
 
 class MPDWriter
 {
 public:
-  MPDWriter(int64_t update_period, std::string string, std::string base_url);
+  MPDWriter(int64_t update_period, std::string base_url);
   ~MPDWriter();
   std::string flush();
-  void add_adaption_set(MPD::MimeType type, int framerate);
+  void add_adaption_set(MPD::AdaptionSet & set);
 private:
   int64_t update_period_;
-  std::string title_;
   std::unique_ptr<XMLWriter> writer_;
   std::string base_url_;
   std::set<MPD::AdaptionSet> adaption_set_;
@@ -110,6 +116,7 @@ private:
   void write_adaption_set(MPD::AdaptionSet & set);
   std::string write_codec(MPD::MimeType type, MPD::Representation & repr);
   void write_repr(MPD::Representation & repr);
+  std::string convert_pt(unsigned int seconds);
 };
 
 #endif /* TV_ENCODER_MPD_HH */
