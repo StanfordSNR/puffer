@@ -3,7 +3,7 @@
 #include <iostream>
 #include <memory>
 
-int main(int argv, char* argc[])
+int main()
 {
   auto w = std::make_unique<MPDWriter>(60, "/video");
   MPD::VideoAdaptionSet set_v = MPD::VideoAdaptionSet(1, "test1", "test2", 24, 240, 100);
@@ -15,7 +15,7 @@ int main(int argv, char* argc[])
   set_v.add_repr(&repr_v);
   w->add_adaption_set(&set_v);
   w->add_adaption_set(&set_a);
-  /* re-order 
+  /* re-order
    * if reference is used, set will copy the value, hence re-ordering won't work*/
   set_a.add_repr(&repr_a);
   std::string out = w->flush();

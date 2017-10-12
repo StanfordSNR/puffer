@@ -1,1 +1,1 @@
-SUBDIRS = util stream_source encoder
+SUBDIRS = util stream_source encoder tests

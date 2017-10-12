@@ -9,7 +9,7 @@
 
 using namespace std;
 
-void usage_error(const string & program_name)
+void print_usage(const string & program_name)
 {
   cerr << "Usage: " << program_name << " <video.ts>" << endl;
 }
@@ -58,8 +58,12 @@ void mux_audio_video(const string & output_audio,
 
 int main(int argc, char * argv[])
 {
+  if (argc < 1) {
+    abort();
+  }
+
   if (argc != 2) {
-    usage_error(argv[0]);
+    print_usage(argv[0]);
     return EXIT_FAILURE;
   }
 
