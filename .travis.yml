@@ -22,7 +22,9 @@ install:
 script:
   - ./autogen.sh
   - ./configure
-  - make -j
+  - make -j distcheck V=1
 
 notifications:
   email: false
+  webhooks:
+    - https://snr.zulipchat.com/api/v1/external/travis?api_key=3GNy11c5XW50JIfv6Ap07h5ZHMQN4Rb5&stream=tv-notification&topic=build-status
