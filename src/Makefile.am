@@ -1,1 +1,1 @@
-SUBDIRS = util stream_source encoder tests
+SUBDIRS = util forwarder encoder tests
