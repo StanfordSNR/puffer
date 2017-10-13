@@ -1,7 +1,10 @@
 AM_CPPFLAGS = $(CXX14_FLAGS) -I$(srcdir)/../util
 AM_CXXFLAGS = $(PICKY_CXXFLAGS)
 
-bin_PROGRAMS = encoder
+bin_PROGRAMS = encoder ts_segmentation
+
 encoder_SOURCES = encoder.cc
 encoder_LDADD = ../util/libutil.a
-encoder_LDFLAGS = -pthread
+
+ts_segmentation_SOURCES = ts_segmentation.cc
+ts_segmentation_LDADD = ../util/libutil.a
