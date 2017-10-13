@@ -1,88 +1,95 @@
 #include <iostream>
-#include <thread>
+#include <string>
+#include <stdexcept>
 #include <getopt.h>
-#include "socket.hh"
-#include "poller.hh"
+#include <tuple>
 
-#define LOCALHOST "0.0.0.0"
-#define TCP_PORT 4000
-#define UDP_PORT 5000
+#include "socket.hh"
 
 using namespace std;
-using namespace PollerShortNames;
 
-void print_help(const char *program_name)
+void print_usage(const string & program_name)
 {
-  cerr << "Usage: " << program_name << " [options] <input>" << endl
-    << "-n <arg>, -tcp-hostname <arg>          TCP server hostname" << endl
-    << "-t <arg>, -tcp-port <arg>              TCP server port number" << endl
-    << "-u <arg>, -udp-port <arg>              UDP port number" << endl;
+  cerr << "Usage: " << program_name << " [options]" << endl
+       << endl
+       << "Options:" << endl
+       << "--udp-port PORT        "
+       << "UDP port on localhost to receive datagrams from" << endl
+       << "--tcp HOSTNAME:PORT    "
+       << "TCP host to forward datagrams to" << endl;
 }
 
-int main(int argc, char* argv[]) {
-  int tcp_port = TCP_PORT;
-  int udp_port = UDP_PORT;
-  string tcp_hostname = LOCALHOST;
+tuple<string, string> parse_host(const string & host)
+{
+  auto pos = host.find(':');
 
-  const option command_line_options[] = {
-    {"tcp-hostname", required_argument, nullptr, 'n'},
-    {"tcp-prot", required_argument, nullptr, 't'},
+  if (pos == string::npos) {
+    throw runtime_error("Invalid host format! Should be HOSTNAME:PORT");
+  }
+
+  return make_tuple(host.substr(0, pos), host.substr(pos + 1));
+}
+
+int main(int argc, char * argv[])
+{
+  if (argc < 1) {
+    abort();
+  }
+
+  string udp_hostname{"0"}, udp_port;
+  string tcp_hostname, tcp_port;
+
+  const option cmd_line_opts[] = {
     {"udp-port", required_argument, nullptr, 'u'},
-    {0, required_argument, nullptr, 'h'},
-    {0, 0, 0, 0}
+    {"tcp",      required_argument, nullptr, 't'},
+    { nullptr,   0,                 nullptr,  0 }
   };
 
   while (true) {
-    auto opt = getopt_long(argc, argv, "n:t:u:h", command_line_options, nullptr);
-    if (opt == -1)
+    const int opt = getopt_long(argc, argv, "u:t:", cmd_line_opts, nullptr);
+    if (opt == -1) {
       break;
-    switch (opt){
-      case 'n':
-        tcp_hostname = optarg;
-        break;
-      case 't':
-        tcp_port = stoi(optarg);
-        break;
-      case 'u':
-        udp_port = stoi(optarg);
-        break;
-      case 'h':
-        print_help(argv[0]);
-        return EXIT_FAILURE;
-      default:
-        print_help(argv[0]);
-        return EXIT_FAILURE;
+    }
+
+    switch (opt) {
+    case 'u':
+      udp_port = optarg;
+      break;
+    case 't':
+      tie(tcp_hostname, tcp_port) = parse_host(optarg);
+      break;
+    default:
+      print_usage(argv[0]);
+      return EXIT_FAILURE;
     }
   }
-  cout << "Using UDP port " << udp_port << " TCP " << tcp_hostname
-    << ":" << tcp_port << endl;
 
-  /* set up udp connection */
-  UDPSocket udp = UDPSocket();
-  udp.bind(Address(LOCALHOST, udp_port));
+  if (optind != argc) { /* if there were any positional arguments */
+    print_usage(argv[0]);
+    return EXIT_FAILURE;
+  }
 
-  /* set up tcp connection */
-  TCPSocket tcp = TCPSocket();
-  Address server_address = Address(tcp_hostname, tcp_port);
-  cout << "Connecting to TCP " << server_address.str() << endl;
-  tcp.connect(server_address);
+  if (udp_port.empty() or tcp_hostname.empty() or tcp_port.empty()) {
+    print_usage(argv[0]);
+    return EXIT_FAILURE;
+  }
 
-  cout << "Listening on UDP: " << udp.local_address().str() << endl;
+  UDPSocket udp_sock;
+  udp_sock.bind(Address(udp_hostname, udp_port));
+  cerr << "Listening on UDP host " << udp_sock.local_address().str() << endl;
 
-  /* poll from the UDP socket */
-  Poller poller;
-  poller.add_action(Poller::Action(udp, Direction::In, [&] () {
-        pair<Address, std::string> recd = udp.recvfrom();
-        string payload = recd.second;
-        tcp.write(payload);
-        return ResultType::Continue;
-        }));
+  TCPSocket tcp_sock;
+  tcp_sock.connect(Address(tcp_hostname, tcp_port));
+  cerr << "Connected to TCP host " << tcp_sock.peer_address().str() << endl;
 
   while (true) {
-    const auto ret = poller.poll(-1);
-    if (ret.result == Poller::Result::Type::Exit) {
-      return ret.exit_status;
+    pair<Address, string> addr_payload = udp_sock.recvfrom();
+    string payload = addr_payload.second;
+
+    if (not payload.empty()) {
+      tcp_sock.write(payload);
     }
   }
 
+  return EXIT_SUCCESS;
 }
