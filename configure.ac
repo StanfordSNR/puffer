@@ -28,6 +28,6 @@ AC_CONFIG_FILES([Makefile
     src/Makefile
     src/util/Makefile
     src/encoder/Makefile
-    src/stream_source/Makefile
+    src/forwarder/Makefile
     src/tests/Makefile])
 AC_OUTPUT
