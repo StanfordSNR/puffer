@@ -31,8 +31,8 @@ int main(int argc, char * argv[])
   string tcp_port{argv[1]}, output{argv[2]};
 
   string args_str = "ffmpeg -y -i tcp://localhost:" + tcp_port + "?listen " +
-                    "-map 0 -c copy -f segment -segment_format mpegts " +
-                    "-segment_time 2 " + output;
+                    "-map 0 -c copy -f stream_segment -segment_format mpegts" +
+                    " -segment_time 2 " + output;
   cerr << "$ " << args_str << endl;
 
   vector<string> args = split(args_str, " ");

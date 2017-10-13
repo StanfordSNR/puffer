@@ -21,6 +21,7 @@
 
 # automake
 .deps
+.dirstamp
 Makefile
 Makefile.in
 /ar-lib
