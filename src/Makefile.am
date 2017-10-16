@@ -1,1 +1,1 @@
-SUBDIRS = util forwarder encoder tests
+SUBDIRS = util forwarder encoder mp4_parser tests
