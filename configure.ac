@@ -27,7 +27,8 @@ AC_PROG_RANLIB
 AC_CONFIG_FILES([Makefile
     src/Makefile
     src/util/Makefile
-    src/encoder/Makefile
     src/forwarder/Makefile
+    src/encoder/Makefile
+    src/mp4_parser/Makefile
     src/tests/Makefile])
 AC_OUTPUT
