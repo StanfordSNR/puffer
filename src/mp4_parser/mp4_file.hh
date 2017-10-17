@@ -1,7 +1,6 @@
 #ifndef MP4_FILE_HH
 #define MP4_FILE_HH
 
-#include <unistd.h>
 #include <cstdint>
 #include <string>
 
@@ -21,6 +20,7 @@ public:
 
   uint32_t read_uint32();
   uint64_t read_uint64();
+
   void reset();
 };
 

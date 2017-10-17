@@ -33,10 +33,11 @@ void Parser::split(const std::string & init_seg,
   /* reset file offset and eof */
   file_.reset();
 
-  /* create an initial segment */
+  /* create the initial segment */
   auto it = box_->children_begin();
-  int64_t copy_size = 0;
+  int64_t size_to_copy = 0;
 
+  /* a valid initial segment must contain ftyp and moov boxes */
   bool has_ftyp = false, has_moov = false;
 
   while (it != box_->children_end()) {
@@ -52,7 +53,7 @@ void Parser::split(const std::string & init_seg,
       has_moov = true;
     }
 
-    copy_size += (*it)->size();
+    size_to_copy += (*it)->size();
     it = next(it);
   }
 
@@ -60,13 +61,8 @@ void Parser::split(const std::string & init_seg,
     throw runtime_error("initial segment must contain ftyp and moov");
   }
 
-  /* copy from file_ to init_seg_fd */
-  cerr << "Creating " << init_seg << endl;
-  FileDescriptor init_seg_fd(
-      CheckSystemCall("open (" + init_seg + ")",
-                      open(init_seg.c_str(), O_WRONLY | O_CREAT, 0644)));
-  copy_to_file(init_seg_fd, copy_size);
-  init_seg_fd.close();
+  /* copy from MP4 and write to init_seg */
+  copy_to_file(init_seg, size_to_copy);
 
   /* create one or more media segments */
   unsigned int curr_seg_number = start_number;
@@ -76,33 +72,21 @@ void Parser::split(const std::string & init_seg,
       break;
     }
 
-    copy_size = (*it)->size();
+    size_to_copy = (*it)->size();
     it = next(it);
 
     if ((*it)->type() != "mdat") {
-      throw runtime_error("no mdat after moof");
+      throw runtime_error("media segments must contain moof and mdat boxes");
     }
 
-    copy_size += (*it)->size();
+    size_to_copy += (*it)->size();
     it = next(it);
 
     /* populate segment template */
-    const size_t max_filesize = 100;
-    char media_seg[max_filesize];
-    int cp = snprintf(media_seg, max_filesize,
-                      media_seg_template.c_str(), curr_seg_number);
+    string media_seg = populate_template(media_seg_template, curr_seg_number);
 
-    if (cp < 0 or (size_t) cp >= max_filesize) {
-      throw runtime_error("snprintf: resulting filename is too long");
-    }
-
-    /* copy from file_ to media_seg_fd */
-    cerr << "Creating " << string(media_seg) << endl;
-    FileDescriptor media_seg_fd(
-        CheckSystemCall("open (" + string(media_seg) + ")",
-                        open(media_seg, O_WRONLY | O_CREAT, 0644)));
-    copy_to_file(media_seg_fd, copy_size);
-    media_seg_fd.close();
+    /* copy from MP4 and write to media_seg */
+    copy_to_file(media_seg, size_to_copy);
 
     curr_seg_number += 1;
   }
@@ -133,7 +117,7 @@ void Parser::create_boxes(unique_ptr<Box> & parent_box,
     if (container_boxes.find(type) != container_boxes.end()) {
       auto new_container_box = make_unique<Box>(size, type);
 
-      /* recursively create boxes */
+      /* recursively parse boxes in the container box */
       create_boxes(new_container_box, file_.curr_offset(), data_size);
 
       parent_box->add_child(move(new_container_box));
@@ -152,17 +136,41 @@ void Parser::create_boxes(unique_ptr<Box> & parent_box,
   }
 }
 
-void Parser::copy_to_file(FileDescriptor & output_fd, const int64_t copy_size)
+void Parser::copy_to_file(const string & output_filename,
+                          const int64_t size_to_copy)
 {
-  int64_t read_size = 0;
+  FileDescriptor output_fd(
+    CheckSystemCall("open (" + output_filename + ")",
+                    open(output_filename.c_str(), O_WRONLY | O_CREAT, 0644)));
 
-  while (read_size < copy_size) {
-    string data = file_.read(copy_size - read_size);
+  int64_t size_copied = 0;
+
+  while (size_copied < size_to_copy) {
+    string data = file_.read(size_to_copy - size_copied);
     if (file_.eof()) {
       throw runtime_error("copy_to_file: reached EOF before finishing copy");
     }
 
-    read_size += data.size();
+    size_copied += data.size();
     output_fd.write(data, true);
   }
+
+  output_fd.close();
+  cerr << "Created " << output_filename << endl;
+}
+
+string Parser::populate_template(const string & media_seg_template,
+                                 const unsigned int curr_seg_number)
+{
+  const size_t max_filesize = 100;
+  char media_seg[max_filesize];
+
+  int size_copied = snprintf(media_seg, max_filesize,
+                             media_seg_template.c_str(), curr_seg_number);
+
+  if (size_copied < 0 or (size_t) size_copied >= max_filesize) {
+    throw runtime_error("snprintf: resulting filename is too long");
+  }
+
+  return string(media_seg, (size_t) size_copied);
 }
