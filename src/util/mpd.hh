@@ -11,7 +11,8 @@ class XMLNode
 public:
   const char *tag_;
   bool hasContent;
-  XMLNode(const char *tag, bool hasContent): tag_(tag), hasContent(hasContent) { }
+  XMLNode(const char *tag, bool hasContent): tag_(tag), hasContent(hasContent)
+    { }
   XMLNode(const char *tag): XMLNode(tag, false) { }
 };
 
@@ -58,12 +59,12 @@ enum class MimeType{ Video,  Audio };
 enum class ProfileLevel { Low, Main, High };
 
 struct Representation {
-  std::string id_;
+  std::string id;
   unsigned int bitrate;
-  MimeType type_;
+  MimeType type;
 
   Representation(std::string id, unsigned int bitrate, MimeType type):
-    id_(id), bitrate(bitrate), type_(type)
+    id(id), bitrate(bitrate), type(type)
   {}
 
   virtual ~Representation() {}
@@ -74,43 +75,49 @@ struct VideoRepresentation: public Representation {
   unsigned int height;
   ProfileLevel profile;
   unsigned int avc_level;
-  unsigned int framerate_;
+  float framerate;
 
   VideoRepresentation(std::string id, unsigned int width, unsigned int height,
-          unsigned int bitrate, ProfileLevel profile, unsigned int avc_level,
-          unsigned int framerate): Representation(id, bitrate, MimeType::Video), 
-  width(width), height(height), profile(profile),  avc_level(avc_level), 
-  framerate_(framerate)
+      unsigned int bitrate, ProfileLevel profile, unsigned int avc_level,
+      float framerate): Representation(id, bitrate, MimeType::Video),
+  width(width), height(height), profile(profile),  avc_level(avc_level),
+  framerate(framerate)
   {}
 };
 
 struct AudioRepresentation: public Representation {
-  unsigned int sampling_rate_;
+  unsigned int sampling_rate;
 
-  AudioRepresentation(std::string id, unsigned int bitrate, unsigned int sampling_rate)
-      : Representation(id, bitrate, MimeType::Audio), sampling_rate_(sampling_rate)
+  AudioRepresentation(std::string id, unsigned int bitrate,
+          unsigned int sampling_rate): Representation(id, bitrate,
+              MimeType::Audio), sampling_rate(sampling_rate)
   {}
 };
 
 inline bool operator<(const Representation & a, const Representation & b)
 {
-  return a.id_ < b.id_;
+  return a.id < b.id;
 }
 
 class AdaptionSet {
 public:
-  int id_;
-  std::string init_uri_;
-  std::string media_uri_;
-  unsigned int duration_; /* This needs to be determined from mp4 info */
-  unsigned int timescale_; /* this as well */
+  int id;
+  std::string init_uri;
+  std::string media_uri;
+  unsigned int duration; /* This needs to be determined from mp4 info */
+  unsigned int timescale; /* this as well */
   MimeType type;
 
   AdaptionSet(int id, std::string init_uri, std::string media_uri,
       unsigned int duration, unsigned int timescale, MimeType type);
 
-  virtual ~AdaptionSet() {} 
+  virtual ~AdaptionSet() {}
 
+  std::set<Representation*> get_repr_set();
+protected:
+  void add_repr_(Representation* repr);
+
+private:
   std::set<Representation*> repr_set_;
 
 };
@@ -126,29 +133,31 @@ public:
 
 class VideoAdaptionSet : public AdaptionSet {
 public:
-  unsigned int framerate_;
+  float framerate;
 
   VideoAdaptionSet(int id, std::string init_uri, std::string media_uri,
-      unsigned int framerate, unsigned int duration, unsigned int timescale);
+      float framerate, unsigned int duration, unsigned int timescale);
 
   void add_repr(VideoRepresentation * repr);
 };
 
 inline bool operator<(const AdaptionSet & a, const AdaptionSet & b)
 {
-  return a.id_ < b.id_;
+  return a.id < b.id;
 }
 }
 
 class MPDWriter
 {
 public:
-  MPDWriter(int64_t update_period, std::string base_url);
+  MPDWriter(int64_t update_period, int64_t min_buffer_time,
+          std::string base_url);
   ~MPDWriter();
   std::string flush();
   void add_adaption_set(MPD::AdaptionSet * set);
 private:
   int64_t update_period_;
+  int64_t min_buffer_time_;
   std::unique_ptr<XMLWriter> writer_;
   std::string base_url_;
   std::set<MPD::AdaptionSet*> adaption_set_;
@@ -159,6 +168,7 @@ private:
   void write_repr(MPD::VideoRepresentation * repr);
   void write_repr(MPD::AudioRepresentation * repr);
   std::string convert_pt(unsigned int seconds);
+  void write_framerate(float framerate);
 };
 
 #endif /* TV_ENCODER_MPD_HH */

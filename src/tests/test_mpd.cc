@@ -5,11 +5,11 @@
 
 int main()
 {
-  auto w = std::make_unique<MPDWriter>(60, "/video");
-  MPD::VideoAdaptionSet set_v = MPD::VideoAdaptionSet(1, "test1", "test2", 24, 240, 100);
+  auto w = std::make_unique<MPDWriter>(60, 2, "/video");
+  MPD::VideoAdaptionSet set_v = MPD::VideoAdaptionSet(1, "test1", "test2", 23.976, 240, 100);
   MPD::AudioAdaptionSet set_a = MPD::AudioAdaptionSet(2, "test1", "test2", 240, 100);
   MPD::VideoRepresentation repr_v = MPD::VideoRepresentation(
-    "1", 800, 600, 100000, MPD::ProfileLevel::High, 20, 24);
+    "1", 800, 600, 100000, MPD::ProfileLevel::High, 20, 23.976);
   MPD::AudioRepresentation repr_a = MPD::AudioRepresentation(
     "1", 100000, 180000);
   set_v.add_repr(&repr_v);
