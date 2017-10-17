@@ -18,6 +18,9 @@ public:
 
   void parse();
   void print_structure();
+  void split(const std::string & init_seg,
+             const std::string & media_seg_template,
+             const unsigned int start_number);
 
 private:
   MP4File file_;
@@ -25,6 +28,7 @@ private:
 
   void create_boxes(std::unique_ptr<Box> & parent_box,
                     const int64_t start_offset, const int64_t total_size);
+  void copy_to_file(FileDescriptor & output_fd, const int64_t copy_size);
 };
 
 }
