@@ -7,16 +7,17 @@
 #include <memory>
 #include <time.h>
 #include <string>
-
-using namespace std;
+#include <limits>
+#include <cmath>
+#include "exception.hh"
 
 #define XML_HEADER "<?xml version=\"1.0\" encoding=\"utf-8\"?>"
 #define XML_INDENT "  "
 
 XMLWriter::XMLWriter(): tag_open_(false), newline_( true),
-  os_(ostringstream()), elt_stack_(stack<XMLNode>())
+  os_(std::ostringstream()), elt_stack_(std::stack<XMLNode>())
 {
-  this->os_ << (XML_HEADER) << endl;
+  this->os_ << (XML_HEADER) << std::endl;
 }
 
 XMLWriter::~XMLWriter()
@@ -26,7 +27,7 @@ XMLWriter& XMLWriter::open_elt(const char *tag)
 {
   this->close_tag();
   if (this->elt_stack_.size() > 0) {
-    this->os_ << endl;
+    this->os_ << std::endl;
     this->indent();
     this->elt_stack_.top().hasContent = true;
   }
@@ -41,17 +42,17 @@ XMLWriter& XMLWriter::open_elt(const char *tag)
 XMLWriter& XMLWriter::close_elt()
 {
   if (!this->elt_stack_.size())
-    throw "XMLWriter is in an incorrect state.";
+    throw std::runtime_error("XMLWriter is in an incorrect state.");
   XMLNode node = this->elt_stack_.top();
   this->elt_stack_.pop();
   if (!node.hasContent) {
-    // no actual value, maybe just attr
+    /* no actual value, maybe just attr */
     this->os_ << " />";
     this->tag_open_ = false;
   } else {
     this->close_tag();
     if (this->newline_) {
-      os_ << endl;
+      os_ << std::endl;
       this->indent();
     }
     this->os_ << "</" << node.tag_ << ">";
@@ -82,12 +83,12 @@ XMLWriter& XMLWriter::attr(const char *key, std::string val)
 
 XMLWriter& XMLWriter::attr(const char *key, unsigned int val)
 {
-  return this->attr(key, to_string(val));
+  return this->attr(key, std::to_string(val));
 }
 
 XMLWriter& XMLWriter::attr(const char *key, int val)
 {
-  return this->attr(key, to_string(val));
+  return this->attr(key, std::to_string(val));
 }
 
 XMLWriter& XMLWriter::content(const char *val)
@@ -100,15 +101,15 @@ XMLWriter& XMLWriter::content(const char *val)
 
 XMLWriter& XMLWriter::content(const int val)
 {
-  return this->content(to_string(val));
+  return this->content(std::to_string(val));
 }
 
 XMLWriter& XMLWriter::content(const unsigned int val)
 {
-  return this->content(to_string(val));
+  return this->content(std::to_string(val));
 }
 
-XMLWriter& XMLWriter::content(const string & val)
+XMLWriter& XMLWriter::content(const std::string & val)
 {
   return this->content(val.c_str());
 }
@@ -141,55 +142,73 @@ inline void XMLWriter::write_escape(const char *str)
     }
 }
 
-string XMLWriter::str()
+std::string XMLWriter::str()
 {
   return this->os_.str();
 }
 
-void XMLWriter::output(ofstream &out)
+void XMLWriter::output(std::ofstream &out)
 {
   out << this->str();
 }
 
 
-MPD::AdaptionSet::AdaptionSet(int id, std::string init_uri, std::string media_uri,
+MPD::AdaptionSet::AdaptionSet(int id, std::string init_uri,
+        std::string media_uri,
     unsigned int duration, unsigned int timescale, MPD::MimeType type):
-  id_(id), init_uri_(init_uri), media_uri_(media_uri), duration_(duration), 
-  timescale_(timescale), type(type), repr_set_(std::set<Representation*>())
+  id(id), init_uri(init_uri), media_uri(media_uri),
+    duration(duration), timescale(timescale), type(type),
+    repr_set_(std::set<Representation*>())
 {}
 
-MPD::VideoAdaptionSet::VideoAdaptionSet(int id, std::string init_uri, std::string media_uri,
-    unsigned int framerate, unsigned int duration, unsigned int timescale) : AdaptionSet(id,
-    init_uri, media_uri, duration, timescale, MPD::MimeType::Video), framerate_(framerate)
+std::set<MPD::Representation*> MPD::AdaptionSet::get_repr_set()
+{
+  return this->repr_set_;
+}
+
+void MPD::AdaptionSet::add_repr_(MPD::Representation* repr)
+{
+  this->repr_set_.insert(repr);
+}
+
+MPD::VideoAdaptionSet::VideoAdaptionSet(int id, std::string init_uri,
+        std::string media_uri, float framerate, unsigned int duration,
+        unsigned int timescale): AdaptionSet(id, init_uri, media_uri,
+            duration, timescale, MPD::MimeType::Video), framerate(framerate)
 {}
 
-
-MPD::AudioAdaptionSet::AudioAdaptionSet(int id, std::string init_uri, std::string media_uri,
-    unsigned int duration, unsigned int timescale) : AdaptionSet(id,
-    init_uri, media_uri, duration, timescale, MPD::MimeType::Audio)
+MPD::AudioAdaptionSet::AudioAdaptionSet(int id, std::string init_uri,
+    std::string media_uri, unsigned int duration, unsigned int
+    timescale) : AdaptionSet(id, init_uri, media_uri, duration,
+      timescale, MPD::MimeType::Audio)
 {}
 
 void MPD::AudioAdaptionSet::add_repr(AudioRepresentation * repr)
 {
-  this->repr_set_.insert(repr);
+  MPD::Representation * r = (MPD::Representation*)repr;
+  this->add_repr_(r);
 }
 
 void MPD::VideoAdaptionSet::add_repr(VideoRepresentation* repr)
 {
-  if(this->framerate_!= repr->framerate_)
-    throw "Multiple framerate in one adaption set is not supported";
-  this->repr_set_.insert(repr);
+  if(this->framerate!= repr->framerate)
+    throw std::runtime_error("Multiple framerate in one adaption set\
+is not supported");
+  MPD::Representation * r = (MPD::Representation*)repr;
+  this->add_repr_(r);
 }
 
-MPDWriter::MPDWriter(int64_t update_period, string base_url):
-  update_period_(update_period), writer_(make_unique<XMLWriter>()), base_url_(base_url),
-  adaption_set_(set<MPD::AdaptionSet*>())
+MPDWriter::MPDWriter(int64_t update_period, int64_t min_buffer_time,
+    std::string base_url):
+  update_period_(update_period), min_buffer_time_(min_buffer_time),
+  writer_(std::make_unique<XMLWriter>()), base_url_(base_url),
+  adaption_set_(std::set<MPD::AdaptionSet*>())
 {}
 
 MPDWriter::~MPDWriter()
 {}
 
-string MPDWriter::format_time_now()
+std::string MPDWriter::format_time_now()
 {
   /* this is possible because C++ will convert char* into std:string
    * therefore no pointer to stack problem                        */
@@ -201,7 +220,8 @@ string MPDWriter::format_time_now()
 }
 
 
-string MPDWriter::write_codec(MPD::MimeType type, MPD::Representation* repr) {
+std::string MPDWriter::write_codec(MPD::MimeType type,
+        MPD::Representation* repr) {
   char buf[20];
   switch (type) {
     case MPD::MimeType::Video:
@@ -218,7 +238,7 @@ string MPDWriter::write_codec(MPD::MimeType type, MPD::Representation* repr) {
             sprintf(buf, "6400%02x", repr_->avc_level);
             break;
           default:
-            throw "Unsupported AVC profile";
+            throw std::runtime_error("Unsupported AVC profile");
         }
         break;
       }
@@ -226,7 +246,7 @@ string MPDWriter::write_codec(MPD::MimeType type, MPD::Representation* repr) {
       sprintf(buf, "mp4a.40.2");
       break;
     default:
-      throw "Unsupported MIME type";
+      throw std::runtime_error("Unsupported MIME type");
   }
   return buf;
 }
@@ -234,7 +254,7 @@ string MPDWriter::write_codec(MPD::MimeType type, MPD::Representation* repr) {
 
 void MPDWriter::write_repr(MPD::Representation * repr)
 {
-  switch(repr->type_) {
+  switch(repr->type) {
     case MPD::MimeType::Audio:
       {
         auto a = dynamic_cast<MPD::AudioRepresentation*>(repr);
@@ -248,21 +268,43 @@ void MPDWriter::write_repr(MPD::Representation * repr)
         break;
       }
     default:
-      throw "Unsupported MIME type";
+      throw std::runtime_error("Unsupported MIME type");
   }
+}
+
+inline bool nearly_equal(float a, float b)
+{
+  return std::nextafter(a, std::numeric_limits<float>::lowest()) <= b
+    && std::nextafter(a, std::numeric_limits<float>::max()) >= b;
+}
+
+void MPDWriter::write_framerate(float framerate)
+{
+    if(nearly_equal(framerate, 23.976))
+        this->writer_->attr("frameRate", "24000/1001");
+    else if(nearly_equal(framerate, 24))
+        this->writer_->attr("frameRate", 24);
+    else if(nearly_equal(framerate, 25))
+        this->writer_->attr("frameRate", 25);
+    else if(nearly_equal(framerate, 29.976))
+        this->writer_->attr("frameRate", "30000/1001");
+    else if(nearly_equal(framerate, 30))
+        this->writer_->attr("frameRate", 30);
+    else
+        throw std::runtime_error("Unsupported frame rate");
 }
 
 /* THIS IS FOR VIDEO ONLY */
 void MPDWriter::write_repr(MPD::VideoRepresentation * repr)
 {
   this->writer_->open_elt("Representation");
-  this->writer_->attr("id", "v" + repr->id_);
+  this->writer_->attr("id", "v" + repr->id);
   this->writer_->attr("mimeType", "video/mp4");
-  string codec = this->write_codec(MPD::MimeType::Video, repr);
+  std::string codec = this->write_codec(MPD::MimeType::Video, repr);
   this->writer_->attr("codecs", codec);
   this->writer_->attr("width", repr->width);
   this->writer_->attr("height", repr->height);
-  this->writer_->attr("frameRate", repr->framerate_);
+  this->write_framerate(repr->framerate);
   this->writer_->attr("startWithSAP", "1");
   this->writer_->attr("bandwidth", repr->bitrate);
   this->writer_->close_elt();
@@ -271,11 +313,11 @@ void MPDWriter::write_repr(MPD::VideoRepresentation * repr)
 void MPDWriter::write_repr(MPD::AudioRepresentation * repr)
 {
     this->writer_->open_elt("Representation");
-    this->writer_->attr("id", "a" + repr->id_);
+    this->writer_->attr("id", "a" + repr->id);
     this->writer_->attr("mimeType", "audio/mp4");
-    string codec = this->write_codec(MPD::MimeType::Audio, repr);
+    std::string codec = this->write_codec(MPD::MimeType::Audio, repr);
     this->writer_->attr("codecs", codec);
-    this->writer_->attr("audioSamplingRate", repr->sampling_rate_);
+    this->writer_->attr("audioSamplingRate", repr->sampling_rate);
     this->writer_->attr("startWithSAP", "1");
     this->writer_->attr("bandwidth", repr->bitrate);
     this->writer_->close_elt();
@@ -283,23 +325,24 @@ void MPDWriter::write_repr(MPD::AudioRepresentation * repr)
 
 void MPDWriter::write_adaption_set(MPD::AdaptionSet * set) {
   this->writer_->open_elt("AdaptationSet");
-  this->writer_->attr("segmentAlignment", "true"); /* ISO base main profile 8.5.2 */
-
+  /* ISO base main profile 8.5.2 */
+  this->writer_->attr("segmentAlignment", "true");
   /* Audio channel */
   if(set->type == MPD::MimeType::Audio) {
   }
 
   /* write the segment template */
   this->writer_->open_elt("SegmentTemplate");
-  this->writer_->attr("timescale", set->timescale_);
-  this->writer_->attr("duration", set->duration_);
-  this->writer_->attr("media", set->media_uri_);
-  this->writer_->attr("startNumber", 1); /* the initial segment number */
-  this->writer_->attr("initialization", set->init_uri_);
+  this->writer_->attr("timescale", set->timescale);
+  this->writer_->attr("duration", set->duration);
+  this->writer_->attr("media", set->media_uri);
+  /* the initial segment number */
+  this->writer_->attr("startNumber", 1);
+  this->writer_->attr("initialization", set->init_uri);
   this->writer_->close_elt();
 
   /* Write the segment */
-  for(auto repr: set->repr_set_)
+  for(auto repr: set->get_repr_set())
     this->write_repr(repr);
 
   this->writer_->close_elt();
@@ -334,23 +377,28 @@ void MPDWriter::add_adaption_set(MPD::AdaptionSet *set)
   this->adaption_set_.insert(set);
 }
 
-string MPDWriter::flush()
+std::string MPDWriter::flush()
 {
   this->writer_->open_elt("MPD");
   /* MPD scheme */
-  this->writer_->attr("xmlns:xsi", "http://www.w3.org/2001/XMLSchema-instance");
+  this->writer_->attr("xmlns:xsi",
+      "http://www.w3.org/2001/XMLSchema-instance");
   this->writer_->attr("xmlns", "urn:mpeg:dash:schema:mpd:2011");
   this->writer_->attr("xmlns:xlink", "http://www.w3.org/1999/xlink");
   this->writer_->attr("xsi:schemaLocation",
-      "urn:mpeg:DASH:schema:MPD:2011 http://standards.iso.org/ittf/PubliclyAvailableStandards/MPEG-DASH_schema_files/DASH-MPD.xsd");
+      "urn:mpeg:DASH:schema:MPD:2011 \
+http://standards.iso.org/ittf/PubliclyAvailableStandards/\
+MPEG-DASH_schema_files/DASH-MPD.xsd");
   /* write the time when this MPD is flushed" */
-  string t = this->format_time_now();
+  std::string t = this->format_time_now();
   this->writer_->attr("publishTime", t);
-  this->writer_->attr("availabilityStartTime", t); // TODO: fix these two time
+  this->writer_->attr("availabilityStartTime", t);
   this->writer_->attr("profiles", "urn:mpeg:dash:profile:isoff-live:2011");
   this->writer_->attr("type", "dynamic");
-  this->writer_->attr("minBufferTime", this->convert_pt(2)); // TODO: add this to ctor
-  this->writer_->attr("minimumUpdatePeriod", this->convert_pt(this->update_period_));
+  this->writer_->attr("minBufferTime",
+      this->convert_pt(this->min_buffer_time_));
+  this->writer_->attr("minimumUpdatePeriod",
+      this->convert_pt(this->update_period_));
 
   /* Base URL */
   this->writer_->open_elt("BaseURL");
