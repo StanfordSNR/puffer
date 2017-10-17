@@ -11,16 +11,20 @@ namespace MP4 {
 class Box
 {
 public:
-  Box(const uint32_t size, const std::string & type);
+  Box(const uint64_t size, const std::string & type);
 
-  std::string get_type();
+  /* accessors */
+  uint64_t size();
+  std::string type();
+
   void add_child(std::unique_ptr<Box> child);
-
   std::vector<std::unique_ptr<Box>>::iterator children_begin();
   std::vector<std::unique_ptr<Box>>::iterator children_end();
 
+  void print_structure(int indent = 0);
+
 private:
-  uint32_t size_;
+  uint64_t size_;
   std::string type_;
   std::vector<std::unique_ptr<Box>> children_;
 };
