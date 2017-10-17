@@ -4,7 +4,6 @@
 #include <endian.h>
 
 #include "exception.hh"
-#include "strict_conversions.hh"
 #include "mp4_file.hh"
 
 using namespace std;
@@ -12,7 +11,7 @@ using namespace MP4;
 
 MP4File::MP4File(const string & filename)
   : FileDescriptor(CheckSystemCall("open (" + filename + ")",
-                                   open(filename.c_str(), O_RDONLY, 0)))
+                                   open(filename.c_str(), O_RDONLY)))
 {}
 
 inline int64_t MP4File::seek(int64_t offset, int whence)
@@ -50,4 +49,10 @@ uint64_t MP4File::read_uint64()
   string data = read(8);
   const uint64_t * size = reinterpret_cast<const uint64_t *>(data.c_str());
   return be64toh(*size);
+}
+
+void MP4File::reset()
+{
+  seek(0, SEEK_SET);
+  set_eof(false);
 }
