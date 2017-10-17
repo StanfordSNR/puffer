@@ -1,6 +1,7 @@
 #include <unistd.h>
 #include <semaphore.h>
 #include <fcntl.h>
+#include "exception.hh"
 #include "fs_watcher.hh"
 
 #define FS_WATCHER_BUFFER_SIZE 4096
@@ -20,7 +21,7 @@ FsEvent::~FsEvent()
 FsQueue::FsQueue(): sem_(), queue_()
 {
   if(sem_init(&sem_, 0, 0) < 0)
-    throw "OS does not support unnamed semaphore";
+    throw runtime_error("OS does not support unnamed semaphore");
 }
 
 FsEvent FsQueue::pop()
@@ -46,11 +47,11 @@ FsWatcher::FsWatcher(const char* const path): queue(), path_(path),
   inotify_fd_(inotify_init()), stop_(true), inotify_t_(nullptr)
 {
   if(this->inotify_fd_ < 0)
-    throw "Failed to initialize inotify";
+    throw runtime_error("Failed to initialize inotify");
   /* listen to fs changes */
   int wd = inotify_add_watch(this->inotify_fd_, path, IN_ALL_EVENTS);
   if(wd < 0)
-    throw "Failed to add inotify watch";
+    throw runtime_error("Failed to add inotify watch");
 }
 
 void FsWatcher::start()
@@ -89,7 +90,7 @@ void FsWatcher::run()
       if(len == -1 && errno == EAGAIN)
         continue;
       else
-        throw "Unable to read FS events";
+        throw runtime_error("Unable to read FS events");
     }
     /* some pointer arithmetic */
     for(char * p = buf; p < buf + len; ) {
