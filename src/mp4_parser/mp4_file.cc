@@ -1,7 +1,7 @@
 #include <fcntl.h>
 #include <unistd.h>
-#include <iostream>
 #include <endian.h>
+#include <iostream>
 
 #include "exception.hh"
 #include "mp4_file.hh"
@@ -32,8 +32,11 @@ int64_t MP4File::inc_offset(int64_t offset)
 int64_t MP4File::filesize()
 {
   int64_t prev_offset = curr_offset();
-  int64_t fsize = seek(0, SEEK_END); /* seek to end of file */
-  seek(prev_offset, SEEK_SET); /* seek back to previous offset */
+  int64_t fsize = seek(0, SEEK_END);
+
+  /* seek back to the previous offset */
+  seek(prev_offset, SEEK_SET);
+
   return fsize;
 }
 

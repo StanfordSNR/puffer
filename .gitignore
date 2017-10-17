@@ -96,6 +96,7 @@ tags
 
 ##### others
 *.mp4
+*.m4s
 *.mpd
 *.tar.gz
 *.log
