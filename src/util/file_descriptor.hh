@@ -22,7 +22,7 @@ protected:
   void register_read( void ) { read_count_++; }
   void register_write( void ) { write_count_++; }
   void register_service( const bool write ) { write ? write_count_++ : read_count_++; }
-  void set_eof( void ) { eof_ = true; }
+  void set_eof( bool eof = true ) { eof_ = eof; }
 
 public:
   /* construct from fd number */
