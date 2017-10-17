@@ -25,6 +25,8 @@ int main(int argc, char * argv[])
   }
 
   auto parser = make_unique<MP4::Parser>(argv[1]);
+  parser->parse();
+  parser->print_structure();
 
   return EXIT_SUCCESS;
 }
