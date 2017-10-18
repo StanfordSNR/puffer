@@ -38,7 +38,7 @@ void Box::print_structure(int indent)
   cout << string(indent, ' ');
   cout << "- " << type_ << " " << size_ << endl;
 
-  for (auto const & child: children_) {
+  for (auto const & child : children_) {
     child->print_structure(indent + 2);
   }
 }
