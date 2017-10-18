@@ -64,7 +64,7 @@ int main(int argc, char * argv[])
     }
   }
 
-  if (optind != argc) { /* if there were any positional arguments */
+  if (optind != argc) { /* if there are any positional arguments */
     print_usage(argv[0]);
     return EXIT_FAILURE;
   }
