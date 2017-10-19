@@ -20,5 +20,4 @@ libutil_a_SOURCES = address.hh address.cc \
   timeit.hh timeit.cc \
   tokenize.hh \
   util.hh util.cc \
-  mpd.hh mpd.cc \
-  fs_watcher.cc fs_watcher.hh
+  mpd.hh mpd.cc

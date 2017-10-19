@@ -27,6 +27,7 @@ AC_PROG_RANLIB
 AC_CONFIG_FILES([Makefile
     src/Makefile
     src/util/Makefile
+    src/notifier/Makefile
     src/forwarder/Makefile
     src/encoder/Makefile
     src/mp4_parser/Makefile
