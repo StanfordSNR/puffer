@@ -10,8 +10,8 @@ using namespace std;
 using namespace PollerShortNames;
 
 Notifier::Notifier()
-  : inotify_fd_(FileDescriptor(CheckSystemCall("inotify_init1",
-                                               inotify_init1(IN_NONBLOCK)))),
+  : inotify_fd_(CheckSystemCall("inotify_init1",
+                                inotify_init1(IN_NONBLOCK))),
     imap_(), poller_()
 {
   poller_.add_action(
