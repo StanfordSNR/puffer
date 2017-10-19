@@ -155,9 +155,9 @@ void XMLWriter::output(std::ofstream &out)
 
 MPD::AdaptionSet::AdaptionSet(int id, std::string init_uri,
         std::string media_uri,
-    unsigned int duration, unsigned int timescale, MPD::MimeType type):
+    unsigned int duration, unsigned int timescale):
   id(id), init_uri(init_uri), media_uri(media_uri),
-    duration(duration), timescale(timescale), type(type),
+    duration(duration), timescale(timescale),
     repr_set_(std::set<Representation*>())
 {}
 
@@ -174,13 +174,13 @@ void MPD::AdaptionSet::add_repr_(MPD::Representation* repr)
 MPD::VideoAdaptionSet::VideoAdaptionSet(int id, std::string init_uri,
         std::string media_uri, float framerate, unsigned int duration,
         unsigned int timescale): AdaptionSet(id, init_uri, media_uri,
-            duration, timescale, MPD::MimeType::Video), framerate(framerate)
+            duration, timescale), framerate(framerate)
 {}
 
 MPD::AudioAdaptionSet::AudioAdaptionSet(int id, std::string init_uri,
     std::string media_uri, unsigned int duration, unsigned int
     timescale) : AdaptionSet(id, init_uri, media_uri, duration,
-      timescale, MPD::MimeType::Audio)
+      timescale)
 {}
 
 void MPD::AudioAdaptionSet::add_repr(AudioRepresentation * repr)
@@ -220,10 +220,9 @@ std::string MPDWriter::format_time_now()
 }
 
 
-std::string MPDWriter::write_codec(MPD::MimeType type,
-        MPD::Representation* repr) {
+std::string MPDWriter::write_codec(MPD::Representation* repr) {
   char buf[20];
-  switch (type) {
+  switch (repr->type) {
     case MPD::MimeType::Video:
       {
         auto repr_ = dynamic_cast<MPD::VideoRepresentation*>(repr);
@@ -242,8 +241,11 @@ std::string MPDWriter::write_codec(MPD::MimeType type,
         }
         break;
       }
-    case MPD::MimeType::Audio:
+    case MPD::MimeType::Audio_AAC:
       sprintf(buf, "mp4a.40.2");
+      break;
+    case MPD::MimeType::Audio_Webm:
+      sprintf(buf, "opus"); /* assume it is opus format */
       break;
     default:
       throw std::runtime_error("Unsupported MIME type");
@@ -255,7 +257,8 @@ std::string MPDWriter::write_codec(MPD::MimeType type,
 void MPDWriter::write_repr(MPD::Representation * repr)
 {
   switch(repr->type) {
-    case MPD::MimeType::Audio:
+    case MPD::MimeType::Audio_Webm:
+    case MPD::MimeType::Audio_AAC:
       {
         auto a = dynamic_cast<MPD::AudioRepresentation*>(repr);
         this->write_repr(a);
@@ -281,15 +284,17 @@ inline bool nearly_equal(float a, float b)
 void MPDWriter::write_framerate(float framerate)
 {
     if(nearly_equal(framerate, 23.976))
-        this->writer_->attr("frameRate", "24000/1001");
+      this->writer_->attr("frameRate", "24000/1001");
     else if(nearly_equal(framerate, 24))
-        this->writer_->attr("frameRate", 24);
+      this->writer_->attr("frameRate", 24);
     else if(nearly_equal(framerate, 25))
-        this->writer_->attr("frameRate", 25);
+      this->writer_->attr("frameRate", 25);
     else if(nearly_equal(framerate, 29.976))
-        this->writer_->attr("frameRate", "30000/1001");
+      this->writer_->attr("frameRate", "30000/1001");
     else if(nearly_equal(framerate, 30))
-        this->writer_->attr("frameRate", 30);
+      this->writer_->attr("frameRate", 30);
+    else if(nearly_equal(framerate, 60))
+      this->writer_->attr("frameRate", 60); 
     else
         throw std::runtime_error("Unsupported frame rate");
 }
@@ -300,7 +305,7 @@ void MPDWriter::write_repr(MPD::VideoRepresentation * repr)
   this->writer_->open_elt("Representation");
   this->writer_->attr("id", "v" + repr->id);
   this->writer_->attr("mimeType", "video/mp4");
-  std::string codec = this->write_codec(MPD::MimeType::Video, repr);
+  std::string codec = this->write_codec(repr);
   this->writer_->attr("codecs", codec);
   this->writer_->attr("width", repr->width);
   this->writer_->attr("height", repr->height);
@@ -314,8 +319,9 @@ void MPDWriter::write_repr(MPD::AudioRepresentation * repr)
 {
     this->writer_->open_elt("Representation");
     this->writer_->attr("id", "a" + repr->id);
-    this->writer_->attr("mimeType", "audio/mp4");
-    std::string codec = this->write_codec(MPD::MimeType::Audio, repr);
+    this->writer_->attr("mimeType", repr->type == MPD::MimeType::Audio_AAC? 
+        "audio/mp4": "audio/webm");
+    std::string codec = this->write_codec(repr);
     this->writer_->attr("codecs", codec);
     this->writer_->attr("audioSamplingRate", repr->sampling_rate);
     this->writer_->attr("startWithSAP", "1");
@@ -327,9 +333,6 @@ void MPDWriter::write_adaption_set(MPD::AdaptionSet * set) {
   this->writer_->open_elt("AdaptationSet");
   /* ISO base main profile 8.5.2 */
   this->writer_->attr("segmentAlignment", "true");
-  /* Audio channel */
-  if(set->type == MPD::MimeType::Audio) {
-  }
 
   /* write the segment template */
   this->writer_->open_elt("SegmentTemplate");
