@@ -11,7 +11,7 @@ int main()
   MPD::VideoRepresentation repr_v = MPD::VideoRepresentation(
     "1", 800, 600, 100000, MPD::ProfileLevel::High, 20, 23.976);
   MPD::AudioRepresentation repr_a = MPD::AudioRepresentation(
-    "1", 100000, 180000);
+    "1", 100000, 180000, true);
   set_v.add_repr(&repr_v);
   w->add_adaption_set(&set_v);
   w->add_adaption_set(&set_a);

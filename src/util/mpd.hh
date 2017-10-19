@@ -54,7 +54,7 @@ public:
 
 
 namespace MPD {
-enum class MimeType{ Video,  Audio };
+enum class MimeType{ Video,  Audio_Webm, Audio_AAC };
 
 enum class ProfileLevel { Low, Main, High };
 
@@ -89,8 +89,9 @@ struct AudioRepresentation: public Representation {
   unsigned int sampling_rate;
 
   AudioRepresentation(std::string id, unsigned int bitrate,
-          unsigned int sampling_rate): Representation(id, bitrate,
-              MimeType::Audio), sampling_rate(sampling_rate)
+          unsigned int sampling_rate, bool use_opus): Representation(id,
+              bitrate, use_opus? MimeType::Audio_Webm: MimeType::Audio_AAC),
+          sampling_rate(sampling_rate)
   {}
 };
 
@@ -106,10 +107,9 @@ public:
   std::string media_uri;
   unsigned int duration; /* This needs to be determined from mp4 info */
   unsigned int timescale; /* this as well */
-  MimeType type;
 
   AdaptionSet(int id, std::string init_uri, std::string media_uri,
-      unsigned int duration, unsigned int timescale, MimeType type);
+      unsigned int duration, unsigned int timescale);
 
   virtual ~AdaptionSet() {}
 
@@ -163,7 +163,7 @@ private:
   std::set<MPD::AdaptionSet*> adaption_set_;
   std::string format_time_now();
   void write_adaption_set(MPD::AdaptionSet * set);
-  std::string write_codec(MPD::MimeType type, MPD::Representation * repr);
+  std::string write_codec(MPD::Representation * repr);
   void write_repr(MPD::Representation * repr);
   void write_repr(MPD::VideoRepresentation * repr);
   void write_repr(MPD::AudioRepresentation * repr);
