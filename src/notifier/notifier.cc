@@ -28,7 +28,7 @@ int Notifier::add_watch(const string & path,
                         const callback_t & callback)
 {
   int wd = CheckSystemCall("inotify_add_watch",
-               inotify_add_watch(inotify_fd_.fd_num(), path.c_str(), mask));
+             inotify_add_watch(inotify_fd_.fd_num(), path.c_str(), mask));
   imap_[wd] = make_tuple(path, mask, callback);
 
   return wd;
@@ -39,7 +39,7 @@ vector<int> Notifier::add_watch(const vector<string> & paths,
                                 const callback_t & callback)
 {
   vector<int> wd_list;
-  for (const auto & path: paths) {
+  for (const auto & path : paths) {
     wd_list.emplace_back(add_watch(path, mask, callback));
   }
 
@@ -51,7 +51,7 @@ void Notifier::rm_watch(const int wd)
   CheckSystemCall("inotify_rm_watch",
                   inotify_rm_watch(inotify_fd_.fd_num(), wd));
 
-  size_t erase_ret = imap_.erase(wd);
+  auto erase_ret = imap_.erase(wd);
   if (erase_ret == 0) {
     throw runtime_error(
       "rm_watch: trying to remove a nonexistent watch descriptor");
@@ -72,33 +72,37 @@ Result Notifier::handle_events()
 
   while (true) {
     string buffer;
-    ssize_t bytes_read = inotify_fd_.read(buffer, BUF_LEN);
 
+    /* read some events */
+    auto bytes_read = inotify_fd_.read(buffer, BUF_LEN);
+
+    /* no events found */
     if (bytes_read <= 0) {
       break;
     }
 
     const char * buf = buffer.c_str();
 
+    /* loop over all events in the buffer */
     for (const char * ptr = buf; ptr < buf + bytes_read; ) {
       event = reinterpret_cast<const inotify_event *>(ptr);
 
-      auto map_it = imap_.find(event->wd);
-      if (map_it == imap_.end()) {
+      auto imap_it = imap_.find(event->wd);
+      if (imap_it == imap_.end()) {
         throw runtime_error(
           "inotify event returns a nonexistent watch descriptor");
       }
 
-      string path;
-      uint32_t mask;
-      callback_t callback;
-      tie(path, mask, callback) = map_it->second;
+      const string & path = get<0>(imap_it->second);
+      const uint32_t mask = get<1>(imap_it->second);
+      const callback_t & callback = get<2>(imap_it->second);
 
       if ((event->mask & mask) == 0) {
         throw runtime_error("inotify returns non-registered events");
       }
 
-      callback(event, path);
+      /* run the callback function */
+      callback(*event, path);
 
       ptr += sizeof(inotify_event) + event->len;
     }
