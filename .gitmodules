@@ -1,0 +1,3 @@
+[submodule "src/ssim/daala_tools"]
+	path = src/ssim/daala_tools
+	url = git@github.com:excamera/daala_tools.git
