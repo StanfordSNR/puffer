@@ -22,7 +22,7 @@ install:
 script:
   - ./autogen.sh
   - ./configure
-  - make -j distcheck V=1
+  - make -j distcheck V=1 || (cat tv-encoder-0.1/_build/src/tests/test-suite.log && exit 1)
 
 notifications:
   email: false
