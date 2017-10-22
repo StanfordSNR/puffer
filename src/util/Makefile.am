@@ -18,7 +18,7 @@ libutil_a_SOURCES = address.hh address.cc \
   temp_dir.hh temp_dir.cc \
   temp_file.hh temp_file.cc \
   timeit.hh timeit.cc \
-  tokenize.hh \
+  tokenize.hh tokenize.cc \
   util.hh util.cc \
   mpd.hh mpd.cc \
   mp4.hh mp4.cc

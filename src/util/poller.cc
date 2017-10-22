@@ -78,7 +78,7 @@ Poller::Result Poller::poll( const int timeout_ms )
       const int ms_for_callback = chrono::duration_cast<chrono::milliseconds>( ending_time - starting_time ).count();
 
       if ( ms_for_callback > 10 ) {
-        cerr << "callback took " + to_string( ms_for_callback ) + " ms, blocking likely";
+        cerr << "callback took " + to_string( ms_for_callback ) + " ms, blocking likely" << endl;
       }
 
       switch ( result.result ) {

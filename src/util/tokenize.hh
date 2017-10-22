@@ -5,36 +5,10 @@
 
 #include <string>
 #include <vector>
+#include <utility>
 
-static std::vector< std::string > split( const std::string & str, const std::string & separator )
-{
-  std::vector< size_t > indices;
+std::vector< std::string > split( const std::string & str, const std::string & separator );
 
-  size_t next_token = 0;
-  while ( (next_token = str.find( separator, next_token )) != std::string::npos ) {
-    indices.push_back( next_token );
-    next_token++;
-  }
-
-  if ( indices.empty() ) {
-    return { str };
-  }
-
-  std::vector< std::string > ret;
-
-  /* first token */
-  ret.push_back( str.substr( 0, indices[ 0 ] ) );
-
-  /* inner tokens */
-  for ( size_t i = 0; i < indices.size() - 1; i++ ) {
-    ret.push_back( str.substr( indices[ i ] + separator.size(),
-                  indices[ i + 1 ] - indices[ i ] - separator.size() ) );
-  }
-
-  /* last token */
-  ret.push_back( str.substr( indices.back() + separator.size() ) );
-
-  return ret;
-}
+std::pair<std::string, std::string> split_filename(const std::string & fname);
 
 #endif /* TOKENIZE_HH */
