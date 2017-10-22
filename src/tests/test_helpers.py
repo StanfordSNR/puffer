@@ -1,6 +1,27 @@
+import os
 import sys
+import errno
+import socket
 import subprocess
 from subprocess import PIPE
+
+
+def get_open_port():
+    sock = socket.socket(socket.AF_INET)
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+
+    sock.bind(('', 0))
+    port = sock.getsockname()[1]
+    sock.close()
+    return str(port)
+
+
+def make_sure_path_exists(target_path):
+    try:
+        os.makedirs(target_path)
+    except OSError as exception:
+        if exception.errno != errno.EEXIST:
+            raise
 
 
 def print_cmd(cmd):
