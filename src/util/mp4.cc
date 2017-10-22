@@ -89,6 +89,62 @@ void MVHD::print_structure(int indent)
   cout << "duration " << this->duration() << endl;
 }
 
+SIDX::SIDX(const uint64_t size, const string & type, MP4File * mp4)
+  : SIDX(size, type)
+{
+  int bytes_read = 0;
+  uint32_t temp = mp4->read_uint32();
+  this->version_ = (temp >> 24) & 0xFF;
+  this->flags_ = temp & 0x00FFFFFF;
+  this->reference_ID_ = mp4->read_uint32();
+  this->timescale_ = mp4->read_uint32();
+  /* to this point, we have 4*3 bytes */
+  bytes_read += 4 * 3;
+  if(!this->version_) {
+    /* version == 0 */
+    this->earlist_presentation_time_ = mp4->read_uint32();
+    this->first_offset_ = mp4->read_uint32();
+    bytes_read += 4 * 2;
+  } else {
+    this->earlist_presentation_time_ = mp4->read_uint64();
+    this->first_offset_ = mp4->read_uint64();
+    bytes_read += 8 * 2;
+  }
+  this->reserved_ = mp4->read_uint16();
+  uint16_t reference_count = mp4->read_uint16();
+  bytes_read += 4;
+
+  for(int i = 0 ; i < reference_count; i++) {
+    temp = mp4->read_uint32();
+    bool reference_type = (temp >> 31) & 1;
+    uint32_t reference_size = temp & 0x7FFFFFFF;
+    uint32_t segment_duration = mp4->read_uint32();
+    temp = mp4->read_uint32();
+    bool starts_with_SAP = (temp >> 31) & 1;
+    uint8_t SAP_type = (temp >> 28) & 7;
+    uint32_t SAP_delta = (temp >> 4) & 0x0FFFFFFF;
+    struct SidxReference ref {
+      reference_type, reference_size, segment_duration,
+      starts_with_SAP, SAP_type, SAP_delta};
+    this->add_reference(ref);
+    bytes_read += 3 * 4;
+  }
+  mp4->inc_offset(-bytes_read);
+}
+
+void SIDX::print_structure(int indent)
+{
+  cout << string(indent, ' ');
+  cout << "- " << type() << " " << size() << endl;
+  cout << string(indent + 3, ' ');
+  cout << "reference ID " << reference_ID_ << " timescale " <<
+    timescale_ << endl;
+  for(auto ref: reference_list_) {
+    cout << string(indent + 3, ' ');
+    cout << " - segment duration " << ref.segment_duration << endl;
+  }
+}
+
 MP4File::MP4File(const string & filename)
   : FileDescriptor(CheckSystemCall("open (" + filename + ")",
                                    open(filename.c_str(), O_RDONLY)))
@@ -125,6 +181,13 @@ uint32_t MP4File::read_uint32()
   string data = read(4);
   const uint32_t * size = reinterpret_cast<const uint32_t *>(data.c_str());
   return be32toh(*size);
+}
+
+uint16_t MP4File::read_uint16()
+{
+  string data = read(2);
+  const uint16_t * size = reinterpret_cast<const uint16_t *>(data.c_str());
+  return be16toh(*size);
 }
 
 uint64_t MP4File::read_uint64()
@@ -255,6 +318,8 @@ void Parser::create_boxes(unique_ptr<Box> & parent_box,
       unique_ptr<Box> new_regular_box;
       if(!type.compare("mvhd")) {
         new_regular_box = make_unique<MVHD>(size, type, &file_);
+      } else if(!type.compare("sidx")) {
+        new_regular_box = make_unique<SIDX>(size, type, &file_);
       } else {
         new_regular_box = make_unique<Box>(size, type);
       }
