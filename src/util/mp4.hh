@@ -41,6 +41,7 @@ public:
   int64_t filesize();
 
   uint32_t read_uint32();
+  uint16_t read_uint16();
   uint64_t read_uint64();
 
   void reset();
@@ -73,6 +74,52 @@ private:
   uint64_t  modification_time_;
   uint32_t  timescale_;
   uint64_t  duration_;
+};
+
+class SIDX: public Box
+{
+public:
+  struct SidxReference {
+    bool        reference_type;
+    uint32_t    reference_size;
+    uint32_t    segment_duration;
+    bool        starts_with_SAP;
+    uint8_t     SAP_type;
+    uint32_t    SAP_delta;
+  };
+
+  SIDX(const uint64_t size, const std::string & type)
+    : Box(size, type), version_(), flags_(), reference_ID_(),
+    timescale_(), earlist_presentation_time_(), first_offset_(), 
+    reserved_(), reference_list_()
+  {}
+
+  SIDX(const uint64_t size, const std::string & type, MP4File * mp4);
+
+
+  void print_structure(int indent = 0);
+  ~SIDX() {}
+
+  uint8_t   version() { return version_; }
+  uint32_t  flags() { return flags_; }
+  uint32_t  reference_ID() { return reference_ID_; }
+  uint32_t  timescale() { return timescale_; }
+  uint64_t  earlist_presentation_time() {
+    return this->earlist_presentation_time_; }
+  uint64_t  first_offset() { return first_offset_; }
+  void add_reference(struct SidxReference & ref) {
+    this->reference_list_.push_back(ref);
+  }
+
+private:
+  uint8_t   version_;
+  uint32_t  flags_;
+  uint32_t  reference_ID_;
+  uint32_t  timescale_;
+  uint64_t  earlist_presentation_time_;
+  uint64_t  first_offset_;
+  uint16_t  reserved_;
+  std::vector<struct SidxReference> reference_list_;
 };
 
 class Parser
