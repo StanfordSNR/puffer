@@ -227,6 +227,11 @@ namespace roost {
     }
   }
 
+  string join(const string & prefix, const string & suffix)
+  {
+    return (path(prefix) / path(suffix)).string();
+  }
+
   void create_directories_relative( const Directory & parent_directory,
                                     const vector<string>::const_iterator & begin,
                                     const vector<string>::const_iterator & end )

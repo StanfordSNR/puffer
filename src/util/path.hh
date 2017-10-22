@@ -45,6 +45,7 @@ namespace roost {
   void copy_then_rename( const path & src, const path & dest );
   void move_file( const path & src, const path & dest );
   path operator/( const path & prefix, const path & suffix );
+  std::string join(const std::string & prefix, const std::string & suffix);
   path canonical( const path & pathn );
   path dirname( const path & pathn );
   path rbasename( const path & pathn );
