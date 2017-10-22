@@ -12,7 +12,6 @@ class Box
 {
 public:
   Box(const uint64_t size, const std::string & type);
-
   /* accessors */
   uint64_t size();
   std::string type();
@@ -21,14 +20,15 @@ public:
   std::vector<std::unique_ptr<Box>>::iterator children_begin();
   std::vector<std::unique_ptr<Box>>::iterator children_end();
 
-  void print_structure(int indent = 0);
+  virtual void print_structure(int indent = 0);
 
+  virtual ~Box() {}
 private:
   uint64_t size_;
   std::string type_;
   std::vector<std::unique_ptr<Box>> children_;
-};
 
+};
 
 class MP4File : public FileDescriptor
 {
@@ -46,6 +46,34 @@ public:
   void reset();
 };
 
+/* ISO/IEC 14496-12:2015 Section 8.2.2 */
+class MVHD : public Box
+{
+public:
+  MVHD(const uint64_t size, const std::string & type) :
+    Box(size, type), version_(), flags_(), creation_time_(), 
+    modification_time_(), timescale_(), duration_()
+  {}
+
+  MVHD(const uint64_t size, const std::string & type, MP4File * mp4);
+
+  uint8_t version() { return this->version_; }
+  uint32_t flags() { return this->flags_; }
+  uint64_t creation_time() { return this->creation_time_; }
+  uint64_t modificaiton_time() { return this->modification_time_; }
+  uint32_t timescale() { return this->timescale_; }
+  uint64_t duration() { return this->duration_; }
+
+  void print_structure(int indent = 0);
+  ~MVHD() {}
+private:
+  uint8_t   version_;
+  uint32_t  flags_;
+  uint64_t  creation_time_;
+  uint64_t  modification_time_;
+  uint32_t  timescale_;
+  uint64_t  duration_;
+};
 
 class Parser
 {

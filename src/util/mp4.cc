@@ -13,7 +13,7 @@
 using namespace std;
 using namespace MP4;
 
-Box::Box(const uint64_t size, const std::string & type)
+Box::Box(const uint64_t size, const string & type)
   : size_(size), type_(type), children_()
 {}
 
@@ -50,6 +50,43 @@ void Box::print_structure(int indent)
   for (auto const & child : children_) {
     child->print_structure(indent + 2);
   }
+}
+
+MVHD::MVHD(const uint64_t size, const string & type, MP4File * mp4)
+  : MVHD(size, type)
+{
+  /* we need to reset the file offset so that
+   * the parser can ignore this parsed boxes */
+  int offset = 4;
+  uint32_t temp =  mp4->read_uint32();
+  this-> version_ = (temp >> 24) & 0xFF;
+  this->flags_ = temp & 0x00FFFFFF;
+  if(this->version_) {
+    /* version 1 */
+    this->creation_time_ = mp4->read_uint64();
+    this->modification_time_ = mp4->read_uint64();
+    this->timescale_ = mp4->read_uint32();
+    this->duration_ = mp4->read_uint32();
+    offset += 4 + 8 * 3;
+  } else {
+    /* version 0 */
+    this->creation_time_ = mp4->read_uint32();
+    this->modification_time_ = mp4->read_uint32();
+    this->timescale_ = mp4->read_uint32();
+    this->duration_ = mp4->read_uint32();
+    offset += 4 * 4;
+  }
+  mp4->inc_offset(-offset);
+  /* ignore the reset of them. our job is done here */
+}
+
+void MVHD::print_structure(int indent)
+{
+  /* we're sure that this does not have any child */
+  cout << string(indent, ' ');
+  cout << "- " << type() << " " << size() << " ";
+  cout << "timescale " << this->timescale() << " ";
+  cout << "duration " << this->duration() << endl;
 }
 
 MP4File::MP4File(const string & filename)
@@ -215,8 +252,12 @@ void Parser::create_boxes(unique_ptr<Box> & parent_box,
 
       parent_box->add_child(move(new_container_box));
     } else {
-      auto new_regular_box = make_unique<Box>(size, type);
-
+      unique_ptr<Box> new_regular_box;
+      if(!type.compare("mvhd")) {
+        new_regular_box = make_unique<MVHD>(size, type, &file_);
+      } else {
+        new_regular_box = make_unique<Box>(size, type);
+      }
       /* ignore data by incrementing file offset */
       file_.inc_offset(data_size);
 
