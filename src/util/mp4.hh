@@ -1,14 +1,51 @@
-#ifndef MP4_PARSER_HH
-#define MP4_PARSER_HH
-
+#ifndef MP4_HH
+#define MP4_HH
 #include <memory>
+#include <vector>
 #include <string>
 #include <cstdint>
-
-#include "mp4_box.hh"
-#include "mp4_file.hh"
+#include "file_descriptor.hh"
 
 namespace MP4 {
+
+class Box
+{
+public:
+  Box(const uint64_t size, const std::string & type);
+
+  /* accessors */
+  uint64_t size();
+  std::string type();
+
+  void add_child(std::unique_ptr<Box> child);
+  std::vector<std::unique_ptr<Box>>::iterator children_begin();
+  std::vector<std::unique_ptr<Box>>::iterator children_end();
+
+  void print_structure(int indent = 0);
+
+private:
+  uint64_t size_;
+  std::string type_;
+  std::vector<std::unique_ptr<Box>> children_;
+};
+
+
+class MP4File : public FileDescriptor
+{
+public:
+  MP4File(const std::string & filename);
+
+  inline int64_t seek(int64_t offset, int whence);
+  int64_t curr_offset();
+  int64_t inc_offset(int64_t offset);
+  int64_t filesize();
+
+  uint32_t read_uint32();
+  uint64_t read_uint64();
+
+  void reset();
+};
+
 
 class Parser
 {
@@ -47,4 +84,6 @@ private:
 
 }
 
-#endif /* MP4_PARSER_HH */
+
+
+#endif
