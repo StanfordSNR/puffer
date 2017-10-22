@@ -10,19 +10,17 @@ using namespace std;
 
 void print_usage(const string & program_name)
 {
-  cerr << "Usage: " << program_name << " [options]" << endl
-       << endl
-       << "Options:" << endl
-       << "--udp-port PORT        "
-       << "UDP port on localhost to receive datagrams from" << endl
-       << "--tcp HOSTNAME:PORT    "
-       << "TCP host to forward datagrams to" << endl;
+  cerr <<
+  "Usage: " << program_name << " [options]\n\n"
+  "Options:\n"
+  "--udp-port PORT        UDP port on localhost to receive datagrams from\n"
+  "--tcp HOSTNAME:PORT    TCP host to forward datagrams to"
+  << endl;
 }
 
 tuple<string, string> parse_host(const string & host)
 {
   auto pos = host.find(':');
-
   if (pos == string::npos) {
     throw runtime_error("Invalid host format! Should be HOSTNAME:PORT");
   }
@@ -84,7 +82,7 @@ int main(int argc, char * argv[])
 
   while (true) {
     pair<Address, string> addr_payload = udp_sock.recvfrom();
-    string payload = addr_payload.second;
+    const string & payload = addr_payload.second;
 
     if (not payload.empty()) {
       tcp_sock.write(payload);
