@@ -1,4 +1,4 @@
-AM_CPPFLAGS = $(CXX14_FLAGS) -I$(srcdir)/../util $(libmpeg2_CFLAGS)
+AM_CPPFLAGS = $(CXX17_FLAGS) -I$(srcdir)/../util $(libmpeg2_CFLAGS)
 AM_CXXFLAGS = $(PICKY_CXXFLAGS)
 
 bin_PROGRAMS = mpeg2demo
