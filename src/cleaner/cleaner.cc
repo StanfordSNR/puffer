@@ -7,6 +7,7 @@
 #include <time.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <cmath>
 
 using namespace std;
 
@@ -88,7 +89,7 @@ int main(int argc, char * *argv)
       }
       /* compare the time */
       time_t mod_time = f_stat.st_mtim.tv_sec;
-      if(abs(difftime(now, mod_time)) < time_diff) {
+      if(std::abs(difftime(now, mod_time)) < time_diff) {
         cout << "Skip " << fullpath << endl;
         continue; /* file is still relatively new */
       }
