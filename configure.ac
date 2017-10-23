@@ -17,6 +17,7 @@ AC_PROG_CXX
 AC_PROG_RANLIB
 
 # Checks for libraries.
+PKG_CHECK_MODULES([libmpeg2],[libmpeg2])
 
 # Checks for header files.
 
