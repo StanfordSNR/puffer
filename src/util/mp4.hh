@@ -52,7 +52,7 @@ class MvhdBox : public Box
 {
 public:
   MvhdBox(const uint64_t size, const std::string & type) :
-    Box(size, type), version_(), flags_(), creation_time_(), 
+    Box(size, type), version_(), flags_(), creation_time_(),
     modification_time_(), timescale_(), duration_()
   {}
 
@@ -90,7 +90,7 @@ public:
 
   SidxBox(const uint64_t size, const std::string & type)
     : Box(size, type), version_(), flags_(), reference_ID_(),
-    timescale_(), earlist_presentation_time_(), first_offset_(), 
+    timescale_(), earlist_presentation_time_(), first_offset_(),
     reserved_(), reference_list_()
   {}
 
@@ -158,7 +158,5 @@ private:
 };
 
 }
-
-
 
 #endif
