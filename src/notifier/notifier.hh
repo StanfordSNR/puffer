@@ -11,7 +11,6 @@
 #include "file_descriptor.hh"
 #include "poller.hh"
 
-/* Non-blocking filesystem monitor */
 class Notifier
 {
 public:

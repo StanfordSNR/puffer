@@ -50,8 +50,6 @@ public:
   std::string::const_iterator write( const std::string::const_iterator & begin,
                                      const std::string::const_iterator & end );
 
-  ssize_t read( std::string & ret_buffer, const size_t limit = BUFFER_SIZE );
-
   /* block on an exclusive lock */
   void block_for_exclusive_lock();
 

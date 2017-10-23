@@ -88,24 +88,6 @@ string FileDescriptor::read( const size_t limit )
   return string( buffer, bytes_read );
 }
 
-ssize_t FileDescriptor::read( string & ret_buffer, const size_t limit )
-{
-  char buffer[ BUFFER_SIZE ];
-  ssize_t bytes_read = ::read( fd_, buffer, min( BUFFER_SIZE, limit ) );
-
-  if ( bytes_read >= 0 ) {
-    ret_buffer = string( buffer, bytes_read );
-
-    if ( bytes_read == 0 ) {
-      set_eof();
-    }
-  }
-
-  register_read();
-
-  return bytes_read;
-}
-
 /* write method */
 string::const_iterator FileDescriptor::write( const std::string & buffer, const bool write_all )
 {
