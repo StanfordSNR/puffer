@@ -102,3 +102,5 @@ tags
 *.log
 *.trs
 *.pyc
+
+tv-encoder-*

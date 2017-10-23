@@ -9,6 +9,7 @@
 #include <cstdio>
 #include <algorithm>
 #include <ctime>
+#include <unistd.h>
 
 #include "system_runner.hh"
 #include "tokenize.hh"
@@ -66,11 +67,10 @@ string random_string( size_t length )
   return str;
 }
 
-
 string convert_y4m(const string & filename)
 {
   /* can't use tempfile because it will automatically touch the file,
-   * which will make ffmpeg nervous 
+   * which will make ffmpeg nervous
    auto temp = make_unique<TempFile>("/tmp/y4m");
    */
   /* use time to generate unique file name */
@@ -158,10 +158,20 @@ int main(int argc, char * argv[])
     use_temp2 = true;
   }
 
-  const string dump = string(DAALA) + "/" + (fast_ssim ?
+  /* get current working directory to avoid pwd issue */
+  char buf[FILENAME_MAX];
+  size_t size = readlink("/proc/self/exe", buf, sizeof(buf));
+  if(!size)
+    throw runtime_error("Unable to read executable's path");
+
+  string ssim_path = string(buf);
+  size_t p_index = ssim_path.find_last_of("/");
+  string cwd = ssim_path.substr(0, p_index + 1);
+
+  const string dump = cwd + "/" + string(DAALA) + "/" + (fast_ssim ?
       string(DUMP_FASTSSIM): string(DUMP_SSIM));
-  cout << dump << endl;
   if (!file_exists(dump)) {
+    cerr << "Unable to find " << dump << endl;
     cerr << "Please do $ git submodule update --init --recursive" << endl;
     cerr << "And then do make in the root folder" << endl;
     return EXIT_FAILURE;
@@ -188,13 +198,12 @@ int main(int argc, char * argv[])
 
   const string command = dump + ssim_command + video_path1 + " " +
     video_path2; // + " > " +	output_file;
-  cout << "Using command " << command << endl;
 
   auto s_args = split(command, " ");
 
   ofstream of;
   of.open(output_file);
-  string result = run(dump, s_args, {}, false, true);
+  string result = run(dump, s_args, {}, false, false, true, false);
   of << result;
   of.close();
 
