@@ -48,15 +48,15 @@ public:
 };
 
 /* ISO/IEC 14496-12:2015 Section 8.2.2 */
-class MVHD : public Box
+class MvhdBox : public Box
 {
 public:
-  MVHD(const uint64_t size, const std::string & type) :
+  MvhdBox(const uint64_t size, const std::string & type) :
     Box(size, type), version_(), flags_(), creation_time_(), 
     modification_time_(), timescale_(), duration_()
   {}
 
-  MVHD(const uint64_t size, const std::string & type, MP4File * mp4);
+  MvhdBox(const uint64_t size, const std::string & type, MP4File & mp4);
 
   uint8_t version() { return this->version_; }
   uint32_t flags() { return this->flags_; }
@@ -66,7 +66,7 @@ public:
   uint64_t duration() { return this->duration_; }
 
   void print_structure(int indent = 0);
-  ~MVHD() {}
+  ~MvhdBox() {}
 private:
   uint8_t   version_;
   uint32_t  flags_;
@@ -76,7 +76,7 @@ private:
   uint64_t  duration_;
 };
 
-class SIDX: public Box
+class SidxBox: public Box
 {
 public:
   struct SidxReference {
@@ -88,17 +88,17 @@ public:
     uint32_t    SAP_delta;
   };
 
-  SIDX(const uint64_t size, const std::string & type)
+  SidxBox(const uint64_t size, const std::string & type)
     : Box(size, type), version_(), flags_(), reference_ID_(),
     timescale_(), earlist_presentation_time_(), first_offset_(), 
     reserved_(), reference_list_()
   {}
 
-  SIDX(const uint64_t size, const std::string & type, MP4File * mp4);
+  SidxBox(const uint64_t size, const std::string & type, MP4File & mp4);
 
 
   void print_structure(int indent = 0);
-  ~SIDX() {}
+  ~SidxBox() {}
 
   uint8_t   version() { return version_; }
   uint32_t  flags() { return flags_; }
