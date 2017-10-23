@@ -10,8 +10,7 @@ using namespace std;
 using namespace PollerShortNames;
 
 Notifier::Notifier()
-  : inotify_fd_(CheckSystemCall("inotify_init1",
-                                inotify_init1(IN_NONBLOCK))),
+  : inotify_fd_(CheckSystemCall("inotify_init", inotify_init())),
     imap_(), poller_()
 {
   poller_.add_action(
@@ -29,6 +28,8 @@ int Notifier::add_watch(const string & path,
 {
   int wd = CheckSystemCall("inotify_add_watch",
              inotify_add_watch(inotify_fd_.fd_num(), path.c_str(), mask));
+
+  /* insert a new key-value pair or update the current value */
   imap_[wd] = make_tuple(path, mask, callback);
 
   return wd;
@@ -67,45 +68,39 @@ void Notifier::loop()
 
 Result Notifier::handle_events()
 {
-  const int BUF_LEN = 10 * (sizeof(inotify_event) + NAME_MAX + 1);
+  /* explicitly ensure the buffer is sufficient to read at least one event */
+  const int BUF_LEN = sizeof(inotify_event) + NAME_MAX + 1;
+
+  /* read events */
+  string event_buf = inotify_fd_.read(BUF_LEN);
+
+  const char * buf = event_buf.c_str();
   const inotify_event * event;
 
-  while (true) {
-    string buffer;
+  /* loop over all events in the buffer */
+  for (const char * ptr = buf; ptr < buf + event_buf.size(); ) {
+    event = reinterpret_cast<const inotify_event *>(ptr);
 
-    /* read some events */
-    auto bytes_read = inotify_fd_.read(buffer, BUF_LEN);
-
-    /* no events found */
-    if (bytes_read <= 0) {
-      break;
+    auto imap_it = imap_.find(event->wd);
+    if (imap_it == imap_.end()) {
+      throw runtime_error(
+        "inotify event returns a nonexistent watch descriptor");
     }
 
-    const char * buf = buffer.c_str();
+    const auto & value_ref = imap_it->second;
+    /* use 'get' instead of 'tie' to avoid copy */
+    const string & path = get<0>(value_ref);
+    const uint32_t mask = get<1>(value_ref);
+    const callback_t & callback = get<2>(value_ref);
 
-    /* loop over all events in the buffer */
-    for (const char * ptr = buf; ptr < buf + bytes_read; ) {
-      event = reinterpret_cast<const inotify_event *>(ptr);
-
-      auto imap_it = imap_.find(event->wd);
-      if (imap_it == imap_.end()) {
-        throw runtime_error(
-          "inotify event returns a nonexistent watch descriptor");
-      }
-
-      const string & path = get<0>(imap_it->second);
-      const uint32_t mask = get<1>(imap_it->second);
-      const callback_t & callback = get<2>(imap_it->second);
-
-      if ((event->mask & mask) == 0) {
-        throw runtime_error("inotify returns non-registered events");
-      }
-
-      /* run the callback function */
-      callback(*event, path);
-
-      ptr += sizeof(inotify_event) + event->len;
+    if ((event->mask & mask) == 0) {
+      throw runtime_error("inotify returns non-registered events");
     }
+
+    /* run the callback function */
+    callback(*event, path);
+
+    ptr += sizeof(inotify_event) + event->len;
   }
 
   return Result();

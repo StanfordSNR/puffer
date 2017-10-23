@@ -79,11 +79,11 @@ void process_existing_files(const string & program,
   vector<string> src_filenames = roost::get_directory_listing(src_dir);
 
   for (const string & src_filename : src_filenames) {
-    const string & src_filename_prefix = split_filename(src_filename).first;
+    string src_filename_prefix = split_filename(src_filename).first;
 
     /* process src_filename only if no file in dst_dir has the same prefix */
     if (dst_fileset.find(src_filename_prefix) == dst_fileset.end()) {
-      const string & src_file = roost::join(src_dir, src_filename);
+      string src_file = roost::join(src_dir, src_filename);
       run_program(program, src_file, dst_dir);
     }
   }
@@ -122,7 +122,7 @@ int main(int argc, char * argv[])
         throw runtime_error("returned event should contain a new filename");
       }
 
-      const string & src_file = roost::join(src_dir, event.name);
+      string src_file = roost::join(src_dir, event.name);
       run_program(program, src_file, dst_dir);
     }
   );
