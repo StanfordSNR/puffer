@@ -28,6 +28,7 @@ AC_CONFIG_FILES([Makefile
     src/Makefile
     src/util/Makefile
     src/ssim/Makefile
+    src/cleaner/Makefile
     src/notifier/Makefile
     src/forwarder/Makefile
     src/encoder/Makefile
