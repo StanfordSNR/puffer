@@ -16,7 +16,7 @@ test_mpd_SOURCES = test_mpd.cc
 
 EXTRA_DIST = test_helpers.py notified_good_prog.sh notified_bad_prog.sh
 
-dist_check_SCRIPTS = test_notifier.py test_forwarder.py
+dist_check_SCRIPTS = test_notifier.py test_forwarder.py test_cleaner.py
 
 TESTS = $(check_PROGRAMS) $(dist_check_SCRIPTS)
 
