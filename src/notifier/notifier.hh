@@ -15,8 +15,8 @@ class Notifier
 {
 public:
   /* callback function type; args: inotify event and path */
-  typedef std::function<void(const inotify_event &,
-                             const std::string &)> callback_t;
+  using callback_t = std::function<void(const inotify_event &,
+                                   const std::string &)>;
 
   Notifier();
 

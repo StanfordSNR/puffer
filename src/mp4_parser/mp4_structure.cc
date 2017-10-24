@@ -8,9 +8,10 @@ using namespace std;
 
 void print_usage(const string & program_name)
 {
-  cerr << "Usage: " << program_name << " <file.mp4>" << endl
-       << endl
-       << "<file.mp4>        " << "MP4 file to parse" << endl;
+  cerr <<
+  "Usage: " << program_name << " <file.mp4>\n\n"
+  "<file.mp4>    MP4 file to parse"
+  << endl;
 }
 
 int main(int argc, char * argv[])

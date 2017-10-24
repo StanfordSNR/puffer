@@ -1,81 +1,94 @@
 #ifndef MP4_HH
 #define MP4_HH
+
 #include <memory>
 #include <vector>
 #include <string>
 #include <cstdint>
+#include <tuple>
+
 #include "file_descriptor.hh"
 
 namespace MP4 {
-
-class Box
-{
-public:
-  Box(const uint64_t size, const std::string & type);
-  /* accessors */
-  uint64_t size();
-  std::string type();
-
-  void add_child(std::unique_ptr<Box> child);
-  std::vector<std::unique_ptr<Box>>::iterator children_begin();
-  std::vector<std::unique_ptr<Box>>::iterator children_end();
-
-  virtual void print_structure(int indent = 0);
-
-  virtual ~Box() {}
-private:
-  uint64_t size_;
-  std::string type_;
-  std::vector<std::unique_ptr<Box>> children_;
-
-};
 
 class MP4File : public FileDescriptor
 {
 public:
   MP4File(const std::string & filename);
 
-  inline int64_t seek(int64_t offset, int whence);
+  /* manipulate file offset */
+  int64_t seek(const int64_t offset, const int whence);
   int64_t curr_offset();
-  int64_t inc_offset(int64_t offset);
+  int64_t inc_offset(const int64_t offset);
+
   int64_t filesize();
 
-  uint32_t read_uint32();
-  uint16_t read_uint16();
-  uint64_t read_uint64();
-
+  /* reset file offset to the beginning and set EOF to false */
   void reset();
+
+  /* read bytes from file and return meaningful data */
+  uint16_t read_uint16();
+  uint32_t read_uint32();
+  uint64_t read_uint64();
+  std::tuple<uint8_t, uint32_t> read_version_flags();
+};
+
+class Box
+{
+public:
+  Box(const uint64_t size, const std::string & type);
+  virtual ~Box() {}
+
+  /* accessors */
+  uint64_t size() { return size_; }
+  std::string type() { return type_; }
+
+  /* parameter is a sink; use rvalue reference to save a "move" operation */
+  void add_child(std::unique_ptr<Box> && child);
+
+  std::vector<std::unique_ptr<Box>>::const_iterator children_begin();
+  std::vector<std::unique_ptr<Box>>::const_iterator children_end();
+
+  virtual void print_structure(int indent = 0);
+
+  virtual void parse_data(MP4File & mp4, const int64_t DATa_size);
+
+private:
+  uint64_t size_;
+  std::string type_;
+
+  std::vector<std::unique_ptr<Box>> children_;
 };
 
 /* ISO/IEC 14496-12:2015 Section 8.2.2 */
 class MvhdBox : public Box
 {
 public:
-  MvhdBox(const uint64_t size, const std::string & type) :
-    Box(size, type), version_(), flags_(), creation_time_(),
-    modification_time_(), timescale_(), duration_()
-  {}
+  MvhdBox(const uint64_t size, const std::string & type);
+  ~MvhdBox() {}
 
-  MvhdBox(const uint64_t size, const std::string & type, MP4File & mp4);
-
-  uint8_t version() { return this->version_; }
-  uint32_t flags() { return this->flags_; }
-  uint64_t creation_time() { return this->creation_time_; }
-  uint64_t modificaiton_time() { return this->modification_time_; }
-  uint32_t timescale() { return this->timescale_; }
-  uint64_t duration() { return this->duration_; }
+  /* accessors */
+  uint8_t version() { return version_; }
+  uint32_t flags() { return flags_; }
+  uint64_t creation_time() { return creation_time_; }
+  uint64_t modificaiton_time() { return modification_time_; }
+  uint32_t timescale() { return timescale_; }
+  uint64_t duration() { return duration_; }
 
   void print_structure(int indent = 0);
-  ~MvhdBox() {}
+
+  void parse_data(MP4File & mp4, const int64_t data_size);
+
 private:
-  uint8_t   version_;
-  uint32_t  flags_;
-  uint64_t  creation_time_;
-  uint64_t  modification_time_;
-  uint32_t  timescale_;
-  uint64_t  duration_;
+  uint8_t version_;
+  uint32_t flags_;
+  uint64_t creation_time_;
+  uint64_t modification_time_;
+  uint32_t timescale_;
+  uint64_t duration_;
 };
 
+/* ISO/IEC 14496-12:2015 Section 8.16.3 */
 class SidxBox: public Box
 {
 public:
@@ -88,38 +101,35 @@ public:
     uint32_t    SAP_delta;
   };
 
-  SidxBox(const uint64_t size, const std::string & type)
-    : Box(size, type), version_(), flags_(), reference_ID_(),
-    timescale_(), earlist_presentation_time_(), first_offset_(),
-    reserved_(), reference_list_()
-  {}
-
-  SidxBox(const uint64_t size, const std::string & type, MP4File & mp4);
-
-
-  void print_structure(int indent = 0);
+  SidxBox(const uint64_t size, const std::string & type);
   ~SidxBox() {}
 
-  uint8_t   version() { return version_; }
-  uint32_t  flags() { return flags_; }
-  uint32_t  reference_ID() { return reference_ID_; }
-  uint32_t  timescale() { return timescale_; }
-  uint64_t  earlist_presentation_time() {
-    return this->earlist_presentation_time_; }
-  uint64_t  first_offset() { return first_offset_; }
-  void add_reference(struct SidxReference & ref) {
-    this->reference_list_.push_back(ref);
-  }
+  /* accessors */
+  uint8_t version() { return version_; }
+  uint32_t flags() { return flags_; }
+  uint32_t reference_id() { return reference_id_; }
+  uint32_t timescale() { return timescale_; }
+  uint64_t earlist_presentation_time() { return earlist_presentation_time_; }
+  uint64_t first_offset() { return first_offset_; }
+  uint16_t reserved() { return reserved_; }
+
+  /* take rvalue and move it, rather than copy */
+  void add_reference(SidxReference && ref);
+
+  void print_structure(int indent = 0);
+
+  void parse_data(MP4File & mp4, const int64_t data_size);
 
 private:
-  uint8_t   version_;
-  uint32_t  flags_;
-  uint32_t  reference_ID_;
-  uint32_t  timescale_;
-  uint64_t  earlist_presentation_time_;
-  uint64_t  first_offset_;
-  uint16_t  reserved_;
-  std::vector<struct SidxReference> reference_list_;
+  uint8_t version_;
+  uint32_t flags_;
+  uint32_t reference_id_;
+  uint32_t timescale_;
+  uint64_t earlist_presentation_time_;
+  uint64_t first_offset_;
+  uint16_t reserved_;
+
+  std::vector<SidxReference> reference_list_;
 };
 
 class Parser
@@ -146,7 +156,7 @@ private:
 
   /* recursively create boxes between start_offset and its following total_size
    * add created boxes as children of parent_box */
-  void create_boxes(std::unique_ptr<Box> & parent_box,
+  void create_boxes(const std::unique_ptr<Box> & parent_box,
                     const int64_t start_offset, const int64_t total_size);
 
   /* copy size_to_copy bytes from current offset and write to filename */
@@ -159,4 +169,4 @@ private:
 
 }
 
-#endif
+#endif /* MP4_HH */
