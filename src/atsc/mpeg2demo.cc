@@ -1,8 +1,16 @@
 /* -*-mode:c++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 
+#include "config.h"
+
 #include <cstdlib>
 #include <iostream>
+
+#ifdef HAVE_STRING_VIEW
 #include <string_view>
+#elif HAVE_EXPERIMENTAL_STRING_VIEW
+#include <experimental/string_view>
+using std::experimental::string_view;
+#endif
 
 #include "file_descriptor.hh"
 #include "exception.hh"

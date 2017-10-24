@@ -20,6 +20,13 @@ AC_PROG_RANLIB
 PKG_CHECK_MODULES([libmpeg2],[libmpeg2])
 
 # Checks for header files.
+AC_LANG_PUSH(C++)
+save_CPPFLAGS="$CPPFLAGS"
+CPPFLAGS="$CXX17_FLAGS"
+AC_CHECK_HEADERS([string_view])
+AC_CHECK_HEADERS([experimental/string_view])
+CPPFLAGS="$save_CPPFLAGS"
+AC_LANG_POP(C++)
 
 # Checks for typedefs, structures, and compiler characteristics.
 
