@@ -24,14 +24,17 @@ AC_PROG_RANLIB
 
 # Checks for library functions.
 
-AC_CONFIG_FILES([Makefile
+AC_CONFIG_FILES([
+    Makefile
+    third_party/Makefile
     src/Makefile
     src/util/Makefile
-    src/ssim/Makefile
-    src/cleaner/Makefile
     src/notifier/Makefile
     src/forwarder/Makefile
     src/encoder/Makefile
     src/mp4_parser/Makefile
-    src/tests/Makefile])
+    src/ssim/Makefile
+    src/cleaner/Makefile
+    src/tests/Makefile
+])
 AC_OUTPUT
