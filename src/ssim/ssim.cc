@@ -13,10 +13,11 @@
 
 #include "system_runner.hh"
 #include "tokenize.hh"
+#include "path.hh"
 
 #define DUMP_FASTSSIM "dump_fastssim"
 #define DUMP_SSIM "dump_ssim"
-#define DAALA "daala_tools"
+#define DAALA "../../third_party/daala_tools"
 
 using namespace std;
 
@@ -42,13 +43,9 @@ void print_usage(const string & program_name)
   cerr << "\t                                   Will be ignored when fast ssim is used (-x)" << endl;
 }
 
-bool is_y4m(const string & filename)
+inline bool is_y4m(const string & filename)
 {
-  auto str_len = filename.length();
-  if(str_len <= 4)
-    return false; /* no y4m extension found */
-  else
-    return filename.substr(str_len - 4, str_len).compare(".y4m") == 0;
+    return split_filename(filename).second.compare("y4m") == 0;
 }
 
 string random_string( size_t length )
@@ -82,32 +79,25 @@ string convert_y4m(const string & filename)
   return temp;
 }
 
-inline bool file_exists(const string & name)
-{
-  struct stat buffer;
-  return (stat (name.c_str(), &buffer) == 0);
-}
-
-const char *optstring = "xcfrsyp:l:";
-const struct option options[]={
-  {"fast-ssim",no_argument,NULL,'x'},
-  {"show-chroma",no_argument,NULL,'c'},
-  {"frame-type",no_argument,NULL,'f'},
-  {"raw",no_argument,NULL,'r'},
-  {"summary",no_argument,NULL,'s'},
-  {"luma-only",no_argument,NULL,'y'},
-  {"parallel",required_argument,NULL,'p'},
-  {"limit",required_argument,NULL,'l'},
-  {NULL,0,NULL,0}
-};
-
-
 int main(int argc, char * argv[])
 {
+  const char *optstring = "xcfrsyp:l:";
+  const struct option options[]={
+    {"fast-ssim",no_argument,NULL,'x'},
+    {"show-chroma",no_argument,NULL,'c'},
+    {"frame-type",no_argument,NULL,'f'},
+    {"raw",no_argument,NULL,'r'},
+    {"summary",no_argument,NULL,'s'},
+    {"luma-only",no_argument,NULL,'y'},
+    {"parallel",required_argument,NULL,'p'},
+    {"limit",required_argument,NULL,'l'},
+    {NULL,0,NULL,0}
+  };
+
   string video_path1;
   string video_path2;
-  char * output_file;
-  string ssim_command = "";
+  string output_file;
+  string ssim_command;
   set<char> ssim_args;
   map<char, int> ssim_args_;
 
@@ -153,16 +143,13 @@ int main(int argc, char * argv[])
   }
   if(!is_y4m(video_path2)) {
     cerr << "Converting " << video_path2 << " to ";
-    video_path2 = convert_y4m(video_path1);
+    video_path2 = convert_y4m(video_path2);
     cerr << video_path2 << endl;
     use_temp2 = true;
   }
 
   /* get current working directory to avoid pwd issue */
-  char buf[FILENAME_MAX];
-  size_t size = readlink("/proc/self/exe", buf, sizeof(buf));
-  if(!size)
-    throw runtime_error("Unable to read executable's path");
+  string buf = roost::readlink("/proc/self/exe");
 
   string ssim_path = string(buf);
   size_t p_index = ssim_path.find_last_of("/");
@@ -170,12 +157,14 @@ int main(int argc, char * argv[])
 
   const string dump = cwd + "/" + string(DAALA) + "/" + (fast_ssim ?
       string(DUMP_FASTSSIM): string(DUMP_SSIM));
-  if (!file_exists(dump)) {
+
+  if (!roost::exists(dump)) {
     cerr << "Unable to find " << dump << endl;
     cerr << "Please do $ git submodule update --init --recursive" << endl;
     cerr << "And then do make in the root folder" << endl;
     return EXIT_FAILURE;
   }
+
   /* filter out the args depends on which version of ssim used */
   if(fast_ssim) {
     auto a = {'y', 'p', 'l'};
@@ -197,7 +186,7 @@ int main(int argc, char * argv[])
   ssim_command += " ";
 
   const string command = dump + ssim_command + video_path1 + " " +
-    video_path2; // + " > " +	output_file;
+    video_path2;
 
   auto s_args = split(command, " ");
 
@@ -208,15 +197,10 @@ int main(int argc, char * argv[])
   of.close();
 
   /* clean up */
-  if(use_temp1) {
-    if(!remove(video_path1.c_str())) {
-      throw runtime_error("Not able to remove file: " + video_path1);
-    }
-  }
-  if(use_temp2) {
-    if(!remove(video_path2.c_str())) {
-      throw runtime_error("Not able to remove file: " + video_path2);
-    }
-  }
-  return 0;
+  if(use_temp1)
+    roost::remove(video_path1);
+  if(use_temp2)
+    roost::remove(video_path2);
+
+  return EXIT_SUCCESS;
 }
