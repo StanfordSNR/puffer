@@ -14,6 +14,7 @@ addons:
     - gcc-7
     - g++-7
     - libogg-dev
+    - libmpeg2-4-dev
 
 install:
   - sudo apt-get update -q
