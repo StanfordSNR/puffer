@@ -79,6 +79,9 @@ struct PESPacketHeader
   uint8_t stream_id;
   unsigned int payload_start;
   bool data_alignment_indicator;
+  uint8_t PTS_DTS_flags;
+  uint64_t presentation_time_stamp;
+  uint64_t decoding_time_stamp;
 
   static uint8_t enforce_is_video( const uint8_t stream_id )
   {
@@ -92,7 +95,10 @@ struct PESPacketHeader
   PESPacketHeader( const string_view & packet )
     : stream_id( enforce_is_video( packet.at( 3 ) ) ),
       payload_start( packet.at( 8 ) + 1 ),
-      data_alignment_indicator( packet.at( 6 ) & 0x04 )
+      data_alignment_indicator( packet.at( 6 ) & 0x04 ),
+      PTS_DTS_flags( (packet.at( 7 ) & 0xc0) >> 6 ),
+      presentation_time_stamp(),
+      decoding_time_stamp()
   {
     if ( packet.at( 0 ) != 0
          or packet.at( 1 ) != 0
@@ -107,6 +113,64 @@ struct PESPacketHeader
     if ( not data_alignment_indicator ) {
       throw runtime_error( "unaligned PES packet" );
     }
+
+    switch ( PTS_DTS_flags ) {
+    case 0:
+      throw runtime_error( "missing PTS and DTS" );
+    case 1:
+      throw runtime_error( "forbidden value of PTS_DTS_flags" );
+    case 3:
+      decoding_time_stamp = (((uint64_t(uint8_t(packet.at( 14 )) & 0x0F) >> 1) << 30) |
+                             (uint8_t(packet.at( 15 )) << 22) |
+                             ((uint8_t(packet.at( 16 )) >> 1) << 15) |
+                             (uint8_t(packet.at( 17 )) << 7) |
+                             (uint8_t(packet.at( 18 )) >> 1));
+
+      if ( (packet.at( 14 ) & 0xf0) >> 4 != 1 ) {
+        throw runtime_error( "invalid DTS prefix bits" );
+      }
+
+      if ( (packet.at( 14 ) & 0x01) != 1 ) {
+        throw runtime_error( "invalid marker bit" );
+      }
+
+      if ( (packet.at( 16 ) & 0x01) != 1 ) {
+        throw runtime_error( "invalid marker bit" );
+      }
+
+      if ( (packet.at( 18 ) & 0x01) != 1 ) {
+        throw runtime_error( "invalid marker bit" );
+      }
+
+      /* fallthrough */
+
+    case 2:
+      presentation_time_stamp = (((uint64_t(uint8_t(packet.at( 9 )) & 0x0F) >> 1) << 30) |
+                                 (uint8_t(packet.at( 10 )) << 22) |
+                                 ((uint8_t(packet.at( 11 )) >> 1) << 15) |
+                                 (uint8_t(packet.at( 12 )) << 7) |
+                                 (uint8_t(packet.at( 13 )) >> 1));
+
+      if ( (packet.at( 9 ) & 0xf0) >> 4 != PTS_DTS_flags ) {
+        throw runtime_error( "invalid PTS prefix bits" );
+      }
+
+      if ( (packet.at( 9 ) & 0x01) != 1 ) {
+        throw runtime_error( "invalid marker bit" );
+      }
+
+      if ( (packet.at( 11 ) & 0x01) != 1 ) {
+        throw runtime_error( "invalid marker bit" );
+      }
+
+      if ( (packet.at( 13 ) & 0x01) != 1 ) {
+        throw runtime_error( "invalid marker bit" );
+      }
+    }
+
+    if ( PTS_DTS_flags == 2 ) {
+      decoding_time_stamp = presentation_time_stamp;
+    }
   }
 };
 
@@ -118,6 +182,12 @@ private:
   unsigned int packets_parsed_ {}; /* count of TS packets successfully parsed */
 
   string PES_packet_ {};
+
+  void append_payload( const string_view & packet, const TSPacketHeader & header )
+  {
+    const string_view payload = packet.substr( header.payload_start );
+    PES_packet_.append( payload.begin(), payload.end() );
+  }
 
 public:
   TSParser( const unsigned int pid )
@@ -144,15 +214,16 @@ public:
         PESPacketHeader pes_header { PES_packet_ };
 
         cout << PES_packet_.substr( pes_header.payload_start );
+        cerr << pes_header.decoding_time_stamp << "\n";
 
         PES_packet_.clear();
       }
 
       /* step 2: start a new PES packet */
-      PES_packet_.append( packet.substr( header.payload_start ) );
+      append_payload( packet, header );
     } else if ( not PES_packet_.empty() ) {
       /* interior TS packet within a PES packet */
-      PES_packet_.append( packet.substr( header.payload_start ) );
+      append_payload( packet, header );
     }
 
     packets_parsed_++;
@@ -183,7 +254,7 @@ int main( int argc, char *argv[] )
       /* read chunks of MPEG-2 transport-stream packets in a loop */
 
       const string chunk = stdin.read_exactly( ts_packet_length * packets_in_chunk );
-      const string_view chunk_view { chunk.data(), chunk.size() };
+      const string_view chunk_view { chunk };
 
       for ( unsigned packet_no = 0; packet_no < packets_in_chunk; packet_no++ ) {
         parser.parse( chunk_view.substr( packet_no * ts_packet_length,
