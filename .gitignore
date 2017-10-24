@@ -98,9 +98,8 @@ tags
 *.mp4
 *.m4s
 *.mpd
-*.tar.gz
 *.log
 *.trs
 *.pyc
 
-tv-encoder-*
+/tv-encoder-*
