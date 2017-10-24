@@ -78,8 +78,9 @@ struct PESPacketHeader
 {
   uint8_t stream_id;
   unsigned int payload_start;
+  bool data_alignment_indicator;
 
-  static uint8_t enforce_video( const uint8_t stream_id )
+  static uint8_t enforce_is_video( const uint8_t stream_id )
   {
     if ( (stream_id & 0xf0) != 0xe0 ) {
       throw runtime_error( "not an MPEG-2 video stream" );
@@ -89,8 +90,9 @@ struct PESPacketHeader
   }
 
   PESPacketHeader( const string_view & packet )
-    : stream_id( enforce_video( packet.at( 3 ) ) ),
-      payload_start( packet.at( 8 ) + 1 )
+    : stream_id( enforce_is_video( packet.at( 3 ) ) ),
+      payload_start( packet.at( 8 ) + 1 ),
+      data_alignment_indicator( packet.at( 6 ) & 0x04 )
   {
     if ( packet.at( 0 ) != 0
          or packet.at( 1 ) != 0
@@ -100,6 +102,10 @@ struct PESPacketHeader
 
     if ( payload_start > packet.length() ) {
       throw runtime_error( "invalid PES packet" );
+    }
+
+    if ( not data_alignment_indicator ) {
+      throw runtime_error( "unaligned PES packet" );
     }
   }
 };
