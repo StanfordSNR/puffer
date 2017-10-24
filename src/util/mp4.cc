@@ -4,155 +4,20 @@
 #include <iostream>
 #include <stdexcept>
 #include <set>
+#include <limits.h>
 
 #include "exception.hh"
-#include "file_descriptor.hh"
 #include "mp4.hh"
-
 
 using namespace std;
 using namespace MP4;
-
-Box::Box(const uint64_t size, const string & type)
-  : size_(size), type_(type), children_()
-{}
-
-uint64_t Box::size()
-{
-  return size_;
-}
-
-string Box::type()
-{
-  return type_;
-}
-
-void Box::add_child(unique_ptr<Box> child)
-{
-  children_.emplace_back(move(child));
-}
-
-vector<unique_ptr<Box>>::iterator Box::children_begin()
-{
-  return children_.begin();
-}
-
-vector<unique_ptr<Box>>::iterator Box::children_end()
-{
-  return children_.end();
-}
-
-void Box::print_structure(int indent)
-{
-  cout << string(indent, ' ');
-  cout << "- " << type_ << " " << size_ << endl;
-
-  for (auto const & child : children_) {
-    child->print_structure(indent + 2);
-  }
-}
-
-MvhdBox::MvhdBox(const uint64_t size, const string & type, MP4File & mp4)
-  : MvhdBox(size, type)
-{
-  /* we need to reset the file offset so that
-   * the parser can ignore this parsed boxes */
-  int offset = 4;
-  uint32_t temp =  mp4.read_uint32();
-  version_ = (temp >> 24) & 0xFF;
-  flags_ = temp & 0x00FFFFFF;
-  if(version_) {
-    /* version 1 */
-    creation_time_ = mp4.read_uint64();
-    modification_time_ = mp4.read_uint64();
-    timescale_ = mp4.read_uint32();
-    duration_ = mp4.read_uint32();
-    offset += 4 + 8 * 3;
-  } else {
-    /* version 0 */
-    creation_time_ = mp4.read_uint32();
-    modification_time_ = mp4.read_uint32();
-    timescale_ = mp4.read_uint32();
-    duration_ = mp4.read_uint32();
-    offset += 4 * 4;
-  }
-  mp4.inc_offset(-offset);
-  /* ignore the reset of them. our job is done here */
-}
-
-void MvhdBox::print_structure(int indent)
-{
-  /* we're sure that this does not have any child */
-  cout << string(indent, ' ');
-  cout << "- " << type() << " " << size() << " ";
-  cout << "timescale " << timescale() << " ";
-  cout << "duration " << duration() << endl;
-}
-
-SidxBox::SidxBox(const uint64_t size, const string & type, MP4File & mp4)
-  : SidxBox(size, type)
-{
-  int bytes_read = 0;
-  uint32_t temp = mp4.read_uint32();
-  version_ = (temp >> 24) & 0xFF;
-  flags_ = temp & 0x00FFFFFF;
-  reference_ID_ = mp4.read_uint32();
-  timescale_ = mp4.read_uint32();
-  /* to this point, we have 4*3 bytes */
-  bytes_read += 4 * 3;
-  if(!version_) {
-    /* version == 0 */
-    earlist_presentation_time_ = mp4.read_uint32();
-    first_offset_ = mp4.read_uint32();
-    bytes_read += 4 * 2;
-  } else {
-    earlist_presentation_time_ = mp4.read_uint64();
-    first_offset_ = mp4.read_uint64();
-    bytes_read += 8 * 2;
-  }
-  reserved_ = mp4.read_uint16();
-  uint16_t reference_count = mp4.read_uint16();
-  bytes_read += 4;
-
-  for(int i = 0 ; i < reference_count; i++) {
-    temp = mp4.read_uint32();
-    bool reference_type = (temp >> 31) & 1;
-    uint32_t reference_size = temp & 0x7FFFFFFF;
-    uint32_t segment_duration = mp4.read_uint32();
-    temp = mp4.read_uint32();
-    bool starts_with_SAP = (temp >> 31) & 1;
-    uint8_t SAP_type = (temp >> 28) & 7;
-    uint32_t SAP_delta = (temp >> 4) & 0x0FFFFFFF;
-    struct SidxReference ref {
-      reference_type, reference_size, segment_duration,
-      starts_with_SAP, SAP_type, SAP_delta};
-    add_reference(ref);
-    bytes_read += 3 * 4;
-  }
-  if(bytes_read != (int)this->size())
-    throw runtime_error("Reading error in sidx");
-  mp4.inc_offset(-bytes_read);
-}
-
-void SidxBox::print_structure(int indent)
-{
-  cout << string(indent, ' ');
-  cout << "- " << type() << " " << size() << endl;
-  cout << string(indent + 3, ' ');
-  cout << "reference ID " << reference_ID_ << " timescale " <<
-    timescale_ << endl;
-  for(auto ref: reference_list_) {
-    cout << string(indent + 3, ' ');
-    cout << " - segment duration " << ref.segment_duration << endl;
-  }
-}
 
 MP4File::MP4File(const string & filename)
   : FileDescriptor(CheckSystemCall("open (" + filename + ")",
                                    open(filename.c_str(), O_RDONLY)))
 {}
 
-inline int64_t MP4File::seek(int64_t offset, int whence)
+int64_t MP4File::seek(const int64_t offset, const int whence)
 {
   return CheckSystemCall("lseek", lseek(fd_num(), offset, whence));
 }
@@ -162,15 +27,15 @@ int64_t MP4File::curr_offset()
   return seek(0, SEEK_CUR);
 }
 
-int64_t MP4File::inc_offset(int64_t offset)
+int64_t MP4File::inc_offset(const int64_t offset)
 {
   return seek(offset, SEEK_CUR);
 }
 
 int64_t MP4File::filesize()
 {
-  int64_t prev_offset = curr_offset();
-  int64_t fsize = seek(0, SEEK_END);
+  const int64_t prev_offset = curr_offset();
+  const int64_t fsize = seek(0, SEEK_END);
 
   /* seek back to the previous offset */
   seek(prev_offset, SEEK_SET);
@@ -178,11 +43,10 @@ int64_t MP4File::filesize()
   return fsize;
 }
 
-uint32_t MP4File::read_uint32()
+void MP4File::reset()
 {
-  string data = read(4);
-  const uint32_t * size = reinterpret_cast<const uint32_t *>(data.c_str());
-  return be32toh(*size);
+  seek(0, SEEK_SET);
+  set_eof(false);
 }
 
 uint16_t MP4File::read_uint16()
@@ -192,6 +56,13 @@ uint16_t MP4File::read_uint16()
   return be16toh(*size);
 }
 
+uint32_t MP4File::read_uint32()
+{
+  string data = read(4);
+  const uint32_t * size = reinterpret_cast<const uint32_t *>(data.c_str());
+  return be32toh(*size);
+}
+
 uint64_t MP4File::read_uint64()
 {
   string data = read(8);
@@ -199,10 +70,159 @@ uint64_t MP4File::read_uint64()
   return be64toh(*size);
 }
 
-void MP4File::reset()
+tuple<uint8_t, uint32_t> MP4File::read_version_flags()
 {
-  seek(0, SEEK_SET);
-  set_eof(false);
+  uint32_t data = read_uint32();
+  return make_tuple((data >> 24) & 0xFF, data & 0x00FFFFFF);
+}
+
+Box::Box(const uint64_t size, const string & type)
+  : size_(size), type_(type), children_()
+{}
+
+void Box::add_child(unique_ptr<Box> && child)
+{
+  children_.emplace_back(move(child));
+}
+
+vector<unique_ptr<Box>>::const_iterator Box::children_begin()
+{
+  return children_.cbegin();
+}
+
+vector<unique_ptr<Box>>::const_iterator Box::children_end()
+{
+  return children_.cend();
+}
+
+void Box::print_structure(int indent)
+{
+  cout << string(indent, ' ') << "- " << type_ << " " << size_ << endl;
+
+  for (const auto & child : children_) {
+    child->print_structure(indent + 2);
+  }
+}
+
+void Box::parse_data(MP4File & mp4, const int64_t data_size)
+{
+  /* simply ignore data by incrementing file offset */
+  mp4.inc_offset(data_size);
+}
+
+MvhdBox::MvhdBox(const uint64_t size, const std::string & type)
+  : Box(size, type), version_(), flags_(), creation_time_(),
+    modification_time_(), timescale_(), duration_()
+{}
+
+void MvhdBox::print_structure(int indent)
+{
+  cout << string(indent, ' ') << "- " << type() << " " << size() << endl;
+
+  string indent_str = string(indent + 2, ' ') + "| ";
+
+  cout << indent_str << "timescale " << timescale_ << endl;
+  cout << indent_str << "duration " << duration_ << endl;
+}
+
+void MvhdBox::parse_data(MP4File & mp4, const int64_t data_size)
+{
+  int64_t init_offset = mp4.curr_offset();
+
+  tie(version_, flags_) = mp4.read_version_flags();
+
+  if (version_ == 1) { /* version 1 */
+    creation_time_ = mp4.read_uint64();
+    modification_time_ = mp4.read_uint64();
+    timescale_ = mp4.read_uint32();
+    duration_ = mp4.read_uint64();
+  } else { /* version 0 */
+    creation_time_ = mp4.read_uint32();
+    modification_time_ = mp4.read_uint32();
+    timescale_ = mp4.read_uint32();
+    duration_ = mp4.read_uint32();
+  }
+
+  int64_t bytes_parsed = mp4.curr_offset() - init_offset;
+  if (data_size < bytes_parsed) {
+    throw runtime_error("MvhdBox::parse_data(): data size is too small");
+  }
+
+  /* skip parsing the rest of box */
+  mp4.inc_offset(data_size - bytes_parsed);
+}
+
+SidxBox::SidxBox(const uint64_t size, const std::string & type)
+  : Box(size, type), version_(), flags_(), reference_id_(),
+    timescale_(), earlist_presentation_time_(), first_offset_(),
+    reserved_(), reference_list_()
+{}
+
+void SidxBox::add_reference(SidxReference && ref)
+{
+  reference_list_.emplace_back(move(ref));
+}
+
+void SidxBox::print_structure(int indent)
+{
+  cout << string(indent, ' ') << "- " << type() << " " << size() << endl;
+
+  string indent_str = string(indent + 2, ' ') + "| ";
+
+  cout << indent_str << "reference id " << reference_id_ << endl;
+  cout << indent_str << "timescale " << timescale_ << endl;
+
+  cout << indent_str << "segment durations:";
+  for (const auto & ref : reference_list_) {
+    cout << " " << ref.segment_duration;
+  }
+  cout << endl;
+}
+
+void SidxBox::parse_data(MP4File & mp4, const int64_t data_size)
+{
+  int64_t init_offset = mp4.curr_offset();
+
+  tie(version_, flags_) = mp4.read_version_flags();
+  reference_id_ = mp4.read_uint32();
+  timescale_ = mp4.read_uint32();
+
+  if (version_ == 0) { /* version == 0 */
+    earlist_presentation_time_ = mp4.read_uint32();
+    first_offset_ = mp4.read_uint32();
+  } else {
+    earlist_presentation_time_ = mp4.read_uint64();
+    first_offset_ = mp4.read_uint64();
+  }
+
+  reserved_ = mp4.read_uint16();
+
+  uint16_t reference_count = mp4.read_uint16();
+  for (unsigned int i = 0; i < reference_count; ++i) {
+    uint32_t data = mp4.read_uint32();
+    bool reference_type = (data >> 31) & 1;
+    uint32_t reference_size = data & 0x7FFFFFFF;
+
+    uint32_t segment_duration = mp4.read_uint32();
+
+    data = mp4.read_uint32();
+    bool starts_with_SAP = (data >> 31) & 1;
+    uint8_t SAP_type = (data >> 28) & 7;
+    uint32_t SAP_delta = (data >> 4) & 0x0FFFFFFF;
+
+    add_reference({
+      reference_type, reference_size, segment_duration,
+      starts_with_SAP, SAP_type, SAP_delta
+    });
+  }
+
+  int64_t bytes_parsed = mp4.curr_offset() - init_offset;
+  if (data_size < bytes_parsed) {
+    throw runtime_error("SidxBox::parse_data(): data size is too small");
+  }
+
+  /* skip parsing the rest of box */
+  mp4.inc_offset(data_size - bytes_parsed);
 }
 
 Parser::Parser(const string & filename)
@@ -249,7 +269,7 @@ void Parser::split(const std::string & init_seg,
     }
 
     size_to_copy += (*it)->size();
-    it = next(it);
+    ++it;
   }
 
   if (not (has_ftyp and has_moov)) {
@@ -268,14 +288,14 @@ void Parser::split(const std::string & init_seg,
     }
 
     size_to_copy = (*it)->size();
-    it = next(it);
+    ++it;
 
     if ((*it)->type() != "mdat") {
       throw runtime_error("media segments must contain moof and mdat boxes");
     }
 
     size_to_copy += (*it)->size();
-    it = next(it);
+    ++it;
 
     /* populate segment template */
     string media_seg = populate_template(media_seg_template, curr_seg_number);
@@ -287,7 +307,7 @@ void Parser::split(const std::string & init_seg,
   }
 }
 
-void Parser::create_boxes(unique_ptr<Box> & parent_box,
+void Parser::create_boxes(const unique_ptr<Box> & parent_box,
                           const int64_t start_offset, const int64_t total_size)
 {
   while (true) {
@@ -310,25 +330,27 @@ void Parser::create_boxes(unique_ptr<Box> & parent_box,
       "meco", "mere"};
 
     if (container_boxes.find(type) != container_boxes.end()) {
-      auto new_container_box = make_unique<Box>(size, type);
+      /* parse a container box recursively */
+      auto box = make_unique<Box>(size, type);
 
-      /* recursively parse boxes in the container box */
-      create_boxes(new_container_box, file_.curr_offset(), data_size);
+      create_boxes(box, file_.curr_offset(), data_size);
 
-      parent_box->add_child(move(new_container_box));
+      parent_box->add_child(move(box));
     } else {
-      unique_ptr<Box> new_regular_box;
-      if(!type.compare("mvhd")) {
-        new_regular_box = make_unique<MvhdBox>(size, type, file_);
-      } else if(!type.compare("sidx")) {
-        new_regular_box = make_unique<SidxBox>(size, type, file_);
-      } else {
-        new_regular_box = make_unique<Box>(size, type);
-      }
-      /* ignore data by incrementing file offset */
-      file_.inc_offset(data_size);
+      /* parse a regular box */
+      unique_ptr<Box> box;
 
-      parent_box->add_child(move(new_regular_box));
+      if (type == "mvhd") {
+        box = make_unique<MvhdBox>(size, type);
+      } else if (type == "sidx") {
+        box = make_unique<SidxBox>(size, type);
+      } else {
+        box = make_unique<Box>(size, type);
+      }
+
+      box->parse_data(file_, data_size);
+
+      parent_box->add_child(move(box));
     }
 
     if (file_.curr_offset() >= start_offset + total_size) {
@@ -363,13 +385,12 @@ void Parser::copy_to_file(const string & output_filename,
 string Parser::populate_template(const string & media_seg_template,
                                  const unsigned int curr_seg_number)
 {
-  const size_t max_filesize = 100;
-  char media_seg[max_filesize];
+  char media_seg[NAME_MAX];
 
-  int size_copied = snprintf(media_seg, max_filesize,
+  int size_copied = snprintf(media_seg, NAME_MAX,
                              media_seg_template.c_str(), curr_seg_number);
 
-  if (size_copied < 0 or (size_t) size_copied >= max_filesize) {
+  if (size_copied < 0 or (size_t) size_copied >= NAME_MAX) {
     throw runtime_error("snprintf: resulting filename is too long");
   }
 

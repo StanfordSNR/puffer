@@ -11,16 +11,15 @@ using namespace std;
 
 void print_usage(const string & program_name)
 {
-  cerr << "Usage: " << program_name << " [options] <file.mp4>" << endl
-       << endl
-       << "<file.mp4>        " << "MP4 file to split" << endl
-       << endl
-       << "Options:" << endl
-       << "--init-segment <file.mp4>              initial segment" << endl
-       << "--media-segment <file-template.m4s>    filename template"
-          " (one and only one %u is allowed, e.g., segment-%u.m4s)" << endl
-       << "--start-number <n>                     "
-          "start number in template (default 1)" << endl;
+  cerr <<
+  "Usage: " << program_name << " [options] <file.mp4>\n\n"
+  "<file.mp4>    MP4 file to split\n\n"
+  "Options:\n"
+  "--init-segment <file.mp4>     initial segment\n"
+  "--media-segment <template>    filename template (one and only one %u is \n"
+  "                              allowed, e.g., segment-%u.m4s)\n"
+  "--start-number <n>            start number in template (default 1)"
+  << endl;
 }
 
 void verify(const string & media_seg)
