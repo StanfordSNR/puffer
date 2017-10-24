@@ -3,23 +3,23 @@
 pwd="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 if [ -z $test_tmpdir ];then
-    test_tmpdir="test_tmp/"
+    test_tmpdir="test_tmp"
     mkdir -p $test_tmpdir
 fi
 
-DAALA=$(pwd)/../ssim/daala_tools
+DAALA=$(pwd)/../../third_party/daala_tools
 D_SSIM=dump_ssim
 D_FSSIM=dump_fastssim
 SSIM=$(pwd)/../ssim/ssim
-FILE1="files/frame1.y4m"
-FILE2="files/frame2.y4m"
+TEST_VECTOR="test"
+FILE1=$TEST_VECTOR/"ssim/frame1.y4m"
+FILE2=$TEST_VECTOR/"ssim/frame2.y4m"
 OUTPUT1=$test_tmpdir/"out_ssim1"
 OUTPUT2=$test_tmpdir/"out_ssim2"
 
-# make daala files
-cd $DAALA/
-make
-cd $pwd
+# git clone test vector
+rm -rf $TEST_VECTOR
+git clone https://github.com/StanfordSNR/tv-test-vectors $TEST_VECTOR
 
 # run the ssim test
 $SSIM $FILE1 $FILE2 $OUTPUT1
@@ -43,3 +43,5 @@ then
     exit 1
 fi
 
+# clean up
+rm -rf $TEST_VECTOR
