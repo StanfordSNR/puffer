@@ -13,6 +13,7 @@ addons:
     packages:
     - gcc-7
     - g++-7
+    - libogg-dev
 
 install:
   - sudo apt-get update -q
