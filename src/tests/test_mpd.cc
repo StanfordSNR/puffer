@@ -3,21 +3,23 @@
 #include <iostream>
 #include <memory>
 
+using namespace std;
+using namespace MPD;
+
 int main()
 {
   auto w = std::make_unique<MPDWriter>(60, 2, "/video");
-  MPD::VideoAdaptionSet set_v = MPD::VideoAdaptionSet(1, "test1", "test2", 23.976, 240, 100);
-  MPD::AudioAdaptionSet set_a = MPD::AudioAdaptionSet(2, "test1", "test2", 240, 100);
-  MPD::VideoRepresentation repr_v = MPD::VideoRepresentation(
+  auto set_v = VideoAdaptionSet(1, "test1", "test2", 23.976, 240, 100);
+  auto set_a = AudioAdaptionSet(2, "test1", "test2", 240, 100);
+  auto repr_v = VideoRepresentation(
     "1", 800, 600, 100000, MPD::ProfileLevel::High, 20, 23.976);
-  MPD::AudioRepresentation repr_a = MPD::AudioRepresentation(
-    "1", 100000, 180000, true);
-  set_v.add_repr(&repr_v);
-  w->add_adaption_set(&set_v);
-  w->add_adaption_set(&set_a);
-  /* re-order
-   * if reference is used, set will copy the value, hence re-ordering won't work*/
-  set_a.add_repr(&repr_a);
+  auto repr_a = AudioRepresentation("1", 100000, 180000, true);
+  set_v.add_repr(move(repr_v));
+
+  w->add_video_adaption_set(move(set_v));
+  w->add_audio_adaption_set(move(set_a));
+
+  set_a.add_repr(move(repr_a));
   std::string out = w->flush();
   std::cout << out << std::endl;
   return 0;

@@ -9,11 +9,11 @@
 class XMLNode
 {
 public:
-  const char *tag_;
+  const std::string tag_;
   bool hasContent;
-  XMLNode(const char *tag, bool hasContent): tag_(tag), hasContent(hasContent)
+  XMLNode(const std::string tag, bool hasContent): tag_(tag), hasContent(hasContent)
     { }
-  XMLNode(const char *tag): XMLNode(tag, false) { }
+  XMLNode(const std::string tag): XMLNode(tag, false) { }
 };
 
 // based on
@@ -28,21 +28,22 @@ private:
   std::stack<XMLNode> elt_stack_;
   inline void close_tag();
   inline void indent();
-  inline void write_escape(const char* str);
+  inline void write_escape(const std::string & str);
+
+  const std::string xml_header = "<?xml version=\"1.0\" encoding=\"utf-8\"?>";
+  const std::string xml_indent = "  "; 
 
 public:
-  XMLWriter& open_elt(const char* tag);
+  XMLWriter& open_elt(const std::string & tag);
   XMLWriter& close_elt();
   XMLWriter& close_all();
 
-  XMLWriter& attr(const char* key, const char* val);
-  XMLWriter& attr(const char* key, std::string val);
-  XMLWriter& attr(const char* key, unsigned int val);
-  XMLWriter& attr(const char* key, int val);
+  XMLWriter& attr(const std::string & key, const std::string & val);
+  XMLWriter& attr(const std::string & key, const unsigned int & val);
+  XMLWriter& attr(const std::string & key, const int & val);
 
-  XMLWriter& content(const char* val);
-  XMLWriter& content(const int val);
-  XMLWriter& content(const unsigned int val);
+  XMLWriter& content(const int & val);
+  XMLWriter& content(const unsigned int & val);
   XMLWriter& content(const std::string & val);
 
   std::string str();
@@ -112,23 +113,21 @@ public:
       unsigned int duration, unsigned int timescale);
 
   virtual ~AdaptionSet() {}
-
-  std::set<Representation*> get_repr_set();
-protected:
-  void add_repr_(Representation* repr);
-
-private:
-  std::set<Representation*> repr_set_;
-
+ 
 };
 
 class AudioAdaptionSet : public AdaptionSet {
 public:
-  void add_repr(AudioRepresentation * repr);
+  void add_repr(const AudioRepresentation && repr);
 
   AudioAdaptionSet(int id, std::string init_uri, std::string media_uri,
     unsigned int duration, unsigned int timescale);
+  
+  std::set<AudioRepresentation> get_repr_set() const
+  { return repr_set_; }
 
+private:
+  std::set<AudioRepresentation> repr_set_;
 };
 
 class VideoAdaptionSet : public AdaptionSet {
@@ -138,7 +137,13 @@ public:
   VideoAdaptionSet(int id, std::string init_uri, std::string media_uri,
       float framerate, unsigned int duration, unsigned int timescale);
 
-  void add_repr(VideoRepresentation * repr);
+  void add_repr(const VideoRepresentation && repr);
+  
+  std::set<VideoRepresentation> get_repr_set() const 
+  { return repr_set_; }
+
+private:
+  std::set<VideoRepresentation> repr_set_;
 };
 
 inline bool operator<(const AdaptionSet & a, const AdaptionSet & b)
@@ -154,21 +159,27 @@ public:
           std::string base_url);
   ~MPDWriter();
   std::string flush();
-  void add_adaption_set(MPD::AdaptionSet * set);
+  void add_video_adaption_set(const MPD::VideoAdaptionSet && set);
+  void add_audio_adaption_set(const MPD::AudioAdaptionSet && set);
+
 private:
   int64_t update_period_;
   int64_t min_buffer_time_;
   std::unique_ptr<XMLWriter> writer_;
   std::string base_url_;
-  std::set<MPD::AdaptionSet*> adaption_set_;
+  std::set<MPD::VideoAdaptionSet> video_adaption_set_;
+  std::set<MPD::AudioAdaptionSet> audio_adaption_set_;
   std::string format_time_now();
-  void write_adaption_set(MPD::AdaptionSet * set);
-  std::string write_codec(MPD::Representation * repr);
-  void write_repr(MPD::Representation * repr);
-  void write_repr(MPD::VideoRepresentation * repr);
-  void write_repr(MPD::AudioRepresentation * repr);
+  void write_adaption_set(const MPD::AdaptionSet & set);
+  void write_video_adaption_set(const MPD::VideoAdaptionSet & set);
+  void write_audio_adaption_set(const MPD::AudioAdaptionSet & set);
+  std::string write_video_codec(const MPD::VideoRepresentation & repr);
+  std::string write_audio_codec(const MPD::AudioRepresentation & repr);
+  void write_repr(const MPD::Representation & repr);
+  void write_video_repr(const MPD::VideoRepresentation & repr);
+  void write_audio_repr(const MPD::AudioRepresentation & repr);
   std::string convert_pt(unsigned int seconds);
-  void write_framerate(float framerate);
+  void write_framerate(const float & framerate);
 };
 
 #endif /* TV_ENCODER_MPD_HH */
