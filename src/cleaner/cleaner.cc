@@ -13,7 +13,7 @@
 
 using namespace std;
 
-void print_usage(string & program_name)
+void print_usage(const string & program_name)
 {
   cerr << "Usage: " << program_name << " [options]" << endl;
   cerr << "\t-d <dir> -dir=<dir>        clean everything in <dir>" << endl;
@@ -67,7 +67,7 @@ int main(int argc, char * *argv)
   }
 
   /* compile regex */
-  regex re_file(pattern);
+  const regex re_file(pattern);
 
   /* get current time */
   time(&now);
@@ -78,7 +78,7 @@ int main(int argc, char * *argv)
   }
 
   for(auto filename : roost::get_directory_listing(dir_name)) {
-    string fullpath = string(dir_name) + "/" + filename;
+    const string fullpath = roost::join(dir_name, filename);
     if(regex_match(filename.c_str(), m, re_file)) {
       /* get file stats and compare with current time */
       struct stat f_stat;
@@ -87,7 +87,7 @@ int main(int argc, char * *argv)
         continue;
       }
       /* compare the time */
-      time_t mod_time = f_stat.st_mtim.tv_sec;
+      const time_t mod_time = f_stat.st_mtim.tv_sec;
       if(std::abs(difftime(now, mod_time)) < time_diff) {
         cout << "Skip " << fullpath << endl;
         continue; /* file is still relatively new */
