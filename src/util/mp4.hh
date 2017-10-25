@@ -134,6 +134,22 @@ private:
   std::vector<SidxReference> reference_list_;
 };
 
+class StsdBox: public Box
+{
+public:
+  StsdBox(const uint64_t size, const std::string & type);
+
+  /* accessors */
+  uint8_t version() { return version_; }
+  uint32_t flags() { return flags_; }
+
+  void parse_data(MP4File & mp4, const int64_t data_size);
+
+private:
+  uint8_t version_;
+  uint32_t flags_;
+};
+
 class Parser
 {
 public:
