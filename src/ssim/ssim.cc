@@ -15,10 +15,6 @@
 #include "tokenize.hh"
 #include "path.hh"
 
-#define DUMP_FASTSSIM "dump_fastssim"
-#define DUMP_SSIM "dump_ssim"
-#define DAALA "../../third_party/daala_tools"
-
 using namespace std;
 
 void print_usage(const string & program_name)
@@ -45,7 +41,7 @@ void print_usage(const string & program_name)
 
 inline bool is_y4m(const string & filename)
 {
-    return split_filename(filename).second.compare("y4m") == 0;
+    return split_filename(filename).second == "y4m";
 }
 
 string random_string( size_t length )
@@ -71,7 +67,7 @@ string convert_y4m(const string & filename)
    auto temp = make_unique<TempFile>("/tmp/y4m");
    */
   /* use time to generate unique file name */
-  string temp = "/tmp/" + random_string(10) + ".y4m";
+  string temp = roost::join("/tmp", random_string(10) + ".y4m");
   const string command = "ffmpeg -i " + filename + " -f yuv4mpegpipe " + temp;
   auto args = split(command, " ");
   cout << "Using ffmpeg command: " << command << endl;
@@ -81,6 +77,10 @@ string convert_y4m(const string & filename)
 
 int main(int argc, char * argv[])
 {
+  const string dump_fastssim = "dump_fastssim";
+  const string dump_ssim =  "dump_ssim";
+  const string daala_tools =  "../../third_party/daala_tools";
+
   const char *optstring = "xcfrsyp:l:";
   const struct option options[]={
     {"fast-ssim",no_argument,NULL,'x'},
@@ -151,12 +151,11 @@ int main(int argc, char * argv[])
   /* get current working directory to avoid pwd issue */
   string buf = roost::readlink("/proc/self/exe");
 
-  string ssim_path = string(buf);
-  size_t p_index = ssim_path.find_last_of("/");
-  string cwd = ssim_path.substr(0, p_index + 1);
-
-  const string dump = cwd + "/" + string(DAALA) + "/" + (fast_ssim ?
-      string(DUMP_FASTSSIM): string(DUMP_SSIM));
+  const roost::path cwd = roost::dirname(buf);
+  const roost::path daala_ = roost::path(daala_tools);
+  const roost::path ssim_ = roost::path(fast_ssim ? dump_fastssim: dump_ssim);
+  const roost::path dump_path = cwd / daala_ / ssim_;
+  const string dump = dump_path.string();
 
   if (!roost::exists(dump)) {
     cerr << "Unable to find " << dump << endl;
