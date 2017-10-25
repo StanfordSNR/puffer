@@ -143,7 +143,7 @@ void MvhdBox::print_structure(int indent)
 
 void MvhdBox::parse_data(MP4File & mp4, const int64_t data_size)
 {
-  int64_t init_offset = mp4.curr_offset();
+  const int64_t init_offset = mp4.curr_offset();
 
   tie(version_, flags_) = mp4.read_version_flags();
 
@@ -197,7 +197,7 @@ void SidxBox::print_structure(int indent)
 
 void SidxBox::parse_data(MP4File & mp4, const int64_t data_size)
 {
-  int64_t init_offset = mp4.curr_offset();
+  const int64_t init_offset = mp4.curr_offset();
 
   tie(version_, flags_) = mp4.read_version_flags();
   reference_id_ = mp4.read_uint32();
@@ -239,6 +239,32 @@ void SidxBox::parse_data(MP4File & mp4, const int64_t data_size)
 
   /* skip parsing the rest of box */
   mp4.inc_offset(data_size - bytes_parsed);
+}
+
+StsdBox::StsdBox(const uint64_t size, const string & type):
+  Box(size, type), version_(), flags_()
+{}
+
+void StsdBox::parse_data(MP4File & file, const int64_t data_size)
+{
+  const int64_t init_offset = file.curr_offset();
+
+  tie(version_, flags_) = file.read_version_flags(); 
+  
+  uint32_t num_of_boxes = file.read_uint32();
+  for(uint32_t i = 0; i < num_of_boxes; i++) {
+    uint32_t size = file.read_uint32();
+    string code = file.read(4);
+    auto box = make_unique<Box>(size - 8, code);
+    add_child(move(box));
+    file.read(size - 8);
+  }
+  int64_t pos = file.curr_offset();
+  if (pos == init_offset + data_size - 4)
+    file.read_uint32(); /* optional padding */
+  pos = file.curr_offset();
+  if(pos != init_offset + data_size)
+    throw runtime_error("Invalid stsd box");
 }
 
 Parser::Parser(const string & filename)
@@ -366,6 +392,8 @@ void Parser::create_boxes(const shared_ptr<Box> & parent_box,
         box = make_shared<MvhdBox>(size, type);
       } else if (type == "sidx") {
         box = make_shared<SidxBox>(size, type);
+      } else if (type == "stsd") {
+        box = make_shared<StsdBox>(size, type);
       } else {
         box = make_shared<Box>(size, type);
       }
