@@ -49,6 +49,13 @@ void MP4File::reset()
   set_eof(false);
 }
 
+uint8_t MP4File::read_uint8()
+{
+  string data = read(1);
+  const uint8_t * size = reinterpret_cast<const uint8_t *>(data.c_str());
+  return *size;
+}
+
 uint16_t MP4File::read_uint16()
 {
   string data = read(2);
@@ -255,9 +262,18 @@ void StsdBox::parse_data(MP4File & file, const int64_t data_size)
   for(uint32_t i = 0; i < num_of_boxes; i++) {
     uint32_t size = file.read_uint32();
     string code = file.read(4);
-    auto box = make_unique<Box>(size - 8, code);
+    const int64_t pos = file.curr_offset();
+    uint32_t box_size = size - 8;
+    shared_ptr<Box> box;
+    if(code == "avc1")
+      box = make_shared<AVC1>(box_size, code);
+    else
+      box = make_shared<Box>(box_size, code);
+    box->parse_data(file, box_size);
     add_child(move(box));
-    file.read(size - 8);
+
+    /* clean up for un finished parsing */
+    file.inc_offset(pos + box_size - file.curr_offset());
   }
   int64_t pos = file.curr_offset();
   if (pos == init_offset + data_size - 4)
@@ -265,6 +281,76 @@ void StsdBox::parse_data(MP4File & file, const int64_t data_size)
   pos = file.curr_offset();
   if(pos != init_offset + data_size)
     throw runtime_error("Invalid stsd box");
+}
+
+VisualSampleEntry::VisualSampleEntry(const uint32_t data_size,
+    const string & type): SampleEntry(data_size, type), width_(), 
+  height_(), compressorname_()
+{}
+
+void VisualSampleEntry::parse_data(MP4File & file, const int64_t data_size)
+{
+  SampleEntry::parse_data(file, data_size);
+
+  uint32_t unused1 = file.read_uint32();
+  uint64_t unused2 = file.read_uint64();
+  uint32_t unused3 = file.read_uint32();
+  
+  if(unused1 != 0 and unused2 != 0 and unused3 != 0)
+    throw runtime_error("Invalid VisualSampleEntry");
+
+  width_ = file.read_uint16();
+  height_ = file.read_uint16();
+  horizresolution_ = file.read_uint32();
+  vertresolution_ = file.read_uint32();
+
+  /* reserved */
+  file.read_uint32();
+  frame_count_ = file.read_uint16();
+  uint8_t count = file.read_uint8();
+  compressorname_ = file.read(32 - count - 1);
+  depth_ = file.read_uint16();
+
+  pre_defined_ = file.read_uint16();
+}
+
+AVC1::AVC1(const uint32_t data_size, const string & type):
+  VisualSampleEntry(data_size, type), avc_profile_(),
+  avc_profile_compatibility_(), avc_level_(), avcc_size_()
+{}
+
+void AVC1::parse_data(MP4File & file, const int64_t size)
+{
+  VisualSampleEntry::parse_data(file, size);
+  /* please note that avcc and avc1 is implemented together
+   */
+  /* read avcc size */
+  avcc_size_ = file.read_uint32();
+  string avcc = file.read(4);
+  if(avcc != "avcC")
+    throw runtime_error("AVCC does not follow AVC1 immediately. Get " + avcc);
+  configuration_version_ = file.read_uint8();
+  avc_profile_ = file.read_uint8();
+  avc_profile_compatibility_ = file.read_uint8();
+  avc_level_ = file.read_uint8();
+}
+
+void AVC1::print_structure(int indent)
+{
+  cout << string(indent, ' ') << "- " << type() << " " << size() << endl;
+
+  string indent_str = string(indent + 2, ' ') + "| ";
+
+  cout << indent_str << "width " << width() << endl;
+  cout << indent_str << "height " << height() << endl;
+  
+  cout << string(indent + 4, ' ') << "- " << "avcC" << " " << 
+    avcc_size_ << endl;
+
+  indent_str = string(indent + 4, ' ') + "| ";
+  
+  cout << indent_str << "avc_profile " << unsigned(avc_profile_) << endl;
+  cout << indent_str << "avc_level " << unsigned(avc_level_) << endl;
 }
 
 Parser::Parser(const string & filename)
@@ -355,6 +441,24 @@ void Parser::split(const std::string & init_seg,
   }
 }
 
+void Parser::box_factory(shared_ptr<Box> & box, const string & type,
+    const uint32_t & size, MP4File & file, const int64_t data_size)
+{
+  if (type == "mvhd") {
+    box = make_shared<MvhdBox>(size, type);
+  } else if (type == "sidx") {
+    box = make_shared<SidxBox>(size, type);
+  } else if (type == "stsd") {
+    box = make_shared<StsdBox>(size, type);
+  } else if (type == "avc1") {
+    box = make_shared<AVC1>(size, type);
+  } else {
+    box = make_shared<Box>(size, type);
+  }
+
+  box->parse_data(file, data_size);
+}
+
 void Parser::create_boxes(const shared_ptr<Box> & parent_box,
                           const int64_t start_offset, const int64_t total_size)
 {
@@ -387,19 +491,7 @@ void Parser::create_boxes(const shared_ptr<Box> & parent_box,
     } else {
       /* parse a regular box */
       shared_ptr<Box> box;
-
-      if (type == "mvhd") {
-        box = make_shared<MvhdBox>(size, type);
-      } else if (type == "sidx") {
-        box = make_shared<SidxBox>(size, type);
-      } else if (type == "stsd") {
-        box = make_shared<StsdBox>(size, type);
-      } else {
-        box = make_shared<Box>(size, type);
-      }
-
-      box->parse_data(file_, data_size);
-
+      box_factory(box, type, size, file_, data_size);
       parent_box->add_child(move(box));
     }
 
