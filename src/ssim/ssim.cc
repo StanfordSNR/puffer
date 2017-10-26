@@ -1,205 +1,155 @@
 #include <iostream>
-#include <fstream>
-#include <stdio.h>
-#include <sys/stat.h>
 #include <memory>
+#include <string>
+#include <utility>
 #include <getopt.h>
-#include <set>
-#include <map>
-#include <cstdio>
-#include <algorithm>
-#include <ctime>
-#include <unistd.h>
+#include <fcntl.h>
 
+#include "path.hh"
 #include "system_runner.hh"
 #include "tokenize.hh"
-#include "path.hh"
+#include "file_descriptor.hh"
+#include "temp_file.hh"
+#include "exception.hh"
 
 using namespace std;
 
 void print_usage(const string & program_name)
 {
-  cerr << "Usage: " << program_name << "[options] <video1> <video2> <output>"
-    << endl;
-  cerr << endl;
-  cerr << "\t<video1> Video segments. If it is not in Y4M, it will be converted to via ffmpeg" << endl;
-  cerr << "\t<video2> Video segments. If it is not in Y4M, it will be converted to via ffmpeg" << endl;
-  cerr << "\t<output> Output text file containing SSIM information" << endl;
-  cerr << "Options:" << endl;
-  cerr << "\t-x -fast-ssim                  Allow program to compute fast ssimi." << endl;
-  cerr << "\t-c --show-chroma               Also show values for the chroma channels."  << endl;
-  cerr << "\t-f --frame-type                Show frame type and QI value for each Theora frame." << endl;
-  cerr << "\t-r --raw                       Show raw SSIM scores, instead of 10*log10(1/(1-ssim))." << endl;
-  cerr << "\t-s --summary                   Only output the summary line." << endl;
-  cerr << "\t-y --luma-only                 Only output values for the luma channel." << endl;
-  cerr << "\t                                   Will be ignored when fast ssim is used (-x)" << endl;
-  cerr << "\t-p <npar>, --parallel=<npar>   Run <npar> parallel workers." << endl;
-  cerr << "\t                                   Will be ignored when fast ssim is used (-x)" << endl;
-  cerr << "\t-l <lim>, --limit=<lim>        Stop after <lim> frames." << endl;
-  cerr << "\t                                   Will be ignored when fast ssim is used (-x)" << endl;
+  cerr <<
+  "Usage: " << program_name << " [options] <video1> <video2> <output>\n\n"
+  "<video1>, <video2>    Y4M files; will be converted to Y4M files if not\n"
+  "<output>              output text file containing SSIM index\n\n"
+  "Options:\n"
+  "--fast-ssim              compute fast SSIM instead\n"
+  "-p, --parallel <npar>    run <npar> parallel workers\n"
+  "                         (ignored when --fast-ssim is used)\n"
+  "-l, --limit <lim>        stop after <lim> frames\n"
+  "                         (ignored when --fast-ssim is used)"
+  << endl;
 }
 
-inline bool is_y4m(const string & filename)
+string get_ssim_path(bool fast_ssim)
 {
-    return split_filename(filename).second == "y4m";
+  /* get path to daala_tools based on the path of executable */
+  roost::path exe_path = roost::dirname(roost::readlink("/proc/self/exe"));
+  roost::path daala_tools_path = exe_path / "../../third_party/daala_tools";
+
+  string ssim_filename = fast_ssim ? "dump_fastssim" : "dump_ssim";
+  string ssim_path = (daala_tools_path / ssim_filename).string();
+
+  if (not roost::exists(ssim_path)) {
+    throw runtime_error("unable to find " + ssim_path);
+  }
+
+  return ssim_path;
 }
 
-string random_string( size_t length )
+unique_ptr<TempFile> convert_to_y4m(const string & video_path)
 {
-  auto randchar = []() -> char
-  {
-    const char charset[] =
-      "0123456789"
-      "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-      "abcdefghijklmnopqrstuvwxyz";
-    const size_t max_index = (sizeof(charset) - 1);
-    return charset[ rand() % max_index ];
-  };
-  std::string str(length,0);
-  std::generate_n( str.begin(), length, randchar );
-  return str;
-}
+  if (split_filename(video_path).second == "y4m") {
+    return nullptr;
+  }
 
-string convert_y4m(const string & filename)
-{
-  /* can't use tempfile because it will automatically touch the file,
-   * which will make ffmpeg nervous
-   auto temp = make_unique<TempFile>("/tmp/y4m");
-   */
-  /* use time to generate unique file name */
-  string temp = roost::join("/tmp", random_string(10) + ".y4m");
-  const string command = "ffmpeg -i " + filename + " -f yuv4mpegpipe " + temp;
-  auto args = split(command, " ");
-  cout << "Using ffmpeg command: " << command << endl;
+  auto tmp_y4m = make_unique<TempFile>("/tmp/y4m");
+
+  string cmd = "ffmpeg -y -i " + video_path + " -f yuv4mpegpipe " +
+               tmp_y4m->name();
+  cerr << "$ " << cmd << endl;
+
+  auto args = split(cmd, " ");
   run("ffmpeg", args, {}, true, true);
-  return temp;
+
+  return move(tmp_y4m);
+}
+
+void write_to_file(const string & output_path, const string & result)
+{
+  FileDescriptor output_fd(
+    CheckSystemCall("open (" + output_path + ")",
+                    open(output_path.c_str(), O_WRONLY | O_CREAT, 0644)));
+  output_fd.write(result, true);
+  output_fd.close();
 }
 
 int main(int argc, char * argv[])
 {
-  const string dump_fastssim = "dump_fastssim";
-  const string dump_ssim =  "dump_ssim";
-  const string daala_tools =  "../../third_party/daala_tools";
-
-  const char *optstring = "xcfrsyp:l:";
-  const struct option options[]={
-    {"fast-ssim",no_argument,NULL,'x'},
-    {"show-chroma",no_argument,NULL,'c'},
-    {"frame-type",no_argument,NULL,'f'},
-    {"raw",no_argument,NULL,'r'},
-    {"summary",no_argument,NULL,'s'},
-    {"luma-only",no_argument,NULL,'y'},
-    {"parallel",required_argument,NULL,'p'},
-    {"limit",required_argument,NULL,'l'},
-    {NULL,0,NULL,0}
-  };
-
-  string video_path1;
-  string video_path2;
-  string output_file;
-  string ssim_command;
-  set<char> ssim_args;
-  map<char, int> ssim_args_;
-
-  bool use_temp1 = false;
-  bool use_temp2 = false;
+  if (argc < 1) {
+    abort();
+  }
 
   bool fast_ssim = false;
-  int long_option_index;
-  int c;
+  string parallel_cnt, frame_limit;
 
-  while((c=getopt_long(argc,argv,optstring,options,&long_option_index))!=EOF){
-    switch(c){
-      case 'x': fast_ssim = true; break;
-      case 'f': ssim_args.insert('f'); break;
-      case 'r': ssim_args.insert('r'); break;
-      case 's': ssim_args.insert('s'); break;
-      case 'c': ssim_args.insert('c'); break;
-      case 'y': ssim_args.insert('y'); break;
-      case 'p': ssim_args_.insert(make_pair('p', stoi(optarg))); break;
-      case 'l': ssim_args_.insert(make_pair('l', stoi(optarg))); break;
-      default:
-                print_usage(argv[0]);
-                return EXIT_FAILURE;
+  const option cmd_line_opts[] = {
+    {"fast-ssim", no_argument,       nullptr, 'x'},
+    {"parallel",  required_argument, nullptr, 'p'},
+    {"limit",     required_argument, nullptr, 'l'},
+    { nullptr,    0,                 nullptr,  0 }
+  };
+
+  while (true) {
+    const int opt = getopt_long(argc, argv, "xp:l:", cmd_line_opts, nullptr);
+    if (opt == -1) {
+      break;
+    }
+
+    switch (opt) {
+    case 'x':
+      fast_ssim = true;
+      break;
+    case 'p':
+      parallel_cnt = optarg;
+      break;
+    case 'l':
+      frame_limit = optarg;
+      break;
+    default:
+      print_usage(argv[0]);
+      return EXIT_FAILURE;
     }
   }
 
-  if(argc != optind + 3) {
+  if (optind != argc - 3) {
     print_usage(argv[0]);
     return EXIT_FAILURE;
   }
-  video_path1 = string(argv[optind]);
-  video_path2 = string(argv[optind + 1]);
-  output_file = argv[optind + 2];
 
-  /* set up a random seed */
-  srand(std::time(nullptr));
+  string video1_path = argv[optind];
+  string video2_path = argv[optind + 1];
+  string output_path = argv[optind + 2];
 
-  if(!is_y4m(video_path1)) {
-    cerr << "Converting " << video_path1 << " to ";
-    video_path1 = convert_y4m(video_path1);
-    cerr << video_path1 << endl;
-    use_temp1 = true;
-  }
-  if(!is_y4m(video_path2)) {
-    cerr << "Converting " << video_path2 << " to ";
-    video_path2 = convert_y4m(video_path2);
-    cerr << video_path2 << endl;
-    use_temp2 = true;
+  /* convert input videos to Y4M if necessary */
+  unique_ptr<TempFile> video1_tmp = convert_to_y4m(video1_path);
+  if (video1_tmp != nullptr) {
+    video1_path = video1_tmp->name();
   }
 
-  /* get current working directory to avoid pwd issue */
-  string buf = roost::readlink("/proc/self/exe");
-
-  const roost::path cwd = roost::dirname(buf);
-  const roost::path daala_ = roost::path(daala_tools);
-  const roost::path ssim_ = roost::path(fast_ssim ? dump_fastssim: dump_ssim);
-  const roost::path dump_path = cwd / daala_ / ssim_;
-  const string dump = dump_path.string();
-
-  if (!roost::exists(dump)) {
-    cerr << "Unable to find " << dump << endl;
-    cerr << "Please do $ git submodule update --init --recursive" << endl;
-    cerr << "And then do make in the root folder" << endl;
-    return EXIT_FAILURE;
+  unique_ptr<TempFile> video2_tmp = convert_to_y4m(video2_path);
+  if (video2_tmp != nullptr) {
+    video2_path = video2_tmp->name();
   }
 
-  /* filter out the args depends on which version of ssim used */
-  if(fast_ssim) {
-    auto a = {'y', 'p', 'l'};
-    for(auto c: a)
-      ssim_args.erase(c);
-  } else {
-    ssim_args.erase('c');
+  /* construct command to run dump_ssim or dump_fastssim */
+  string ssim_path = get_ssim_path(fast_ssim);
+
+  string cmd = ssim_path + " -s";
+  if (not fast_ssim) {
+    if (not parallel_cnt.empty()) {
+      cmd += " -p " + parallel_cnt;
+    }
+
+    if (not frame_limit.empty()) {
+      cmd += " -l " + frame_limit;
+    }
   }
-  for(auto c: ssim_args) {
-    ssim_command += " -";
-    ssim_command += c;
-  }
-  for(auto entry: ssim_args_) {
-    ssim_command += " -";
-    ssim_command += entry.first;
-    ssim_command += " ";
-    ssim_command += to_string(entry.second);
-  }
-  ssim_command += " ";
+  cmd += " " + video1_path + " " + video2_path;
+  cerr << "$ " << cmd << endl;
 
-  const string command = dump + ssim_command + video_path1 + " " +
-    video_path2;
-
-  auto s_args = split(command, " ");
-
-  ofstream of;
-  of.open(output_file);
-  string result = run(dump, s_args, {}, false, false, true, false);
-  of << result;
-  of.close();
-
-  /* clean up */
-  if(use_temp1)
-    roost::remove(video_path1);
-  if(use_temp2)
-    roost::remove(video_path2);
+  /* dump SSIM index to the output file */
+  auto args = split(cmd, " ");
+  string ssim_result = run(ssim_path, args, {}, true, true, true);
+  write_to_file(output_path, ssim_result);
 
   return EXIT_SUCCESS;
 }
