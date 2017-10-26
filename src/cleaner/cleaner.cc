@@ -1,106 +1,121 @@
 #include <iostream>
 #include <string>
-#include <getopt.h>
-#include <sys/types.h>
-#include <dirent.h>
 #include <regex>
-#include <time.h>
+#include <chrono>
+#include <getopt.h>
 #include <sys/stat.h>
-#include <unistd.h>
-#include <cmath>
 
 #include "path.hh"
+#include "strict_conversions.hh"
+#include "exception.hh"
 
 using namespace std;
 
 void print_usage(const string & program_name)
 {
-  cerr << "Usage: " << program_name << " [options]" << endl;
-  cerr << "\t-d <dir> -dir=<dir>        clean everything in <dir>" << endl;
-  cerr << "\t-p <patt> -pattern=<patt>  file name with <patt> will be cleaned.\
- <patt> is a regular expression." << endl;
-  cerr << "\t-t <time> -time=<time>     file older than current time by \
-<time> seconds will be cleaned" << endl;
+  cerr <<
+  "Usage: " << program_name << " [options] <dir>\n\n"
+  "<dir>    directory to remove files (remove nothing without args below)\n\n"
+  "Options:\n"
+  "-p, --pattern <pattern>    remove files whose names matching <pattern>\n"
+  "-t, --time <time>          remove files that have not been accessed\n"
+  "                           for <time> seconds"
+  << endl;
+}
+
+void clean_files(const string & working_dir, const string & pattern,
+                 const string & stale_time)
+{
+  if (pattern.empty() and stale_time.empty()) {
+    /* do nothing if no filter is specified */
+    return;
+  }
+
+  regex pattern_regex;
+  if (not pattern.empty()) {
+    pattern_regex = regex(pattern);
+  }
+
+  long int stale_time_sec = 0;
+  if (not stale_time.empty()) {
+    stale_time_sec = strict_atoi(stale_time);
+  }
+
+  vector<string> filenames = roost::get_directory_listing(working_dir);
+
+  for (const auto filename : filenames) {
+    string fullpath = roost::join(working_dir, filename);
+
+    if (not pattern.empty() and not regex_match(filename, pattern_regex)) {
+      /* filename does not match pattern */
+      continue;
+    }
+
+    if (not stale_time.empty()) {
+      struct stat file_stat;
+      CheckSystemCall("stat", stat(fullpath.c_str(), &file_stat));
+
+      timespec file_time = file_stat.st_atim;
+      auto last_chrono = chrono::seconds(file_time.tv_sec) +
+                         chrono::nanoseconds(file_time.tv_nsec);
+      auto last = chrono::system_clock::time_point(last_chrono);
+
+      auto now = chrono::system_clock::now();
+      auto elapsed = chrono::duration_cast<chrono::milliseconds>(now - last);
+
+      if (elapsed.count() < 1000 * stale_time_sec) {
+        /* file is not stale yet */
+        continue;
+      }
+    }
+
+    /* remove the file if it passes all filters */
+    if (not roost::remove(fullpath)) {
+      cerr << "Warning: unable to remove file " << fullpath << endl;
+    }
+  }
 }
 
 int main(int argc, char * *argv)
 {
-  int c;
-  int long_option_index;
-  string dir_name;
-  string pattern;
-  string program_name = string(argv[0]);
-  int time_diff = 0;
-  time_t now;
-  cmatch m;
+  if (argc < 1) {
+    abort();
+  }
 
-  const string optstring = "d:p:t:";
-  const struct option options[] = {
-    {"dir", required_argument, NULL, 'd'},
-    {"pattern", required_argument, NULL, 'p'},
-    {"time", required_argument, NULL, 't'},
-    {NULL,0,NULL,0}
+  string working_dir, pattern, stale_time;
+
+  const option cmd_line_opts[] = {
+    {"pattern", required_argument, nullptr, 'p'},
+    {"time",    required_argument, nullptr, 't'},
+    { nullptr,  0,                 nullptr,  0 },
   };
 
+  while (true) {
+    const int opt = getopt_long(argc, argv, "p:t:", cmd_line_opts, nullptr);
+    if (opt == -1) {
+      break;
+    }
 
-  if(argc != 7) {
-    print_usage(program_name);
-    return EXIT_FAILURE;
-  }
-
-  while((c = getopt_long(argc, argv, optstring.c_str(), options,
-          &long_option_index)) != EOF){
-    switch(c){
-      case 'd': dir_name = optarg; break;
-      case 'p': pattern = optarg; break;
-      case 't': time_diff = atoi(optarg); break;
-      default: {
-                print_usage(program_name);
-                return EXIT_FAILURE;
-               }
+    switch (opt) {
+    case 'p':
+      pattern = optarg;
+      break;
+    case 't':
+      stale_time = optarg;
+      break;
+    default:
+      print_usage(argv[0]);
+      return EXIT_FAILURE;
     }
   }
 
-  if(!dir_name.length() || !pattern.length()) {
-    print_usage(program_name);
+  if (optind != argc - 1) {
+    print_usage(argv[0]);
     return EXIT_FAILURE;
   }
 
-  /* compile regex */
-  const regex re_file(pattern);
-
-  /* get current time */
-  time(&now);
-
-  if(!roost::is_directory(dir_name)) {
-    cerr << "Unable to open directory " << dir_name;
-    return EXIT_FAILURE;
-  }
-
-  for(auto filename : roost::get_directory_listing(dir_name)) {
-    const string fullpath = roost::join(dir_name, filename);
-    if(regex_match(filename.c_str(), m, re_file)) {
-      /* get file stats and compare with current time */
-      struct stat f_stat;
-      if(stat(fullpath.c_str(), &f_stat)) {
-        cerr << "Unable to get file stats of " << fullpath << endl;
-        continue;
-      }
-      /* compare the time */
-      const time_t mod_time = f_stat.st_mtim.tv_sec;
-      if(std::abs(difftime(now, mod_time)) < time_diff) {
-        cout << "Skip " << fullpath << endl;
-        continue; /* file is still relatively new */
-      }
-      /* delete files */
-      if(!roost::remove(fullpath.c_str()))
-        cerr << "Unable to delete file " << fullpath << endl;
-      else
-        cout << fullpath << " deleted" << endl;
-    } else {
-      cout << "Patten not matched. Skip " << fullpath << endl;
-    }
-  }
+  working_dir = argv[optind];
+  clean_files(working_dir, pattern, stale_time);
 
   return EXIT_SUCCESS;
 }
