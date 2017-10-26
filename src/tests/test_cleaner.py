@@ -22,13 +22,12 @@ def main():
     cleaner = path.abspath(
             path.join(abs_builddir, os.pardir, 'cleaner', 'cleaner'))
 
-    cmd = [cleaner, "-d", cleaner_testdir, "-p", 't\d+', "-t", "1"]
+    cmd = [cleaner, cleaner_testdir, "-p", 't\d+', "-t", "1"]
 
     start_time = time.time()
     check_call(["touch", test_file1])
 
-    while time.time() < start_time + 1:
-        pass # sleep to exactly 1 sec after
+    time.sleep(1)
 
     check_call(["touch", test_file2])
 
