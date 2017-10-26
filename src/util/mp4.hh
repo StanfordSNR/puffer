@@ -44,20 +44,22 @@ public:
   std::string type() { return type_; }
 
   /* parameter is a sink; use rvalue reference to save a "move" operation */
-  void add_child(std::unique_ptr<Box> && child);
+  void add_child(std::shared_ptr<Box> && child);
 
-  std::vector<std::unique_ptr<Box>>::const_iterator children_begin();
-  std::vector<std::unique_ptr<Box>>::const_iterator children_end();
+  std::vector<std::shared_ptr<Box>>::const_iterator children_begin();
+  std::vector<std::shared_ptr<Box>>::const_iterator children_end();
+
+  std::shared_ptr<Box> find_in_descendants(const std::string & type);
 
   virtual void print_structure(int indent = 0);
 
-  virtual void parse_data(MP4File & mp4, const int64_t DATa_size);
+  virtual void parse_data(MP4File & mp4, const int64_t data_size);
 
 private:
   uint64_t size_;
   std::string type_;
 
-  std::vector<std::unique_ptr<Box>> children_;
+  std::vector<std::shared_ptr<Box>> children_;
 };
 
 /* ISO/IEC 14496-12:2015 Section 8.2.2 */
@@ -152,11 +154,11 @@ public:
 
 private:
   MP4File file_;
-  std::unique_ptr<Box> box_;
+  std::shared_ptr<Box> box_;
 
   /* recursively create boxes between start_offset and its following total_size
    * add created boxes as children of parent_box */
-  void create_boxes(const std::unique_ptr<Box> & parent_box,
+  void create_boxes(const std::shared_ptr<Box> & parent_box,
                     const int64_t start_offset, const int64_t total_size);
 
   /* copy size_to_copy bytes from current offset and write to filename */
