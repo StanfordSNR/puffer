@@ -80,19 +80,35 @@ Box::Box(const uint64_t size, const string & type)
   : size_(size), type_(type), children_()
 {}
 
-void Box::add_child(unique_ptr<Box> && child)
+void Box::add_child(shared_ptr<Box> && child)
 {
   children_.emplace_back(move(child));
 }
 
-vector<unique_ptr<Box>>::const_iterator Box::children_begin()
+vector<shared_ptr<Box>>::const_iterator Box::children_begin()
 {
   return children_.cbegin();
 }
 
-vector<unique_ptr<Box>>::const_iterator Box::children_end()
+vector<shared_ptr<Box>>::const_iterator Box::children_end()
 {
   return children_.cend();
+}
+
+shared_ptr<Box> Box::find_in_descendants(const string & type)
+{
+  for (const auto & child : children_) {
+    if (child->type() == type) {
+      return child;
+    }
+
+    auto found = child->find_in_descendants(type);
+    if (found != nullptr) {
+      return found;
+    }
+  }
+
+  return nullptr;
 }
 
 void Box::print_structure(int indent)
@@ -172,7 +188,7 @@ void SidxBox::print_structure(int indent)
   cout << indent_str << "reference id " << reference_id_ << endl;
   cout << indent_str << "timescale " << timescale_ << endl;
 
-  cout << indent_str << "segment durations:";
+  cout << indent_str << "segment durations";
   for (const auto & ref : reference_list_) {
     cout << " " << ref.segment_duration;
   }
@@ -226,7 +242,7 @@ void SidxBox::parse_data(MP4File & mp4, const int64_t data_size)
 }
 
 Parser::Parser(const string & filename)
-  : file_(filename), box_(make_unique<Box>(0, "MP4"))
+  : file_(filename), box_(make_shared<Box>(0, "MP4"))
 {}
 
 void Parser::parse()
@@ -307,7 +323,7 @@ void Parser::split(const std::string & init_seg,
   }
 }
 
-void Parser::create_boxes(const unique_ptr<Box> & parent_box,
+void Parser::create_boxes(const shared_ptr<Box> & parent_box,
                           const int64_t start_offset, const int64_t total_size)
 {
   while (true) {
@@ -331,21 +347,21 @@ void Parser::create_boxes(const unique_ptr<Box> & parent_box,
 
     if (container_boxes.find(type) != container_boxes.end()) {
       /* parse a container box recursively */
-      auto box = make_unique<Box>(size, type);
+      auto box = make_shared<Box>(size, type);
 
       create_boxes(box, file_.curr_offset(), data_size);
 
       parent_box->add_child(move(box));
     } else {
       /* parse a regular box */
-      unique_ptr<Box> box;
+      shared_ptr<Box> box;
 
       if (type == "mvhd") {
-        box = make_unique<MvhdBox>(size, type);
+        box = make_shared<MvhdBox>(size, type);
       } else if (type == "sidx") {
-        box = make_unique<SidxBox>(size, type);
+        box = make_shared<SidxBox>(size, type);
       } else {
-        box = make_unique<Box>(size, type);
+        box = make_shared<Box>(size, type);
       }
 
       box->parse_data(file_, data_size);
