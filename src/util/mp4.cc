@@ -274,18 +274,20 @@ void Parser::split(const std::string & init_seg,
   while (it != box_->children_end()) {
     string type = (*it)->type();
 
-    if (type == "moof") {
-      break;
-    }
-
     if (type == "ftyp") {
       has_ftyp = true;
     } else if (type == "moov") {
       has_moov = true;
+    } else if (type == "moof") {
+      throw runtime_error("initial segment shall not have moof");
     }
 
     size_to_copy += (*it)->size();
     ++it;
+
+    if (has_ftyp and has_moov) {
+      break;
+    }
   }
 
   if (not (has_ftyp and has_moov)) {
@@ -299,27 +301,31 @@ void Parser::split(const std::string & init_seg,
   unsigned int curr_seg_number = start_number;
 
   while (it != box_->children_end()) {
-    if ((*it)->type() != "moof") {
+    string type = (*it)->type();
+
+    if (type == "styp" or type == "sidx") {
+      continue;
+    } else if (type == "moof") {
+      size_to_copy = (*it)->size();
+      ++it;
+
+      if ((*it)->type() != "mdat") {
+        throw runtime_error("mdat must follow moof");
+      }
+
+      size_to_copy += (*it)->size();
+      ++it;
+
+      /* populate segment template */
+      string media_seg = populate_template(media_seg_template, curr_seg_number);
+
+      /* copy from MP4 and write to media_seg */
+      copy_to_file(media_seg, size_to_copy);
+
+      curr_seg_number += 1;
+    } else {
       break;
     }
-
-    size_to_copy = (*it)->size();
-    ++it;
-
-    if ((*it)->type() != "mdat") {
-      throw runtime_error("media segments must contain moof and mdat boxes");
-    }
-
-    size_to_copy += (*it)->size();
-    ++it;
-
-    /* populate segment template */
-    string media_seg = populate_template(media_seg_template, curr_seg_number);
-
-    /* copy from MP4 and write to media_seg */
-    copy_to_file(media_seg, size_to_copy);
-
-    curr_seg_number += 1;
   }
 }
 
