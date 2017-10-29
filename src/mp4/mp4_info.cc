@@ -5,6 +5,7 @@
 #include "trun_box.hh"
 #include "stsz_box.hh"
 #include "sidx_box.hh"
+#include "tfhd_box.hh"
 
 using namespace std;
 using namespace MP4;
@@ -31,16 +32,28 @@ tuple<uint32_t, uint64_t> MP4Info::get_timescale_duration()
     if (box != nullptr) {
       auto sidx_box = static_pointer_cast<SidxBox>(box);
       timescale = sidx_box->timescale();
+      if (duration == 0) {
+        /* trying to fix duration as well if possible */
+        duration = sidx_box->duration();
+      }
     }
   }
   if (duration == 0) {
-    /*  trun is out last resort */
     box = parser_->find_first_box_of("trun");
-    if (box != nullptr) {
-      auto trun_box = static_pointer_cast<TrunBox>(box);
+    auto trun_box = static_pointer_cast<TrunBox>(box);
+    if (trun_box != nullptr) {
       duration = trun_box->duration();
     }
-
+    /* default sample duration
+     * if this still doesn't work, it's impossible to find the duration
+     */
+    if (duration == 0) {
+      box = parser_->find_first_box_of("tfhd");
+      auto tfhd_box = static_pointer_cast<TfhdBox>(box);
+      uint32_t sample_duration = tfhd_box->default_sample_duration();
+      uint32_t sample_count = trun_box->sample_count();
+      duration = sample_duration * sample_count;
+    }
   }
   return make_tuple(timescale, duration);
 }
@@ -48,28 +61,65 @@ tuple<uint32_t, uint64_t> MP4Info::get_timescale_duration()
 tuple<uint16_t, uint16_t> MP4Info::get_width_height()
 {
   auto box = parser_->find_first_box_of("avc1");
+  if (box == nullptr) {
+    /* box not found */
+    return make_tuple(0, 0);
+  }
   auto avc1_box = static_pointer_cast<AVC1>(box);
-
   return make_tuple(avc1_box->width(), avc1_box->height());
 }
 
 tuple<uint8_t, uint8_t> MP4Info::get_avc_profile_level()
 {
   auto box = parser_->find_first_box_of("avc1");
+  if (box == nullptr) {
+    /* box not found */
+    return make_tuple(0, 0);
+  }
   auto avc1_box = static_pointer_cast<AVC1>(box);
-
   return make_tuple(avc1_box->avc_profile(), avc1_box->avc_level());
 }
 
-float MP4Info::get_fps()
+uint16_t MP4Info::get_frame_per_sample()
 {
+  auto box = parser_->find_first_box_of("avc1");
+  if (box == nullptr) {
+    return 1; /* 1 is the default and saftest value */
+  } else {
+    auto avc1_box = static_pointer_cast<AVC1>(box);
+    return avc1_box->frame_count();
+  }
+}
 
+float MP4Info::get_fps(uint16_t frame_count)
+{
   auto box = parser_->find_first_box_of("trun");
+  if (box == nullptr) {
+    return 0;
+  }
   auto trun_box = static_pointer_cast<TrunBox>(box);
   uint64_t duration;
-  tie(std::ignore, duration) = get_timescale_duration();
-  if (duration == 0)
+  uint32_t timescale;
+  tie(timescale, duration) = get_timescale_duration();
+  if (duration == 0) {
+    /* no divided by 0 */
     return 0;
-  else
-    return ((float)trun_box->sample_count()) / duration;
+  } else {
+    return ((float)trun_box->sample_count() * timescale * frame_count)
+      / duration;
+  }
+}
+
+uint32_t MP4Info::get_bitrate()
+{
+  auto box = parser_->find_first_box_of("trun");
+  if (box == nullptr) {
+    return 0;
+  }
+  auto trun_box = static_pointer_cast<TrunBox>(box);
+  uint64_t = duration;
+  uint32_t timescale;
+  tie(timescale, duration) = get_timescale_duration();
+  uint32_t s_duration = duration / timescale; /* in seconds */
+  return trun_box->sample_size() / s_duration * 8;
 }

@@ -17,6 +17,14 @@ void SidxBox::add_reference(SidxReference && ref)
   reference_list_.emplace_back(move(ref));
 }
 
+uint32_t SidxBox::duration() {
+  uint32_t result = 0;
+  for (auto ref: reference_list_) {
+    result += ref.subsegment_duration;
+  }
+  return result;
+}
+
 void SidxBox::print_structure(const unsigned int indent)
 {
   cout << string(indent, ' ') << "- " << type() << " " << size() << endl;

@@ -13,6 +13,7 @@ public:
   /* accessors */
   uint32_t sample_count () { return sample_count_; }
   uint32_t duration() { return duration_; }
+  uint32_t sample_size() { return sample_size_; }
 
   void parse_data(MP4File & mp4, const uint64_t data_size);
 
@@ -21,6 +22,7 @@ public:
 private:
   uint32_t sample_count_;
   uint32_t duration_;
+  uint32_t sample_size_;
 };
 
 }

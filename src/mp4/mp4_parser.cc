@@ -1,8 +1,8 @@
-#include <iostream>
-#include <stdexcept>
 #include <limits.h>
 #include <fcntl.h>
 #include <endian.h>
+#include <iostream>
+#include <stdexcept>
 
 #include "exception.hh"
 #include "mp4_parser.hh"
@@ -14,7 +14,8 @@
 #include "stsd_box.hh"
 #include "stsz_box.hh"
 #include "trun_box.hh"
-#include "tfhd_box.hh"
+#include "tkhd_box.hh"
+#include "mdhd_box.hh"
 
 using namespace std;
 using namespace MP4;
@@ -138,6 +139,10 @@ shared_ptr<Box> MP4Parser::box_factory(
     box = make_shared<TrunBox>(size, type);
   } else if (type == "tfhd") {
     box = make_shared<TfhdBox>(size, type);
+  } else if (type == "tkhd") {
+    box = make_shared<TkhdBox>(size, type);
+  } else if (type == "mdhd") {
+    box = make_shared<MdhdBox>(size, type);
   } else {
     box = make_shared<Box>(size, type);
   }
