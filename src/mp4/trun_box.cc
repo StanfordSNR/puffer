@@ -6,7 +6,7 @@ using namespace std;
 using namespace MP4;
 
 TrunBox::TrunBox(const uint64_t size, const string & type)
-  : FullBox(size, type), sample_count_(), duration_()
+  : FullBox(size, type), sample_count_(), duration_(0), sample_size_(0)
 {}
 
 void TrunBox::parse_data(MP4File & mp4, const uint64_t data_size)
@@ -38,7 +38,7 @@ void TrunBox::parse_data(MP4File & mp4, const uint64_t data_size)
     }
 
     if (flags() & sample_size_present) {
-      mp4.read_uint32();
+      sample_size_ += mp4.read_uint32();
     }
 
     if (flags() & sample_flags_present) {
@@ -60,4 +60,5 @@ void TrunBox::print_structure(const unsigned int indent)
   string indent_str = string(indent + 2, ' ') + "| ";
   cout << indent_str << "sample_count " << sample_count_ << endl;
   cout << indent_str << "duration " << duration_ << endl;
+  cout << indent_str << "sample_size " << sample_size_ << endl;
 }
