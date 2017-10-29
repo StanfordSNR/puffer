@@ -9,6 +9,7 @@
 #include "mvhd_box.hh"
 #include "mfhd_box.hh"
 #include "tfhd_box.hh"
+#include "tkhd_box.hh"
 #include "tfdt_box.hh"
 #include "trex_box.hh"
 #include "sidx_box.hh"
@@ -135,6 +136,8 @@ shared_ptr<Box> MP4Parser::box_factory(
     box = make_shared<AVC1>(size, type);
   } else if (type == "stsz") {
     box = make_shared<StszBox>(size, type);
+  } else if (type == "tkhd") {
+    box = make_shared<TkhdBox>(size, type);
   } else if (type == "trun") {
     box = make_shared<TrunBox>(size, type);
   } else if (type == "tfhd") {
