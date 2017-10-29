@@ -15,7 +15,7 @@ void TrexBox::print_structure(const unsigned int indent)
   cout << string(indent, ' ') << "- " << type() << " " << size() << endl;
 
   string indent_str = string(indent + 2, ' ') + "| ";
-  cout << indent_str << "track ID " << track_id_ << endl;
+  cout << indent_str << "track id " << track_id_ << endl;
   cout << indent_str << "default sample duration "
        << default_sample_duration_ << endl;
 }
