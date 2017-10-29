@@ -1,4 +1,5 @@
 #include <iostream>
+#include <stdexcept>
 
 #include "stsd_box.hh"
 
@@ -6,14 +7,14 @@ using namespace std;
 using namespace MP4;
 
 StsdBox::StsdBox(const uint64_t size, const string & type)
-  : Box(size, type), version_(), flags_()
+  : FullBox(size, type)
 {}
 
 void StsdBox::parse_data(MP4File & mp4, const uint64_t data_size)
 {
   uint64_t init_offset = mp4.curr_offset();
 
-  tie(version_, flags_) = mp4.read_version_flags();
+  FullBox::parse_data(mp4);
 
   /* parse sample entries */
   uint32_t num_sample_entries = mp4.read_uint32();
@@ -29,12 +30,8 @@ void StsdBox::parse_data(MP4File & mp4, const uint64_t data_size)
     }
 
     uint32_t sample_data_size = sample_size - 8;
-    uint64_t sample_init_offset = mp4.curr_offset();
-
     box->parse_data(mp4, sample_data_size);
     add_child(move(box));
-
-    skip_data(mp4, sample_data_size, sample_init_offset);
   }
 
   skip_data(mp4, data_size, init_offset);
@@ -46,13 +43,7 @@ SampleEntry::SampleEntry(const uint64_t size, const std::string & type)
 
 void SampleEntry::parse_data(MP4File & mp4)
 {
-  /* 6 bytes of 0 (reserved) */
-  uint32_t reserved1 = mp4.read_uint32();
-  uint16_t reserved2 = mp4.read_uint16();
-  if (reserved1 != 0 or reserved2 != 0) {
-    throw std::runtime_error("Invalid SampleEntry data");
-  }
-
+  mp4.read_zeros(6);
   data_reference_index_ = mp4.read_uint16();
 }
 
@@ -64,26 +55,27 @@ void VisualSampleEntry::parse_data(MP4File & mp4)
 {
   SampleEntry::parse_data(mp4);
 
-  /* 16 bytes of 0 (pre_defined and reserved) */
-  uint64_t reserved1 = mp4.read_uint64();
-  uint64_t reserved2 = mp4.read_uint64();
-  if (reserved1 != 0 or reserved2 != 0) {
-    throw runtime_error("Invalid VisualSampleEntry");
-  }
+  mp4.read_zeros(16);
 
   width_ = mp4.read_uint16();
   height_ = mp4.read_uint16();
   horizresolution_ = mp4.read_uint32();
   vertresolution_ = mp4.read_uint32();
 
-  /* reserved */
-  mp4.read_uint32();
+  mp4.read_zeros(4);
+
   frame_count_ = mp4.read_uint16();
-  uint8_t count = mp4.read_uint8();
-  compressorname_ = mp4.read(32 - count - 1);
+
+  /* read compressorname and ignore padding */
+  uint8_t displayed_bytes = mp4.read_uint8();
+  compressorname_ = mp4.read(displayed_bytes);
+  mp4.read(31 - displayed_bytes);
+
   depth_ = mp4.read_uint16();
 
-  pre_defined_ = mp4.read_uint16();
+  if (mp4.read_int16() != -1) {
+    throw runtime_error("invalid VisualSampleEntry");
+  }
 }
 
 AVC1::AVC1(const uint64_t size, const string & type)

@@ -62,8 +62,19 @@ void Box::skip_data(MP4File & mp4, const uint64_t data_size,
   uint64_t data_parsed = mp4.curr_offset() - init_offset;
 
   if (data_size < data_parsed) {
-    throw runtime_error(type() + " box::skip_data(): data size is too small");
+    throw runtime_error(type() + " box: data size is too small");
   } else if (data_size > data_parsed) {
     mp4.inc_offset(data_size - data_parsed);
   }
+}
+
+FullBox::FullBox(const uint64_t size, const std::string & type)
+  : Box(size, type), version_(), flags_()
+{}
+
+void FullBox::parse_data(MP4File & mp4)
+{
+  uint32_t data = mp4.read_uint32();
+  version_ = (data >> 24) & 0xFF;
+  flags_ = data & 0x00FFFFFF;
 }
