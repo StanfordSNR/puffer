@@ -2,7 +2,7 @@
 #include <string>
 #include <memory>
 
-#include "mp4.hh"
+#include "mp4_parser.hh"
 
 using namespace std;
 
@@ -25,7 +25,7 @@ int main(int argc, char * argv[])
     return EXIT_FAILURE;
   }
 
-  auto parser = make_unique<MP4::Parser>(argv[1]);
+  auto parser = make_unique<MP4::MP4Parser>(argv[1]);
   parser->parse();
   parser->print_structure();
 
