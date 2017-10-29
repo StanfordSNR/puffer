@@ -25,14 +25,14 @@ vector<shared_ptr<Box>>::const_iterator Box::children_end()
   return children_.cend();
 }
 
-shared_ptr<Box> Box::find_descendant(const string & type)
+shared_ptr<Box> Box::find_first_descendant_of(const string & type)
 {
   for (const auto & child : children_) {
     if (child->type() == type) {
       return child;
     }
 
-    auto found = child->find_descendant(type);
+    auto found = child->find_first_descendant_of(type);
     if (found != nullptr) {
       return found;
     }

@@ -26,8 +26,8 @@ public:
   std::vector<std::shared_ptr<Box>>::const_iterator children_begin();
   std::vector<std::shared_ptr<Box>>::const_iterator children_end();
 
-  /* find the box of 'type' in descendants */
-  std::shared_ptr<Box> find_descendant(const std::string & type);
+  /* find the first box of 'type' in descendants (excluding itself) */
+  std::shared_ptr<Box> find_first_descendant_of(const std::string & type);
 
   /* print box structure */
   virtual void print_structure(const unsigned int indent = 0);

@@ -29,7 +29,7 @@ void print_usage(const string & program_name)
   << endl;
 }
 
-string get_ssim_path(bool fast_ssim)
+string get_ssim_path(const bool fast_ssim)
 {
   /* get path to daala_tools based on the path of executable */
   roost::path exe_path = roost::dirname(roost::readlink("/proc/self/exe"));

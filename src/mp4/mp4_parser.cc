@@ -102,6 +102,11 @@ void MP4Parser::split(const std::string & init_seg,
   }
 }
 
+shared_ptr<Box> MP4Parser::find_first_box_of(const string & type)
+{
+  return box_->find_first_descendant_of(type);
+}
+
 shared_ptr<Box> MP4Parser::box_factory(const uint64_t size,
   const string & type, MP4File & mp4, const uint64_t data_size)
 {
