@@ -5,23 +5,21 @@
 
 namespace MP4 {
 
-class SidxBox : public Box
+class SidxBox : public FullBox
 {
 public:
   struct SidxReference {
     bool     reference_type;
     uint32_t reference_size;
-    uint32_t segment_duration;
-    bool     starts_with_SAP;
-    uint8_t  SAP_type;
-    uint32_t SAP_delta;
+    uint32_t subsegment_duration;
+    bool     starts_with_sap;
+    uint8_t  sap_type;
+    uint32_t sap_delta;
   };
 
   SidxBox(const uint64_t size, const std::string & type);
 
   /* accessors */
-  uint8_t version() { return version_; }
-  uint32_t flags() { return flags_; }
   uint32_t reference_id() { return reference_id_; }
   uint32_t timescale() { return timescale_; }
   uint64_t earlist_presentation_time() { return earlist_presentation_time_; }
@@ -36,8 +34,6 @@ public:
   void parse_data(MP4File & mp4, const uint64_t data_size);
 
 private:
-  uint8_t version_;
-  uint32_t flags_;
   uint32_t reference_id_;
   uint32_t timescale_;
   uint64_t earlist_presentation_time_;

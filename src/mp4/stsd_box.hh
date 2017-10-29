@@ -5,20 +5,12 @@
 
 namespace MP4 {
 
-class StsdBox : public Box
+class StsdBox : public FullBox
 {
 public:
   StsdBox(const uint64_t size, const std::string & type);
 
-  /* accessors */
-  uint8_t version() { return version_; }
-  uint32_t flags() { return flags_; }
-
   void parse_data(MP4File & mp4, const uint64_t data_size);
-
-private:
-  uint8_t version_;
-  uint32_t flags_;
 };
 
 class SampleEntry : public Box
@@ -54,13 +46,12 @@ public:
 private:
   uint16_t width_;
   uint16_t height_;
-  std::string compressorname_;
   uint32_t horizresolution_ = 0x00480000; /* 72 dpi */
   uint32_t vertresolution_ = 0x00480000; /* 72 dpi */
-  uint16_t depth_ = 0x0018;
   uint16_t frame_count_ = 1;
-  uint16_t pre_defined_ = -1;
-  /* optional boxes are not implemented */
+  std::string compressorname_;
+  uint16_t depth_ = 0x0018;
+  /* optional boxes are not parsed */
 };
 
 class AVC1 : public VisualSampleEntry

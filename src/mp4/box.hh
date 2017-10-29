@@ -48,6 +48,22 @@ private:
   std::vector<std::shared_ptr<Box>> children_;
 };
 
+class FullBox : public Box
+{
+public:
+  FullBox(const uint64_t size, const std::string & type);
+
+  void parse_data(MP4File & mp4);
+
+  /* accessors */
+  uint8_t version() { return version_; }
+  uint32_t flags() { return flags_; }
+
+private:
+  uint8_t version_;
+  uint32_t flags_;
+};
+
 }
 
 #endif /* BOX_HH */

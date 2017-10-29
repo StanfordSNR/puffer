@@ -73,8 +73,18 @@ uint64_t MP4File::read_uint64()
   return be64toh(*size);
 }
 
-tuple<uint8_t, uint32_t> MP4File::read_version_flags()
+int16_t MP4File::read_int16()
 {
-  uint32_t data = read_uint32();
-  return make_tuple((data >> 24) & 0xFF, data & 0x00FFFFFF);
+  string data = read(2);
+  const int16_t * size = reinterpret_cast<const int16_t *>(data.c_str());
+  return be16toh(*size);
+}
+
+void MP4File::read_zeros(const size_t bytes)
+{
+  for (size_t i = 0; i < bytes; ++i) {
+    if (read_uint8() != 0) {
+      throw runtime_error("read non-zero byte");
+    }
+  }
 }

@@ -29,7 +29,10 @@ public:
   uint16_t read_uint16();
   uint32_t read_uint32();
   uint64_t read_uint64();
-  std::tuple<uint8_t, uint32_t> read_version_flags();
+  int16_t read_int16();
+
+  /* throw runtime error if any byte read is not zero */
+  void read_zeros(const size_t bytes);
 };
 
 }

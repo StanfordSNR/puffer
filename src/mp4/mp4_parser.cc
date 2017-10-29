@@ -1,6 +1,5 @@
 #include <iostream>
 #include <stdexcept>
-#include <set>
 #include <limits.h>
 #include <fcntl.h>
 #include <endian.h>
@@ -107,8 +106,9 @@ shared_ptr<Box> MP4Parser::find_first_box_of(const string & type)
   return box_->find_first_descendant_of(type);
 }
 
-shared_ptr<Box> MP4Parser::box_factory(const uint64_t size,
-  const string & type, MP4File & mp4, const uint64_t data_size)
+shared_ptr<Box> MP4Parser::box_factory(
+    const uint64_t size, const string & type,
+    MP4File & mp4, const uint64_t data_size)
 {
   shared_ptr<Box> box;
 
@@ -118,8 +118,6 @@ shared_ptr<Box> MP4Parser::box_factory(const uint64_t size,
     box = make_shared<SidxBox>(size, type);
   } else if (type == "stsd") {
     box = make_shared<StsdBox>(size, type);
-  } else if (type == "avc1") {
-    box = make_shared<AVC1>(size, type);
   } else {
     box = make_shared<Box>(size, type);
   }
@@ -147,12 +145,12 @@ void MP4Parser::create_boxes(const shared_ptr<Box> & parent_box,
       data_size = size - 8;
     }
 
-    set<string> container_boxes{
-      "moov", "trak", "edts", "mdia", "minf", "stbl", "mvex", "moof", "traf",
-      "mfra", "skip", "strk", "meta", "dinf", "ipro", "sinf", "fiin", "paen",
-      "meco", "mere"};
+    if (type == "uuid") {
+      /* ignore extended_type */
+      mp4_.read(16);
+    }
 
-    if (container_boxes.find(type) != container_boxes.end()) {
+    if (mp4_container_boxes.find(type) != mp4_container_boxes.end()) {
       /* parse a container box recursively */
       auto box = make_shared<Box>(size, type);
       create_boxes(box, mp4_.curr_offset(), data_size);

@@ -4,11 +4,17 @@
 #include <string>
 #include <memory>
 #include <cstdint>
+#include <set>
 
 #include "mp4_file.hh"
 #include "box.hh"
 
 namespace MP4 {
+
+const std::set<std::string> mp4_container_boxes{
+  "moov", "trak", "edts", "mdia", "minf", "stbl", "mvex", "moof", "traf",
+  "mfra", "skip", "strk", "meta", "dinf", "ipro", "sinf", "fiin", "paen",
+  "meco", "mere"};
 
 class MP4Parser
 {
@@ -28,7 +34,7 @@ public:
              const std::string & media_seg_template,
              const unsigned int start_number);
 
-  std::shared_ptr<Box> top_box() { return box_; }
+  std::shared_ptr<Box> root_box() { return box_; }
   std::shared_ptr<Box> find_first_box_of(const std::string & type);
 
 private:
@@ -41,8 +47,9 @@ private:
                     const uint64_t start_offset, const uint64_t total_size);
 
   /* a factory method to create different boxes based on their type */
-  std::shared_ptr<Box> box_factory(const uint64_t size,
-    const std::string & type, MP4File & mp4, const uint64_t data_size);
+  std::shared_ptr<Box> box_factory(
+      const uint64_t size, const std::string & type,
+      MP4File & mp4, const uint64_t data_size);
 
   /* copy size_to_copy bytes from current offset and write to filename */
   void copy_to_file(const std::string & output_filename,
