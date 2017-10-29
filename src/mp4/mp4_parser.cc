@@ -6,6 +6,7 @@
 
 #include "exception.hh"
 #include "mp4_parser.hh"
+#include "ftyp_box.hh"
 #include "mvhd_box.hh"
 #include "mfhd_box.hh"
 #include "tfhd_box.hh"
@@ -120,7 +121,9 @@ shared_ptr<Box> MP4Parser::box_factory(
 {
   shared_ptr<Box> box;
 
-  if (type == "mvhd") {
+  if (type == "ftyp" or type == "styp") {
+    box = make_shared<FtypBox>(size, type);
+  } else if (type == "mvhd") {
     box = make_shared<MvhdBox>(size, type);
   } else if (type == "mfhd") {
     box = make_shared<MfhdBox>(size, type);

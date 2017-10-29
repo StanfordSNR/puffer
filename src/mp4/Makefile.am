@@ -6,6 +6,7 @@ noinst_LIBRARIES = libmp4.a
 libmp4_a_SOURCES = \
 	mp4_file.hh mp4_file.cc \
 	box.hh box.cc \
+	ftyp_box.hh ftyp_box.cc \
 	mvhd_box.hh mvhd_box.cc \
 	mfhd_box.hh mfhd_box.cc \
 	tfhd_box.hh tfhd_box.cc \
