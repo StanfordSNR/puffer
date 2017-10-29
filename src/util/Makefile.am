@@ -20,5 +20,4 @@ libutil_a_SOURCES = \
 	temp_file.hh temp_file.cc \
 	timeit.hh timeit.cc \
 	tokenize.hh tokenize.cc \
-	util.hh util.cc \
-	mpd.hh mpd.cc
+	util.hh util.cc

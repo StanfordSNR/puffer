@@ -12,6 +12,9 @@ libmp4_a_SOURCES = \
 	trex_box.hh trex_box.cc \
 	sidx_box.hh sidx_box.cc \
 	stsd_box.hh stsd_box.cc \
+	stsz_box.hh stsz_box.cc \
+	trun_box.hh	trun_box.cc \
+	tfhd_box.hh tfhd_box.cc \
 	mp4_parser.hh mp4_parser.cc \
 	mp4_info.hh mp4_info.cc
 

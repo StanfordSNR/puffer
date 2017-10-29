@@ -12,6 +12,11 @@ public:
 
   /* accessors */
   uint32_t track_id() { return track_id_; }
+  uint64_t base_data_offset() { return base_data_offset_; }
+  uint32_t sample_description_index() { return sample_description_index_; }
+  uint32_t default_sample_duration() { return default_sample_duration_; }
+  uint32_t default_sample_size() { return default_sample_size_; }
+  uint32_t default_sample_flags() { return default_sample_flags_; }
 
   void print_structure(const unsigned int indent = 0);
 
@@ -19,8 +24,12 @@ public:
 
 private:
   uint32_t track_id_;
+  uint64_t base_data_offset_;
+  uint32_t sample_description_index_;
+  uint32_t default_sample_duration_;
+  uint32_t default_sample_size_;
+  uint32_t default_sample_flags_;
 };
 
 }
-
 #endif /* TFHD_BOX_HH */
