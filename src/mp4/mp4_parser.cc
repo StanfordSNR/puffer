@@ -7,6 +7,7 @@
 #include "exception.hh"
 #include "mp4_parser.hh"
 #include "mvhd_box.hh"
+#include "mfhd_box.hh"
 #include "sidx_box.hh"
 #include "stsd_box.hh"
 
@@ -114,6 +115,8 @@ shared_ptr<Box> MP4Parser::box_factory(
 
   if (type == "mvhd") {
     box = make_shared<MvhdBox>(size, type);
+  } else if (type == "mfhd") {
+    box = make_shared<MfhdBox>(size, type);
   } else if (type == "sidx") {
     box = make_shared<SidxBox>(size, type);
   } else if (type == "stsd") {
@@ -122,7 +125,13 @@ shared_ptr<Box> MP4Parser::box_factory(
     box = make_shared<Box>(size, type);
   }
 
+  uint64_t init_offset = mp4.curr_offset();
+
   box->parse_data(mp4, data_size);
+
+  if (mp4.curr_offset() != init_offset + data_size) {
+    throw runtime_error("parse_data() should increment offset by data_size");
+  }
 
   return box;
 }

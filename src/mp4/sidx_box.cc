@@ -70,5 +70,5 @@ void SidxBox::parse_data(MP4File & mp4, const uint64_t data_size)
     });
   }
 
-  skip_data(mp4, data_size, init_offset);
+  check_data_left(mp4, data_size, init_offset);
 }

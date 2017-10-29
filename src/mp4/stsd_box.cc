@@ -34,7 +34,7 @@ void StsdBox::parse_data(MP4File & mp4, const uint64_t data_size)
     add_child(move(box));
   }
 
-  skip_data(mp4, data_size, init_offset);
+  check_data_left(mp4, data_size, init_offset);
 }
 
 SampleEntry::SampleEntry(const uint64_t size, const std::string & type)
@@ -102,7 +102,7 @@ void AVC1::parse_data(MP4File & mp4, const uint64_t data_size)
   avc_profile_compatibility_ = mp4.read_uint8();
   avc_level_ = mp4.read_uint8();
 
-  skip_data(mp4, data_size, init_offset);
+  skip_data_left(mp4, data_size, init_offset);
 }
 
 void AVC1::print_structure(const unsigned int indent)

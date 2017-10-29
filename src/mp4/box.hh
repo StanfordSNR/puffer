@@ -36,10 +36,15 @@ public:
   virtual void parse_data(MP4File & mp4, const uint64_t data_size);
 
 protected:
-  /* a helper function typically used in 'parse_data'; skip parsing the next
-   * 'data_size - (mp4.curr_offset() - init_offset)' bytes of data in 'mp4' */
-  void skip_data(MP4File & mp4, const uint64_t data_size,
-                 const uint64_t init_offset);
+  /* helper functions used in 'parse_data' */
+
+  /* skip parsing the remaining data */
+  void skip_data_left(MP4File & mp4, const uint64_t data_size,
+                      const uint64_t init_offset);
+
+  /* check no data remains to be parsed */
+  void check_data_left(MP4File & mp4, const uint64_t data_size,
+                       const uint64_t init_offset);
 
 private:
   uint64_t size_;

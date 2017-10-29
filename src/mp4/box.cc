@@ -53,11 +53,13 @@ void Box::print_structure(const unsigned int indent)
 void Box::parse_data(MP4File & mp4, const uint64_t data_size)
 {
   /* ignore data by incrementing file offset */
-  mp4.inc_offset(data_size);
+  if (data_size > 0) {
+    mp4.inc_offset(data_size);
+  }
 }
 
-void Box::skip_data(MP4File & mp4, const uint64_t data_size,
-                    const uint64_t init_offset)
+void Box::skip_data_left(MP4File & mp4, const uint64_t data_size,
+                         const uint64_t init_offset)
 {
   uint64_t data_parsed = mp4.curr_offset() - init_offset;
 
@@ -65,6 +67,14 @@ void Box::skip_data(MP4File & mp4, const uint64_t data_size,
     throw runtime_error(type() + " box: data size is too small");
   } else if (data_size > data_parsed) {
     mp4.inc_offset(data_size - data_parsed);
+  }
+}
+
+void Box::check_data_left(MP4File & mp4, const uint64_t data_size,
+                          const uint64_t init_offset)
+{
+  if (mp4.curr_offset() != init_offset + data_size) {
+    throw runtime_error("data remains to be parsed");
   }
 }
 
