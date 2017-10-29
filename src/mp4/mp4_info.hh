@@ -13,6 +13,7 @@ public:
   std::tuple<uint32_t, uint64_t> get_timescale_duration();
   std::tuple<uint16_t, uint16_t> get_width_height();
   std::tuple<uint8_t, uint8_t> get_avc_profile_level();
+  float get_fps();
 
 private:
   std::shared_ptr<MP4Parser> parser_;
