@@ -10,6 +10,7 @@
 #include "mvhd_box.hh"
 #include "sidx_box.hh"
 #include "stsd_box.hh"
+#include "stsz_box.hh"
 
 using namespace std;
 using namespace MP4;
@@ -120,6 +121,8 @@ shared_ptr<Box> MP4Parser::box_factory(const uint64_t size,
     box = make_shared<StsdBox>(size, type);
   } else if (type == "avc1") {
     box = make_shared<AVC1>(size, type);
+  } else if (type == "stsz") {
+    box = make_shared<StszBox>(size, type);
   } else {
     box = make_shared<Box>(size, type);
   }
