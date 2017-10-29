@@ -3,7 +3,13 @@ AM_CXXFLAGS = $(PICKY_CXXFLAGS)
 
 noinst_LIBRARIES = libmp4.a
 
-libmp4_a_SOURCES = mp4.hh mp4.cc
+libmp4_a_SOURCES = \
+	mp4_file.hh mp4_file.cc \
+	box.hh box.cc \
+	mvhd_box.hh mvhd_box.cc \
+	sidx_box.hh sidx_box.cc \
+	stsd_box.hh stsd_box.cc \
+	mp4_parser.hh mp4_parser.cc
 
 bin_PROGRAMS = mp4_structure mp4_split
 

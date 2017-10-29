@@ -5,7 +5,7 @@
 #include <getopt.h>
 
 #include "strict_conversions.hh"
-#include "mp4.hh"
+#include "mp4_parser.hh"
 
 using namespace std;
 
@@ -93,7 +93,7 @@ int main(int argc, char * argv[])
   verify(media_seg);
 
   input_mp4 = argv[optind];
-  auto parser = make_unique<MP4::Parser>(input_mp4);
+  auto parser = make_unique<MP4::MP4Parser>(input_mp4);
 
   parser->parse();
   parser->split(init_seg, media_seg, start_number);
