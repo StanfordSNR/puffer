@@ -117,7 +117,7 @@ uint32_t MP4Info::get_bitrate()
     return 0;
   }
   auto trun_box = static_pointer_cast<TrunBox>(box);
-  uint64_t = duration;
+  uint64_t duration;
   uint32_t timescale;
   tie(timescale, duration) = get_timescale_duration();
   uint32_t s_duration = duration / timescale; /* in seconds */
