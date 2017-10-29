@@ -7,6 +7,7 @@ libmp4_a_SOURCES = \
 	mp4_file.hh mp4_file.cc \
 	box.hh box.cc \
 	mvhd_box.hh mvhd_box.cc \
+	mfhd_box.hh mfhd_box.cc \
 	sidx_box.hh sidx_box.cc \
 	stsd_box.hh stsd_box.cc \
 	mp4_parser.hh mp4_parser.cc \

@@ -37,5 +37,5 @@ void MvhdBox::parse_data(MP4File & mp4, const uint64_t data_size)
     duration_ = mp4.read_uint32();
   }
 
-  skip_data(mp4, data_size, init_offset);
+  skip_data_left(mp4, data_size, init_offset);
 }
