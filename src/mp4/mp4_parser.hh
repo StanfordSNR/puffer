@@ -28,6 +28,9 @@ public:
              const std::string & media_seg_template,
              const unsigned int start_number);
 
+  std::shared_ptr<Box> top_box() { return box_; }
+  std::shared_ptr<Box> find_first_box_of(const std::string & type);
+
 private:
   MP4File mp4_;
   std::shared_ptr<Box> box_;

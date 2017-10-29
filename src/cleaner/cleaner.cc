@@ -43,7 +43,7 @@ void clean_files(const string & working_dir, const string & pattern,
 
   vector<string> filenames = roost::get_directory_listing(working_dir);
 
-  for (const auto filename : filenames) {
+  for (const auto & filename : filenames) {
     string fullpath = roost::join(working_dir, filename);
 
     if (not pattern.empty() and not regex_match(filename, pattern_regex)) {
