@@ -1,9 +1,10 @@
+#include <getopt.h>
 #include <iostream>
 #include <string>
-#include <getopt.h>
 #include <memory>
 #include "mpd.hh"
 #include "path.hh"
+#include "mp4_info.hh"
 
 using namespace std;
 using namespace MPD;
@@ -16,12 +17,12 @@ const struct option options[] = {
   {"buffer-time", required_argument, NULL, 'b'},
   {"segment-name", required_argument, NULL, 's'},
   {"init-name", required_argument, NULL, 'i'},
-  {NULL,0,NULL,0}
+  {NULL, 0, NULL, 0},
 };
 
-const string default_base_uri = "/";
-const string default_media_uri = "$Number$.m4s";
-const string default_init_uri = "init.mp4";
+const char default_base_uri[] = "/";
+const char default_media_uri[] = "$Number$.m4s";
+const char default_init_uri[] = "init.mp4";
 const uint32_t default_update_period = 60;
 const uint32_t default_buffer_time = 2;
 
@@ -48,17 +49,17 @@ int main(int argc, char * argv[])
   vector<string> dirs;
 
   while ((c = getopt_long(argc, argv, optstring, options, &long_option_index))
-      != EOF){
-    switch(c){
+      != EOF) {
+    switch (c) {
       case 'u': base_url = optarg; break;
-      case 'p': update_period= stoi(optarg); break;
+      case 'p': update_period = stoi(optarg); break;
       case 'l': buffer_time = stoi(optarg); break;
       case 's': segment_name = optarg; break;
       case 'i': init_name = optarg; break;
-      default:{
+      default: {
                 print_usage(argv[0]);
                 return EXIT_FAILURE;
-              }
+               }
     }
   }
   if (optind == argc) {
@@ -79,9 +80,9 @@ int main(int argc, char * argv[])
   }
 
   auto w = make_unique<MPDWriter>(update_period, buffer_time, base_url);
-  
+
   /* figure out what kind of representation each folder is */
-  for(auto const path: dirs) {
+  for (auto const path : dirs) {
     /* find the init mp4 */
     string init_mp4_path = roost::join(path, init_name);
     if (not roost::exists(init_mp4_path)) {
