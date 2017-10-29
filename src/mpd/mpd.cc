@@ -196,7 +196,7 @@ std::string MPDWriter::format_time_now()
 
 
 std::string MPDWriter::write_video_codec(
-        std::shared_ptr<MPD::VideoRepresentation> repr) 
+        std::shared_ptr<MPD::VideoRepresentation> repr)
 {
   char buf[20];
   sprintf(buf, "avc1.%02XE0%02X", repr->profile, repr->avc_level);

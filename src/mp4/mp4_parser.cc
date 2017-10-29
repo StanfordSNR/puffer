@@ -11,6 +11,7 @@
 #include "sidx_box.hh"
 #include "stsd_box.hh"
 #include "stsz_box.hh"
+#include "trun_box.hh"
 
 using namespace std;
 using namespace MP4;
@@ -123,6 +124,8 @@ shared_ptr<Box> MP4Parser::box_factory(const uint64_t size,
     box = make_shared<AVC1>(size, type);
   } else if (type == "stsz") {
     box = make_shared<StszBox>(size, type);
+  } else if (type == "trun") {
+    box = make_shared<TrunBox>(size, type);
   } else {
     box = make_shared<Box>(size, type);
   }
