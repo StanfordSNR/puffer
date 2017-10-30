@@ -51,6 +51,8 @@ public:
 
   /* write 'bytes' bytes of zeros to file */
   void write_zeros(const size_t bytes);
+
+  void write_string(const std::string & data, const size_t bytes);
 };
 
 }

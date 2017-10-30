@@ -25,7 +25,7 @@ using namespace std;
 using namespace MP4;
 
 MP4Parser::MP4Parser(const string & filename)
-  : mp4_(filename, O_RDONLY), box_(make_shared<Box>(0, "MP4"))
+  : mp4_(filename, O_RDONLY), box_(make_shared<Box>(0, "root"))
 {}
 
 void MP4Parser::parse()

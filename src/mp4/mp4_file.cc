@@ -173,3 +173,12 @@ void MP4File::write_zeros(const size_t bytes)
     write(string(1, char(0)));
   }
 }
+
+void MP4File::write_string(const string & data, const size_t bytes)
+{
+  if (data.size() != bytes) {
+    throw runtime_error("data size != bytes");
+  }
+
+  write(data);
+}
