@@ -8,9 +8,14 @@
 using namespace std;
 using namespace MP4;
 
-MP4File::MP4File(const string & filename)
+MP4File::MP4File(const string & filename, int flags)
   : FileDescriptor(CheckSystemCall("open (" + filename + ")",
-                                   open(filename.c_str(), O_RDONLY)))
+                                   open(filename.c_str(), flags)))
+{}
+
+MP4File::MP4File(const string & filename, int flags, mode_t mode)
+  : FileDescriptor(CheckSystemCall("open (" + filename + ")",
+                                   open(filename.c_str(), flags, mode)))
 {}
 
 uint64_t MP4File::seek(const int64_t offset, const int whence)
@@ -112,63 +117,59 @@ void MP4File::read_zeros(const size_t bytes)
 
 void MP4File::write_uint8(const uint8_t data)
 {
-  uint8_t host_data = data;
-  const char * str = reinterpret_cast<const char *>(&host_data);
-  write(str);
+  write(string(1, char(data)));
 }
 
 void MP4File::write_uint16(const uint16_t data)
 {
   uint16_t host_data = htobe16(data);
   const char * str = reinterpret_cast<const char *>(&host_data);
-  write(str);
+  write(string(str, 2));
 }
 
 void MP4File::write_uint32(const uint32_t data)
 {
-  uint32_t host_data = htobe32(data);
+  const uint32_t host_data = htobe32(data);
   const char * str = reinterpret_cast<const char *>(&host_data);
-  write(str);
+  write(string(str, 4));
 }
 
 void MP4File::write_uint64(const uint64_t data)
 {
   uint64_t host_data = htobe64(data);
   const char * str = reinterpret_cast<const char *>(&host_data);
-  write(str);
+  write(string(str, 8));
 }
 
 void MP4File::write_int8(const int8_t data)
 {
-  int8_t host_data = data;
-  const char * str = reinterpret_cast<const char *>(&host_data);
-  write(str);
+  write(string(1, char(data)));
 }
 
 void MP4File::write_int16(const int16_t data)
 {
   int16_t host_data = htobe16(data);
   const char * str = reinterpret_cast<const char *>(&host_data);
-  write(str);
+  write(string(str, 2));
 }
 
 void MP4File::write_int32(const int32_t data)
 {
   int32_t host_data = htobe32(data);
   const char * str = reinterpret_cast<const char *>(&host_data);
-  write(str);
+  write(string(str, 4));
 }
 
 void MP4File::write_int64(const int64_t data)
 {
   int64_t host_data = htobe64(data);
   const char * str = reinterpret_cast<const char *>(&host_data);
-  write(str);
+  write(string(str, 8));
 }
 
 void MP4File::write_zeros(const size_t bytes)
 {
   for (size_t i = 0; i < bytes; ++i) {
-    write_uint8(0);
+    write(string(1, char(0)));
   }
 }

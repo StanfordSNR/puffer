@@ -4,6 +4,7 @@
 #include <string>
 #include <tuple>
 #include <cstdint>
+#include <fcntl.h>
 
 #include "file_descriptor.hh"
 
@@ -12,7 +13,8 @@ namespace MP4 {
 class MP4File : public FileDescriptor
 {
 public:
-  MP4File(const std::string & filename);
+  MP4File(const std::string & filename, int flags);
+  MP4File(const std::string & filename, int flags, mode_t mode);
 
   /* manipulate file offset */
   uint64_t seek(const int64_t offset, const int whence);
@@ -47,6 +49,7 @@ public:
   void write_int32(const int32_t data);
   void write_int64(const int64_t data);
 
+  /* write 'bytes' bytes of zeros to file */
   void write_zeros(const size_t bytes);
 };
 
