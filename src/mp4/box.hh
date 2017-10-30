@@ -14,11 +14,18 @@ class Box
 {
 public:
   Box(const uint64_t size, const std::string & type);
+  Box(const std::string & type);
   virtual ~Box() {}
 
   /* accessors */
   uint64_t size() { return size_; }
   std::string type() { return type_; }
+
+  /* mutators */
+  void set_size(const uint64_t size) { size_ = size; }
+
+  /* infer size from children recursively if size is zero */
+  void infer_size();
 
   /* parameter is a sink; use rvalue reference to save a "move" operation */
   void add_child(std::shared_ptr<Box> && child);
@@ -35,8 +42,12 @@ public:
   /* parse the next 'data_size' bytes in 'mp4' */
   virtual void parse_data(MP4File & mp4, const uint64_t data_size);
 
+  /* write the box and its children to 'mp4' */
+  virtual void write_box(MP4File & mp4);
+
 protected:
-  void print_type_size(const unsigned int indent = 0);
+  void print_size_type(const unsigned int indent = 0);
+  void write_size_type(MP4File & mp4);
 
   /* helper functions used in 'parse_data' */
   /* skip parsing the remaining data */
@@ -57,6 +68,8 @@ class FullBox : public Box
 {
 public:
   FullBox(const uint64_t size, const std::string & type);
+  FullBox(const std::string & type,
+          const uint8_t version, const uint32_t flags);
 
   /* accessors */
   uint8_t version() { return version_; }
@@ -67,6 +80,7 @@ public:
 protected:
   void print_version_flags(const unsigned int indent = 0);
   void parse_version_flags(MP4File & mp4);
+  void write_version_flags(MP4File & mp4);
 
 private:
   uint8_t version_;
