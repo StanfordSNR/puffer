@@ -25,10 +25,10 @@ libmp4_a_SOURCES = \
 bin_PROGRAMS = mp4_structure mp4_split mp4_fragment
 
 mp4_structure_SOURCES = mp4_structure.cc
-mp4_structure_LDADD = ../util/libutil.a libmp4.a
+mp4_structure_LDADD = libmp4.a ../util/libutil.a
 
 mp4_split_SOURCES = mp4_split.cc
-mp4_split_LDADD = ../util/libutil.a libmp4.a
+mp4_split_LDADD = libmp4.a ../util/libutil.a
 
 mp4_fragment_SOURCES = mp4_fragment.cc
-mp4_fragment_LDADD = ../util/libutil.a libmp4.a
+mp4_fragment_LDADD = libmp4.a ../util/libutil.a
