@@ -110,6 +110,12 @@ float MP4Info::get_fps(uint16_t frame_count)
   }
 }
 
+bool MP4Info::is_video()
+{
+  auto box = parser_->find_first_box_of("avc1");
+  return box != nullptr;
+}
+
 uint32_t MP4Info::get_bitrate()
 {
   auto box = parser_->find_first_box_of("trun");

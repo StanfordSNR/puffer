@@ -32,5 +32,5 @@ void StszBox::print_structure(const unsigned int indent)
   cout << string(indent, ' ') << "- " << type() << " " << size() << endl;
 
   string indent_str = string(indent + 2, ' ') + "| ";
-  cout << indent_str << "sample_count " << sample_count_ << endl;
+  cout << indent_str << "sample count " << sample_count_ << endl;
 }

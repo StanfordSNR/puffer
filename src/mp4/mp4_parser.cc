@@ -6,9 +6,12 @@
 
 #include "exception.hh"
 #include "mp4_parser.hh"
+#include "ftyp_box.hh"
 #include "mvhd_box.hh"
 #include "mfhd_box.hh"
 #include "tfhd_box.hh"
+#include "tkhd_box.hh"
+#include "tfdt_box.hh"
 #include "trex_box.hh"
 #include "sidx_box.hh"
 #include "stsd_box.hh"
@@ -119,7 +122,9 @@ shared_ptr<Box> MP4Parser::box_factory(
 {
   shared_ptr<Box> box;
 
-  if (type == "mvhd") {
+  if (type == "ftyp" or type == "styp") {
+    box = make_shared<FtypBox>(size, type);
+  } else if (type == "mvhd") {
     box = make_shared<MvhdBox>(size, type);
   } else if (type == "mfhd") {
     box = make_shared<MfhdBox>(size, type);
@@ -135,14 +140,14 @@ shared_ptr<Box> MP4Parser::box_factory(
     box = make_shared<AVC1>(size, type);
   } else if (type == "stsz") {
     box = make_shared<StszBox>(size, type);
-  } else if (type == "trun") {
-    box = make_shared<TrunBox>(size, type);
-  } else if (type == "tfhd") {
-    box = make_shared<TfhdBox>(size, type);
   } else if (type == "tkhd") {
     box = make_shared<TkhdBox>(size, type);
+  } else if (type == "trun") {
+    box = make_shared<TrunBox>(size, type);
   } else if (type == "mdhd") {
     box = make_shared<MdhdBox>(size, type);
+  } else if (type == "tfdt") {
+    box = make_shared<TfdtBox>(size, type);
   } else {
     box = make_shared<Box>(size, type);
   }
