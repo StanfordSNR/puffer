@@ -16,6 +16,7 @@ public:
   float get_fps(uint16_t frame_count = 1);
   uint16_t get_frame_per_sample();
   uint32_t get_bitrate();
+  bool is_video();
 
 private:
   std::shared_ptr<MP4Parser> parser_;

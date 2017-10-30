@@ -117,6 +117,6 @@ void AVC1::print_structure(const unsigned int indent)
           avcc_size_ << endl;
 
   indent_str = string(indent + 4, ' ') + "| ";
-  cout << indent_str << "avc_profile " << unsigned(avc_profile_) << endl;
-  cout << indent_str << "avc_level " << unsigned(avc_level_) << endl;
+  cout << indent_str << "profile " << unsigned(avc_profile_) << endl;
+  cout << indent_str << "level " << unsigned(avc_level_) << endl;
 }

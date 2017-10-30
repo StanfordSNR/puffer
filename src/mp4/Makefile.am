@@ -6,17 +6,18 @@ noinst_LIBRARIES = libmp4.a
 libmp4_a_SOURCES = \
 	mp4_file.hh mp4_file.cc \
 	box.hh box.cc \
+	ftyp_box.hh ftyp_box.cc \
 	mvhd_box.hh mvhd_box.cc \
 	mfhd_box.hh mfhd_box.cc \
-	tfhd_box.hh tfhd_box.cc \
 	trex_box.hh trex_box.cc \
 	sidx_box.hh sidx_box.cc \
 	stsd_box.hh stsd_box.cc \
 	stsz_box.hh stsz_box.cc \
-	trun_box.hh	trun_box.cc \
+	trun_box.hh trun_box.cc \
 	tfhd_box.hh tfhd_box.cc \
 	tkhd_box.hh tkhd_box.cc \
 	mdhd_box.hh mdhd_box.cc \
+	tfdt_box.hh tfdt_box.cc \
 	mp4_parser.hh mp4_parser.cc \
 	mp4_info.hh mp4_info.cc
 

@@ -12,9 +12,11 @@ public:
 
   /* accessors */
   uint64_t creation_time() { return creation_time_; }
-  uint64_t modificaiton_time() { return modification_time_; }
-  uint32_t track_ID() { return track_ID_; }
+  uint64_t modification_time() { return modification_time_; }
+  uint32_t track_id() { return track_id_; }
   uint64_t duration() { return duration_; }
+  uint32_t width() { return width_; }
+  uint32_t height() { return height_; }
 
   void print_structure(const unsigned int indent = 0);
 
@@ -23,10 +25,11 @@ public:
 private:
   uint64_t creation_time_;
   uint64_t modification_time_;
-  uint32_t track_ID_;
+  uint32_t track_id_;
   uint64_t duration_;
+  uint32_t width_;
+  uint32_t height_;
 };
 
 }
-
 #endif /* TKHD_BOX_HH */
