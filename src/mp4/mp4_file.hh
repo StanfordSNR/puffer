@@ -36,6 +36,18 @@ public:
 
   /* throw runtime error if any byte read is not zero */
   void read_zeros(const size_t bytes);
+
+  /* write bytes to file */
+  void write_uint8(const uint8_t data);
+  void write_uint16(const uint16_t data);
+  void write_uint32(const uint32_t data);
+  void write_uint64(const uint64_t data);
+  void write_int8(const int8_t data);
+  void write_int16(const int16_t data);
+  void write_int32(const int32_t data);
+  void write_int64(const int64_t data);
+
+  void write_zeros(const size_t bytes);
 };
 
 }
