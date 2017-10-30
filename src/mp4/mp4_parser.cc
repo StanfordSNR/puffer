@@ -224,7 +224,7 @@ void MP4Parser::copy_to_file(const string & output_filename,
     }
 
     size_copied += data.size();
-    output_fd.write(data, true);
+    output_fd.write(data);
   }
 
   output_fd.close();
