@@ -11,7 +11,7 @@ StszBox::StszBox(const uint64_t size, const string & type)
 
 void StszBox::print_structure(const unsigned int indent)
 {
-  print_type_size(indent);
+  print_size_type(indent);
 
   string indent_str = string(indent + 2, ' ') + "| ";
   cout << indent_str << "sample count " << sample_count_ << endl;

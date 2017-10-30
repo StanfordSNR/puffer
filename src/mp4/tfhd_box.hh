@@ -21,6 +21,7 @@ public:
   void print_structure(const unsigned int indent = 0);
 
   void parse_data(MP4File & mp4, const uint64_t data_size);
+  void write_data(MP4File & mp4);
 
 private:
   uint32_t track_id_;
@@ -29,6 +30,12 @@ private:
   uint32_t default_sample_duration_;
   uint32_t default_sample_size_;
   uint32_t default_sample_flags_;
+
+  static const uint32_t base_data_offset_present = 0x000001;
+  static const uint32_t sample_description_index_present = 0x000002;
+  static const uint32_t default_sample_duration_present = 0x000008;
+  static const uint32_t default_sample_size_present = 0x000010;
+  static const uint32_t default_sample_flags_present = 0x000020;
 };
 
 }

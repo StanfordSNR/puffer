@@ -11,7 +11,7 @@ TrunBox::TrunBox(const uint64_t size, const string & type)
 
 void TrunBox::print_structure(const unsigned int indent)
 {
-  print_type_size(indent);
+  print_size_type(indent);
 
   string indent_str = string(indent + 2, ' ') + "| ";
   cout << indent_str << "sample count " << sample_count_ << endl;
@@ -26,13 +26,6 @@ void TrunBox::parse_data(MP4File & mp4, const uint64_t data_size)
   parse_version_flags(mp4);
 
   sample_count_ = mp4.read_uint32();
-
-  const uint32_t data_offset_present = 0x000001;
-  const uint32_t first_sample_flags_present = 0x000004;
-  const uint32_t sample_duration_present = 0x000100;
-  const uint32_t sample_size_present = 0x000200;
-  const uint32_t sample_flags_present = 0x000400;
-  const uint32_t sample_composition_time_offsets_present = 0x000800;
 
   if (flags() & data_offset_present) {
     mp4.read_uint32();

@@ -13,7 +13,7 @@ TfhdBox::TfhdBox(const uint64_t size, const string & type)
 
 void TfhdBox::print_structure(const unsigned int indent)
 {
-  print_type_size(indent);
+  print_size_type(indent);
 
   string indent_str = string(indent + 2, ' ') + "| ";
   cout << indent_str << "track id " << track_id_ << endl;
@@ -28,12 +28,6 @@ void TfhdBox::parse_data(MP4File & mp4, const uint64_t data_size)
   parse_version_flags(mp4);
 
   track_id_ = mp4.read_uint32();
-
-  const uint32_t base_data_offset_present = 0x000001;
-  const uint32_t sample_description_index_present = 0x000002;
-  const uint32_t default_sample_duration_present = 0x000008;
-  const uint32_t default_sample_size_present = 0x000010;
-  const uint32_t default_sample_flags_present = 0x000020;
 
   if (flags() & base_data_offset_present) {
     base_data_offset_ = mp4.read_uint32();
