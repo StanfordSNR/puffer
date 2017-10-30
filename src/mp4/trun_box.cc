@@ -60,5 +60,5 @@ void TrunBox::print_structure(const unsigned int indent)
   string indent_str = string(indent + 2, ' ') + "| ";
   cout << indent_str << "sample count " << sample_count_ << endl;
   cout << indent_str << "duration " << duration_ << endl;
-  cout << indent_str << "sample_size " << sample_size_ << endl;
+  cout << indent_str << "sample size " << sample_size_ << endl;
 }

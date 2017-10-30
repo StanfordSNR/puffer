@@ -32,6 +32,8 @@ void SidxBox::print_structure(const unsigned int indent)
   string indent_str = string(indent + 2, ' ') + "| ";
   cout << indent_str << "reference id " << reference_id_ << endl;
   cout << indent_str << "timescale " << timescale_ << endl;
+  cout << indent_str << "earliest presentation time "
+                     << earlist_presentation_time_ << endl;
 
   cout << indent_str << "subsegment durations";
   for (const auto & ref : reference_list_) {
