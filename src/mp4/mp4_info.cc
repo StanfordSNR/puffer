@@ -1,3 +1,4 @@
+#include <cmath>
 #include "mp4_info.hh"
 #include "mp4_parser.hh"
 #include "mvhd_box.hh"
@@ -6,6 +7,7 @@
 #include "stsz_box.hh"
 #include "sidx_box.hh"
 #include "tfhd_box.hh"
+#include "mdhd_box.hh"
 
 using namespace std;
 using namespace MP4;
@@ -26,16 +28,21 @@ tuple<uint32_t, uint64_t> MP4Info::get_timescale_duration()
     timescale = mvhd_box->timescale();
     duration = mvhd_box->duration();
   }
-  if (timescale == 0) {
+  /* mdhd can override mvhd */
+  box = parser_->find_first_box_of("mdhd");
+  if (box != nullptr) {
+    auto mdhd_box = static_pointer_cast<MdhdBox>(box);
+    timescale = mdhd_box->timescale();
+  }
+  /* sidx can override as well */
+  box = parser_->find_first_box_of("sidx");
+  if (box != nullptr) {
     /* trying to find it in sidx */
-    box = parser_->find_first_box_of("sidx");
-    if (box != nullptr) {
-      auto sidx_box = static_pointer_cast<SidxBox>(box);
-      timescale = sidx_box->timescale();
-      if (duration == 0) {
-        /* trying to fix duration as well if possible */
-        duration = sidx_box->duration();
-      }
+    auto sidx_box = static_pointer_cast<SidxBox>(box);
+    timescale = sidx_box->timescale();
+    if (sidx_box->duration() != 0) {
+      /* trying to fix duration as well if possible */
+      duration = sidx_box->duration();
     }
   }
   if (duration == 0) {
@@ -50,9 +57,11 @@ tuple<uint32_t, uint64_t> MP4Info::get_timescale_duration()
     if (duration == 0) {
       box = parser_->find_first_box_of("tfhd");
       auto tfhd_box = static_pointer_cast<TfhdBox>(box);
-      uint32_t sample_duration = tfhd_box->default_sample_duration();
-      uint32_t sample_count = trun_box->sample_count();
-      duration = sample_duration * sample_count;
+      if (box != nullptr) {
+        uint32_t sample_duration = tfhd_box->default_sample_duration();
+        uint32_t sample_count = trun_box->sample_count();
+        duration = sample_duration * sample_count;
+      }
     }
   }
   return make_tuple(timescale, duration);
@@ -91,16 +100,15 @@ uint16_t MP4Info::get_frame_per_sample()
   }
 }
 
-float MP4Info::get_fps(uint16_t frame_count)
+float MP4Info::get_fps(
+    uint32_t timescale, uint32_t duration, uint16_t frame_count)
 {
   auto box = parser_->find_first_box_of("trun");
   if (box == nullptr) {
     return 0;
   }
   auto trun_box = static_pointer_cast<TrunBox>(box);
-  uint64_t duration;
-  uint32_t timescale;
-  tie(timescale, duration) = get_timescale_duration();
+
   if (duration == 0) {
     /* no divided by 0 */
     return 0;
@@ -110,22 +118,45 @@ float MP4Info::get_fps(uint16_t frame_count)
   }
 }
 
+float MP4Info::get_fps(uint16_t frame_count)
+{
+  uint64_t duration;
+  uint32_t timescale;
+  tie(timescale, duration) = get_timescale_duration();
+  return get_fps(timescale, duration, frame_count);
+}
+
 bool MP4Info::is_video()
 {
   auto box = parser_->find_first_box_of("avc1");
   return box != nullptr;
 }
 
-uint32_t MP4Info::get_bitrate()
+uint32_t MP4Info::get_bitrate(uint32_t timescale, uint32_t duration)
 {
   auto box = parser_->find_first_box_of("trun");
   if (box == nullptr) {
     return 0;
   }
   auto trun_box = static_pointer_cast<TrunBox>(box);
+  if (timescale == 0) {
+    return 0;
+  }
+  float s_duration =  duration / (float)timescale; /* in seconds */
+  if (s_duration == 0) {
+    return 0;
+  } else {
+    /* round to nearest thousands */
+    float raw_bitrate = trun_box->sample_size() / s_duration * 8;
+    uint32_t bitrate = static_cast<uint32_t>(raw_bitrate);
+    return (bitrate / 1000) * 1000;
+  }
+}
+
+uint32_t MP4Info::get_bitrate()
+{
   uint64_t duration;
   uint32_t timescale;
   tie(timescale, duration) = get_timescale_duration();
-  uint32_t s_duration = duration / timescale; /* in seconds */
-  return trun_box->sample_size() / s_duration * 8;
+  return get_bitrate(timescale, duration);
 }

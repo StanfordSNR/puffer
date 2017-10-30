@@ -14,8 +14,11 @@ public:
   std::tuple<uint16_t, uint16_t> get_width_height();
   std::tuple<uint8_t, uint8_t> get_avc_profile_level();
   float get_fps(uint16_t frame_count = 1);
+  float get_fps(uint32_t timescale, uint32_t duration,
+      uint16_t frame_count = 1);
   uint16_t get_frame_per_sample();
   uint32_t get_bitrate();
+  uint32_t get_bitrate(uint32_t timescale, uint32_t duration);
   bool is_video();
 
 private:
