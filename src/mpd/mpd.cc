@@ -11,8 +11,9 @@
 #include <cmath>
 #include <time.h>
 
-XMLWriter::XMLWriter(): tag_open_(false), newline_( true),
-  os_(std::ostringstream()), elt_stack_(std::stack<XMLNode>())
+XMLWriter::XMLWriter():
+  tag_open_(false), newline_( true), os_(std::ostringstream()),
+  elt_stack_(std::stack<XMLNode>())
 {
   os_ << (xml_header) << std::endl;
 }
@@ -57,8 +58,9 @@ void XMLWriter::close_elt()
 
 void XMLWriter::close_all()
 {
-  while (elt_stack_.size())
+  while (elt_stack_.size()) {
     close_elt();
+  }
 }
 
 void XMLWriter::attr(const std::string & key, const std::string & val)
@@ -111,7 +113,7 @@ inline void XMLWriter::indent()
 
 inline void XMLWriter::write_escape(const std::string & str)
 {
-  for (unsigned int i = 0; i < str.length();)
+  for (unsigned int i = 0; i < str.length();) {
     switch (str[i]) {
       case '&': os_ << "&amp;"; break;
       case '<': os_ << "&lt;"; break;
@@ -120,6 +122,7 @@ inline void XMLWriter::write_escape(const std::string & str)
       case '"': os_ << "&quot;"; break;
       default: os_.put(str[i]); i++; break;
     }
+  }
 }
 
 std::string XMLWriter::str()
@@ -132,24 +135,42 @@ void XMLWriter::output(std::ofstream &out)
   out << str();
 }
 
-MPD::AdaptionSet::AdaptionSet(int id, std::string init_uri,
-        std::string media_uri,
-    unsigned int duration, unsigned int timescale):
-  id(id), init_uri(init_uri), media_uri(media_uri),
-    duration(duration), timescale(timescale)
+MPD::AdaptionSet::AdaptionSet(
+    int id, std::string init_uri, std::string media_uri, unsigned int duration)
+  : id_(id), init_uri_(init_uri), media_uri_(media_uri), duration_(duration)
 {}
 
-MPD::VideoAdaptionSet::VideoAdaptionSet(int id, std::string init_uri,
-        std::string media_uri, float framerate, unsigned int duration,
-        unsigned int timescale): AdaptionSet(id, init_uri, media_uri,
-            duration, timescale), framerate(framerate), repr_set_()
+MPD::VideoAdaptionSet::VideoAdaptionSet(
+    int id, std::string init_uri, std::string media_uri, float framerate,
+    unsigned int duration)
+  : AdaptionSet(id, init_uri, media_uri, duration), framerate_(framerate),
+    repr_set_()
 {}
 
-MPD::AudioAdaptionSet::AudioAdaptionSet(int id, std::string init_uri,
-    std::string media_uri, unsigned int duration, unsigned int
-    timescale) : AdaptionSet(id, init_uri, media_uri, duration,
-      timescale), repr_set_()
+MPD::AudioAdaptionSet::AudioAdaptionSet(
+    int id, std::string init_uri, std::string media_uri, unsigned int duration)
+  : AdaptionSet(id, init_uri, media_uri, duration), repr_set_()
 {}
+
+std::set<std::shared_ptr<MPD::Representation>>
+MPD::AudioAdaptionSet::get_repr()
+{
+  std::set<std::shared_ptr<MPD::Representation>> set;
+  for (auto repr : repr_set_) {
+    set.insert(repr);
+  }
+  return set;
+}
+
+std::set<std::shared_ptr<MPD::Representation>>
+MPD::VideoAdaptionSet::get_repr()
+{
+  std::set<std::shared_ptr<MPD::Representation>> set;
+  for (auto repr : repr_set_) {
+    set.insert(repr);
+  }
+  return set;
+}
 
 void MPD::AudioAdaptionSet::add_repr(std::shared_ptr<AudioRepresentation> repr)
 {
@@ -161,12 +182,12 @@ void MPD::VideoAdaptionSet::add_repr(std::shared_ptr<VideoRepresentation> repr)
   repr_set_.insert(repr);
 }
 
-MPDWriter::MPDWriter(int64_t update_period, int64_t min_buffer_time,
-    std::string base_url):
-  update_period_(update_period), min_buffer_time_(min_buffer_time),
-  availability_start_time_(std::time(NULL)),
-  writer_(std::make_unique<XMLWriter>()), base_url_(base_url),
-  video_adaption_set_(), audio_adaption_set_()
+MPDWriter::MPDWriter(
+    int64_t update_period, int64_t min_buffer_time, std::string base_url)
+  : update_period_(update_period), min_buffer_time_(min_buffer_time),
+    availability_start_time_(std::time(NULL)),
+    writer_(std::make_unique<XMLWriter>()), base_url_(base_url),
+    video_adaption_set_(), audio_adaption_set_()
 {}
 
 MPDWriter::~MPDWriter()
@@ -174,10 +195,10 @@ MPDWriter::~MPDWriter()
 
 std::string MPDWriter::format_time(const time_t time)
 {
-    char buf[42];
-    tm * now_tm= gmtime(&time);
-    strftime(buf, sizeof buf, "%Y-%m-%dT%H:%M:%SZ", now_tm);
-    return buf; 
+  char buf[42];
+  tm * now_tm= gmtime(&time);
+  strftime(buf, sizeof buf, "%Y-%m-%dT%H:%M:%SZ", now_tm);
+  return buf;
 }
 
 std::string MPDWriter::format_time(const std::chrono::seconds & time)
@@ -207,12 +228,13 @@ std::string MPDWriter::write_audio_codec(
         std::shared_ptr<MPD::AudioRepresentation> repr)
 {
   char buf[20];
-  if(repr->type == MPD::MimeType::Audio_AAC)
+  if (repr->type == MPD::MimeType::Audio_AAC) {
     sprintf(buf, "mp4a.40.2");
-  else if( repr->type == MPD::MimeType::Audio_Webm)
+  } else if ( repr->type == MPD::MimeType::Audio_Webm) {
     sprintf(buf, "opus"); /* assume it is opus format */
-  else
+  } else {
     throw std::runtime_error("Unsupported MIME type");
+  }
   return buf;
 }
 
@@ -225,22 +247,23 @@ inline bool nearly_equal(const float & a, const float & b)
 
 void MPDWriter::write_framerate(const float & framerate)
 {
-    if(nearly_equal(framerate, 23.976))
+    if (nearly_equal(framerate, 23.976)) {
       writer_->attr("frameRate", "24000/1001");
-    else if(nearly_equal(framerate, 24))
+    } else if (nearly_equal(framerate, 24)) {
       writer_->attr("frameRate", 24);
-    else if(nearly_equal(framerate, 25))
+    } else if (nearly_equal(framerate, 25)) {
       writer_->attr("frameRate", 25);
-    else if(nearly_equal(framerate, 29.976))
+    } else if (nearly_equal(framerate, 29.976)) {
       writer_->attr("frameRate", "30000/1001");
-    else if(nearly_equal(framerate, 30))
+    } else if (nearly_equal(framerate, 30)) {
       writer_->attr("frameRate", 30);
-    else if(nearly_equal(framerate, 59.94))
+    } else if (nearly_equal(framerate, 59.94)) {
       writer_->attr("frameRate", "600000/1001");
-    else if(nearly_equal(framerate, 60))
+    } else if (nearly_equal(framerate, 60)) {
       writer_->attr("frameRate", 60);
-    else
+    } else {
       throw std::runtime_error("Unsupported frame rate");
+    }
 }
 
 /* THIS IS FOR VIDEO ONLY */
@@ -261,16 +284,16 @@ void MPDWriter::write_video_repr(std::shared_ptr<MPD::VideoRepresentation> repr)
 
 void MPDWriter::write_audio_repr(std::shared_ptr<MPD::AudioRepresentation> repr)
 {
-    writer_->open_elt("Representation");
-    writer_->attr("id", "a" + repr->id);
-    writer_->attr("mimeType", repr->type == MPD::MimeType::Audio_AAC?
-        "audio/mp4": "audio/webm");
-    std::string codec = write_audio_codec(repr);
-    writer_->attr("codecs", codec);
-    writer_->attr("audioSamplingRate", repr->sampling_rate);
-    writer_->attr("startWithSAP", "1");
-    writer_->attr("bandwidth", repr->bitrate);
-    writer_->close_elt();
+  writer_->open_elt("Representation");
+  writer_->attr("id", "a" + repr->id);
+  writer_->attr("mimeType", repr->type == MPD::MimeType::Audio_AAC?
+      "audio/mp4": "audio/webm");
+  std::string codec = write_audio_codec(repr);
+  writer_->attr("codecs", codec);
+  writer_->attr("audioSamplingRate", repr->sampling_rate);
+  writer_->attr("startWithSAP", "1");
+  writer_->attr("bandwidth", repr->bitrate);
+  writer_->close_elt();
 }
 
 void MPDWriter::write_video_adaption_set(
@@ -280,8 +303,9 @@ void MPDWriter::write_video_adaption_set(
   write_adaption_set(set);
 
   /* Write the segment */
-  for(auto repr : set->get_repr_set())
+  for (auto repr : set->get_video_repr()) {
     write_video_repr(repr);
+  }
 
   writer_->close_elt();
 }
@@ -293,24 +317,40 @@ void MPDWriter::write_audio_adaption_set(
   write_adaption_set(set);
 
   /* Write the segment */
-  for(auto repr : set->get_repr_set())
+  for (auto repr : set->get_audio_repr()) {
     write_audio_repr(repr);
+  }
 
   writer_->close_elt();
 }
 
-void MPDWriter::write_adaption_set(std::shared_ptr<MPD::AdaptionSet> set) {
+void MPDWriter::write_adaption_set(std::shared_ptr<MPD::AdaptionSet> set)
+{
+  /* get timescale from its representation sets
+  * notice that by stanford all representation should have the same
+  * timescale */
+  uint32_t timescale = 0;
+  for (auto repr : set->get_repr()) {
+    if (timescale == 0) {
+      timescale = repr->timescale;
+    } else {
+      if (timescale != repr->timescale) {
+        throw std::runtime_error("Inconsistent timescale in adaption set.");
+      }
+    }
+  }
+
   /* ISO base main profile 8.5.2 */
   writer_->attr("segmentAlignment", "true");
 
   /* write the segment template */
   writer_->open_elt("SegmentTemplate");
-  writer_->attr("timescale", set->timescale);
-  writer_->attr("duration", set->duration);
-  writer_->attr("media", set->media_uri);
+  writer_->attr("duration", set->duration());
+  writer_->attr("media", set->media_uri());
+  writer_->attr("timescale", timescale);
   /* the initial segment number */
   writer_->attr("startNumber", 1);
-  writer_->attr("initialization", set->init_uri);
+  writer_->attr("initialization", set->init_uri());
   writer_->close_elt();
 }
 
@@ -323,18 +363,21 @@ std::string MPDWriter::convert_pt(unsigned int seconds)
     hours = seconds / (3600);
     seconds %= 3600;
   }
-  if(seconds >= 60) {
+  if (seconds >= 60) {
     minutes = seconds / 60;
     seconds %= 60;
   }
   // print out result
   std::string result = "PT";
-  if(hours)
+  if (hours) {
     result += std::to_string(hours) + "H";
-  if(minutes)
+  }
+  if (minutes) {
     result += std::to_string(minutes) + "M";
-  if(seconds)
+  }
+  if (seconds) {
     result += std::to_string(seconds) + "S";
+  }
   return result;
 }
 
