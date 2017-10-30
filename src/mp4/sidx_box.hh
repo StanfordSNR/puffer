@@ -26,14 +26,13 @@ public:
   uint64_t first_offset() { return first_offset_; }
   uint16_t reserved() { return reserved_; }
 
-  /* take rvalue and move it, rather than copy */
-  void add_reference(SidxReference && ref);
+  /* sum of the subsegment_duration */
+  uint32_t duration();
 
   void print_structure(const unsigned int indent = 0);
 
   void parse_data(MP4File & mp4, const uint64_t data_size);
-  /* sum of the subsegment_duration */
-  uint32_t duration();
+
 private:
   uint32_t reference_id_;
   uint32_t timescale_;

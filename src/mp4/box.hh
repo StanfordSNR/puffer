@@ -36,12 +36,12 @@ public:
   virtual void parse_data(MP4File & mp4, const uint64_t data_size);
 
 protected:
-  /* helper functions used in 'parse_data' */
+  void print_type_size(const unsigned int indent = 0);
 
+  /* helper functions used in 'parse_data' */
   /* skip parsing the remaining data */
   void skip_data_left(MP4File & mp4, const uint64_t data_size,
                       const uint64_t init_offset);
-
   /* check no data remains to be parsed */
   void check_data_left(MP4File & mp4, const uint64_t data_size,
                        const uint64_t init_offset);
@@ -58,11 +58,15 @@ class FullBox : public Box
 public:
   FullBox(const uint64_t size, const std::string & type);
 
-  void parse_data(MP4File & mp4);
-
   /* accessors */
   uint8_t version() { return version_; }
   uint32_t flags() { return flags_; }
+
+  virtual void parse_data(MP4File & mp4, const uint64_t data_size);
+
+protected:
+  void print_version_flags(const unsigned int indent = 0);
+  void parse_version_flags(MP4File & mp4);
 
 private:
   uint8_t version_;

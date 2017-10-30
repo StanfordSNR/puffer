@@ -12,11 +12,6 @@ SidxBox::SidxBox(const uint64_t size, const std::string & type)
     reserved_(), reference_list_()
 {}
 
-void SidxBox::add_reference(SidxReference && ref)
-{
-  reference_list_.emplace_back(move(ref));
-}
-
 uint32_t SidxBox::duration() {
   uint32_t result = 0;
   for (auto ref: reference_list_) {
@@ -27,7 +22,7 @@ uint32_t SidxBox::duration() {
 
 void SidxBox::print_structure(const unsigned int indent)
 {
-  cout << string(indent, ' ') << "- " << type() << " " << size() << endl;
+  print_type_size(indent);
 
   string indent_str = string(indent + 2, ' ') + "| ";
   cout << indent_str << "reference id " << reference_id_ << endl;
@@ -46,7 +41,7 @@ void SidxBox::parse_data(MP4File & mp4, const uint64_t data_size)
 {
   uint64_t init_offset = mp4.curr_offset();
 
-  FullBox::parse_data(mp4);
+  parse_version_flags(mp4);
 
   reference_id_ = mp4.read_uint32();
   timescale_ = mp4.read_uint32();
@@ -74,7 +69,7 @@ void SidxBox::parse_data(MP4File & mp4, const uint64_t data_size)
     uint8_t sap_type = (data >> 28) & 7;
     uint32_t sap_delta = (data >> 4) & 0x0FFFFFFF;
 
-    add_reference({
+    reference_list_.emplace_back(SidxReference{
       reference_type, reference_size, subsegment_duration,
       starts_with_sap, sap_type, sap_delta
     });
