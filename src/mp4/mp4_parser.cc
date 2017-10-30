@@ -19,6 +19,7 @@
 #include "trun_box.hh"
 #include "tkhd_box.hh"
 #include "mdhd_box.hh"
+#include "elst_box.hh"
 
 using namespace std;
 using namespace MP4;
@@ -148,6 +149,8 @@ shared_ptr<Box> MP4Parser::box_factory(
     box = make_shared<MdhdBox>(size, type);
   } else if (type == "tfdt") {
     box = make_shared<TfdtBox>(size, type);
+  } else if (type == "elst") {
+    box = make_shared<ElstBox>(size, type);
   } else {
     box = make_shared<Box>(size, type);
   }

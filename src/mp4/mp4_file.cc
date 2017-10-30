@@ -73,11 +73,32 @@ uint64_t MP4File::read_uint64()
   return be64toh(*size);
 }
 
+int8_t MP4File::read_int8()
+{
+  string data = read(1);
+  const int8_t * size = reinterpret_cast<const int8_t *>(data.c_str());
+  return *size;
+}
+
 int16_t MP4File::read_int16()
 {
   string data = read(2);
   const int16_t * size = reinterpret_cast<const int16_t *>(data.c_str());
   return be16toh(*size);
+}
+
+int32_t MP4File::read_int32()
+{
+  string data = read(4);
+  const int32_t * size = reinterpret_cast<const int32_t *>(data.c_str());
+  return be32toh(*size);
+}
+
+int64_t MP4File::read_int64()
+{
+  string data = read(8);
+  const int64_t * size = reinterpret_cast<const int64_t *>(data.c_str());
+  return be64toh(*size);
 }
 
 void MP4File::read_zeros(const size_t bytes)
