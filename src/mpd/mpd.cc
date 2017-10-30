@@ -37,11 +37,11 @@ void XMLWriter::open_elt(const std::string & tag)
 
 void XMLWriter::close_elt()
 {
-  if (!elt_stack_.size())
+  if (not elt_stack_.size())
     throw std::runtime_error("XMLWriter is in an incorrect state.");
   XMLNode node = elt_stack_.top();
   elt_stack_.pop();
-  if (!node.hasContent) {
+  if (not node.hasContent) {
     /* no actual value, maybe just attr */
     os_ << " />";
     tag_open_ = false;
@@ -156,7 +156,7 @@ std::set<std::shared_ptr<MPD::Representation>>
 MPD::AudioAdaptionSet::get_repr()
 {
   std::set<std::shared_ptr<MPD::Representation>> set;
-  for (auto repr : repr_set_) {
+  for (const auto & repr : repr_set_) {
     set.insert(repr);
   }
   return set;
@@ -166,7 +166,7 @@ std::set<std::shared_ptr<MPD::Representation>>
 MPD::VideoAdaptionSet::get_repr()
 {
   std::set<std::shared_ptr<MPD::Representation>> set;
-  for (auto repr : repr_set_) {
+  for (const auto & repr : repr_set_) {
     set.insert(repr);
   }
   return set;
@@ -220,7 +220,8 @@ std::string MPDWriter::write_video_codec(
         std::shared_ptr<MPD::VideoRepresentation> repr)
 {
   char buf[20];
-  sprintf(buf, "avc1.%02XE0%02X", repr->profile, repr->avc_level);
+  snprintf(buf, sizeof(buf), "avc1.%02XE0%02X", repr->profile,
+      repr->avc_level);
   return buf;
 }
 
@@ -229,9 +230,9 @@ std::string MPDWriter::write_audio_codec(
 {
   char buf[20];
   if (repr->type == MPD::MimeType::Audio_AAC) {
-    sprintf(buf, "mp4a.40.2");
-  } else if ( repr->type == MPD::MimeType::Audio_Webm) {
-    sprintf(buf, "opus"); /* assume it is opus format */
+    snprintf(buf, sizeof(buf), "mp4a.40.2");
+  } else if (repr->type == MPD::MimeType::Audio_Webm) {
+    snprintf(buf, sizeof(buf), "opus"); /* assume it is opus format */
   } else {
     throw std::runtime_error("Unsupported MIME type");
   }
@@ -303,7 +304,7 @@ void MPDWriter::write_video_adaption_set(
   write_adaption_set(set);
 
   /* Write the segment */
-  for (auto repr : set->get_video_repr()) {
+  for (const auto & repr : set->get_video_repr()) {
     write_video_repr(repr);
   }
 
@@ -317,7 +318,7 @@ void MPDWriter::write_audio_adaption_set(
   write_adaption_set(set);
 
   /* Write the segment */
-  for (auto repr : set->get_audio_repr()) {
+  for (const auto & repr : set->get_audio_repr()) {
     write_audio_repr(repr);
   }
 
@@ -330,7 +331,7 @@ void MPDWriter::write_adaption_set(std::shared_ptr<MPD::AdaptionSet> set)
   * notice that by stanford all representation should have the same
   * timescale */
   uint32_t timescale = 0;
-  for (auto repr : set->get_repr()) {
+  for (const auto & repr : set->get_repr()) {
     if (timescale == 0) {
       timescale = repr->timescale;
     } else {
@@ -425,11 +426,11 @@ MPEG-DASH_schema_files/DASH-MPD.xsd");
   writer_->open_elt("Period");
   writer_->attr("id", "1");
   /* Adaption Set */
-  for (auto it: video_adaption_set_) {
+  for (const auto & it: video_adaption_set_) {
     write_video_adaption_set(it);
   }
 
-  for (auto it: audio_adaption_set_) {
+  for (const auto & it: audio_adaption_set_) {
     write_audio_adaption_set(it);
   }
 
