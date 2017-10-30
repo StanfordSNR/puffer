@@ -7,19 +7,19 @@ if [ -z $test_tmpdir ];then
     mkdir -p $test_tmpdir
 fi
 
+TEST_VECTOR="$test_tmpdir/test-vectors-ssim"
+# fetch the files
+rm -rf $TEST_VECTOR
+git clone https://github.com/StanfordSNR/tv-test-vectors $TEST_VECTOR
+
 DAALA=$(pwd)/../../third_party/daala_tools
 D_SSIM=dump_ssim
 D_FSSIM=dump_fastssim
 SSIM=$(pwd)/../ssim/ssim
-TEST_VECTOR="test-vectors"
 FILE1=$TEST_VECTOR/"ssim/frame1.y4m"
 FILE2=$TEST_VECTOR/"ssim/frame2.y4m"
 OUTPUT1=$test_tmpdir/"out_ssim1"
 OUTPUT2=$test_tmpdir/"out_ssim2"
-
-# git clone test vector
-rm -rf $TEST_VECTOR
-git clone https://github.com/StanfordSNR/tv-test-vectors $TEST_VECTOR
 
 # run the ssim test
 $SSIM $FILE1 $FILE2 $OUTPUT1
@@ -42,6 +42,3 @@ if [ "$result2" != "$truth2" ]
 then
     exit 1
 fi
-
-# clean up
-rm -rf $TEST_VECTOR

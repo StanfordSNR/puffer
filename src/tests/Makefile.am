@@ -13,7 +13,7 @@ AM_TESTS_ENVIRONMENT = \
 EXTRA_DIST = test_helpers.py notified_good_prog.sh notified_bad_prog.sh
 
 dist_check_SCRIPTS = test_notifier.py test_forwarder.py test_cleaner.py \
-					 test_ssim.sh
+					 test_ssim.sh test_mpd.sh
 
 TESTS = $(check_PROGRAMS) $(dist_check_SCRIPTS)
 
