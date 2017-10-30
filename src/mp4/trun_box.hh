@@ -23,6 +23,13 @@ private:
   uint32_t sample_count_;
   uint32_t duration_;
   uint32_t sample_size_;
+
+  static const uint32_t data_offset_present = 0x000001;
+  static const uint32_t first_sample_flags_present = 0x000004;
+  static const uint32_t sample_duration_present = 0x000100;
+  static const uint32_t sample_size_present = 0x000200;
+  static const uint32_t sample_flags_present = 0x000400;
+  static const uint32_t sample_composition_time_offsets_present = 0x000800;
 };
 
 }

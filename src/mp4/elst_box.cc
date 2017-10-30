@@ -11,7 +11,7 @@ ElstBox::ElstBox(const uint64_t size, const std::string & type)
 
 void ElstBox::print_structure(const unsigned int indent)
 {
-  print_type_size(indent);
+  print_size_type(indent);
 
   if (edit_list_.empty()) {
     return;

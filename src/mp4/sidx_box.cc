@@ -22,7 +22,7 @@ uint32_t SidxBox::duration() {
 
 void SidxBox::print_structure(const unsigned int indent)
 {
-  print_type_size(indent);
+  print_size_type(indent);
 
   string indent_str = string(indent + 2, ' ') + "| ";
   cout << indent_str << "reference id " << reference_id_ << endl;
