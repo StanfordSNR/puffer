@@ -188,11 +188,14 @@ public:
   void add_audio_adaption_set(std::shared_ptr<MPD::AudioAdaptionSet> set);
   void set_available_time(const std::chrono::seconds time)
   { availability_start_time_ = time; }
+  void set_publish_time(const std::chrono::seconds time)
+  { publish_time_ = time; }
 
 private:
   int64_t update_period_;
   int64_t min_buffer_time_;
   std::chrono::seconds availability_start_time_;
+  std::chrono::seconds publish_time_;
   std::unique_ptr<XMLWriter> writer_;
   std::string base_url_;
   std::set<std::shared_ptr<MPD::VideoAdaptionSet>> video_adaption_set_;

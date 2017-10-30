@@ -209,7 +209,7 @@ video adaption set");
 MPDWriter::MPDWriter(
     int64_t update_period, int64_t min_buffer_time, string base_url)
   : update_period_(update_period), min_buffer_time_(min_buffer_time),
-    availability_start_time_(std::time(NULL)),
+    availability_start_time_(std::time(NULL)), publish_time_(std::time(NULL)),
     writer_(std::make_unique<XMLWriter>()), base_url_(base_url),
     video_adaption_set_(), audio_adaption_set_()
 {}
@@ -235,7 +235,7 @@ string MPDWriter::format_time_now()
 {
   /* this is possible because C++ will convert char* into std:string
    * therefore no pointer to stack problem                        */
-  time_t now= time(0);
+  time_t now = time(0);
   return format_time(now);
 }
 
@@ -425,10 +425,8 @@ string MPDWriter::flush()
       "urn:mpeg:DASH:schema:MPD:2011 \
 http://standards.iso.org/ittf/PubliclyAvailableStandards/\
 MPEG-DASH_schema_files/DASH-MPD.xsd");
-  /* write the time when this MPD is flushed" */
-  string t = format_time_now();
-  writer_->attr("publishTime", t);
-  writer_->attr("availabilityStartTime", t);
+  writer_->attr("publishTime", format_time(publish_time_));
+  writer_->attr("availabilityStartTime", format_time(availability_start_time_));
   writer_->attr("profiles", "urn:mpeg:dash:profile:isoff-live:2011");
   writer_->attr("type", "dynamic");
   writer_->attr("minBufferTime", convert_pt(min_buffer_time_));
