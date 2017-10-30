@@ -25,7 +25,7 @@ using namespace std;
 using namespace MP4;
 
 MP4Parser::MP4Parser(const string & filename)
-  : mp4_(filename), box_(make_shared<Box>(0, "MP4"))
+  : mp4_(filename, O_RDONLY), box_(make_shared<Box>(0, "MP4"))
 {}
 
 void MP4Parser::parse()
@@ -211,9 +211,7 @@ void MP4Parser::create_boxes(const shared_ptr<Box> & parent_box,
 void MP4Parser::copy_to_file(const string & output_filename,
                              const uint64_t size_to_copy)
 {
-  FileDescriptor output_fd(
-    CheckSystemCall("open (" + output_filename + ")",
-                    open(output_filename.c_str(), O_WRONLY | O_CREAT, 0644)));
+  MP4File output_mp4(output_filename, O_WRONLY | O_CREAT | O_TRUNC, 0644);
 
   uint64_t size_copied = 0;
 
@@ -224,10 +222,10 @@ void MP4Parser::copy_to_file(const string & output_filename,
     }
 
     size_copied += data.size();
-    output_fd.write(data);
+    output_mp4.write(data);
   }
 
-  output_fd.close();
+  output_mp4.close();
   cerr << "Created " << output_filename << endl;
 }
 
