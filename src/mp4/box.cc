@@ -58,6 +58,11 @@ void Box::parse_data(MP4File & mp4, const uint64_t data_size)
   }
 }
 
+void Box::print_type_size(const unsigned int indent)
+{
+  cout << string(indent, ' ') << "- " << type_ << " " << size_ << endl;
+}
+
 void Box::skip_data_left(MP4File & mp4, const uint64_t data_size,
                          const uint64_t init_offset)
 {
@@ -82,7 +87,23 @@ FullBox::FullBox(const uint64_t size, const std::string & type)
   : Box(size, type), version_(), flags_()
 {}
 
-void FullBox::parse_data(MP4File & mp4)
+void FullBox::parse_data(MP4File & mp4, const uint64_t data_size)
+{
+  int64_t init_offset = mp4.curr_offset();
+
+  parse_version_flags(mp4);
+
+  skip_data_left(mp4, data_size, init_offset);
+}
+
+void FullBox::print_version_flags(const unsigned int indent)
+{
+  string indent_str = string(indent, ' ') + "| ";
+  cout << indent_str << "version " << unsigned(version_) << endl;
+  cout << indent_str << "flags " << flags_ << endl;
+}
+
+void FullBox::parse_version_flags(MP4File & mp4)
 {
   uint32_t data = mp4.read_uint32();
   version_ = (data >> 24) & 0xFF;

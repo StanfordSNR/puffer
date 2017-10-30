@@ -65,8 +65,9 @@ public:
   uint8_t avc_profile_compatibility() { return avc_profile_compatibility_; }
   uint8_t avc_level() { return avc_level_; }
 
-  void parse_data(MP4File & mp4, const uint64_t data_size);
   void print_structure(const unsigned int indent = 0);
+
+  void parse_data(MP4File & mp4, const uint64_t data_size);
 
 private:
   uint8_t configuration_version_ = 1;

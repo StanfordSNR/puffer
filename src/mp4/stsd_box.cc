@@ -14,7 +14,7 @@ void StsdBox::parse_data(MP4File & mp4, const uint64_t data_size)
 {
   uint64_t init_offset = mp4.curr_offset();
 
-  FullBox::parse_data(mp4);
+  parse_version_flags(mp4);
 
   /* parse sample entries */
   uint32_t num_sample_entries = mp4.read_uint32();
@@ -83,6 +83,22 @@ AVC1::AVC1(const uint64_t size, const string & type)
     avc_profile_compatibility_(), avc_level_(), avcc_size_()
 {}
 
+void AVC1::print_structure(const unsigned int indent)
+{
+  print_type_size(indent);
+
+  string indent_str = string(indent + 2, ' ') + "| ";
+  cout << indent_str << "width " << width() << endl;
+  cout << indent_str << "height " << height() << endl;
+
+  cout << string(indent + 2, ' ') << "- " << "avcC" << " " <<
+          avcc_size_ << endl;
+
+  indent_str = string(indent + 4, ' ') + "| ";
+  cout << indent_str << "profile " << unsigned(avc_profile_) << endl;
+  cout << indent_str << "level " << unsigned(avc_level_) << endl;
+}
+
 void AVC1::parse_data(MP4File & mp4, const uint64_t data_size)
 {
   uint64_t init_offset = mp4.curr_offset();
@@ -103,20 +119,4 @@ void AVC1::parse_data(MP4File & mp4, const uint64_t data_size)
   avc_level_ = mp4.read_uint8();
 
   skip_data_left(mp4, data_size, init_offset);
-}
-
-void AVC1::print_structure(const unsigned int indent)
-{
-  cout << string(indent, ' ') << "- " << type() << " " << size() << endl;
-
-  string indent_str = string(indent + 2, ' ') + "| ";
-  cout << indent_str << "width " << width() << endl;
-  cout << indent_str << "height " << height() << endl;
-
-  cout << string(indent + 2, ' ') << "- " << "avcC" << " " <<
-          avcc_size_ << endl;
-
-  indent_str = string(indent + 4, ' ') + "| ";
-  cout << indent_str << "profile " << unsigned(avc_profile_) << endl;
-  cout << indent_str << "level " << unsigned(avc_level_) << endl;
 }

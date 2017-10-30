@@ -11,7 +11,7 @@ FtypBox::FtypBox(const uint64_t size, const string & type)
 
 void FtypBox::print_structure(const unsigned int indent)
 {
-  cout << string(indent, ' ') << "- " << type() << " " << size() << endl;
+  print_type_size(indent);
 
   string indent_str = string(indent + 2, ' ') + "| ";
   cout << indent_str << "major brand " << major_brand_ << endl;

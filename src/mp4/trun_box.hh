@@ -15,9 +15,9 @@ public:
   uint32_t duration() { return duration_; }
   uint32_t sample_size() { return sample_size_; }
 
-  void parse_data(MP4File & mp4, const uint64_t data_size);
-
   void print_structure(const unsigned int indent = 0);
+
+  void parse_data(MP4File & mp4, const uint64_t data_size);
 
 private:
   uint32_t sample_count_;
