@@ -22,10 +22,13 @@ libmp4_a_SOURCES = \
 	mp4_parser.hh mp4_parser.cc \
 	mp4_info.hh mp4_info.cc
 
-bin_PROGRAMS = mp4_structure mp4_split
+bin_PROGRAMS = mp4_structure mp4_split mp4_fragment
 
 mp4_structure_SOURCES = mp4_structure.cc
 mp4_structure_LDADD = ../util/libutil.a libmp4.a
 
 mp4_split_SOURCES = mp4_split.cc
 mp4_split_LDADD = ../util/libutil.a libmp4.a
+
+mp4_fragment_SOURCES = mp4_fragment.cc
+mp4_fragment_LDADD = ../util/libutil.a libmp4.a
