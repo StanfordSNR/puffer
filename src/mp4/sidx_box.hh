@@ -18,13 +18,20 @@ public:
   };
 
   SidxBox(const uint64_t size, const std::string & type);
+  SidxBox(const std::string & type,
+          const uint8_t version,
+          const uint32_t flags,
+          const uint32_t reference_id,
+          const uint32_t timescale,
+          const uint64_t earlist_presentation_time,
+          const uint64_t first_offset,
+          const std::vector<SidxReference> & reference_list);
 
   /* accessors */
   uint32_t reference_id() { return reference_id_; }
   uint32_t timescale() { return timescale_; }
   uint64_t earlist_presentation_time() { return earlist_presentation_time_; }
   uint64_t first_offset() { return first_offset_; }
-  uint16_t reserved() { return reserved_; }
 
   /* sum of the subsegment_duration */
   uint32_t duration();
@@ -32,13 +39,13 @@ public:
   void print_structure(const unsigned int indent = 0);
 
   void parse_data(MP4File & mp4, const uint64_t data_size);
+  void write_box(MP4File & mp4);
 
 private:
   uint32_t reference_id_;
   uint32_t timescale_;
   uint64_t earlist_presentation_time_;
   uint64_t first_offset_;
-  uint16_t reserved_;
 
   std::vector<SidxReference> reference_list_;
 };
