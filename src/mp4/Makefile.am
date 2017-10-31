@@ -19,6 +19,7 @@ libmp4_a_SOURCES = \
 	mdhd_box.hh mdhd_box.cc \
 	tfdt_box.hh tfdt_box.cc \
 	elst_box.hh elst_box.cc \
+	ctts_box.hh ctts_box.cc \
 	mp4_parser.hh mp4_parser.cc \
 	mp4_info.hh mp4_info.cc
 
