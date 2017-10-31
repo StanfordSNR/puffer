@@ -24,8 +24,9 @@
 using namespace std;
 using namespace MP4;
 
-MP4Parser::MP4Parser(const string & filename)
-  : mp4_(filename, O_RDONLY), box_(make_shared<Box>(0, "root"))
+MP4Parser::MP4Parser(const string & filename, const bool writer)
+  : mp4_(writer ? MP4File(filename, O_WRONLY | O_CREAT | O_TRUNC, 0644)
+                : MP4File(filename, O_RDONLY)), box_(make_shared<Box>(0, "root"))
 {}
 
 void MP4Parser::parse()
@@ -110,6 +111,20 @@ void MP4Parser::split(const std::string & init_seg,
       break;
     }
   }
+}
+
+void MP4Parser::add_top_level_box(shared_ptr<Box> && top_level_box)
+{
+  box_->add_child(move(top_level_box));
+}
+
+void MP4Parser::save_mp4_and_close()
+{
+  for (auto it = box_->children_begin(); it != box_->children_end(); ++it) {
+    (*it)->write_box(mp4_);
+  }
+
+  mp4_.close();
 }
 
 shared_ptr<Box> MP4Parser::find_first_box_of(const string & type)
