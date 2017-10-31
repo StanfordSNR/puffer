@@ -9,6 +9,14 @@ FtypBox::FtypBox(const uint64_t size, const string & type)
   : Box(size, type), major_brand_(), minor_version_(), compatible_brands_()
 {}
 
+FtypBox::FtypBox(const std::string & type,
+                 const std::string & major_brand,
+                 const uint32_t minor_version,
+                 const std::vector<std::string> & compatible_brands)
+  : Box(type), major_brand_(major_brand), minor_version_(minor_version),
+    compatible_brands_(compatible_brands)
+{}
+
 void FtypBox::print_structure(const unsigned int indent)
 {
   print_size_type(indent);
@@ -38,4 +46,20 @@ void FtypBox::parse_data(MP4File & mp4, const uint64_t data_size)
   }
 
   check_data_left(mp4, data_size, init_offset);
+}
+
+void FtypBox::write_box(MP4File & mp4)
+{
+  uint64_t size_offset = mp4.curr_offset();
+
+  write_size_type(mp4);
+
+  mp4.write_string(major_brand_, 4);
+  mp4.write_uint32(minor_version_);
+
+  for (const auto & brand : compatible_brands_) {
+    mp4.write_string(brand, 4);
+  }
+
+  fix_size_at(mp4, size_offset);
 }
