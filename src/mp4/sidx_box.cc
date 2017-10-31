@@ -54,7 +54,7 @@ void SidxBox::parse_data(MP4File & mp4, const uint64_t data_size)
     first_offset_ = mp4.read_uint64();
   }
 
-  mp4.read_zeros(2);
+  mp4.read(2);
 
   uint16_t reference_count = mp4.read_uint16();
   for (unsigned int i = 0; i < reference_count; ++i) {

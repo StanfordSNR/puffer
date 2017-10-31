@@ -43,7 +43,7 @@ SampleEntry::SampleEntry(const uint64_t size, const std::string & type)
 
 void SampleEntry::parse_data(MP4File & mp4)
 {
-  mp4.read_zeros(6);
+  mp4.read(6);
   data_reference_index_ = mp4.read_uint16();
 }
 
@@ -55,14 +55,14 @@ void VisualSampleEntry::parse_data(MP4File & mp4)
 {
   SampleEntry::parse_data(mp4);
 
-  mp4.read_zeros(16);
+  mp4.read(16);
 
   width_ = mp4.read_uint16();
   height_ = mp4.read_uint16();
   horizresolution_ = mp4.read_uint32();
   vertresolution_ = mp4.read_uint32();
 
-  mp4.read_zeros(4);
+  mp4.read(4);
 
   frame_count_ = mp4.read_uint16();
 

@@ -106,15 +106,6 @@ int64_t MP4File::read_int64()
   return be64toh(*size);
 }
 
-void MP4File::read_zeros(const size_t bytes)
-{
-  for (size_t i = 0; i < bytes; ++i) {
-    if (read_uint8() != 0) {
-      throw runtime_error("read non-zero byte");
-    }
-  }
-}
-
 void MP4File::write_uint8(const uint8_t data)
 {
   write(string(1, char(data)));
