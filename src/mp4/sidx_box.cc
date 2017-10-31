@@ -2,22 +2,39 @@
 #include <stdexcept>
 
 #include "sidx_box.hh"
+#include "strict_conversions.hh"
 
 using namespace std;
 using namespace MP4;
 
 SidxBox::SidxBox(const uint64_t size, const std::string & type)
   : FullBox(size, type), reference_id_(), timescale_(),
-    earlist_presentation_time_(), first_offset_(),
-    reserved_(), reference_list_()
+    earlist_presentation_time_(), first_offset_(), reference_list_()
 {}
 
-uint32_t SidxBox::duration() {
-  uint32_t result = 0;
-  for (auto ref: reference_list_) {
-    result += ref.subsegment_duration;
+SidxBox::SidxBox(const std::string & type,
+                 const uint8_t version,
+                 const uint32_t flags,
+                 const uint32_t reference_id,
+                 const uint32_t timescale,
+                 const uint64_t earlist_presentation_time,
+                 const uint64_t first_offset,
+                 const std::vector<SidxReference> & reference_list)
+  : FullBox(type, version, flags),
+    reference_id_(reference_id), timescale_(timescale),
+    earlist_presentation_time_(earlist_presentation_time),
+    first_offset_(first_offset), reference_list_(reference_list)
+{}
+
+uint32_t SidxBox::duration()
+{
+  uint32_t duration = 0;
+
+  for (const auto & ref: reference_list_) {
+    duration += ref.subsegment_duration;
   }
-  return result;
+
+  return duration;
 }
 
 void SidxBox::print_structure(const unsigned int indent)
@@ -54,7 +71,7 @@ void SidxBox::parse_data(MP4File & mp4, const uint64_t data_size)
     first_offset_ = mp4.read_uint64();
   }
 
-  mp4.read(2);
+  mp4.read(2); /* reserved */
 
   uint16_t reference_count = mp4.read_uint16();
   for (unsigned int i = 0; i < reference_count; ++i) {
@@ -67,7 +84,7 @@ void SidxBox::parse_data(MP4File & mp4, const uint64_t data_size)
     data = mp4.read_uint32();
     bool starts_with_sap = (data >> 31) & 1;
     uint8_t sap_type = (data >> 28) & 7;
-    uint32_t sap_delta = (data >> 4) & 0x0FFFFFFF;
+    uint32_t sap_delta = data & 0x0FFFFFFF;
 
     reference_list_.emplace_back(SidxReference{
       reference_type, reference_size, subsegment_duration,
@@ -76,4 +93,38 @@ void SidxBox::parse_data(MP4File & mp4, const uint64_t data_size)
   }
 
   check_data_left(mp4, data_size, init_offset);
+}
+
+void SidxBox::write_box(MP4File & mp4)
+{
+  uint64_t size_offset = mp4.curr_offset();
+
+  write_size_type(mp4);
+  write_version_flags(mp4);
+
+  mp4.write_uint32(reference_id_);
+  mp4.write_uint32(timescale_);
+
+  if (version() == 0) {
+    mp4.write_uint32(narrow_cast<uint32_t>(earlist_presentation_time_));
+    mp4.write_uint32(narrow_cast<uint32_t>(first_offset_));
+  } else {
+    mp4.write_uint64(earlist_presentation_time_);
+    mp4.write_uint64(first_offset_);
+  }
+
+  mp4.write_zeros(2); /* reserved */
+
+  mp4.write_uint16(reference_list_.size());
+  for (const auto & ref : reference_list_) {
+    uint32_t data = (ref.reference_type << 31) + ref.reference_size;
+    mp4.write_uint32(data);
+
+    mp4.write_uint32(ref.subsegment_duration);
+
+    data = (ref.starts_with_sap << 31) + (ref.sap_type << 28) + ref.sap_delta;
+    mp4.write_uint32(data);
+  }
+
+  fix_size_at(mp4, size_offset);
 }
