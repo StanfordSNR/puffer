@@ -9,6 +9,15 @@ class TfhdBox : public FullBox
 {
 public:
   TfhdBox(const uint64_t size, const std::string & type);
+  TfhdBox(const std::string & type,
+          const uint8_t version,
+          const uint32_t flags,
+          const uint32_t track_id,
+          const uint64_t base_data_offset = 0,
+          const uint32_t sample_description_index = 0,
+          const uint32_t default_sample_duration = 0,
+          const uint32_t default_sample_size = 0,
+          const uint32_t default_sample_flags = 0);
 
   /* accessors */
   uint32_t track_id() { return track_id_; }
@@ -21,15 +30,15 @@ public:
   void print_structure(const unsigned int indent = 0);
 
   void parse_data(MP4File & mp4, const uint64_t data_size);
-  void write_data(MP4File & mp4);
+  void write_box(MP4File & mp4);
 
 private:
   uint32_t track_id_;
-  uint64_t base_data_offset_;
-  uint32_t sample_description_index_;
-  uint32_t default_sample_duration_;
-  uint32_t default_sample_size_;
-  uint32_t default_sample_flags_;
+  uint64_t base_data_offset_ = 0;
+  uint32_t sample_description_index_ = 0;
+  uint32_t default_sample_duration_ = 0;
+  uint32_t default_sample_size_ = 0;
+  uint32_t default_sample_flags_ = 0;
 
   static const uint32_t base_data_offset_present = 0x000001;
   static const uint32_t sample_description_index_present = 0x000002;

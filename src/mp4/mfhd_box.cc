@@ -10,11 +10,12 @@ MfhdBox::MfhdBox(const uint64_t size, const std::string & type)
 {}
 
 MfhdBox::MfhdBox(const std::string & type,
-                 const uint8_t version, const uint32_t flags,
+                 const uint8_t version,
+                 const uint32_t flags,
                  const uint32_t sequence_number)
   : FullBox(type, version, flags), sequence_number_(sequence_number)
 {
-  set_size(16);
+  set_size(16); /* FullBox header + sequence_number */
 }
 
 void MfhdBox::print_structure(const unsigned int indent)
