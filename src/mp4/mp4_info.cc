@@ -49,7 +49,7 @@ tuple<uint32_t, uint64_t> MP4Info::get_timescale_duration()
     box = parser_->find_first_box_of("trun");
     auto trun_box = static_pointer_cast<TrunBox>(box);
     if (trun_box != nullptr) {
-      duration = trun_box->duration();
+      duration = trun_box->total_sample_duration();
     }
     /* default sample duration
      * if this still doesn't work, it's impossible to find the duration

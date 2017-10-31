@@ -12,7 +12,7 @@ public:
 
   /* accessors */
   uint32_t sample_size() { return sample_size_; }
-  uint32_t sample_count () { return sample_count_; }
+  uint32_t sample_count () { return entries_.size(); }
 
   void print_structure(const unsigned int indent = 0);
 
@@ -20,7 +20,6 @@ public:
 
 private:
   uint32_t sample_size_;
-  uint32_t sample_count_;
 
   std::vector<uint32_t> entries_;
 };

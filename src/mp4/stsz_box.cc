@@ -1,12 +1,14 @@
 #include <iostream>
+#include <algorithm>
 
 #include "stsz_box.hh"
+#include "strict_conversions.hh"
 
 using namespace std;
 using namespace MP4;
 
 StszBox::StszBox(const uint64_t size, const string & type)
-  : FullBox(size, type), sample_size_(), sample_count_(), entries_()
+  : FullBox(size, type), sample_size_(), entries_()
 {}
 
 void StszBox::print_structure(const unsigned int indent)
@@ -14,14 +16,16 @@ void StszBox::print_structure(const unsigned int indent)
   print_size_type(indent);
 
   string indent_str = string(indent + 2, ' ') + "| ";
-  cout << indent_str << "sample count " << sample_count_ << endl;
-  if (sample_count_) {
-    uint32_t i;
-    uint32_t count = entries_.size() > 5 ? 5 : entries_.size();
-    for (i = 0; i < count; i++) {
+  cout << indent_str << "sample count " << sample_count() << endl;
+
+  if (sample_count()) {
+    uint32_t count = min(sample_count(), 5u);
+
+    for (uint32_t i = 0; i < count; ++i) {
       cout << indent_str << "[" << i << "] " << entries_[i] << endl;
     }
-    if (count < entries_.size()) {
+
+    if (count < sample_count()) {
       cout << indent_str << "..." << endl;
     }
   }
@@ -34,10 +38,10 @@ void StszBox::parse_data(MP4File & mp4, const uint64_t data_size)
   parse_version_flags(mp4);
 
   sample_size_ = mp4.read_uint32();
-  sample_count_ = mp4.read_uint32();
+  uint32_t sample_count = mp4.read_uint32();
 
   if (sample_size_ == 0) {
-    for (uint32_t i = 0; i < sample_count_; ++i) {
+    for (uint32_t i = 0; i < sample_count; ++i) {
       entries_.emplace_back(mp4.read_uint32());
     }
   }
