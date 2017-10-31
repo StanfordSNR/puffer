@@ -21,12 +21,6 @@ public:
   uint64_t size() { return size_; }
   std::string type() { return type_; }
 
-  /* mutators */
-  void set_size(const uint64_t size) { size_ = size; }
-
-  /* infer size from children recursively if size is zero */
-  void infer_size();
-
   /* parameter is a sink; use rvalue reference to save a "move" operation */
   void add_child(std::shared_ptr<Box> && child);
 
@@ -48,6 +42,9 @@ public:
 protected:
   void print_size_type(const unsigned int indent = 0);
   void write_size_type(MP4File & mp4);
+
+  /* change 'size' to 'curr_offset - size_offset' and return */
+  void fix_size_at(MP4File & mp4, const uint64_t size_offset);
 
   /* helper functions used in 'parse_data' */
   /* skip parsing the remaining data */

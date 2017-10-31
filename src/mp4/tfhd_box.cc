@@ -20,30 +20,21 @@ TfhdBox::TfhdBox(const string & type,
                  const uint32_t default_sample_flags)
   : FullBox(type, version, flags), track_id_(track_id)
 {
-  uint64_t size = 16; /* FullBox header + track_id */
-
   if (flags & base_data_offset_present) {
     base_data_offset_ = base_data_offset;
-    size += 8;
   }
   if (flags & sample_description_index_present) {
     sample_description_index_ = sample_description_index;
-    size += 4;
   }
   if (flags & default_sample_duration_present) {
     default_sample_duration_ = default_sample_duration;
-    size += 4;
   }
   if (flags & default_sample_size_present) {
     default_sample_size_ = default_sample_size;
-    size += 4;
   }
   if (flags & default_sample_flags_present) {
     default_sample_flags_ = default_sample_flags;
-    size += 4;
   }
-
-  set_size(size);
 }
 
 
@@ -86,6 +77,8 @@ void TfhdBox::parse_data(MP4File & mp4, const uint64_t data_size)
 
 void TfhdBox::write_box(MP4File & mp4)
 {
+  uint64_t size_offset = mp4.curr_offset();
+
   write_size_type(mp4);
   write_version_flags(mp4);
 
@@ -106,4 +99,6 @@ void TfhdBox::write_box(MP4File & mp4)
   if (flags() & default_sample_flags_present) {
     mp4.write_uint32(default_sample_flags_ );
   }
+
+  fix_size_at(mp4, size_offset);
 }
