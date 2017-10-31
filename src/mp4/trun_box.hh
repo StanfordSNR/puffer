@@ -1,6 +1,8 @@
 #ifndef TRUN_BOX_HH
 #define TRUN_BOX_HH
 
+#include <vector>
+
 #include "box.hh"
 
 namespace MP4 {
@@ -13,7 +15,9 @@ public:
   /* accessors */
   uint32_t sample_count () { return sample_count_; }
   uint32_t duration() { return duration_; }
-  uint32_t sample_size() { return sample_size_; }
+  uint32_t total_sample_size() { return total_sample_size_; }
+  std::vector<uint32_t> sample_size_entries()
+  { return sample_size_entries_; }
 
   void print_structure(const unsigned int indent = 0);
 
@@ -22,7 +26,8 @@ public:
 private:
   uint32_t sample_count_;
   uint32_t duration_;
-  uint32_t sample_size_;
+  uint32_t total_sample_size_;
+  std::vector<uint32_t> sample_size_entries_;
 
   static const uint32_t data_offset_present = 0x000001;
   static const uint32_t first_sample_flags_present = 0x000004;

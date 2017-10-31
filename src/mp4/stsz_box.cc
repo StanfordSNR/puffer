@@ -15,6 +15,16 @@ void StszBox::print_structure(const unsigned int indent)
 
   string indent_str = string(indent + 2, ' ') + "| ";
   cout << indent_str << "sample count " << sample_count_ << endl;
+  if (sample_count_) {
+    uint32_t i;
+    uint32_t count = entries_.size() > 5 ? 5 : entries_.size();
+    for (i = 0; i < count; i++) {
+      cout << indent_str << "[" << i << "] " << entries_[i] << endl;
+    }
+    if (count < entries_.size()) {
+      cout << indent_str << "..." << endl;
+    }
+  }
 }
 
 void StszBox::parse_data(MP4File & mp4, const uint64_t data_size)
