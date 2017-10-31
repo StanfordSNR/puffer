@@ -63,37 +63,17 @@ void Box::parse_data(MP4File & mp4, const uint64_t data_size)
   }
 }
 
-void Box::infer_size()
-{
-  if (size_ > 0) {
-    return;
-  }
-
-  uint64_t size = 8;
-
-  if (size_ == 1) {
-    size += 8;
-  }
-
-  if (type_ == "uuid") {
-    size += 2;
-  }
-
-  for (const auto & child : children_) {
-    child->infer_size();
-    size += child->size();
-  }
-
-  set_size(size);
-}
-
 void Box::write_box(MP4File & mp4)
 {
+  uint64_t size_offset = mp4.curr_offset();
+
   write_size_type(mp4);
 
   for (const auto & child : children_) {
     child->write_box(mp4);
   }
+
+  fix_size_at(mp4, size_offset);
 }
 
 void Box::print_size_type(const unsigned int indent)
@@ -103,12 +83,22 @@ void Box::print_size_type(const unsigned int indent)
 
 void Box::write_size_type(MP4File & mp4)
 {
-  if (size_ == 1 or type_ == "uuid" or type_ == "mdat") {
+  if (size_ == 1 or type_ == "uuid") {
     throw runtime_error("does not support writing special box headers");
   }
 
   mp4.write_uint32(narrow_cast<uint32_t>(size_));
   mp4.write_string(type_, 4);
+}
+
+void Box::fix_size_at(MP4File & mp4, const uint64_t size_offset)
+{
+  uint64_t curr_offset = mp4.curr_offset();
+  uint32_t size = narrow_cast<uint32_t>(curr_offset - size_offset);
+
+  mp4.seek(size_offset, SEEK_SET);
+  mp4.write_uint32(size);
+  mp4.seek(curr_offset, SEEK_SET);
 }
 
 void Box::skip_data_left(MP4File & mp4, const uint64_t data_size,

@@ -14,9 +14,7 @@ MfhdBox::MfhdBox(const std::string & type,
                  const uint32_t flags,
                  const uint32_t sequence_number)
   : FullBox(type, version, flags), sequence_number_(sequence_number)
-{
-  set_size(16); /* FullBox header + sequence_number */
-}
+{}
 
 void MfhdBox::print_structure(const unsigned int indent)
 {
@@ -39,8 +37,11 @@ void MfhdBox::parse_data(MP4File & mp4, const uint64_t data_size)
 
 void MfhdBox::write_box(MP4File & mp4)
 {
+  uint64_t size_offset = mp4.curr_offset();
+
   write_size_type(mp4);
   write_version_flags(mp4);
-
   mp4.write_uint32(sequence_number_);
+
+  fix_size_at(mp4, size_offset);
 }
