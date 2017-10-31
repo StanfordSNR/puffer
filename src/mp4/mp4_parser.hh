@@ -19,7 +19,7 @@ const std::set<std::string> mp4_container_boxes{
 class MP4Parser
 {
 public:
-  MP4Parser(const std::string & filename);
+  MP4Parser(const std::string & filename, const bool writer = false);
 
   /* parse MP4 into boxes */
   void parse();
@@ -33,6 +33,10 @@ public:
   void split(const std::string & init_seg,
              const std::string & media_seg_template,
              const unsigned int start_number);
+
+  /* MP4 writer */
+  void add_top_level_box(std::shared_ptr<Box> && top_level_box);
+  void save_mp4_and_close();
 
   std::shared_ptr<Box> root_box() { return box_; }
   std::shared_ptr<Box> find_first_box_of(const std::string & type);
