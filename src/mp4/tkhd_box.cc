@@ -34,22 +34,22 @@ void TkhdBox::parse_data(MP4File & mp4, const uint64_t data_size)
     creation_time_ = mp4.read_uint64();
     modification_time_ = mp4.read_uint64();
     track_id_ = mp4.read_uint32();
-    mp4.read_zeros(4); /* reserved */
+    mp4.read(4); /* reserved */
     duration_ = mp4.read_uint64();
   } else {
     creation_time_ = mp4.read_uint32();
     modification_time_ = mp4.read_uint32();
     track_id_ = mp4.read_uint32();
-    mp4.read_zeros(4); /* reserved */
+    mp4.read(4); /* reserved */
     duration_ = mp4.read_uint32();
   }
 
-  mp4.read_zeros(8); /* reserved */
-  mp4.read_zeros(2); /* layer */
-  mp4.read_zeros(2); /* alternate_group */
-  mp4.read(2);       /* volume */
-  mp4.read_zeros(2); /* reserved */
-  mp4.read(36);      /* matrix */
+  mp4.read(8); /* reserved */
+  mp4.read(2); /* layer */
+  mp4.read(2); /* alternate_group */
+  mp4.read(2); /* volume */
+  mp4.read(2); /* reserved */
+  mp4.read(36);/* matrix */
 
   /* width and height are 16.16 fixed-point numbers */
   width_ = mp4.read_uint32() / 65536;

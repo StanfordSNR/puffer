@@ -36,9 +36,6 @@ public:
   int32_t read_int32();
   int64_t read_int64();
 
-  /* throw runtime error if any byte read is not zero */
-  void read_zeros(const size_t bytes);
-
   /* write bytes to file */
   void write_uint8(const uint8_t data);
   void write_uint16(const uint16_t data);
