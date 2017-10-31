@@ -147,7 +147,7 @@ uint32_t MP4Info::get_bitrate(uint32_t timescale, uint32_t duration)
     return 0;
   } else {
     /* round to nearest thousands */
-    float raw_bitrate = trun_box->sample_size() / s_duration * 8;
+    float raw_bitrate = trun_box->total_sample_size() / s_duration * 8;
     uint32_t bitrate = static_cast<uint32_t>(raw_bitrate);
     return (bitrate / 1000) * 1000;
   }
