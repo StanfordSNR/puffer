@@ -17,7 +17,6 @@ void MdhdBox::print_structure(const unsigned int indent)
   string indent_str = string(indent + 2, ' ') + "| ";
   cout << indent_str << "timescale " << timescale_ << endl;
   cout << indent_str << "duration " << duration_ << endl;
-  cout << indent_str << "language " << language_ << endl;
 }
 
 void MdhdBox::parse_data(MP4File & mp4, const uint64_t data_size)
