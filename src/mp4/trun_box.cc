@@ -11,10 +11,10 @@ TrunBox::TrunBox(const uint64_t size, const string & type)
   : FullBox(size, type), samples_()
 {}
 
-TrunBox::TrunBox(const std::string & type,
+TrunBox::TrunBox(const string & type,
                  const uint8_t version,
                  const uint32_t flags,
-                 const std::vector<Sample> & samples,
+                 const vector<Sample> & samples,
                  const int32_t data_offset,
                  const uint32_t first_sample_flags)
   : FullBox(type, version, flags), samples_(samples)

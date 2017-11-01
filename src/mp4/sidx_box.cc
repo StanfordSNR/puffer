@@ -7,19 +7,19 @@
 using namespace std;
 using namespace MP4;
 
-SidxBox::SidxBox(const uint64_t size, const std::string & type)
+SidxBox::SidxBox(const uint64_t size, const string & type)
   : FullBox(size, type), reference_id_(), timescale_(),
     earlist_presentation_time_(), first_offset_(), reference_list_()
 {}
 
-SidxBox::SidxBox(const std::string & type,
+SidxBox::SidxBox(const string & type,
                  const uint8_t version,
                  const uint32_t flags,
                  const uint32_t reference_id,
                  const uint32_t timescale,
                  const uint64_t earlist_presentation_time,
                  const uint64_t first_offset,
-                 const std::vector<SidxReference> & reference_list)
+                 const vector<SidxReference> & reference_list)
   : FullBox(type, version, flags),
     reference_id_(reference_id), timescale_(timescale),
     earlist_presentation_time_(earlist_presentation_time),

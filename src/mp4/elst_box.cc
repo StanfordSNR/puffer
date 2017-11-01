@@ -5,7 +5,7 @@
 using namespace std;
 using namespace MP4;
 
-ElstBox::ElstBox(const uint64_t size, const std::string & type)
+ElstBox::ElstBox(const uint64_t size, const string & type)
   : FullBox(size, type), edit_list_()
 {}
 

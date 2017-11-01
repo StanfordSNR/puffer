@@ -39,7 +39,7 @@ void StsdBox::parse_data(MP4File & mp4, const uint64_t data_size)
   check_data_left(mp4, data_size, init_offset);
 }
 
-SampleEntry::SampleEntry(const uint64_t size, const std::string & type)
+SampleEntry::SampleEntry(const uint64_t size, const string & type)
   : Box(size, type), data_reference_index_()
 {}
 

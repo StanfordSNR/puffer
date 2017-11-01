@@ -5,7 +5,7 @@
 using namespace std;
 using namespace MP4;
 
-MvhdBox::MvhdBox(const uint64_t size, const std::string & type)
+MvhdBox::MvhdBox(const uint64_t size, const string & type)
   : FullBox(size, type), creation_time_(), modification_time_(),
     timescale_(), duration_()
 {}
