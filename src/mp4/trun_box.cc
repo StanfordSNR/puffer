@@ -22,11 +22,10 @@ void TrunBox::print_structure(const unsigned int indent)
   if (sample_count()) {
     uint32_t count = min(sample_count(), 5u);
 
+    cout << indent_str << "[#] size, composition time offset" << endl;
     for (uint32_t i = 0; i < count; ++i) {
-      cout << indent_str << "[" << i << "]"
-           << " size " << samples_[i].sample_size
-           << " composition time offset "
-           << samples_[i].sample_composition_time_offset << endl;
+      cout << indent_str << "[" << i << "] " << samples_[i].sample_size
+           << ", " << samples_[i].sample_composition_time_offset << endl;
     }
 
     if (count < sample_count()) {
