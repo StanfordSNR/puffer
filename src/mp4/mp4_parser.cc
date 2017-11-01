@@ -42,8 +42,8 @@ void MP4Parser::print_structure()
   }
 }
 
-void MP4Parser::split(const std::string & init_seg,
-                      const std::string & media_seg_template,
+void MP4Parser::split(const string & init_seg,
+                      const string & media_seg_template,
                       const unsigned int start_number)
 {
   /* reset file offset and eof */

@@ -9,10 +9,10 @@ FtypBox::FtypBox(const uint64_t size, const string & type)
   : Box(size, type), major_brand_(), minor_version_(), compatible_brands_()
 {}
 
-FtypBox::FtypBox(const std::string & type,
-                 const std::string & major_brand,
+FtypBox::FtypBox(const string & type,
+                 const string & major_brand,
                  const uint32_t minor_version,
-                 const std::vector<std::string> & compatible_brands)
+                 const vector<string> & compatible_brands)
   : Box(type), major_brand_(major_brand), minor_version_(minor_version),
     compatible_brands_(compatible_brands)
 {}

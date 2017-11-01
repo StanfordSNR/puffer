@@ -5,11 +5,11 @@
 using namespace std;
 using namespace MP4;
 
-MfhdBox::MfhdBox(const uint64_t size, const std::string & type)
+MfhdBox::MfhdBox(const uint64_t size, const string & type)
   : FullBox(size, type), sequence_number_()
 {}
 
-MfhdBox::MfhdBox(const std::string & type,
+MfhdBox::MfhdBox(const string & type,
                  const uint8_t version,
                  const uint32_t flags,
                  const uint32_t sequence_number)

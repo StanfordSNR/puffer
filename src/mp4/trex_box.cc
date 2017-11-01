@@ -5,7 +5,7 @@
 using namespace std;
 using namespace MP4;
 
-TrexBox::TrexBox(const uint64_t size, const std::string & type)
+TrexBox::TrexBox(const uint64_t size, const string & type)
   : FullBox(size, type), track_id_(), default_sample_description_index_(),
     default_sample_duration_(), default_sample_size_(), default_sample_flags_()
 {}

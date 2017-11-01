@@ -121,11 +121,11 @@ void Box::check_data_left(MP4File & mp4, const uint64_t data_size,
   }
 }
 
-FullBox::FullBox(const uint64_t size, const std::string & type)
+FullBox::FullBox(const uint64_t size, const string & type)
   : Box(size, type), version_(), flags_()
 {}
 
-FullBox::FullBox(const std::string & type,
+FullBox::FullBox(const string & type,
                  const uint8_t version, const uint32_t flags)
   : Box(type), version_(version), flags_(flags)
 {}

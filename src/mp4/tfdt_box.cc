@@ -6,11 +6,11 @@
 using namespace std;
 using namespace MP4;
 
-TfdtBox::TfdtBox(const uint64_t size, const std::string & type)
+TfdtBox::TfdtBox(const uint64_t size, const string & type)
   : FullBox(size, type), base_media_decode_time_()
 {}
 
-TfdtBox::TfdtBox(const std::string & type,
+TfdtBox::TfdtBox(const string & type,
                  const uint8_t version,
                  const uint32_t flags,
                  const uint64_t base_media_decode_time)
