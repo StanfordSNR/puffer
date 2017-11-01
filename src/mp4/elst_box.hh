@@ -16,6 +16,10 @@ public:
   };
 
   ElstBox(const uint64_t size, const std::string & type);
+  ElstBox(const std::string & type,
+          const uint8_t version,
+          const uint32_t flags,
+          const std::vector<Edit> & edit_list);
 
   /* accessors */
   std::vector<Edit> edit_list() { return edit_list_; }
@@ -23,6 +27,7 @@ public:
   void print_structure(const unsigned int indent = 0);
 
   void parse_data(MP4File & mp4, const uint64_t data_size);
+  void write_box(MP4File & mp4);
 
 private:
   std::vector<Edit> edit_list_;

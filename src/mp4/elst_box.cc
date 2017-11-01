@@ -9,6 +9,13 @@ ElstBox::ElstBox(const uint64_t size, const string & type)
   : FullBox(size, type), edit_list_()
 {}
 
+ElstBox::ElstBox(const string & type,
+                 const uint8_t version,
+                 const uint32_t flags,
+                 const vector<Edit> & edit_list)
+  : FullBox(type, version, flags), edit_list_(edit_list)
+{}
+
 void ElstBox::print_structure(const unsigned int indent)
 {
   print_size_type(indent);
@@ -53,4 +60,27 @@ void ElstBox::parse_data(MP4File & mp4, const uint64_t data_size)
   }
 
   check_data_left(mp4, data_size, init_offset);
+}
+
+void ElstBox::write_box(MP4File & mp4)
+{
+  uint64_t size_offset = mp4.curr_offset();
+
+  write_size_type(mp4);
+  write_version_flags(mp4);
+
+  for (const auto & edit : edit_list_) {
+    if (version() == 1) {
+      mp4.write_uint64(edit.segment_duration);
+      mp4.write_int64(edit.media_time);
+    } else {
+      mp4.write_uint32(edit.segment_duration);
+      mp4.write_int32(edit.media_time);
+    }
+
+    mp4.write_int16(edit.media_rate_integer);
+    mp4.write_int16(edit.media_rate_fraction);
+  }
+
+  fix_size_at(mp4, size_offset);
 }
