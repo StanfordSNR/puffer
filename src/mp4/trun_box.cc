@@ -8,9 +8,46 @@ using namespace std;
 using namespace MP4;
 
 TrunBox::TrunBox(const uint64_t size, const string & type)
-  : FullBox(size, type), samples_(),
-    total_sample_duration_(), total_sample_size_()
+  : FullBox(size, type), samples_()
 {}
+
+TrunBox::TrunBox(const std::string & type,
+                 const uint8_t version,
+                 const uint32_t flags,
+                 const std::vector<Sample> & samples,
+                 const int32_t data_offset,
+                 const uint32_t first_sample_flags)
+  : FullBox(type, version, flags), samples_(samples)
+{
+  if (flags & data_offset_present) {
+    data_offset_ = data_offset;
+  }
+  if (flags & first_sample_flags_present) {
+    first_sample_flags_ = first_sample_flags;
+  }
+}
+
+uint64_t TrunBox::total_sample_duration()
+{
+  uint64_t total_sample_duration = 0;
+
+  for (const auto & sample : samples_) {
+    total_sample_duration += sample.sample_duration;
+  }
+
+  return total_sample_duration;
+}
+
+uint64_t TrunBox::total_sample_size()
+{
+  uint64_t total_sample_size = 0;
+
+  for (const auto & sample : samples_) {
+    total_sample_size += sample.sample_size;
+  }
+
+  return total_sample_size;
+}
 
 void TrunBox::print_structure(const unsigned int indent)
 {
@@ -34,8 +71,8 @@ void TrunBox::print_structure(const unsigned int indent)
   }
 
   cout << indent_str << "total sample duration "
-                     << total_sample_duration_ << endl;
-  cout << indent_str << "total sample size " << total_sample_size_ << endl;
+                     << total_sample_duration() << endl;
+  cout << indent_str << "total sample size " << total_sample_size() << endl;
 }
 
 void TrunBox::parse_data(MP4File & mp4, const uint64_t data_size)
@@ -62,12 +99,10 @@ void TrunBox::parse_data(MP4File & mp4, const uint64_t data_size)
 
     if (flags() & sample_duration_present) {
       sample_duration = mp4.read_uint32();
-      total_sample_duration_ += sample_duration;
     }
 
     if (flags() & sample_size_present) {
       sample_size = mp4.read_uint32();
-      total_sample_size_ += sample_size;
     }
 
     if (flags() & sample_flags_present) {
@@ -87,4 +122,48 @@ void TrunBox::parse_data(MP4File & mp4, const uint64_t data_size)
   }
 
   check_data_left(mp4, data_size, init_offset);
+}
+
+void TrunBox::write_box(MP4File & mp4)
+{
+  uint64_t size_offset = mp4.curr_offset();
+
+  write_size_type(mp4);
+  write_version_flags(mp4);
+
+  mp4.write_uint32(sample_count());
+
+  if (flags() & data_offset_present) {
+    mp4.write_int32(data_offset_);
+  }
+
+  if (flags() & first_sample_flags_present) {
+    mp4.write_uint32(first_sample_flags_);
+  }
+
+  for (const auto & sample : samples_) {
+    if (flags() & sample_duration_present) {
+      mp4.write_uint32(sample.sample_duration);
+    }
+
+    if (flags() & sample_size_present) {
+      mp4.write_uint32(sample.sample_size);
+    }
+
+    if (flags() & sample_flags_present) {
+      mp4.write_uint32(sample.sample_flags);
+    }
+
+    if (flags() & sample_composition_time_offsets_present) {
+      if (version() == 0) {
+        mp4.write_uint32(
+            narrow_cast<uint32_t>(sample.sample_composition_time_offset));
+      } else {
+        mp4.write_int32(
+            narrow_cast<int32_t>(sample.sample_composition_time_offset));
+      }
+    }
+  }
+
+  fix_size_at(mp4, size_offset);
 }

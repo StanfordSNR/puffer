@@ -19,23 +19,30 @@ public:
   };
 
   TrunBox(const uint64_t size, const std::string & type);
+  TrunBox(const std::string & type,
+          const uint8_t version,
+          const uint32_t flags,
+          const std::vector<Sample> & samples,
+          const int32_t data_offset = 0,
+          const uint32_t first_sample_flags = 0);
 
   /* accessors */
   uint32_t sample_count() { return samples_.size(); }
   std::vector<Sample> samples() { return samples_; }
 
-  uint64_t total_sample_duration() { return total_sample_duration_; }
-  uint64_t total_sample_size() { return total_sample_size_; }
+  uint64_t total_sample_duration();
+  uint64_t total_sample_size();
 
   void print_structure(const unsigned int indent = 0);
 
   void parse_data(MP4File & mp4, const uint64_t data_size);
+  void write_box(MP4File & mp4);
 
 private:
   std::vector<Sample> samples_;
 
-  uint64_t total_sample_duration_;
-  uint64_t total_sample_size_;
+  int32_t data_offset_ = 0;
+  uint32_t first_sample_flags_ = 0;
 
   static const uint32_t data_offset_present = 0x000001;
   static const uint32_t first_sample_flags_present = 0x000004;
