@@ -11,7 +11,8 @@ public:
   CttsBox(const uint64_t size, const std::string & type);
 
   /* accessors */
-  std::vector<int64_t> get_sample_offsets() { return offset_entries_; }
+  uint32_t sample_count() { return entries_.size(); }
+  std::vector<int64_t> entries() { return entries_; }
 
   void print_structure(const unsigned int indent = 0);
 
@@ -19,8 +20,9 @@ public:
 
 private:
   /* use int64_t to hold both unsigned and signed int32 */
-  std::vector<int64_t> offset_entries_;
+  std::vector<int64_t> entries_;
 };
 
 }
-#endif /* Ctts_BOX_HH */
+
+#endif /* CTTS_BOX_HH */

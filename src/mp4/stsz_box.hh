@@ -12,7 +12,8 @@ public:
 
   /* accessors */
   uint32_t sample_size() { return sample_size_; }
-  uint32_t sample_count () { return entries_.size(); }
+  uint32_t sample_count() { return entries_.size(); }
+  std::vector<uint32_t> entries() { return entries_; }
 
   void print_structure(const unsigned int indent = 0);
 
@@ -25,4 +26,5 @@ private:
 };
 
 }
+
 #endif /* STSZ_BOX_HH */

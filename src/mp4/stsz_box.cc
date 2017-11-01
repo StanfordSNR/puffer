@@ -21,6 +21,7 @@ void StszBox::print_structure(const unsigned int indent)
   if (sample_count()) {
     uint32_t count = min(sample_count(), 5u);
 
+    cout << indent_str << "[#] sample size" << endl;
     for (uint32_t i = 0; i < count; ++i) {
       cout << indent_str << "[" << i << "] " << entries_[i] << endl;
     }
@@ -28,6 +29,8 @@ void StszBox::print_structure(const unsigned int indent)
     if (count < sample_count()) {
       cout << indent_str << "..." << endl;
     }
+  } else if (sample_size_ > 0) {
+    cout << indent_str << "sample size " << sample_size_ << endl;
   }
 }
 
