@@ -54,6 +54,27 @@ private:
   /* optional boxes are not parsed */
 };
 
+
+class AudioSampleEntry: public SampleEntry
+{
+public:
+  AudioSampleEntry(const uint64_t size, const std::string & type);
+
+  /* accessors */
+  uint16_t channel_count() { return channel_count_; }
+  uint16_t sample_size() { return sample_size_; }
+  uint32_t sample_rate() { return sample_rate_; }
+
+  void print_structure(const uint32_t indent = 0);
+  void parse_data(MP4File & mp4, const uint64_t data_size);
+
+private:
+  uint16_t channel_count_ = 2;
+  uint16_t sample_size_ = 16;
+  uint16_t pre_defined_ = 0;
+  uint32_t sample_rate_;
+};
+
 class AVC1 : public VisualSampleEntry
 {
 public:
@@ -78,6 +99,40 @@ private:
   /* for avcC */
   uint32_t avcc_size_;
 };
+
+
+/* ISO 14496-1 is not free in public domain
+ */
+class EsdsBox : public FullBox
+{
+public:
+  EsdsBox(const uint64_t size, const std::string & type);
+
+  uint16_t es_id() { return es_id_; }
+  uint8_t stream_priority() { return stream_priority_; }
+  uint8_t object_type() { return object_type_; }
+  uint32_t max_bitrate() { return max_bitrate_; }
+  uint32_t avg_bitrate() { return avg_bitrate_; }
+
+  void parse_data(MP4File & mp4, const uint64_t data_size);
+  void print_structure(const unsigned int indent = 0);
+
+private:
+  uint16_t es_id_;
+  uint8_t stream_priority_;
+  uint8_t object_type_;
+  uint32_t max_bitrate_;
+  uint32_t avg_bitrate_;
+
+  static const uint8_t type_tag = 0x03;
+  static const uint8_t config_type_tag = 0x04;
+  static const uint8_t tag_string_start = 0x80;
+  static const uint8_t tag_string_end = 0xFE;
+
+  void read_tag_string(MP4File & file);
+
+};
+
 
 }
 
