@@ -77,7 +77,7 @@ void SidxBox::parse_data(MP4File & mp4, const uint64_t data_size)
   for (unsigned int i = 0; i < reference_count; ++i) {
     uint32_t data = mp4.read_uint32();
     bool reference_type = (data >> 31) & 1;
-    uint32_t reference_size = data & 0x7FFFFFFF;
+    uint32_t referenced_size = data & 0x7FFFFFFF;
 
     uint32_t subsegment_duration = mp4.read_uint32();
 
@@ -87,7 +87,7 @@ void SidxBox::parse_data(MP4File & mp4, const uint64_t data_size)
     uint32_t sap_delta = data & 0x0FFFFFFF;
 
     reference_list_.emplace_back(SidxReference{
-      reference_type, reference_size, subsegment_duration,
+      reference_type, referenced_size, subsegment_duration,
       starts_with_sap, sap_type, sap_delta
     });
   }
@@ -117,12 +117,14 @@ void SidxBox::write_box(MP4File & mp4)
 
   mp4.write_uint16(reference_list_.size());
   for (const auto & ref : reference_list_) {
-    uint32_t data = (ref.reference_type << 31) + ref.reference_size;
+    uint32_t data = (ref.reference_type << 31) +
+                    (ref.referenced_size & 0x7FFFFFFF);
     mp4.write_uint32(data);
 
     mp4.write_uint32(ref.subsegment_duration);
 
-    data = (ref.starts_with_sap << 31) + (ref.sap_type << 28) + ref.sap_delta;
+    data = (ref.starts_with_sap << 31) + (ref.sap_type << 28) +
+           (ref.sap_delta & 0x0FFFFFFF);
     mp4.write_uint32(data);
   }
 

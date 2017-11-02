@@ -13,9 +13,9 @@ TfhdBox::TfhdBox(const string & type,
                  const uint8_t version,
                  const uint32_t flags,
                  const uint32_t track_id,
+                 const uint32_t default_sample_duration,
                  const uint64_t base_data_offset,
                  const uint32_t sample_description_index,
-                 const uint32_t default_sample_duration,
                  const uint32_t default_sample_size,
                  const uint32_t default_sample_flags)
   : FullBox(type, version, flags), track_id_(track_id)
