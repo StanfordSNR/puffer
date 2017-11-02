@@ -50,12 +50,12 @@ void Box::write_box(MP4File & mp4)
 
   write_size_type(mp4);
 
-  if (children_.size()) {
+  if (raw_data_.size()) {
+    mp4.write(raw_data_);
+  } else if (children_.size()) {
     for (const auto & child : children_) {
       child->write_box(mp4);
     }
-  } else if (raw_data_.size()) {
-    mp4.write(raw_data_);
   }
 
   fix_size_at(mp4, size_offset);
