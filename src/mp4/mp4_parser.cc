@@ -26,19 +26,31 @@ using namespace std;
 using namespace MP4;
 
 MP4Parser::MP4Parser(const string & filename, const bool writer)
-  : mp4_(writer ? MP4File(filename, O_WRONLY | O_CREAT | O_TRUNC, 0644)
-                : MP4File(filename, O_RDONLY)), box_(make_shared<Box>(0, "root"))
+  : mp4_(writer ?
+         make_shared<MP4File>(filename, O_WRONLY | O_CREAT | O_TRUNC, 0644) :
+         make_shared<MP4File>(filename, O_RDONLY)),
+         root_box_(make_shared<Box>("root"))
 {}
 
 void MP4Parser::parse()
 {
-  create_boxes(box_, 0, mp4_.filesize());
+  create_boxes(root_box_, 0, mp4_->filesize());
+}
+
+shared_ptr<Box> MP4Parser::find_first_box_of(const string & type)
+{
+  if (type == "root") {
+    return nullptr; /* do not return root box publicly */
+  }
+
+  return do_find_first_box_of(root_box_, type);
 }
 
 void MP4Parser::print_structure()
 {
-  for (auto it = box_->children_begin(); it != box_->children_end(); ++it) {
-    (*it)->print_structure();
+  for (auto it = root_box_->children_begin();
+       it != root_box_->children_end(); ++it) {
+    (*it)->print_box();
   }
 }
 
@@ -47,16 +59,16 @@ void MP4Parser::split(const string & init_seg,
                       const unsigned int start_number)
 {
   /* reset file offset and eof */
-  mp4_.reset();
+  mp4_->reset();
 
   /* create the initial segment */
-  auto it = box_->children_begin();
+  auto it = root_box_->children_begin();
   uint64_t size_to_copy = 0;
 
   /* a valid initial segment must contain ftyp and moov boxes */
   bool has_ftyp = false, has_moov = false;
 
-  while (it != box_->children_end()) {
+  while (it != root_box_->children_end()) {
     string type = (*it)->type();
 
     if (type == "ftyp") {
@@ -85,7 +97,7 @@ void MP4Parser::split(const string & init_seg,
   /* create one or more media segments */
   unsigned int curr_seg_number = start_number;
 
-  while (it != box_->children_end()) {
+  while (it != root_box_->children_end()) {
     string type = (*it)->type();
 
     if (type == "styp" or type == "sidx") {
@@ -116,26 +128,22 @@ void MP4Parser::split(const string & init_seg,
 
 void MP4Parser::add_top_level_box(shared_ptr<Box> && top_level_box)
 {
-  box_->add_child(move(top_level_box));
+  root_box_->add_child(move(top_level_box));
 }
 
 void MP4Parser::save_mp4_and_close()
 {
-  for (auto it = box_->children_begin(); it != box_->children_end(); ++it) {
-    (*it)->write_box(mp4_);
+  for (auto it = root_box_->children_begin();
+       it != root_box_->children_end(); ++it) {
+    (*it)->write_box(*mp4_);
   }
 
-  mp4_.close();
+  mp4_->close();
 }
 
-shared_ptr<Box> MP4Parser::find_first_box_of(const string & type)
-{
-  return box_->find_first_descendant_of(type);
-}
-
-shared_ptr<Box> MP4Parser::box_factory(
-    const uint64_t size, const string & type,
-    MP4File & mp4, const uint64_t data_size)
+shared_ptr<Box> MP4Parser::box_factory(const uint64_t size,
+                                       const string & type,
+                                       const uint64_t data_size)
 {
   shared_ptr<Box> box;
 
@@ -149,12 +157,8 @@ shared_ptr<Box> MP4Parser::box_factory(
     box = make_shared<TfhdBox>(size, type);
   } else if (type == "sidx") {
     box = make_shared<SidxBox>(size, type);
-  } else if (type == "stsd") {
-    box = make_shared<StsdBox>(size, type);
   } else if (type == "trex") {
     box = make_shared<TrexBox>(size, type);
-  } else if (type == "avc1") {
-    box = make_shared<AVC1>(size, type);
   } else if (type == "stsz") {
     box = make_shared<StszBox>(size, type);
   } else if (type == "tkhd") {
@@ -169,15 +173,17 @@ shared_ptr<Box> MP4Parser::box_factory(
     box = make_shared<ElstBox>(size, type);
   } else if (type == "ctts") {
     box = make_shared<CttsBox>(size, type);
+  } else if (type == "stsd") {
+    box = make_shared<StsdBox>(size, type);
   } else {
     box = make_shared<Box>(size, type);
   }
 
-  uint64_t init_offset = mp4.curr_offset();
+  uint64_t init_offset = mp4_->curr_offset();
 
-  box->parse_data(mp4, data_size);
+  box->parse_data(*mp4_, data_size);
 
-  if (mp4.curr_offset() != init_offset + data_size) {
+  if (mp4_->curr_offset() != init_offset + data_size) {
     throw runtime_error("parse_data() should increment offset by data_size");
   }
 
@@ -189,41 +195,58 @@ void MP4Parser::create_boxes(const shared_ptr<Box> & parent_box,
                              const uint64_t total_size)
 {
   while (true) {
-    uint32_t size = mp4_.read_uint32();
-    string type = mp4_.read(4);
+    uint64_t size = mp4_->read_uint32();
+    string type = mp4_->read(4);
     uint64_t data_size;
 
     if (size == 0) {
-      data_size = start_offset + total_size - mp4_.curr_offset();
+      data_size = start_offset + total_size - mp4_->curr_offset();
       size = data_size + 8;
     } else if (size == 1) {
-      data_size = mp4_.read_uint64() - 16;
+      size = mp4_->read_uint64();
+      data_size = size - 16;
     } else {
       data_size = size - 8;
     }
 
     if (type == "uuid") {
-      /* ignore extended_type */
-      mp4_.read(16);
+      mp4_->read(16); /* ignore extended_type */
     }
 
     if (mp4_container_boxes.find(type) != mp4_container_boxes.end()) {
       /* parse a container box recursively */
       auto box = make_shared<Box>(size, type);
-      create_boxes(box, mp4_.curr_offset(), data_size);
+      create_boxes(box, mp4_->curr_offset(), data_size);
 
       parent_box->add_child(move(box));
     } else {
       /* parse a regular box */
-      shared_ptr<Box> box = box_factory(size, type, mp4_, data_size);
+      shared_ptr<Box> box = box_factory(size, type, data_size);
 
       parent_box->add_child(move(box));
     }
 
-    if (mp4_.curr_offset() >= start_offset + total_size) {
+    if (mp4_->curr_offset() >= start_offset + total_size) {
       break;
     }
   }
+}
+
+shared_ptr<Box> MP4Parser::do_find_first_box_of(const shared_ptr<Box> & box,
+                                                const string & type)
+{
+  if (box->type() == type) {
+    return box;
+  }
+
+  for (auto it = box->children_begin(); it != box->children_end(); ++it) {
+    auto found = do_find_first_box_of(*it, type);
+    if (found != nullptr) {
+      return found;
+    }
+  }
+
+  return nullptr;
 }
 
 void MP4Parser::copy_to_file(const string & output_filename,
@@ -234,8 +257,8 @@ void MP4Parser::copy_to_file(const string & output_filename,
   uint64_t size_copied = 0;
 
   while (size_copied < size_to_copy) {
-    string data = mp4_.read(size_to_copy - size_copied);
-    if (mp4_.eof()) {
+    string data = mp4_->read(size_to_copy - size_copied);
+    if (mp4_->eof()) {
       throw runtime_error("copy_to_file: reached EOF before finishing copy");
     }
 

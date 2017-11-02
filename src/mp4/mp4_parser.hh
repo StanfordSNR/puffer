@@ -19,41 +19,55 @@ const std::set<std::string> mp4_container_boxes{
 class MP4Parser
 {
 public:
+  /* parse 'filename' as a "reader" by default
+   * or write to 'filename' as a "writer" when 'writer' is true */
   MP4Parser(const std::string & filename, const bool writer = false);
 
-  /* parse MP4 into boxes */
-  void parse();
+  /*
+   * functions primarily for MP4 reader
+   */
+  void parse(); /* parse MP4 into boxes */
 
-  /* print MP4 structure, i.e., type and size of each box, and box hierarchy
-   * call after parse() */
+  std::shared_ptr<Box> find_first_box_of(const std::string & type);
+
+  /* print the type and size of each box, and the box structure of MP4 */
   void print_structure();
 
-  /* split fragmented MP4 into initial segment and media segments
-   * call after parse() */
+  /*
+   * functions primarily for MP4 writer
+   */
+  void add_top_level_box(std::shared_ptr<Box> && top_level_box);
+
+  void save_mp4_and_close();
+
+  /* TODO: split fragmented MP4 into initial segment and media segments */
   void split(const std::string & init_seg,
              const std::string & media_seg_template,
              const unsigned int start_number);
 
-  /* MP4 writer */
-  void add_top_level_box(std::shared_ptr<Box> && top_level_box);
-  void save_mp4_and_close();
 
-  std::shared_ptr<Box> root_box() { return box_; }
-  std::shared_ptr<Box> find_first_box_of(const std::string & type);
+protected:
+  /* accessors */
+  std::shared_ptr<MP4File> mp4() { return mp4_; }
+  std::shared_ptr<Box> root_box() { return root_box_; }
 
 private:
-  MP4File mp4_;
-  std::shared_ptr<Box> box_;
-
-  /* recursively create boxes between start_offset and its following total_size
-   * add created boxes as children of parent_box */
-  void create_boxes(const std::shared_ptr<Box> & parent_box,
-                    const uint64_t start_offset, const uint64_t total_size);
+  std::shared_ptr<MP4File> mp4_;
+  std::shared_ptr<Box> root_box_;
 
   /* a factory method to create different boxes based on their type */
-  std::shared_ptr<Box> box_factory(
-      const uint64_t size, const std::string & type,
-      MP4File & mp4, const uint64_t data_size);
+  std::shared_ptr<Box> box_factory(const uint64_t size,
+                                   const std::string & type,
+                                   const uint64_t data_size);
+
+  /* recursively create boxes between 'start_offset' and its following
+   * 'total_size' bytes; add created boxes as children of the 'parent_box' */
+  void create_boxes(const std::shared_ptr<Box> & parent_box,
+                    const uint64_t start_offset,
+                    const uint64_t total_size);
+
+  std::shared_ptr<Box> do_find_first_box_of(const std::shared_ptr<Box> & box,
+                                            const std::string & type);
 
   /* copy size_to_copy bytes from current offset and write to filename */
   void copy_to_file(const std::string & output_filename,
