@@ -206,12 +206,11 @@ video adaption set");
   repr_set_.insert(repr);
 }
 
-MPDWriter::MPDWriter(
-    int64_t update_period, int64_t min_buffer_time, string base_url)
-  : update_period_(update_period), min_buffer_time_(min_buffer_time),
-    availability_start_time_(std::time(NULL)), publish_time_(std::time(NULL)),
-    writer_(std::make_unique<XMLWriter>()), base_url_(base_url),
-    video_adaption_set_(), audio_adaption_set_()
+MPDWriter::MPDWriter(uint32_t media_duration, uint32_t min_buffer_time,
+    string base_url)
+  : media_duration_(media_duration), min_buffer_time_(min_buffer_time),
+    publish_time_(std::time(NULL)), writer_(std::make_unique<XMLWriter>()),
+    base_url_(base_url), video_adaption_set_(), audio_adaption_set_()
 {}
 
 MPDWriter::~MPDWriter()
@@ -269,31 +268,31 @@ inline bool nearly_equal(const float & a, const float & b)
 
 void MPDWriter::write_framerate(const float & framerate)
 {
-    if (nearly_equal(framerate, 23.976)) {
-      writer_->attr("frameRate", "24000/1001");
-    } else if (nearly_equal(framerate, 24)) {
-      writer_->attr("frameRate", 24);
-    } else if (nearly_equal(framerate, 25)) {
-      writer_->attr("frameRate", 25);
-    } else if (nearly_equal(framerate, 29.976)) {
-      writer_->attr("frameRate", "30000/1001");
-    } else if (nearly_equal(framerate, 30)) {
-      writer_->attr("frameRate", 30);
-    } else if (nearly_equal(framerate, 59.94)) {
-      writer_->attr("frameRate", "600000/1001");
-    } else if (nearly_equal(framerate, 60)) {
-      writer_->attr("frameRate", 60);
-    } else {
-      throw std::runtime_error("Unsupported frame rate " +
-          std::to_string(framerate));
-    }
+  if (nearly_equal(framerate, 23.976)) {
+    writer_->attr("frameRate", "24000/1001");
+  } else if (nearly_equal(framerate, 24)) {
+    writer_->attr("frameRate", 24);
+  } else if (nearly_equal(framerate, 25)) {
+    writer_->attr("frameRate", 25);
+  } else if (nearly_equal(framerate, 29.976)) {
+    writer_->attr("frameRate", "30000/1001");
+  } else if (nearly_equal(framerate, 30)) {
+    writer_->attr("frameRate", 30);
+  } else if (nearly_equal(framerate, 59.94)) {
+    writer_->attr("frameRate", "600000/1001");
+  } else if (nearly_equal(framerate, 60)) {
+    writer_->attr("frameRate", 60);
+  } else {
+    throw std::runtime_error("Unsupported frame rate " +
+        std::to_string(framerate));
+  }
 }
 
 /* THIS IS FOR VIDEO ONLY */
 void MPDWriter::write_video_repr(shared_ptr<MPD::VideoRepresentation> repr)
 {
   writer_->open_elt("Representation");
-  writer_->attr("id", "v" + repr->id);
+  writer_->attr("id", repr->id);
   writer_->attr("mimeType", "video/mp4");
   string codec = write_video_codec(repr);
   writer_->attr("codecs", codec);
@@ -308,7 +307,7 @@ void MPDWriter::write_video_repr(shared_ptr<MPD::VideoRepresentation> repr)
 void MPDWriter::write_audio_repr(shared_ptr<MPD::AudioRepresentation> repr)
 {
   writer_->open_elt("Representation");
-  writer_->attr("id", "a" + repr->id);
+  writer_->attr("id", repr->id);
   writer_->attr("mimeType", repr->type == MPD::MimeType::Audio_AAC?
       "audio/mp4": "audio/webm");
   string codec = write_audio_codec(repr);
@@ -366,12 +365,21 @@ void MPDWriter::write_adaption_set(shared_ptr<MPD::AdaptionSet> set)
 
   /* write the segment template */
   writer_->open_elt("SegmentTemplate");
-  writer_->attr("duration", set->duration());
   writer_->attr("media", set->media_uri());
   writer_->attr("timescale", timescale);
   /* the initial segment number */
-  writer_->attr("startNumber", 1);
+  writer_->attr("startNumber", 1); // TODO: fix start number
   writer_->attr("initialization", set->init_uri());
+
+  /* write dummy segment timeline */
+  writer_->open_elt("SegmentTimeline");
+  writer_->open_elt("S");
+  writer_->attr("d", set->duration());
+  /* use the largest number because each segment will be the same length */
+  writer_->attr("r", 0xFFFFFFFF);
+  writer_->close_elt();
+  writer_->close_elt();
+
   writer_->close_elt();
 }
 
@@ -426,11 +434,10 @@ string MPDWriter::flush()
 http://standards.iso.org/ittf/PubliclyAvailableStandards/\
 MPEG-DASH_schema_files/DASH-MPD.xsd");
   writer_->attr("publishTime", format_time(publish_time_));
-  writer_->attr("availabilityStartTime", format_time(availability_start_time_));
   writer_->attr("profiles", "urn:mpeg:dash:profile:isoff-live:2011");
-  writer_->attr("type", "dynamic");
+  writer_->attr("type", "static");
   writer_->attr("minBufferTime", convert_pt(min_buffer_time_));
-  writer_->attr("minimumUpdatePeriod", convert_pt(update_period_));
+  writer_->attr("mediaPresentationDuration", convert_pt(media_duration_));
 
   /* Base URL */
   writer_->open_elt("BaseURL");

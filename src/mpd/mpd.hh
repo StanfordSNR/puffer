@@ -180,24 +180,28 @@ inline bool operator<(const AdaptionSet & a, const AdaptionSet & b)
 class MPDWriter
 {
 public:
-  MPDWriter(int64_t update_period, int64_t min_buffer_time,
-          std::string base_url);
+  MPDWriter(uint32_t medua_duration, uint32_t min_buffer_time,
+      std::string base_url);
   ~MPDWriter();
   std::string flush();
   void add_video_adaption_set(std::shared_ptr<MPD::VideoAdaptionSet> set);
   void add_audio_adaption_set(std::shared_ptr<MPD::AudioAdaptionSet> set);
-  void set_available_time(const std::chrono::seconds time)
-  { availability_start_time_ = time; }
   void set_publish_time(const std::chrono::seconds time)
   { publish_time_ = time; }
+  void set_video_start_number(uint32_t number)
+  { v_start_number_ = number; }
+  void set_audio_start_number(uint32_t number)
+  { a_start_number_ = number; }
 
 private:
-  int64_t update_period_;
-  int64_t min_buffer_time_;
-  std::chrono::seconds availability_start_time_;
+  uint32_t media_duration_;
+  uint32_t min_buffer_time_;
   std::chrono::seconds publish_time_;
   std::unique_ptr<XMLWriter> writer_;
   std::string base_url_;
+  uint32_t v_start_number_ = 0;
+  uint32_t a_start_number_ = 0;
+
   std::set<std::shared_ptr<MPD::VideoAdaptionSet>> video_adaption_set_;
   std::set<std::shared_ptr<MPD::AudioAdaptionSet>> audio_adaption_set_;
   std::string format_time(const time_t time);

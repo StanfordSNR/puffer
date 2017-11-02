@@ -17,35 +17,41 @@ using namespace std;
 using namespace MPD;
 using namespace MP4;
 
-const char *optstring = "u:p:b:s:i:t:o:l:";
+const char *optstring = "u:b:s:i:a:v:o:l:";
 const struct option options[] = {
   {"url", required_argument, NULL, 'u'},
-  {"update-period", required_argument, NULL, 'p'},
   {"buffer-time", required_argument, NULL, 'b'},
   {"segment-name", required_argument, NULL, 's'},
   {"init-name", required_argument, NULL, 'i'},
-  {"start-time", required_argument, NULL, 't'},
+  {"audio-start", required_argument, NULL, 'a'},
+  {"video-start", required_argument, NULL, 'v'},
   {"output", required_argument, NULL, 'o'},
   {"publish-time", required_argument, NULL, 'l'},
   {NULL, 0, NULL, 0},
 };
 
 const char default_base_uri[] = "/";
-const char default_media_uri[] = "$Number$.m4s";
-const char default_init_uri[] = "init.mp4";
-const uint32_t default_update_period = 60;
+const char default_media_uri[] = "$RepresentationID$/segment-$Number$.m4s";
+const char default_init_uri[] = "$RepresentationID$/init.mp4";
 const uint32_t default_buffer_time = 2;
+const uint32_t default_seg_start = 0;
+
+/* since we are faking live streaming with static mpd, this value has to be
+ * as big as possible to prevent the client from finishing playing the stream,
+ * although it is highly unlikely (no one is going to have the browser running
+ * for years */
+const uint32_t media_duration = 0xFFFFFFFF;
 
 void print_usage(const string & program_name)
 {
   cerr << "Usage: " << program_name << " [options] <dir> <dir> ...\n\n"
        << "<dir>                        Directory where media segments are stored" << endl
        << "-u --url <base_url>          Set the base url for all media segments." << endl
-       << "-p --update-period <period>  Set the update period in seconds." << endl
        << "-b --buffer-time <time>      Set the minimum buffer time in seconds."
        << "-s --segment-name <name>     Set the segment name template." << endl
        << "-i --init-name <name>        Set the initial segment name." << endl
-       << "-t --start-time <time>       Set the availablility start time to <time> in unix timestamp" << endl
+       << "-a --audio-start <num>       Set the audio segment start number as <num>" << endl
+       << "-v --video-start <num>       Set the video segment start number as <num>" << endl
        << "-l --publish-time <time>     Set the publish time to <time> in unix timestamp" << endl
        << "-o --output <path.mpd>       Output mpd info to <path.mpd>. stdout will be used if not specified" << endl
        << endl;
@@ -109,14 +115,14 @@ void set_repr_id(shared_ptr<AdaptionSet> set)
 int main(int argc, char * argv[])
 {
   int c, long_option_index;
-  uint32_t update_period = default_update_period;
   uint32_t buffer_time = default_buffer_time;
+  uint32_t a_start = default_seg_start;
+  uint32_t v_start = default_seg_start;
   string base_url = default_base_uri;
   string segment_name = default_media_uri;
   string init_name = default_init_uri;
   vector<string> dirs;
   /* default time is when the program starts */
-  chrono::seconds start_time = chrono::seconds(std::time(NULL));
   chrono::seconds publish_time = chrono::seconds(std::time(NULL));
   string output = "";
 
@@ -124,11 +130,11 @@ int main(int argc, char * argv[])
       != EOF) {
     switch (c) {
       case 'u': base_url = optarg; break;
-      case 'p': update_period = stoi(optarg); break;
       case 'b': buffer_time = stoi(optarg); break;
       case 's': segment_name = optarg; break;
       case 'i': init_name = optarg; break;
-      case 't': start_time = chrono::seconds(stoi(optarg)); break;
+      case 'a': a_start = stoi(optarg); break;
+      case 'v': v_start = stoi(optarg); break;
       case 'l': publish_time = chrono::seconds(stoi(optarg)); break;
       case 'o': output = optarg; break;
       default : {
@@ -154,14 +160,19 @@ int main(int argc, char * argv[])
     }
   }
 
-  auto w = make_unique<MPDWriter>(update_period, buffer_time, base_url);
+  auto w = make_unique<MPDWriter>(media_duration, buffer_time, base_url);
+  w->set_audio_start_number(a_start);
+  w->set_video_start_number(v_start);
+
   auto set_v = make_shared<VideoAdaptionSet>(1, init_name, segment_name);
   auto set_a = make_shared<AudioAdaptionSet>(2, init_name, segment_name);
 
   /* figure out what kind of representation each folder is */
-  for (auto const path : dirs) {
+  for (auto const & path : dirs) {
     /* find the init mp4 */
-    string init_mp4_path = roost::join(path, init_name);
+    // TODO: use dir to set repr ID
+    // this is a test code
+    string init_mp4_path = roost::join(path, "init.mp4");
     if (not roost::exists(init_mp4_path)) {
       cerr << "Cannnot find " << init_mp4_path << endl;
       return EXIT_FAILURE;
@@ -187,7 +198,6 @@ int main(int argc, char * argv[])
   set_repr_id(set_a);
 
   /* set time */
-  w->set_available_time(start_time);
   w->set_publish_time(publish_time);
 
   /* below is for testing purpose
