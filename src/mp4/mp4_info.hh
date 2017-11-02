@@ -20,6 +20,7 @@ public:
   uint32_t get_bitrate();
   uint32_t get_bitrate(uint32_t timescale, uint32_t duration);
   bool is_video();
+  uint32_t get_sample_rate();
 
 private:
   std::shared_ptr<MP4Parser> parser_;

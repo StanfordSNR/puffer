@@ -160,3 +160,13 @@ uint32_t MP4Info::get_bitrate()
   tie(timescale, duration) = get_timescale_duration();
   return get_bitrate(timescale, duration);
 }
+
+uint32_t MP4Info::get_sample_rate()
+{
+  auto box = parser_->find_first_box_of("mp4a");
+  if (box == nullptr) {
+    return 0;
+  }
+  auto audio_box = static_pointer_cast<AudioSampleEntry>(box);
+  return audio_box->sample_rate();
+}
