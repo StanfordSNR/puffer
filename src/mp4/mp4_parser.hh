@@ -19,26 +19,20 @@ const std::set<std::string> mp4_container_boxes{
 class MP4Parser
 {
 public:
-  /* parse 'filename' as a "reader" by default
-   * or write to 'filename' as a "writer" when 'writer' is true */
-  MP4Parser(const std::string & filename, const bool writer = false);
+  MP4Parser();
+  MP4Parser(const std::string & mp4_file);
 
-  /*
-   * functions primarily for MP4 reader
-   */
-  void parse(); /* parse MP4 into boxes */
+  /* parse MP4 into boxes */
+  void parse();
 
   std::shared_ptr<Box> find_first_box_of(const std::string & type);
 
   /* print the type and size of each box, and the box structure of MP4 */
   void print_structure();
 
-  /*
-   * functions primarily for MP4 writer
-   */
   void add_top_level_box(std::shared_ptr<Box> && top_level_box);
 
-  void save_mp4_and_close();
+  void save_to_mp4(MP4File & mp4);
 
   /* TODO: split fragmented MP4 into initial segment and media segments */
   void split(const std::string & init_seg,
