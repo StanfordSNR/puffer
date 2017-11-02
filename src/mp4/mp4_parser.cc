@@ -25,15 +25,21 @@
 using namespace std;
 using namespace MP4;
 
-MP4Parser::MP4Parser(const string & filename, const bool writer)
-  : mp4_(writer ?
-         make_shared<MP4File>(filename, O_WRONLY | O_CREAT | O_TRUNC, 0644) :
-         make_shared<MP4File>(filename, O_RDONLY)),
-         root_box_(make_shared<Box>("root"))
+MP4Parser::MP4Parser()
+  : mp4_(), root_box_(make_shared<Box>("root"))
+{}
+
+MP4Parser::MP4Parser(const string & mp4_file)
+  : mp4_(make_shared<MP4File>(mp4_file, O_RDONLY)),
+    root_box_(make_shared<Box>("root"))
 {}
 
 void MP4Parser::parse()
 {
+  if (mp4_ == nullptr) {
+    throw runtime_error("MP4Parser did not open an MP4 file to parse");
+  }
+
   create_boxes(root_box_, 0, mp4_->filesize());
 }
 
@@ -131,14 +137,12 @@ void MP4Parser::add_top_level_box(shared_ptr<Box> && top_level_box)
   root_box_->add_child(move(top_level_box));
 }
 
-void MP4Parser::save_mp4_and_close()
+void MP4Parser::save_to_mp4(MP4File & mp4)
 {
   for (auto it = root_box_->children_begin();
        it != root_box_->children_end(); ++it) {
-    (*it)->write_box(*mp4_);
+    (*it)->write_box(mp4);
   }
-
-  mp4_->close();
 }
 
 shared_ptr<Box> MP4Parser::box_factory(const uint64_t size,
