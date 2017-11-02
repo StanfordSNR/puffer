@@ -196,22 +196,22 @@ void EsdsBox::parse_data(MP4File & mp4, const uint64_t data_size)
   }
   read_tag_string(mp4);
 
-  /* size again */
-  mp4.read_uint8();
+  mp4.read(1); /* ignore */
+
   es_id_ = mp4.read_uint16();
   stream_priority_ = mp4.read_uint8();
   if (mp4.read_uint8() != config_type_tag) {
     throw runtime_error("expect config type tag");
   }
-
   read_tag_string(mp4);
-  /* size again */
-  mp4.read_uint8();
+
+  mp4.read(1); /* ignore */
+
   object_type_ = mp4.read_uint8();
-  /* ignore */
-  mp4.read_uint8();
-  /* ignore buffer size */
-  mp4.read(4);
+
+  mp4.read(1); /* ignore */
+  mp4.read(4); /* ignore */
+
   max_bitrate_ = mp4.read_uint32();
   avg_bitrate_ = mp4.read_uint32();
 
@@ -227,6 +227,7 @@ void EsdsBox::read_tag_string(MP4File & mp4)
     }
   }
 }
+
 void EsdsBox::print_box(const unsigned int indent)
 {
   print_size_type(indent);

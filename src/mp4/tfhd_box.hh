@@ -13,9 +13,9 @@ public:
           const uint8_t version,
           const uint32_t flags,
           const uint32_t track_id,
+          const uint32_t default_sample_duration = 0,
           const uint64_t base_data_offset = 0,
           const uint32_t sample_description_index = 0,
-          const uint32_t default_sample_duration = 0,
           const uint32_t default_sample_size = 0,
           const uint32_t default_sample_flags = 0);
 

@@ -10,7 +10,7 @@ class SidxBox : public FullBox
 public:
   struct SidxReference {
     bool     reference_type;
-    uint32_t reference_size;
+    uint32_t referenced_size;
     uint32_t subsegment_duration;
     bool     starts_with_sap;
     uint8_t  sap_type;
