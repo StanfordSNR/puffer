@@ -33,7 +33,7 @@ public:
   uint32_t width() { return width_; }
   uint32_t height() { return height_; }
 
-  void print_structure(const unsigned int indent = 0);
+  void print_box(const unsigned int indent = 0);
 
   void parse_data(MP4File & mp4, const uint64_t data_size);
   void write_box(MP4File & mp4);

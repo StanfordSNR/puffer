@@ -10,7 +10,7 @@ CttsBox::CttsBox(const uint64_t size, const string & type)
   : FullBox(size, type), entries_()
 {}
 
-void CttsBox::print_structure(const unsigned int indent)
+void CttsBox::print_box(const unsigned int indent)
 {
   print_size_type(indent);
 

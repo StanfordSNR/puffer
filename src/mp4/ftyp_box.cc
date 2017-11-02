@@ -17,7 +17,7 @@ FtypBox::FtypBox(const string & type,
     compatible_brands_(compatible_brands)
 {}
 
-void FtypBox::print_structure(const unsigned int indent)
+void FtypBox::print_box(const unsigned int indent)
 {
   print_size_type(indent);
 

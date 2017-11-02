@@ -20,6 +20,7 @@ public:
   /* accessors */
   uint64_t size() { return size_; }
   std::string type() { return type_; }
+  std::string raw_data() { return raw_data_; }
 
   /* parameter is a sink; use rvalue reference to save a "move" operation */
   void add_child(std::shared_ptr<Box> && child);
@@ -27,11 +28,8 @@ public:
   std::vector<std::shared_ptr<Box>>::const_iterator children_begin();
   std::vector<std::shared_ptr<Box>>::const_iterator children_end();
 
-  /* find the first box of 'type' in descendants (excluding itself) */
-  std::shared_ptr<Box> find_first_descendant_of(const std::string & type);
-
-  /* print box structure */
-  virtual void print_structure(const unsigned int indent = 0);
+  /* print the box and its children */
+  virtual void print_box(const unsigned int indent = 0);
 
   /* parse the next 'data_size' bytes in 'mp4' */
   virtual void parse_data(MP4File & mp4, const uint64_t data_size);
@@ -58,6 +56,7 @@ private:
   uint64_t size_;
   std::string type_;
 
+  std::string raw_data_;
   std::vector<std::shared_ptr<Box>> children_;
 };
 
@@ -71,8 +70,6 @@ public:
   /* accessors */
   uint8_t version() { return version_; }
   uint32_t flags() { return flags_; }
-
-  virtual void parse_data(MP4File & mp4, const uint64_t data_size);
 
 protected:
   void print_version_flags(const unsigned int indent = 0);

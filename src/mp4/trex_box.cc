@@ -25,7 +25,7 @@ TrexBox::TrexBox(const string & type,
     default_sample_flags_(default_sample_flags)
 {}
 
-void TrexBox::print_structure(const unsigned int indent)
+void TrexBox::print_box(const unsigned int indent)
 {
   print_size_type(indent);
 

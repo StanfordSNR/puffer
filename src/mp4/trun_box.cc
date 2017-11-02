@@ -49,7 +49,7 @@ uint64_t TrunBox::total_sample_size()
   return total_sample_size;
 }
 
-void TrunBox::print_structure(const unsigned int indent)
+void TrunBox::print_box(const unsigned int indent)
 {
   print_size_type(indent);
 

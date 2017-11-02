@@ -27,7 +27,7 @@ MvhdBox::MvhdBox(const string & type,
     rate_(rate), volume_(volume), matrix_(matrix)
 {}
 
-void MvhdBox::print_structure(const unsigned int indent)
+void MvhdBox::print_box(const unsigned int indent)
 {
   print_size_type(indent);
 

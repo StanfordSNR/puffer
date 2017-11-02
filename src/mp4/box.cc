@@ -8,11 +8,11 @@ using namespace std;
 using namespace MP4;
 
 Box::Box(const uint64_t size, const string & type)
-  : size_(size), type_(type), children_()
+  : size_(size), type_(type), raw_data_(), children_()
 {}
 
 Box::Box(const string & type)
-  : size_(), type_(type), children_()
+  : size_(), type_(type), raw_data_(), children_()
 {}
 
 void Box::add_child(shared_ptr<Box> && child)
@@ -30,37 +30,18 @@ vector<shared_ptr<Box>>::const_iterator Box::children_end()
   return children_.cend();
 }
 
-shared_ptr<Box> Box::find_first_descendant_of(const string & type)
+void Box::print_box(const unsigned int indent)
 {
-  for (const auto & child : children_) {
-    if (child->type() == type) {
-      return child;
-    }
-
-    auto found = child->find_first_descendant_of(type);
-    if (found != nullptr) {
-      return found;
-    }
-  }
-
-  return nullptr;
-}
-
-void Box::print_structure(const unsigned int indent)
-{
-  cout << string(indent, ' ') << "- " << type_ << " " << size_ << endl;
+  print_size_type(indent);
 
   for (const auto & child : children_) {
-    child->print_structure(indent + 2);
+    child->print_box(indent + 2);
   }
 }
 
 void Box::parse_data(MP4File & mp4, const uint64_t data_size)
 {
-  /* ignore data by incrementing file offset */
-  if (data_size > 0) {
-    mp4.inc_offset(data_size);
-  }
+  raw_data_ = mp4.read_exactly(narrow_cast<size_t>(data_size));
 }
 
 void Box::write_box(MP4File & mp4)
@@ -69,8 +50,12 @@ void Box::write_box(MP4File & mp4)
 
   write_size_type(mp4);
 
-  for (const auto & child : children_) {
-    child->write_box(mp4);
+  if (children_.size()) {
+    for (const auto & child : children_) {
+      child->write_box(mp4);
+    }
+  } else if (raw_data_.size()) {
+    mp4.write(raw_data_);
   }
 
   fix_size_at(mp4, size_offset);
@@ -83,10 +68,7 @@ void Box::print_size_type(const unsigned int indent)
 
 void Box::write_size_type(MP4File & mp4)
 {
-  if (size_ == 1 or type_ == "uuid") {
-    throw runtime_error("does not support writing special box headers");
-  }
-
+  /* does not support creating boxes with size > uint32 for now */
   mp4.write_uint32(narrow_cast<uint32_t>(size_));
   mp4.write_string(type_, 4);
 }
@@ -117,7 +99,7 @@ void Box::check_data_left(MP4File & mp4, const uint64_t data_size,
                           const uint64_t init_offset)
 {
   if (mp4.curr_offset() != init_offset + data_size) {
-    throw runtime_error("data remains to be parsed");
+    throw runtime_error(type() + " box: data remains to be parsed");
   }
 }
 
@@ -127,17 +109,8 @@ FullBox::FullBox(const uint64_t size, const string & type)
 
 FullBox::FullBox(const string & type,
                  const uint8_t version, const uint32_t flags)
-  : Box(type), version_(version), flags_(flags)
+  : Box(type), version_(version), flags_(flags & 0x00FFFFFF)
 {}
-
-void FullBox::parse_data(MP4File & mp4, const uint64_t data_size)
-{
-  int64_t init_offset = mp4.curr_offset();
-
-  parse_version_flags(mp4);
-
-  skip_data_left(mp4, data_size, init_offset);
-}
 
 void FullBox::print_version_flags(const unsigned int indent)
 {
@@ -156,6 +129,6 @@ void FullBox::parse_version_flags(MP4File & mp4)
 
 void FullBox::write_version_flags(MP4File & mp4)
 {
-  uint32_t data = (version_ << 24) + flags_;
+  uint32_t data = (version_ << 24) + (flags_ & 0x00FFFFFF);
   mp4.write_uint32(data);
 }

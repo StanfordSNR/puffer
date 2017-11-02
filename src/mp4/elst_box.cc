@@ -16,7 +16,7 @@ ElstBox::ElstBox(const string & type,
   : FullBox(type, version, flags), edit_list_(edit_list)
 {}
 
-void ElstBox::print_structure(const unsigned int indent)
+void ElstBox::print_box(const unsigned int indent)
 {
   print_size_type(indent);
 

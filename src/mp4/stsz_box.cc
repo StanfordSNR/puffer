@@ -11,7 +11,7 @@ StszBox::StszBox(const uint64_t size, const string & type)
   : FullBox(size, type), sample_size_(), entries_()
 {}
 
-void StszBox::print_structure(const unsigned int indent)
+void StszBox::print_box(const unsigned int indent)
 {
   print_size_type(indent);
 
