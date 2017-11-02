@@ -38,7 +38,7 @@ TfhdBox::TfhdBox(const string & type,
 }
 
 
-void TfhdBox::print_structure(const unsigned int indent)
+void TfhdBox::print_box(const unsigned int indent)
 {
   print_size_type(indent);
 

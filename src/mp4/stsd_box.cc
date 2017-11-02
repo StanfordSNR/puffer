@@ -112,7 +112,7 @@ void AudioSampleEntry::parse_data(MP4File & mp4, const uint64_t data_size)
   check_data_left(mp4, data_size, ini_pos);
 }
 
-void AudioSampleEntry::print_structure(const unsigned int indent)
+void AudioSampleEntry::print_box(const unsigned int indent)
 {
   print_size_type(indent);
 
@@ -121,7 +121,7 @@ void AudioSampleEntry::print_structure(const unsigned int indent)
   cout << indent_str << "sample size " << sample_size_ << endl;
   cout << indent_str << "sample rate " << sample_rate_ << endl;
 
-  Box::print_structure(indent + 2);
+  Box::print_box(indent + 2);
 }
 
 AVC1::AVC1(const uint64_t size, const string & type)
@@ -129,7 +129,7 @@ AVC1::AVC1(const uint64_t size, const string & type)
     avc_profile_compatibility_(), avc_level_(), avcc_size_()
 {}
 
-void AVC1::print_structure(const unsigned int indent)
+void AVC1::print_box(const unsigned int indent)
 {
   print_size_type(indent);
 
@@ -213,7 +213,7 @@ void EsdsBox::read_tag_string(MP4File & mp4)
     }
   }
 }
-void EsdsBox::print_structure(const unsigned int indent)
+void EsdsBox::print_box(const unsigned int indent)
 {
   print_size_type(indent);
 

@@ -18,7 +18,7 @@ TfdtBox::TfdtBox(const string & type,
     base_media_decode_time_(base_media_decode_time)
 {}
 
-void TfdtBox::print_structure(const unsigned int indent)
+void TfdtBox::print_box(const unsigned int indent)
 {
   print_size_type(indent);
 

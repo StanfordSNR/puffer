@@ -23,7 +23,7 @@ MdhdBox::MdhdBox(const string & type,
     duration_(duration), language_(language)
 {}
 
-void MdhdBox::print_structure(const unsigned int indent)
+void MdhdBox::print_box(const unsigned int indent)
 {
   print_size_type(indent);
 

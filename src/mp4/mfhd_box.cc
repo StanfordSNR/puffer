@@ -16,7 +16,7 @@ MfhdBox::MfhdBox(const string & type,
   : FullBox(type, version, flags), sequence_number_(sequence_number)
 {}
 
-void MfhdBox::print_structure(const unsigned int indent)
+void MfhdBox::print_box(const unsigned int indent)
 {
   print_size_type(indent);
 

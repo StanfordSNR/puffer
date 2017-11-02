@@ -29,7 +29,7 @@ TkhdBox::TkhdBox(const string & type,
     layer_(layer), alternate_group_(alternate_group), matrix_(matrix)
 {}
 
-void TkhdBox::print_structure(const unsigned int indent)
+void TkhdBox::print_box(const unsigned int indent)
 {
   print_size_type(indent);
 

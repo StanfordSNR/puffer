@@ -37,7 +37,7 @@ uint32_t SidxBox::duration()
   return duration;
 }
 
-void SidxBox::print_structure(const unsigned int indent)
+void SidxBox::print_box(const unsigned int indent)
 {
   print_size_type(indent);
 

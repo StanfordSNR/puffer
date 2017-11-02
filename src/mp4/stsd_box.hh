@@ -65,7 +65,7 @@ public:
   uint16_t sample_size() { return sample_size_; }
   uint32_t sample_rate() { return sample_rate_; }
 
-  void print_structure(const uint32_t indent = 0);
+  void print_box(const uint32_t indent = 0);
   void parse_data(MP4File & mp4, const uint64_t data_size);
 
 private:
@@ -86,7 +86,7 @@ public:
   uint8_t avc_profile_compatibility() { return avc_profile_compatibility_; }
   uint8_t avc_level() { return avc_level_; }
 
-  void print_structure(const unsigned int indent = 0);
+  void print_box(const unsigned int indent = 0);
 
   void parse_data(MP4File & mp4, const uint64_t data_size);
 
@@ -115,7 +115,7 @@ public:
   uint32_t avg_bitrate() { return avg_bitrate_; }
 
   void parse_data(MP4File & mp4, const uint64_t data_size);
-  void print_structure(const unsigned int indent = 0);
+  void print_box(const unsigned int indent = 0);
 
 private:
   uint16_t es_id_;
