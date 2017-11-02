@@ -21,7 +21,7 @@ public:
   /* accessors */
   uint16_t data_reference_index() { return data_reference_index_; }
 
-  void parse_data(MP4File & mp4);
+  void parse_sample_entry(MP4File & mp4);
 
 private:
   uint16_t data_reference_index_;
@@ -38,41 +38,19 @@ public:
   std::string compressorname() { return compressorname_; }
   uint32_t horizresolution() { return horizresolution_; }
   uint32_t vertresolution() { return vertresolution_; }
-  uint16_t depth() { return depth_; }
   uint16_t frame_count() { return frame_count_; }
+  uint16_t depth() { return depth_; }
 
-  void parse_data(MP4File & mp4);
+  void parse_visual_sample_entry(MP4File & mp4);
 
 private:
   uint16_t width_;
   uint16_t height_;
+  std::string compressorname_;
   uint32_t horizresolution_ = 0x00480000; /* 72 dpi */
   uint32_t vertresolution_ = 0x00480000; /* 72 dpi */
   uint16_t frame_count_ = 1;
-  std::string compressorname_;
   uint16_t depth_ = 0x0018;
-  /* optional boxes are not parsed */
-};
-
-
-class AudioSampleEntry: public SampleEntry
-{
-public:
-  AudioSampleEntry(const uint64_t size, const std::string & type);
-
-  /* accessors */
-  uint16_t channel_count() { return channel_count_; }
-  uint16_t sample_size() { return sample_size_; }
-  uint32_t sample_rate() { return sample_rate_; }
-
-  void print_box(const uint32_t indent = 0);
-  void parse_data(MP4File & mp4, const uint64_t data_size);
-
-private:
-  uint16_t channel_count_ = 2;
-  uint16_t sample_size_ = 16;
-  uint16_t pre_defined_ = 0;
-  uint32_t sample_rate_;
 };
 
 class AVC1 : public VisualSampleEntry
@@ -87,7 +65,6 @@ public:
   uint8_t avc_level() { return avc_level_; }
 
   void print_box(const unsigned int indent = 0);
-
   void parse_data(MP4File & mp4, const uint64_t data_size);
 
 private:
@@ -100,9 +77,25 @@ private:
   uint32_t avcc_size_;
 };
 
+class AudioSampleEntry : public SampleEntry
+{
+public:
+  AudioSampleEntry(const uint64_t size, const std::string & type);
 
-/* ISO 14496-1 is not free in public domain
- */
+  /* accessors */
+  uint16_t channel_count() { return channel_count_; }
+  uint16_t sample_size() { return sample_size_; }
+  uint32_t sample_rate() { return sample_rate_; }
+
+  void parse_audio_sample_entry(MP4File & mp4);
+
+private:
+  uint16_t channel_count_ = 2;
+  uint16_t sample_size_ = 16;
+  uint32_t sample_rate_ = 1 << 16;
+};
+
+/* ISO 14496-1 is not free in public domain */
 class EsdsBox : public FullBox
 {
 public:
@@ -130,9 +123,22 @@ private:
   static const uint8_t tag_string_end = 0xFE;
 
   void read_tag_string(MP4File & file);
-
 };
 
+class MP4A : public AudioSampleEntry
+{
+public:
+  MP4A(const uint64_t size, const std::string & type);
+
+  /* accessors */
+  std::shared_ptr<EsdsBox> esds_box() { return esds_box_; }
+
+  void print_box(const uint32_t indent = 0);
+  void parse_data(MP4File & mp4, const uint64_t data_size);
+
+private:
+  std::shared_ptr<EsdsBox> esds_box_;
+};
 
 }
 
