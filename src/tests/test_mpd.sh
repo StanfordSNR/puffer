@@ -20,11 +20,11 @@ git clone https://github.com/StanfordSNR/tv-test-vectors $TEST_VECTOR
 MPD_WRITER=$abs_builddir/../mpd/mpd_writer
 MPD_DIR="$TEST_VECTOR/test_mpd"
 REFERENCE="$MPD_DIR/reference.mpd"
-MP4_DIR=$MPD_DIR
+MP4_DIR="$MPD_DIR/video $MPD_DIR/audio"
 
 MPD_OUTPUT="$test_tmpdir/output.mpd"
 
-MPD_ARG="-p 1400000000 -o $MPD_OUTPUT"
+MPD_ARG="-a 0 -v 1 -p 1400000000 -o $MPD_OUTPUT"
 
 # run the command
 $MPD_WRITER $MP4_DIR $MPD_ARG

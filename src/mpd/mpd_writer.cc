@@ -179,7 +179,7 @@ int main(int argc, char * argv[])
     /* add repr set */
     /* find its top level basedir */
     auto result = split(path, "/");
-    string id = result.size() >= 2 ? result[result.size() - 2] : path;
+    string id = result[result.size() - 1];
     add_representation(id, set_v, set_a, init_mp4_path, m4s_path);
   }
 
