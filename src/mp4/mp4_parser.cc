@@ -26,12 +26,12 @@ using namespace std;
 using namespace MP4;
 
 MP4Parser::MP4Parser()
-  : mp4_(), root_box_(make_shared<Box>("root"))
+  : mp4_(), root_box_(make_shared<Box>("root")), ignored_boxes_()
 {}
 
 MP4Parser::MP4Parser(const string & mp4_file)
   : mp4_(make_shared<MP4File>(mp4_file, O_RDONLY)),
-    root_box_(make_shared<Box>("root"))
+    root_box_(make_shared<Box>("root")), ignored_boxes_()
 {}
 
 void MP4Parser::parse()
@@ -41,6 +41,16 @@ void MP4Parser::parse()
   }
 
   create_boxes(root_box_, 0, mp4_->filesize());
+}
+
+void MP4Parser::ignore_box(const string & type)
+{
+  ignored_boxes_.insert(type);
+}
+
+bool MP4Parser::is_ignored(const std::string & type)
+{
+  return ignored_boxes_.find(type) != ignored_boxes_.end();
 }
 
 shared_ptr<Box> MP4Parser::find_first_box_of(const string & type)
@@ -151,36 +161,40 @@ shared_ptr<Box> MP4Parser::box_factory(const uint64_t size,
 {
   shared_ptr<Box> box;
 
-  if (type == "ftyp" or type == "styp") {
-    box = make_shared<FtypBox>(size, type);
-  } else if (type == "mvhd") {
-    box = make_shared<MvhdBox>(size, type);
-  } else if (type == "mfhd") {
-    box = make_shared<MfhdBox>(size, type);
-  } else if (type == "tfhd") {
-    box = make_shared<TfhdBox>(size, type);
-  } else if (type == "sidx") {
-    box = make_shared<SidxBox>(size, type);
-  } else if (type == "trex") {
-    box = make_shared<TrexBox>(size, type);
-  } else if (type == "stsz") {
-    box = make_shared<StszBox>(size, type);
-  } else if (type == "tkhd") {
-    box = make_shared<TkhdBox>(size, type);
-  } else if (type == "trun") {
-    box = make_shared<TrunBox>(size, type);
-  } else if (type == "mdhd") {
-    box = make_shared<MdhdBox>(size, type);
-  } else if (type == "tfdt") {
-    box = make_shared<TfdtBox>(size, type);
-  } else if (type == "elst") {
-    box = make_shared<ElstBox>(size, type);
-  } else if (type == "ctts") {
-    box = make_shared<CttsBox>(size, type);
-  } else if (type == "stsd") {
-    box = make_shared<StsdBox>(size, type);
-  } else {
+  if (is_ignored(type)) {
     box = make_shared<Box>(size, type);
+  } else {
+    if (type == "ftyp" or type == "styp") {
+      box = make_shared<FtypBox>(size, type);
+    } else if (type == "mvhd") {
+      box = make_shared<MvhdBox>(size, type);
+    } else if (type == "mfhd") {
+      box = make_shared<MfhdBox>(size, type);
+    } else if (type == "tfhd") {
+      box = make_shared<TfhdBox>(size, type);
+    } else if (type == "sidx") {
+      box = make_shared<SidxBox>(size, type);
+    } else if (type == "trex") {
+      box = make_shared<TrexBox>(size, type);
+    } else if (type == "stsz") {
+      box = make_shared<StszBox>(size, type);
+    } else if (type == "tkhd") {
+      box = make_shared<TkhdBox>(size, type);
+    } else if (type == "trun") {
+      box = make_shared<TrunBox>(size, type);
+    } else if (type == "mdhd") {
+      box = make_shared<MdhdBox>(size, type);
+    } else if (type == "tfdt") {
+      box = make_shared<TfdtBox>(size, type);
+    } else if (type == "elst") {
+      box = make_shared<ElstBox>(size, type);
+    } else if (type == "ctts") {
+      box = make_shared<CttsBox>(size, type);
+    } else if (type == "stsd") {
+      box = make_shared<StsdBox>(size, type);
+    } else {
+      box = make_shared<Box>(size, type);
+    }
   }
 
   uint64_t init_offset = mp4_->curr_offset();

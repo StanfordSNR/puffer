@@ -25,6 +25,11 @@ public:
   /* parse MP4 into boxes */
   void parse();
 
+  /* ignore parsing 'type' box but save it in raw data */
+  void ignore_box(const std::string & type);
+
+  bool is_ignored(const std::string & type);
+
   std::shared_ptr<Box> find_first_box_of(const std::string & type);
 
   /* print the type and size of each box, and the box structure of MP4 */
@@ -48,6 +53,8 @@ protected:
 private:
   std::shared_ptr<MP4File> mp4_;
   std::shared_ptr<Box> root_box_;
+
+  std::set<std::string> ignored_boxes_;
 
   /* a factory method to create different boxes based on their type */
   std::shared_ptr<Box> box_factory(const uint64_t size,
