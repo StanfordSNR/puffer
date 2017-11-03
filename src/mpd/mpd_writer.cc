@@ -12,7 +12,6 @@
 #include "tokenize.hh"
 #include "file_descriptor.hh"
 #include "exception.hh"
-#include "strict_conversions.hh"
 
 using namespace std;
 using namespace MPD;
@@ -152,8 +151,6 @@ int main(int argc, char * argv[])
   }
 
   auto w = make_unique<MPDWriter>(media_duration, buffer_time, base_url);
-  w->set_audio_start_number(a_start);
-  w->set_video_start_number(v_start);
 
   auto set_v = make_shared<VideoAdaptionSet>(1, init_name, segment_name);
   auto set_a = make_shared<AudioAdaptionSet>(2, init_name, segment_name);
@@ -201,14 +198,18 @@ int main(int argc, char * argv[])
     double v_time = ((double)v_duration) * v_start / v_timescale;
     double a_time = ((double)a_duration) * a_start / a_timescale;
     if (v_time > a_time) {
-      double time_offset = v_time - a_time;
-      uint32_t offset = narrow_cast<uint32_t>(time_offset);
-      set_v->set_presentation_time_offset(offset);
-    } else if (v_time < a_time) {
-      double time_offset = a_time - v_time;
-      uint32_t offset = narrow_cast<uint32_t>(time_offset);
+      double time_offset = (v_time - a_time) * a_timescale;
+      uint32_t offset = static_cast<uint32_t>(time_offset);
       set_a->set_presentation_time_offset(offset);
+    } else if (v_time < a_time) {
+      double time_offset = (a_time - v_time) * v_timescale;
+      uint32_t offset = static_cast<uint32_t>(time_offset);
+      set_v->set_presentation_time_offset(offset);
+    } else {
+      /* they're perfectly aligned, although very unlikely */
     }
+    w->set_audio_start_number(a_start);
+    w->set_video_start_number(v_start);
   }
 
   w->add_video_adaption_set(set_v);
