@@ -8,6 +8,9 @@
 #include "mp4_parser.hh"
 #include "mp4_file.hh"
 #include "ftyp_box.hh"
+#include "mvhd_box.hh"
+#include "tkhd_box.hh"
+#include "elst_box.hh"
 #include "sidx_box.hh"
 #include "mfhd_box.hh"
 #include "tfhd_box.hh"
@@ -33,6 +36,44 @@ uint32_t get_segment_number(const string & mp4_filename)
   // TODO: get segment number from filename
   (void) mp4_filename;
   return 1;
+}
+
+void create_ftyp_box(MP4Parser & mp4_parser, MP4File & output_mp4)
+{
+  /* create ftyp box and add compatible brand */
+  auto ftyp_box = static_pointer_cast<FtypBox>(
+      mp4_parser.find_first_box_of("ftyp"));
+  ftyp_box->add_compatible_brand("iso5");
+  ftyp_box->write_box(output_mp4);
+}
+
+void create_moov_box(MP4Parser & mp4_parser, MP4File & output_mp4)
+{
+  /* create mvhd box and set duration to 0 */
+  auto mvhd_box = static_pointer_cast<MvhdBox>(
+      mp4_parser.find_first_box_of("mvhd"));
+  mvhd_box->set_duration(0);
+  mvhd_box->write_box(output_mp4);
+
+  /* create tkhd box and set duration to 0 */
+  auto tkhd_box = static_pointer_cast<TkhdBox>(
+      mp4_parser.find_first_box_of("tkhd"));
+  tkhd_box->set_duration(0);
+  tkhd_box->write_box(output_mp4);
+
+  /* create edts box and set segment duration to 0 in elst box */
+  auto elst_box = static_pointer_cast<ElstBox>(
+      mp4_parser.find_first_box_of("elst"));
+  elst_box->set_segment_duration(0);
+
+  auto edts_box = make_shared<Box>("edts");
+  edts_box->add_child(elst_box);
+}
+
+void create_init_segment(MP4Parser & mp4_parser, MP4File & output_mp4)
+{
+  create_ftyp_box(mp4_parser, output_mp4);
+  create_moov_box(mp4_parser, output_mp4);
 }
 
 void create_styp_box(MP4File & output_mp4)
@@ -189,6 +230,7 @@ void create_media_segment(MP4Parser & mp4_parser, MP4File & output_mp4,
 void fragment(MP4Parser & mp4_parser, MP4File & output_mp4,
               const uint32_t seg_num)
 {
+  create_init_segment(mp4_parser, output_mp4);
   create_media_segment(mp4_parser, output_mp4, seg_num);
 }
 

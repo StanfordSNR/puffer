@@ -16,6 +16,13 @@ ElstBox::ElstBox(const string & type,
   : FullBox(type, version, flags), edit_list_(edit_list)
 {}
 
+void ElstBox::set_segment_duration(const uint64_t duration)
+{
+  for (auto & edit : edit_list_) {
+    edit.segment_duration = duration;
+  }
+}
+
 void ElstBox::print_box(const unsigned int indent)
 {
   print_size_type(indent);
