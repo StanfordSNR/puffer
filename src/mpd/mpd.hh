@@ -123,17 +123,21 @@ public:
   uint32_t duration() { return duration_; }
   virtual std::set<std::shared_ptr<Representation>> get_repr()
   { return std::set<std::shared_ptr<Representation>>(); }
-  bool use_offset() { return use_offset_; }
   uint32_t start_number() { return start_number_; }
   uint32_t presentation_time_offset()
   { return presentation_time_offset_; }
+  void set_presentation_time_offset(uint32_t value)
+  { presentation_time_offset_ = value; }
+  uint32_t timescale() { return timescale_; }
 
 protected:
   void set_duration(uint32_t duration) { duration_ = duration; }
+  void set_timescale(uint32_t timescale) { timescale_ = timescale; }
 
   AdaptionSet(int id, std::string init_uri, std::string media_uri,
-      uint32_t start_number, bool use_offset = false);
+      uint32_t start_number);
 
+  void check_timescale_duration(std::shared_ptr<Representation> repr);
   virtual ~AdaptionSet() {}
 
 private:
@@ -141,9 +145,9 @@ private:
   std::string init_uri_;
   std::string media_uri_;
   uint32_t duration_;
-  bool use_offset_;
   uint32_t start_number_;
   uint32_t presentation_time_offset_ = 0;
+  uint32_t timescale_ = 0;
 };
 
 class AudioAdaptionSet : public AdaptionSet {
