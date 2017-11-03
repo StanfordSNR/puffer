@@ -233,7 +233,7 @@ void EsdsBox::print_box(const unsigned int indent)
   print_size_type(indent);
 
   string indent_str = string(indent + 2, ' ') + "| ";
-  cout << indent_str << "object type "
+  cout << indent_str << "object type 0x"
        << hex << unsigned(object_type_) << dec << endl;
   cout << indent_str << "max bitrate " << max_bitrate_ << endl;
   cout << indent_str << "avg bitrate " << avg_bitrate_ << endl;

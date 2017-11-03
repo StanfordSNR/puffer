@@ -61,7 +61,7 @@ void TrunBox::print_box(const unsigned int indent)
     cout << indent_str << "data offset " << data_offset_ << endl;
   }
   if (flags() & first_sample_flags_present) {
-    cout << indent_str << "first sample flags " << hex << first_sample_flags_
+    cout << indent_str << "first sample flags 0x" << hex << first_sample_flags_
          << dec << endl;
   }
 
