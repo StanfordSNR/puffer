@@ -31,7 +31,7 @@ const struct option options[] = {
 };
 
 const char default_base_uri[] = "/";
-const char default_media_uri[] = "$RepresentationID$/segment-$Number$.m4s";
+const char default_media_uri[] = "$RepresentationID$/$Number$.m4s";
 const char default_init_uri[] = "$RepresentationID$/init.mp4";
 const uint32_t default_buffer_time = 2;
 const uint32_t default_seg_start = 0;
@@ -57,7 +57,7 @@ void print_usage(const string & program_name)
        << endl;
 }
 
-void add_representation(shared_ptr<VideoAdaptionSet> v_set,
+void add_representation(string repr_id, shared_ptr<VideoAdaptionSet> v_set,
     shared_ptr<AudioAdaptionSet> a_set, const string & init,
         const string & segment)
 {
@@ -89,26 +89,16 @@ void add_representation(shared_ptr<VideoAdaptionSet> v_set,
     tie(width, height) = i_info.get_width_height();
     tie(profile, avc_level) = i_info.get_avc_profile_level();
     float fps = s_info.get_fps(timescale, duration);
-    /* id will be set later */
     auto repr_v = make_shared<VideoRepresentation>(
-        "", width, height, bitrate, profile, avc_level, fps, timescale,
+        repr_id, width, height, bitrate, profile, avc_level, fps, timescale,
         duration);
     v_set->add_repr(repr_v);
   } else {
     /* this is an audio */
     /* TODO: add audio support */
-    auto repr_a = make_shared<AudioRepresentation>("1", 100000, 180000, true,
+    auto repr_a = make_shared<AudioRepresentation>(repr_id, 100000, 180000, true,
         timescale, duration);
     a_set->add_repr(repr_a);
-  }
-}
-
-void set_repr_id(shared_ptr<AdaptionSet> set)
-{
-  uint32_t i = 1;
-  for (auto & repr : set->get_repr()) {
-    repr->id = to_string(i);
-    i++;
   }
 }
 
@@ -170,8 +160,6 @@ int main(int argc, char * argv[])
   /* figure out what kind of representation each folder is */
   for (auto const & path : dirs) {
     /* find the init mp4 */
-    // TODO: use dir to set repr ID
-    // this is a test code
     string init_mp4_path = roost::join(path, "init.mp4");
     if (not roost::exists(init_mp4_path)) {
       cerr << "Cannnot find " << init_mp4_path << endl;
@@ -191,11 +179,8 @@ int main(int argc, char * argv[])
     }
     string m4s_path = roost::join(path, m4s);
     /* add repr set */
-    add_representation(set_v, set_a, init_mp4_path, m4s_path);
+    add_representation(path, set_v, set_a, init_mp4_path, m4s_path);
   }
-
-  set_repr_id(set_v);
-  set_repr_id(set_a);
 
   /* set time */
   w->set_publish_time(publish_time);
