@@ -33,6 +33,8 @@ public:
   uint64_t earlist_presentation_time() { return earlist_presentation_time_; }
   uint64_t first_offset() { return first_offset_; }
 
+  unsigned int header_size();
+
   /* sum of the subsegment_duration */
   uint32_t duration();
 

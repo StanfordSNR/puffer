@@ -39,6 +39,7 @@ public:
 
   void print_size_type(const unsigned int indent = 0);
   void write_size_type(MP4File & mp4);
+  unsigned int header_size() { return 8; /* size and type */ }
 
   /* change 'size' to 'curr_offset - size_offset' and return */
   void fix_size_at(MP4File & mp4, const uint64_t size_offset);
@@ -74,6 +75,9 @@ public:
   void print_version_flags(const unsigned int indent = 0);
   void parse_version_flags(MP4File & mp4);
   void write_version_flags(MP4File & mp4);
+  unsigned int header_size() {
+    return Box::header_size() + 4 /* version and flags */;
+  }
 
 private:
   uint8_t version_;
