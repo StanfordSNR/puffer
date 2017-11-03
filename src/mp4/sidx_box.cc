@@ -26,6 +26,24 @@ SidxBox::SidxBox(const string & type,
     first_offset_(first_offset), reference_list_(reference_list)
 {}
 
+unsigned int SidxBox::header_size()
+{
+  unsigned int header_size = FullBox::header_size();
+
+  header_size += 8; /* reference_id and timescale */
+
+  /* earlist_presentation_time and first_offset */
+  if (version() == 0) {
+    header_size += 8;
+  } else {
+    header_size += 16;
+  }
+
+  header_size += 4; /* reserved and reference_count */
+
+  return header_size;
+}
+
 uint32_t SidxBox::duration()
 {
   uint32_t duration = 0;
