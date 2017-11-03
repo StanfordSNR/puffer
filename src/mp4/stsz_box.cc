@@ -11,6 +11,15 @@ StszBox::StszBox(const uint64_t size, const string & type)
   : FullBox(size, type), sample_size_(), entries_()
 {}
 
+StszBox::StszBox(const string & type,
+                 const uint8_t version,
+                 const uint32_t flags,
+                 const uint32_t sample_size,
+                 std::vector<uint32_t> entries)
+  : FullBox(type, version, flags), sample_size_(sample_size),
+    entries_(move(entries))
+{}
+
 void StszBox::print_box(const unsigned int indent)
 {
   print_size_type(indent);
@@ -50,4 +59,23 @@ void StszBox::parse_data(MP4File & mp4, const uint64_t data_size)
   }
 
   check_data_left(mp4, data_size, init_offset);
+}
+
+void StszBox::write_box(MP4File & mp4)
+{
+  uint64_t size_offset = mp4.curr_offset();
+
+  write_size_type(mp4);
+  write_version_flags(mp4);
+
+  mp4.write_uint32(sample_size_);
+  mp4.write_uint32(entries_.size());
+
+  if (sample_size_ == 0) {
+    for (const auto entry_size : entries_) {
+      mp4.write_uint32(entry_size);
+    }
+  }
+
+  fix_size_at(mp4, size_offset);
 }
