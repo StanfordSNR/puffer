@@ -1,4 +1,5 @@
 #include <iostream>
+#include <algorithm>
 #include <stdexcept>
 
 #include "sidx_box.hh"
@@ -26,22 +27,22 @@ SidxBox::SidxBox(const string & type,
     first_offset_(first_offset), reference_list_(reference_list)
 {}
 
-unsigned int SidxBox::header_size()
+unsigned int SidxBox::reference_list_pos()
 {
-  unsigned int header_size = FullBox::header_size();
+  unsigned int pos = FullBox::header_size();
 
-  header_size += 8; /* reference_id and timescale */
+  pos += 8; /* reference_id and timescale */
 
   /* earlist_presentation_time and first_offset */
   if (version() == 0) {
-    header_size += 8;
+    pos += 8;
   } else {
-    header_size += 16;
+    pos += 16;
   }
 
-  header_size += 4; /* reserved and reference_count */
+  pos += 4; /* reserved and reference_count */
 
-  return header_size;
+  return pos;
 }
 
 uint32_t SidxBox::duration()
@@ -65,11 +66,20 @@ void SidxBox::print_box(const unsigned int indent)
   cout << indent_str << "earliest presentation time "
                      << earlist_presentation_time_ << endl;
 
-  cout << indent_str << "subsegment durations";
-  for (const auto & ref : reference_list_) {
-    cout << " " << ref.subsegment_duration;
+  if (reference_count()) {
+    unsigned int count = min(static_cast<unsigned int>(reference_count()), 5u);
+
+    cout << indent_str << "[#] referenced size, subsegment duration" << endl;
+    for (unsigned int i = 0; i < count; ++i) {
+      const auto & ref = reference_list_[i];
+      cout << indent_str << "[" << i << "] "
+           << ref.referenced_size << ", " << ref.subsegment_duration << endl;
+    }
+
+    if (count < reference_count()) {
+      cout << indent_str << "..." << endl;
+    }
   }
-  cout << endl;
 }
 
 void SidxBox::parse_data(MP4File & mp4, const uint64_t data_size)
