@@ -32,11 +32,12 @@ public:
   uint32_t timescale() { return timescale_; }
   uint64_t earlist_presentation_time() { return earlist_presentation_time_; }
   uint64_t first_offset() { return first_offset_; }
-
-  unsigned int header_size();
+  uint16_t reference_count() { return reference_list_.size(); }
 
   /* sum of the subsegment_duration */
   uint32_t duration();
+
+  unsigned int reference_list_pos();
 
   void print_box(const unsigned int indent = 0);
 
