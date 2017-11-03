@@ -141,18 +141,20 @@ void XMLWriter::output(std::ofstream &out)
 }
 
 MPD::AdaptionSet::AdaptionSet(
-    int id, string init_uri, string media_uri)
-  : id_(id), init_uri_(init_uri), media_uri_(media_uri), duration_(0)
+    int id, string init_uri, string media_uri, bool is_video,
+    uint32_t start_number)
+  : id_(id), init_uri_(init_uri), media_uri_(media_uri), duration_(0),
+    is_video_(is_video), start_number_(start_number)
 {}
 
 MPD::VideoAdaptionSet::VideoAdaptionSet(
-    int id, string init_uri, string media_uri)
-  : AdaptionSet(id, init_uri, media_uri), framerate_(0), repr_set_()
+    int id, string init_uri, string media_uri, uint32_t start_number)
+  : AdaptionSet(id, init_uri, media_uri, true, start_number), repr_set_()
 {}
 
 MPD::AudioAdaptionSet::AudioAdaptionSet(
-    int id, string init_uri, string media_uri)
-  : AdaptionSet(id, init_uri, media_uri), repr_set_()
+    int id, string init_uri, string media_uri, uint32_t start_number)
+  : AdaptionSet(id, init_uri, media_uri, false, start_number), repr_set_()
 {}
 
 std::set<shared_ptr<MPD::Representation>>
@@ -368,8 +370,12 @@ void MPDWriter::write_adaption_set(shared_ptr<MPD::AdaptionSet> set)
   writer_->attr("media", set->media_uri());
   writer_->attr("timescale", timescale);
   /* the initial segment number */
-  writer_->attr("startNumber", 1); // TODO: fix start number
+  writer_->attr("startNumber", set->get_start_number());
   writer_->attr("initialization", set->init_uri());
+  /* offset the audio segment */
+  if (not set->is_video() and presentation_time_offset_ != 0) {
+    writer_->attr("presentationTimeOffset", presentation_time_offset_);
+  }
 
   /* write dummy segment timeline */
   writer_->open_elt("SegmentTimeline");

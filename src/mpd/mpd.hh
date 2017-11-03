@@ -121,29 +121,34 @@ public:
   std::string init_uri() { return init_uri_; }
   std::string media_uri() { return media_uri_; }
   uint32_t duration() { return duration_; }
-
-  AdaptionSet(int id, std::string init_uri, std::string media_uri);
-
-  virtual ~AdaptionSet() {}
-
   virtual std::set<std::shared_ptr<Representation>> get_repr()
   { return std::set<std::shared_ptr<Representation>>(); }
+  bool is_video() { return is_video_; }
+  uint32_t get_start_number() { return start_number_; }
 
 protected:
   void set_duration(uint32_t duration) { duration_ = duration; }
+
+  AdaptionSet(int id, std::string init_uri, std::string media_uri,
+      bool is_video, uint32_t start_number);
+
+  virtual ~AdaptionSet() {}
 
 private:
   uint32_t id_;
   std::string init_uri_;
   std::string media_uri_;
   uint32_t duration_;
+  bool is_video_;
+  uint32_t start_number_;
 };
 
 class AudioAdaptionSet : public AdaptionSet {
 public:
   void add_repr(std::shared_ptr<AudioRepresentation> repr);
 
-  AudioAdaptionSet(int id, std::string init_uri, std::string media_uri);
+  AudioAdaptionSet(int id, std::string init_uri, std::string media_uri,
+      uint32_t start_number = 1);
 
   std::set<std::shared_ptr<Representation>> get_repr();
   std::set<std::shared_ptr<AudioRepresentation>> get_audio_repr()
@@ -158,7 +163,8 @@ public:
   float framerate() { return framerate_; }
   void set_framerate(float framerate) { framerate_ = framerate; }
 
-  VideoAdaptionSet(int id, std::string init_uri, std::string media_uri);
+  VideoAdaptionSet(int id, std::string init_uri, std::string media_uri,
+      uint32_t start_number = 1);
 
   void add_repr(std::shared_ptr<VideoRepresentation> repr);
 
@@ -167,7 +173,7 @@ public:
   { return repr_set_; }
 
 private:
-  float framerate_;
+  float framerate_ = 0; /* this will be set later */
   std::set<std::shared_ptr<VideoRepresentation>> repr_set_;
 };
 
@@ -192,6 +198,8 @@ public:
   { v_start_number_ = number; }
   void set_audio_start_number(uint32_t number)
   { a_start_number_ = number; }
+  void set_presentation_time_offset(uint32_t offset)
+  { presentation_time_offset_ = offset; }
 
 private:
   uint32_t media_duration_;
@@ -201,6 +209,7 @@ private:
   std::string base_url_;
   uint32_t v_start_number_ = 0;
   uint32_t a_start_number_ = 0;
+  uint32_t presentation_time_offset_ = 0;
 
   std::set<std::shared_ptr<MPD::VideoAdaptionSet>> video_adaption_set_;
   std::set<std::shared_ptr<MPD::AudioAdaptionSet>> audio_adaption_set_;
