@@ -76,6 +76,8 @@ void ElstBox::write_box(MP4File & mp4)
   write_size_type(mp4);
   write_version_flags(mp4);
 
+  mp4.write_uint32(edit_list_.size());
+
   for (const auto & edit : edit_list_) {
     if (version() == 1) {
       mp4.write_uint64(edit.segment_duration);
