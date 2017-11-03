@@ -96,9 +96,9 @@ void add_representation(string repr_id,
     v_set->add_repr(repr_v);
   } else {
     /* this is an audio */
-    /* TODO: add audio support */
-    auto repr_a = make_shared<AudioRepresentation>(repr_id, 100000, 180000, true,
-        timescale, duration);
+    uint32_t sample_rate = i_info.get_sample_rate();
+    auto repr_a = make_shared<AudioRepresentation>(repr_id, bitrate,
+        sample_rate, false, timescale, duration);
     a_set->add_repr(repr_a);
   }
 }
@@ -212,9 +212,7 @@ int main(int argc, char * argv[])
   }
 
   w->add_video_adaption_set(set_v);
-
-  /* below is for testing purpose
-   * will be removed when mpd_writer is done */
+  w->add_audio_adaption_set(set_a);
 
   std::string out = w->flush();
 
