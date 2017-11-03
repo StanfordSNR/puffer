@@ -32,7 +32,7 @@ uint32_t get_segment_number(const string & mp4_filename)
 {
   // TODO: get segment number from filename
   (void) mp4_filename;
-  return 0;
+  return 1;
 }
 
 void create_styp_box(MP4File & output_mp4)
@@ -64,7 +64,7 @@ unsigned int create_sidx_box(MP4File & output_mp4, const uint32_t seg_num)
 
   sidx_box->write_box(output_mp4);
 
-  return sidx_box->header_size();
+  return sidx_box->reference_list_pos();
 }
 
 vector<TrunBox::Sample> create_samples(MP4Parser & mp4_parser)
@@ -156,8 +156,8 @@ void create_moof_box(MP4Parser & mp4_parser,
    * data_offset = size of moof + header size of mdat (8) */
   uint64_t moof_size = output_mp4.curr_offset() - moof_offset;
   int32_t data_offset_value = narrow_cast<int32_t>(moof_size + 8);
-  output_mp4.write_int32_at(trun_offset + trun_box->data_offset_pos(),
-                            data_offset_value);
+  output_mp4.write_int32_at(data_offset_value,
+                            trun_offset + trun_box->data_offset_pos());
 }
 
 void create_mdat_box(MP4Parser & mp4_parser, MP4File & output_mp4)
@@ -172,16 +172,18 @@ void create_media_segment(MP4Parser & mp4_parser, MP4File & output_mp4,
   create_styp_box(output_mp4);
 
   uint64_t sidx_offset = output_mp4.curr_offset();
-  unsigned int sidx_header_size = create_sidx_box(output_mp4, seg_num);
+  unsigned int sidx_reference_list_pos = create_sidx_box(output_mp4, seg_num);
 
+  uint64_t moof_offset = output_mp4.curr_offset();
   create_moof_box(mp4_parser, output_mp4, seg_num);
   create_mdat_box(mp4_parser, output_mp4);
 
   /* fill in 'referenced_size' in sidx box */
   uint32_t referenced_size = narrow_cast<uint32_t>(
-      output_mp4.curr_offset() - sidx_offset);
-  /* change referenced_size's most significant bit to 0 (reference_type) */
-  output_mp4.write_uint32_at(referenced_size & 0x7FFFFFFF, sidx_header_size);
+      output_mp4.curr_offset() - moof_offset);
+  /* set referenced_size's most significant bit to 0 (reference_type) */
+  output_mp4.write_uint32_at(referenced_size & 0x7FFFFFFF,
+                             sidx_offset + sidx_reference_list_pos);
 }
 
 void fragment(MP4Parser & mp4_parser, MP4File & output_mp4,
