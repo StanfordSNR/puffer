@@ -17,6 +17,17 @@ FtypBox::FtypBox(const string & type,
     compatible_brands_(compatible_brands)
 {}
 
+void FtypBox::add_compatible_brand(string brand)
+{
+  for (const auto & existing_brand : compatible_brands_) {
+    if (existing_brand == brand) {
+      return;
+    }
+  }
+
+  compatible_brands_.emplace_back(move(brand));
+}
+
 void FtypBox::print_box(const unsigned int indent)
 {
   print_size_type(indent);
