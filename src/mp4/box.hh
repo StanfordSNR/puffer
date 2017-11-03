@@ -3,6 +3,7 @@
 
 #include <string>
 #include <vector>
+#include <list>
 #include <memory>
 #include <cstdint>
 
@@ -25,8 +26,12 @@ public:
   /* parameter is a sink; use rvalue reference to save a "move" operation */
   void add_child(std::shared_ptr<Box> && child);
 
-  std::vector<std::shared_ptr<Box>>::const_iterator children_begin();
-  std::vector<std::shared_ptr<Box>>::const_iterator children_end();
+  void remove_child(const std::string & type);
+
+  unsigned int children_size() { return children_.size(); }
+
+  std::list<std::shared_ptr<Box>>::const_iterator children_begin();
+  std::list<std::shared_ptr<Box>>::const_iterator children_end();
 
   /* print the box and its children */
   virtual void print_box(const unsigned int indent = 0);
@@ -58,7 +63,7 @@ private:
   std::string type_;
 
   std::string raw_data_;
-  std::vector<std::shared_ptr<Box>> children_;
+  std::list<std::shared_ptr<Box>> children_;
 };
 
 class FullBox : public Box
