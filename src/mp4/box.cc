@@ -20,12 +20,24 @@ void Box::add_child(shared_ptr<Box> && child)
   children_.emplace_back(move(child));
 }
 
-vector<shared_ptr<Box>>::const_iterator Box::children_begin()
+void Box::remove_child(const string & type)
+{
+  for (auto it = children_.begin(); it != children_.end(); ) {
+    if ((*it)->type() == type) {
+      it = children_.erase(it);
+      break;
+    } else {
+      ++it;
+    }
+  }
+}
+
+list<shared_ptr<Box>>::const_iterator Box::children_begin()
 {
   return children_.cbegin();
 }
 
-vector<shared_ptr<Box>>::const_iterator Box::children_end()
+list<shared_ptr<Box>>::const_iterator Box::children_end()
 {
   return children_.cend();
 }
