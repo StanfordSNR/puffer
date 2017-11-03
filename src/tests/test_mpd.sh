@@ -24,7 +24,7 @@ MP4_DIR=$MPD_DIR
 
 MPD_OUTPUT="$test_tmpdir/output.mpd"
 
-MPD_ARG="-t 1509397820 -l 1400000000 -o $MPD_OUTPUT"
+MPD_ARG="-p 1400000000 -o $MPD_OUTPUT"
 
 # run the command
 $MPD_WRITER $MP4_DIR $MPD_ARG

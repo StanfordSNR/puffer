@@ -18,7 +18,7 @@ using namespace std;
 using namespace MPD;
 using namespace MP4;
 
-const char *optstring = "u:b:s:i:a:v:o:l:";
+const char *optstring = "u:b:s:i:a:v:o:p:";
 const struct option options[] = {
   {"url", required_argument, NULL, 'u'},
   {"buffer-time", required_argument, NULL, 'b'},
@@ -27,7 +27,7 @@ const struct option options[] = {
   {"audio-start", required_argument, NULL, 'a'},
   {"video-start", required_argument, NULL, 'v'},
   {"output", required_argument, NULL, 'o'},
-  {"publish-time", required_argument, NULL, 'l'},
+  {"publish-time", required_argument, NULL, 'p'},
   {NULL, 0, NULL, 0},
 };
 
@@ -53,7 +53,7 @@ void print_usage(const string & program_name)
        << "-i --init-name <name>        Set the initial segment name." << endl
        << "-a --audio-start <num>       Set the audio segment start number as <num>" << endl
        << "-v --video-start <num>       Set the video segment start number as <num>" << endl
-       << "-l --publish-time <time>     Set the publish time to <time> in unix timestamp" << endl
+       << "-p --publish-time <time>     Set the publish time to <time> in unix timestamp" << endl
        << "-o --output <path.mpd>       Output mpd info to <path.mpd>. stdout will be used if not specified" << endl
        << endl;
 }
@@ -126,7 +126,7 @@ int main(int argc, char * argv[])
       case 'i': init_name = optarg; break;
       case 'a': a_start = stoi(optarg); break;
       case 'v': v_start = stoi(optarg); break;
-      case 'l': publish_time = chrono::seconds(stoi(optarg)); break;
+      case 'p': publish_time = chrono::seconds(stoi(optarg)); break;
       case 'o': output = optarg; break;
       default : {
                   print_usage(argv[0]);
@@ -180,7 +180,10 @@ int main(int argc, char * argv[])
     }
     string m4s_path = roost::join(path, m4s);
     /* add repr set */
-    add_representation(path, set_v, set_a, init_mp4_path, m4s_path);
+    /* find its top level basedir */
+    auto result = split(path, "/");
+    string id = result.size() >= 2 ? result[result.size() - 2] : path;
+    add_representation(id, set_v, set_a, init_mp4_path, m4s_path);
   }
 
   /* set time */
