@@ -14,10 +14,11 @@ TrunBox::TrunBox(const uint64_t size, const string & type)
 TrunBox::TrunBox(const string & type,
                  const uint8_t version,
                  const uint32_t flags,
-                 const vector<Sample> & samples,
+                 /* 'samples': lvalue is copied, rvalue is moved */
+                 vector<Sample> samples,
                  const int32_t data_offset,
                  const uint32_t first_sample_flags)
-  : FullBox(type, version, flags), samples_(samples)
+  : FullBox(type, version, flags), samples_(move(samples))
 {
   if (flags & data_offset_present) {
     data_offset_ = data_offset;
