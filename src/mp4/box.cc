@@ -32,6 +32,18 @@ void Box::remove_child(const string & type)
   }
 }
 
+void Box::insert_child(shared_ptr<Box> && child, const string & type)
+{
+  for (auto it = children_.begin(); it != children_.end(); ) {
+    if ((*it)->type() == type) {
+      children_.insert(++it, move(child));
+      break;
+    } else {
+      ++it;
+    }
+  }
+}
+
 list<shared_ptr<Box>>::const_iterator Box::children_begin()
 {
   return children_.cbegin();

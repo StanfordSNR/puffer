@@ -12,6 +12,7 @@
 #include "tkhd_box.hh"
 #include "elst_box.hh"
 #include "mdhd_box.hh"
+#include "trex_box.hh"
 #include "sidx_box.hh"
 #include "mfhd_box.hh"
 #include "tfhd_box.hh"
@@ -75,7 +76,23 @@ void create_moov_box(MP4Parser & mp4_parser, MP4File & output_mp4)
   stbl_box->remove_child("stss");
   stbl_box->remove_child("ctts");
 
+  /* create mvex box */
+  auto trex_box = make_shared<TrexBox>(
+      "trex", // type
+      0,      // version
+      0,      // flags,
+      1,      // track_id
+      1,      // default_sample_description_index
+      0,      // default_sample_duration
+      0,      // default_sample_size
+      0       // default_sample_flags
+  );
+  auto mvex_box = make_shared<Box>("mvex");
+  mvex_box->add_child(move(trex_box));
+
+  /* create moov box; insert mvex box after trak box */
   auto moov_box = mp4_parser.find_first_box_of("moov");
+  moov_box->insert_child(move(mvex_box), "trak");
   moov_box->write_box(output_mp4);
 }
 
