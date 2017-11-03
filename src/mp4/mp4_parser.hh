@@ -39,11 +39,6 @@ public:
 
   void save_to_mp4(MP4File & mp4);
 
-  /* TODO: split fragmented MP4 into initial segment and media segments */
-  void split(const std::string & init_seg,
-             const std::string & media_seg_template,
-             const unsigned int start_number);
-
 protected:
   /* accessors */
   std::shared_ptr<MP4File> mp4() { return mp4_; }
@@ -68,13 +63,6 @@ private:
 
   std::shared_ptr<Box> do_find_first_box_of(const std::shared_ptr<Box> & box,
                                             const std::string & type);
-
-  /* copy size_to_copy bytes from current offset and write to filename */
-  void copy_to_file(const std::string & output_filename,
-                    const uint64_t size_to_copy);
-
-  std::string populate_template(const std::string & media_seg_template,
-                                const unsigned int curr_seg_number);
 };
 
 }

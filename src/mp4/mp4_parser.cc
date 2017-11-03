@@ -70,78 +70,6 @@ void MP4Parser::print_structure()
   }
 }
 
-void MP4Parser::split(const string & init_seg,
-                      const string & media_seg_template,
-                      const unsigned int start_number)
-{
-  /* reset file offset and eof */
-  mp4_->reset();
-
-  /* create the initial segment */
-  auto it = root_box_->children_begin();
-  uint64_t size_to_copy = 0;
-
-  /* a valid initial segment must contain ftyp and moov boxes */
-  bool has_ftyp = false, has_moov = false;
-
-  while (it != root_box_->children_end()) {
-    string type = (*it)->type();
-
-    if (type == "ftyp") {
-      has_ftyp = true;
-    } else if (type == "moov") {
-      has_moov = true;
-    } else if (type == "moof") {
-      throw runtime_error("initial segment shall not have moof");
-    }
-
-    size_to_copy += (*it)->size();
-    ++it;
-
-    if (has_ftyp and has_moov) {
-      break;
-    }
-  }
-
-  if (not (has_ftyp and has_moov)) {
-    throw runtime_error("initial segment must contain ftyp and moov");
-  }
-
-  /* copy from MP4 and write to init_seg */
-  copy_to_file(init_seg, size_to_copy);
-
-  /* create one or more media segments */
-  unsigned int curr_seg_number = start_number;
-
-  while (it != root_box_->children_end()) {
-    string type = (*it)->type();
-
-    if (type == "styp" or type == "sidx") {
-      continue;
-    } else if (type == "moof") {
-      size_to_copy = (*it)->size();
-      ++it;
-
-      if ((*it)->type() != "mdat") {
-        throw runtime_error("mdat must follow moof");
-      }
-
-      size_to_copy += (*it)->size();
-      ++it;
-
-      /* populate segment template */
-      string media_seg = populate_template(media_seg_template, curr_seg_number);
-
-      /* copy from MP4 and write to media_seg */
-      copy_to_file(media_seg, size_to_copy);
-
-      curr_seg_number += 1;
-    } else {
-      break;
-    }
-  }
-}
-
 void MP4Parser::add_top_level_box(shared_ptr<Box> && top_level_box)
 {
   root_box_->add_child(move(top_level_box));
@@ -265,40 +193,4 @@ shared_ptr<Box> MP4Parser::do_find_first_box_of(const shared_ptr<Box> & box,
   }
 
   return nullptr;
-}
-
-void MP4Parser::copy_to_file(const string & output_filename,
-                             const uint64_t size_to_copy)
-{
-  MP4File output_mp4(output_filename, O_WRONLY | O_CREAT | O_TRUNC, 0644);
-
-  uint64_t size_copied = 0;
-
-  while (size_copied < size_to_copy) {
-    string data = mp4_->read(size_to_copy - size_copied);
-    if (mp4_->eof()) {
-      throw runtime_error("copy_to_file: reached EOF before finishing copy");
-    }
-
-    size_copied += data.size();
-    output_mp4.write(data);
-  }
-
-  output_mp4.close();
-  cerr << "Created " << output_filename << endl;
-}
-
-string MP4Parser::populate_template(const string & media_seg_template,
-                                    const unsigned int curr_seg_number)
-{
-  char media_seg[NAME_MAX];
-
-  int size_copied = snprintf(media_seg, NAME_MAX,
-                             media_seg_template.c_str(), curr_seg_number);
-
-  if (size_copied < 0 or (size_t) size_copied >= NAME_MAX) {
-    throw runtime_error("snprintf: resulting filename is too long");
-  }
-
-  return string(media_seg, (size_t) size_copied);
 }
