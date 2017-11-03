@@ -48,7 +48,7 @@ void MP4Parser::ignore_box(const string & type)
   ignored_boxes_.insert(type);
 }
 
-bool MP4Parser::is_ignored(const std::string & type)
+bool MP4Parser::is_ignored(const string & type)
 {
   return ignored_boxes_.find(type) != ignored_boxes_.end();
 }

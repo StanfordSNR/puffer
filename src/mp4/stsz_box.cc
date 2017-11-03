@@ -15,7 +15,7 @@ StszBox::StszBox(const string & type,
                  const uint8_t version,
                  const uint32_t flags,
                  const uint32_t sample_size,
-                 std::vector<uint32_t> entries)
+                 vector<uint32_t> entries)
   : FullBox(type, version, flags), sample_size_(sample_size),
     entries_(move(entries))
 {}

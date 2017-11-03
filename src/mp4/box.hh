@@ -26,7 +26,11 @@ public:
   /* parameter is a sink; use rvalue reference to save a "move" operation */
   void add_child(std::shared_ptr<Box> && child);
 
+  /* remove the first child of type 'type' */
   void remove_child(const std::string & type);
+
+  /* insert 'child' after the first child of type 'type' */
+  void insert_child(std::shared_ptr<Box> && child, const std::string & type);
 
   unsigned int children_size() { return children_.size(); }
 

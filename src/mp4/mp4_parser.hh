@@ -44,7 +44,6 @@ public:
              const std::string & media_seg_template,
              const unsigned int start_number);
 
-
 protected:
   /* accessors */
   std::shared_ptr<MP4File> mp4() { return mp4_; }
