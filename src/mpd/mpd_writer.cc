@@ -12,6 +12,7 @@
 #include "tokenize.hh"
 #include "file_descriptor.hh"
 #include "exception.hh"
+#include "strict_conversions.hh"
 
 using namespace std;
 using namespace MPD;
@@ -57,9 +58,9 @@ void print_usage(const string & program_name)
        << endl;
 }
 
-void add_representation(string repr_id, shared_ptr<VideoAdaptionSet> v_set,
-    shared_ptr<AudioAdaptionSet> a_set, const string & init,
-        const string & segment)
+void add_representation(string repr_id,
+    shared_ptr<VideoAdaptionSet> v_set, shared_ptr<AudioAdaptionSet> a_set,
+    const string & init, const string & segment)
 {
   /* load mp4 up using parser */
   auto i_parser = make_shared<MP4Parser>(init);
@@ -185,9 +186,32 @@ int main(int argc, char * argv[])
   /* set time */
   w->set_publish_time(publish_time);
 
+  /* compute for the offset time */
+  uint32_t v_duration = set_v->duration();
+  uint32_t v_timescale = set_v->timescale();
+  uint32_t a_duration = set_a->duration();
+  uint32_t a_timescale = set_a->timescale();
+
+  if (v_timescale != 0 and a_timescale != 0) {
+    /* we have both video and audio */
+    /* calculate how long the segments have been playing */
+    double v_time = ((double)v_duration) * v_start / v_timescale;
+    double a_time = ((double)a_duration) * a_start / a_timescale;
+    if (v_time > a_time) {
+      double time_offset = v_time - a_time;
+      uint32_t offset = narrow_cast<uint32_t>(time_offset);
+      set_v->set_presentation_time_offset(offset);
+    } else if (v_time < a_time) {
+      double time_offset = a_time - v_time;
+      uint32_t offset = narrow_cast<uint32_t>(time_offset);
+      set_a->set_presentation_time_offset(offset);
+    }
+  }
+
+  w->add_video_adaption_set(set_v);
+
   /* below is for testing purpose
    * will be removed when mpd_writer is done */
-  w->add_video_adaption_set(set_v);
 
   std::string out = w->flush();
 

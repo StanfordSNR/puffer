@@ -141,10 +141,9 @@ void XMLWriter::output(std::ofstream &out)
 }
 
 MPD::AdaptionSet::AdaptionSet(
-    int id, string init_uri, string media_uri, uint32_t start_number,
-    bool use_offset)
+    int id, string init_uri, string media_uri, uint32_t start_number)
   : id_(id), init_uri_(init_uri), media_uri_(media_uri), duration_(0),
-    use_offset_(use_offset), start_number_(start_number)
+    start_number_(start_number)
 {}
 
 MPD::VideoAdaptionSet::VideoAdaptionSet(
@@ -177,34 +176,42 @@ MPD::VideoAdaptionSet::get_repr()
   return set;
 }
 
-void MPD::AudioAdaptionSet::add_repr(shared_ptr<AudioRepresentation> repr)
+/*
+ * C++ doesn't allow shared_ptr as a non-type parameter for a template
+ */
+void MPD::AdaptionSet::check_timescale_duration(shared_ptr<Representation> repr)
 {
   if (duration() == 0) {
-    /* fisrt repr */
-    set_duration(repr->duration);
-  } else {
-    if (duration() != repr->duration) {
-      /* duration mismatch */
-      throw runtime_error("Audio representation duration does not match with\
-audio adaption set");
-    }
-  }
+   /* fisrt repr */
+   set_duration(repr->duration);
+   } else {
+     if (duration() != repr->duration) {
+       /* duration mismatch */
+       throw runtime_error("representation duration does not match with \
+the adaption set");
+     }
+   }
+
+   if(timescale() == 0) {
+     set_timescale(repr->timescale);
+   } else {
+     if (timescale() != repr->timescale) {
+       /* timescale mismatch */
+       throw runtime_error("representation timescale does not math with the \
+adaption set");
+     }
+   }
+}
+
+void MPD::AudioAdaptionSet::add_repr(shared_ptr<AudioRepresentation> repr)
+{
+  AdaptionSet::check_timescale_duration(repr);
   repr_set_.insert(repr);
 }
 
 void MPD::VideoAdaptionSet::add_repr(shared_ptr<VideoRepresentation> repr)
 {
-  /* check duration */
-  if (duration() == 0) {
-    /* fisrt repr */
-    set_duration(repr->duration);
-  } else {
-    if (duration() != repr->duration) {
-      /* duration mismatch */
-      throw runtime_error("Video representation duration does not match with\
-video adaption set");
-    }
-  }
+  AdaptionSet::check_timescale_duration(repr);
   repr_set_.insert(repr);
 }
 
@@ -373,7 +380,7 @@ void MPDWriter::write_adaption_set(shared_ptr<MPD::AdaptionSet> set)
   writer_->attr("startNumber", set->start_number());
   writer_->attr("initialization", set->init_uri());
   /* offset the audio segment */
-  if (not set->use_offset() and set->presentation_time_offset() != 0) {
+  if (set->presentation_time_offset() != 0) {
     writer_->attr("presentationTimeOffset", set->presentation_time_offset());
   }
 
