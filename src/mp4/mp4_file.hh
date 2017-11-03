@@ -50,6 +50,10 @@ public:
   void write_zeros(const size_t bytes);
 
   void write_string(const std::string & data, const size_t bytes);
+
+  /* overwrite 'data' at 'offset' */
+  void write_uint32_at(const uint32_t data, const uint64_t offset);
+  void write_int32_at(const int32_t data, const uint64_t offset);
 };
 
 }

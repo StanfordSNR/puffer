@@ -37,13 +37,13 @@ public:
   /* write the box and its children to 'mp4' */
   virtual void write_box(MP4File & mp4);
 
-protected:
   void print_size_type(const unsigned int indent = 0);
   void write_size_type(MP4File & mp4);
 
   /* change 'size' to 'curr_offset - size_offset' and return */
   void fix_size_at(MP4File & mp4, const uint64_t size_offset);
 
+protected:
   /* helper functions used in 'parse_data' */
   /* skip parsing the remaining data */
   void skip_data_left(MP4File & mp4, const uint64_t data_size,
@@ -71,7 +71,6 @@ public:
   uint8_t version() { return version_; }
   uint32_t flags() { return flags_; }
 
-protected:
   void print_version_flags(const unsigned int indent = 0);
   void parse_version_flags(MP4File & mp4);
   void write_version_flags(MP4File & mp4);
