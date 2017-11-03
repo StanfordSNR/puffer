@@ -11,6 +11,7 @@
 #include "mvhd_box.hh"
 #include "tkhd_box.hh"
 #include "elst_box.hh"
+#include "mdhd_box.hh"
 #include "sidx_box.hh"
 #include "mfhd_box.hh"
 #include "tfhd_box.hh"
@@ -53,21 +54,29 @@ void create_moov_box(MP4Parser & mp4_parser, MP4File & output_mp4)
   auto mvhd_box = static_pointer_cast<MvhdBox>(
       mp4_parser.find_first_box_of("mvhd"));
   mvhd_box->set_duration(0);
-  mvhd_box->write_box(output_mp4);
 
-  /* create tkhd box and set duration to 0 */
+  /* set duration to 0 in tkhd box */
   auto tkhd_box = static_pointer_cast<TkhdBox>(
       mp4_parser.find_first_box_of("tkhd"));
   tkhd_box->set_duration(0);
-  tkhd_box->write_box(output_mp4);
 
-  /* create edts box and set segment duration to 0 in elst box */
+  /* set segment duration to 0 in elst box */
   auto elst_box = static_pointer_cast<ElstBox>(
       mp4_parser.find_first_box_of("elst"));
   elst_box->set_segment_duration(0);
 
-  auto edts_box = make_shared<Box>("edts");
-  edts_box->add_child(elst_box);
+  /* set duration to 0 in mdhd box */
+  auto mdhd_box = static_pointer_cast<MdhdBox>(
+      mp4_parser.find_first_box_of("mdhd"));
+  mdhd_box->set_duration(0);
+
+  /* remove stss and ctts boxes in stbl box */
+  auto stbl_box = mp4_parser.find_first_box_of("stbl");
+  stbl_box->remove_child("stss");
+  stbl_box->remove_child("ctts");
+
+  auto moov_box = mp4_parser.find_first_box_of("moov");
+  moov_box->write_box(output_mp4);
 }
 
 void create_init_segment(MP4Parser & mp4_parser, MP4File & output_mp4)
@@ -108,14 +117,10 @@ unsigned int create_sidx_box(MP4File & output_mp4, const uint32_t seg_num)
   return sidx_box->reference_list_pos();
 }
 
-vector<TrunBox::Sample> create_samples(MP4Parser & mp4_parser)
+vector<TrunBox::Sample> create_samples(const shared_ptr<StszBox> & stsz_box,
+                                       const shared_ptr<CttsBox> & ctts_box)
 {
   vector<TrunBox::Sample> samples;
-
-  auto stsz_box = static_pointer_cast<StszBox>(
-                      mp4_parser.find_first_box_of("stsz"));
-  auto ctts_box = static_pointer_cast<CttsBox>(
-                      mp4_parser.find_first_box_of("ctts"));
 
   const vector<uint32_t> & size_entries = stsz_box->entries();
   const vector<int64_t> & offset_entries = ctts_box->entries();
@@ -137,7 +142,8 @@ vector<TrunBox::Sample> create_samples(MP4Parser & mp4_parser)
   return samples;
 }
 
-void create_moof_box(MP4Parser & mp4_parser,
+void create_moof_box(const shared_ptr<StszBox> & stsz_box,
+                     const shared_ptr<CttsBox> & ctts_box,
                      MP4File & output_mp4,
                      const uint32_t seg_num)
 {
@@ -164,7 +170,7 @@ void create_moof_box(MP4Parser & mp4_parser,
       seg_num * 60060 // base_media_decode_time
   );
 
-  vector<TrunBox::Sample> samples = create_samples(mp4_parser);
+  vector<TrunBox::Sample> samples = create_samples(stsz_box, ctts_box);
 
   auto trun_box = make_shared<TrunBox>(
       "trun",        // type
@@ -201,13 +207,10 @@ void create_moof_box(MP4Parser & mp4_parser,
                             trun_offset + trun_box->data_offset_pos());
 }
 
-void create_mdat_box(MP4Parser & mp4_parser, MP4File & output_mp4)
-{
-  auto mdat_box = mp4_parser.find_first_box_of("mdat");
-  mdat_box->write_box(output_mp4);
-}
-
-void create_media_segment(MP4Parser & mp4_parser, MP4File & output_mp4,
+void create_media_segment(const shared_ptr<StszBox> & stsz_box,
+                          const shared_ptr<CttsBox> & ctts_box,
+                          const shared_ptr<Box> & mdat_box,
+                          MP4File & output_mp4,
                           const uint32_t seg_num)
 {
   create_styp_box(output_mp4);
@@ -216,8 +219,9 @@ void create_media_segment(MP4Parser & mp4_parser, MP4File & output_mp4,
   unsigned int sidx_reference_list_pos = create_sidx_box(output_mp4, seg_num);
 
   uint64_t moof_offset = output_mp4.curr_offset();
-  create_moof_box(mp4_parser, output_mp4, seg_num);
-  create_mdat_box(mp4_parser, output_mp4);
+  create_moof_box(stsz_box, ctts_box, output_mp4, seg_num);
+
+  mdat_box->write_box(output_mp4);
 
   /* fill in 'referenced_size' in sidx box */
   uint32_t referenced_size = narrow_cast<uint32_t>(
@@ -230,8 +234,16 @@ void create_media_segment(MP4Parser & mp4_parser, MP4File & output_mp4,
 void fragment(MP4Parser & mp4_parser, MP4File & output_mp4,
               const uint32_t seg_num)
 {
+  /* save boxes in case create_init_segment() removes them */
+  auto stsz_box = static_pointer_cast<StszBox>(
+                      mp4_parser.find_first_box_of("stsz"));
+  auto ctts_box = static_pointer_cast<CttsBox>(
+                      mp4_parser.find_first_box_of("ctts"));
+  auto mdat_box = mp4_parser.find_first_box_of("mdat");
+
   create_init_segment(mp4_parser, output_mp4);
-  create_media_segment(mp4_parser, output_mp4, seg_num);
+
+  create_media_segment(stsz_box, ctts_box, mdat_box, output_mp4, seg_num);
 }
 
 int main(int argc, char * argv[])
@@ -249,6 +261,7 @@ int main(int argc, char * argv[])
   uint32_t seg_num = get_segment_number(input_mp4);
 
   MP4Parser mp4_parser(input_mp4);
+  mp4_parser.ignore_box("stsd"); /* save stsd box in raw data */
   mp4_parser.parse();
 
   MP4File output_mp4(argv[2], O_WRONLY | O_CREAT | O_TRUNC, 0644);
