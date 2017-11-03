@@ -22,13 +22,20 @@ public:
   TrunBox(const std::string & type,
           const uint8_t version,
           const uint32_t flags,
-          const std::vector<Sample> & samples,
+          std::vector<Sample> samples,
           const int32_t data_offset = 0,
           const uint32_t first_sample_flags = 0);
 
   /* accessors */
   uint32_t sample_count() { return samples_.size(); }
   std::vector<Sample> samples() { return samples_; }
+
+  void set_data_offset(const int32_t data_offset) {
+    data_offset_ = data_offset;
+  }
+  unsigned int data_offset_pos() {
+    return FullBox::header_size() + 4 /* sample_count */;
+  }
 
   uint64_t total_sample_duration();
   uint64_t total_sample_size();
