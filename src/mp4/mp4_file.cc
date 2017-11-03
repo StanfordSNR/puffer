@@ -173,3 +173,19 @@ void MP4File::write_string(const string & data, const size_t bytes)
 
   write(data);
 }
+
+void MP4File::write_uint32_at(const uint32_t data, const uint64_t offset)
+{
+  uint64_t prev_offset = curr_offset();
+  seek(offset, SEEK_SET);
+  write_uint32(data);
+  seek(prev_offset, SEEK_SET);
+}
+
+void MP4File::write_int32_at(const int32_t data, const uint64_t offset)
+{
+  uint64_t prev_offset = curr_offset();
+  seek(offset, SEEK_SET);
+  write_int32(data);
+  seek(prev_offset, SEEK_SET);
+}

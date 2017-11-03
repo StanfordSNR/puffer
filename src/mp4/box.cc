@@ -78,9 +78,7 @@ void Box::fix_size_at(MP4File & mp4, const uint64_t size_offset)
   uint64_t curr_offset = mp4.curr_offset();
   uint32_t size = narrow_cast<uint32_t>(curr_offset - size_offset);
 
-  mp4.seek(size_offset, SEEK_SET);
-  mp4.write_uint32(size);
-  mp4.seek(curr_offset, SEEK_SET);
+  mp4.write_uint32_at(size, size_offset);
 }
 
 void Box::skip_data_left(MP4File & mp4, const uint64_t data_size,
