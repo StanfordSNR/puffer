@@ -7,10 +7,7 @@ if [ -z $test_tmpdir ];then
     mkdir -p $test_tmpdir
 fi
 
-TEST_VECTOR="$test_tmpdir/test-vectors-ssim"
-# fetch the files
-rm -rf $TEST_VECTOR
-git clone https://github.com/StanfordSNR/tv-test-vectors $TEST_VECTOR
+TEST_VECTOR="test-vectors"
 
 DAALA=$(pwd)/../../third_party/daala_tools
 D_SSIM=dump_ssim

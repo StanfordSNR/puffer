@@ -2,20 +2,12 @@
 
 pwd="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-if [ -z $test_tmpdir ];then
-    test_tmpdir="test_tmp"
-    mkdir -p $test_tmpdir
-fi
-
 if [ -z $abs_builddir ]; then
     $abs_builddir=$pwd
 fi
 
 # fetch the files
-TEST_VECTOR="$test_tmpdir/test-vectors-mpd"
-# fetch the files
-rm -rf $TEST_VECTOR
-git clone https://github.com/StanfordSNR/tv-test-vectors $TEST_VECTOR
+TEST_VECTOR="test-vectors"
 
 MPD_WRITER=$abs_builddir/../mpd/mpd_writer
 MPD_DIR="$TEST_VECTOR/test_mpd"
