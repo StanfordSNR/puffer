@@ -259,9 +259,13 @@ string MPDWriter::write_video_codec(shared_ptr<MPD::VideoRepresentation> repr)
 string MPDWriter::write_audio_codec(shared_ptr<MPD::AudioRepresentation> repr)
 {
   char buf[20];
-  if (repr->type == MPD::MimeType::Audio_AAC) {
+  if (repr->type == MPD::MimeType::Audio_AAC_LC) {
     snprintf(buf, sizeof(buf), "mp4a.40.2");
-  } else if (repr->type == MPD::MimeType::Audio_Webm) {
+  } else if (repr->type == MPD::MimeType::Audio_HE_AAC) {
+    snprintf(buf, sizeof(buf), "mp4a.40.5");
+  } else if (repr->type == MPD::MimeType::Audio_MP3) {
+    snprintf(buf, sizeof(buf), "mp4a.40.34");
+  } else if (repr->type == MPD::MimeType::Audio_OPUS) {
     snprintf(buf, sizeof(buf), "opus"); /* assume it is opus format */
   } else {
     throw std::runtime_error("Unsupported MIME type");
@@ -317,7 +321,7 @@ void MPDWriter::write_audio_repr(shared_ptr<MPD::AudioRepresentation> repr)
 {
   writer_->open_elt("Representation");
   writer_->attr("id", repr->id);
-  writer_->attr("mimeType", repr->type == MPD::MimeType::Audio_AAC?
+  writer_->attr("mimeType", repr->type != MPD::MimeType::Audio_OPUS?
       "audio/mp4": "audio/webm");
   string codec = write_audio_codec(repr);
   writer_->attr("codecs", codec);

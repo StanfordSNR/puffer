@@ -96,8 +96,18 @@ void add_representation(string repr_id,
   } else {
     /* this is an audio */
     uint32_t sample_rate = i_info.get_sample_rate();
+    uint8_t audio_code;
+    uint16_t channel_count;
+    tie(audio_code, channel_count) = i_info.get_audio_code_channel();
+    /* translate audio code. default AAC_LC 0x40 0x67 */
+    MimeType type = MimeType::Audio_AAC_LC;
+    if (audio_code == 0x64) { /* I might be wrong about this value */
+      type = MimeType::Audio_HE_AAC;
+    } else if (audio_code == 0x69) {
+      type = MimeType::Audio_MP3;
+    }
     auto repr_a = make_shared<AudioRepresentation>(repr_id, bitrate,
-        sample_rate, false, timescale, duration);
+        sample_rate, type, timescale, duration);
     a_set->add_repr(repr_a);
   }
 }
