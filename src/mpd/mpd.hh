@@ -58,7 +58,13 @@ public:
 
 
 namespace MPD {
-enum class MimeType{ Video,  Audio_Webm, Audio_AAC };
+enum class MimeType{
+    Video,
+    Audio_OPUS,
+    Audio_HE_AAC,
+    Audio_AAC_LC,
+    Audio_MP3
+};
 const static uint8_t AvailableProfile[] {66, 88, 77, 100, 110, 122, 244, 44,
   83, 86, 128, 118, 138 };
 
@@ -104,10 +110,15 @@ struct AudioRepresentation : public Representation {
 
   AudioRepresentation(
       std::string id, unsigned int bitrate, unsigned int sampling_rate,
-      bool use_opus, uint32_t timescale, uint32_t duration)
-    : Representation(id, bitrate, use_opus? MimeType::Audio_Webm:
-        MimeType::Audio_AAC, timescale, duration), sampling_rate(sampling_rate)
-  {}
+      MimeType mp4a, uint32_t timescale, uint32_t duration)
+    : Representation(id, bitrate, mp4a, timescale, duration),
+      sampling_rate(sampling_rate)
+  {
+    /* check mp4a here */
+    if (mp4a == MimeType::Video) {
+      throw std::runtime_error("Audio representation needs an audio type");
+    }
+  }
 };
 
 inline bool operator<(const Representation & a, const Representation & b)

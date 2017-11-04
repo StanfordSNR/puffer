@@ -170,3 +170,17 @@ uint32_t MP4Info::get_sample_rate()
   auto audio_box = static_pointer_cast<AudioSampleEntry>(box);
   return audio_box->sample_rate();
 }
+
+std::pair<uint8_t, uint16_t> MP4Info::get_audio_code_channel()
+{
+  auto box = parser_->find_first_box_of("mp4a");
+  if (box == nullptr) {
+    return make_pair(0, 0);
+  }
+  auto mp4a_box = static_pointer_cast<MP4A>(box);
+  auto esds_box = mp4a_box->esds_box();
+  if (esds_box == nullptr) {
+    return make_pair(0, 0);
+  }
+  return make_pair(esds_box->object_type(), mp4a_box->channel_count());
+}

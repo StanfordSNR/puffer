@@ -21,6 +21,7 @@ public:
   uint32_t get_bitrate(uint32_t timescale, uint32_t duration);
   bool is_video();
   uint32_t get_sample_rate();
+  std::pair<uint8_t, uint16_t> get_audio_code_channel();
 
 private:
   std::shared_ptr<MP4Parser> parser_;
