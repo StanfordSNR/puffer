@@ -3,6 +3,7 @@
 #include <memory>
 #include <vector>
 #include <cstdint>
+#include <getopt.h>
 
 #include "strict_conversions.hh"
 #include "mp4_parser.hh"
@@ -27,9 +28,11 @@ using namespace MP4;
 void print_usage(const string & program_name)
 {
   cerr <<
-  "Usage: " << program_name << " <input.mp4> <output.m4s>\n\n"
-  "<input.mp4>     input MP4 file to fragment\n"
-  "<output.m4s>    output M4S file"
+  "Usage: " << program_name << " [options] <input_segment>\n\n"
+  "<input_segment>    input MP4 segment to fragment\n\n"
+  "Options:\n"
+  "--init-segment, -i     output initial segment\n"
+  "--media-segment, -m    output media segment"
   << endl;
 }
 
@@ -42,7 +45,7 @@ uint32_t get_segment_number(const string & mp4_filename)
 
 void create_ftyp_box(MP4Parser & mp4_parser, MP4File & output_mp4)
 {
-  /* create ftyp box and add compatible brand */
+  /* CReate ftyp box and add compatible brand */
   auto ftyp_box = static_pointer_cast<FtypBox>(
       mp4_parser.find_first_box_of("ftyp"));
   ftyp_box->add_compatible_brand("iso5");
@@ -134,10 +137,14 @@ unsigned int create_sidx_box(MP4File & output_mp4, const uint32_t seg_num)
   return sidx_box->reference_list_pos();
 }
 
-vector<TrunBox::Sample> create_samples(const shared_ptr<StszBox> & stsz_box,
-                                       const shared_ptr<CttsBox> & ctts_box)
+vector<TrunBox::Sample> create_samples(MP4Parser & mp4_parser)
 {
   vector<TrunBox::Sample> samples;
+
+  auto stsz_box = static_pointer_cast<StszBox>(
+                      mp4_parser.find_first_box_of("stsz"));
+  auto ctts_box = static_pointer_cast<CttsBox>(
+                      mp4_parser.find_first_box_of("ctts"));
 
   const vector<uint32_t> & size_entries = stsz_box->entries();
   const vector<int64_t> & offset_entries = ctts_box->entries();
@@ -159,8 +166,7 @@ vector<TrunBox::Sample> create_samples(const shared_ptr<StszBox> & stsz_box,
   return samples;
 }
 
-void create_moof_box(const shared_ptr<StszBox> & stsz_box,
-                     const shared_ptr<CttsBox> & ctts_box,
+void create_moof_box(MP4Parser & mp4_parser,
                      MP4File & output_mp4,
                      const uint32_t seg_num)
 {
@@ -187,7 +193,7 @@ void create_moof_box(const shared_ptr<StszBox> & stsz_box,
       seg_num * 60060 // base_media_decode_time
   );
 
-  vector<TrunBox::Sample> samples = create_samples(stsz_box, ctts_box);
+  vector<TrunBox::Sample> samples = create_samples(mp4_parser);
 
   auto trun_box = make_shared<TrunBox>(
       "trun",        // type
@@ -224,9 +230,7 @@ void create_moof_box(const shared_ptr<StszBox> & stsz_box,
                             trun_offset + trun_box->data_offset_pos());
 }
 
-void create_media_segment(const shared_ptr<StszBox> & stsz_box,
-                          const shared_ptr<CttsBox> & ctts_box,
-                          const shared_ptr<Box> & mdat_box,
+void create_media_segment(MP4Parser & mp4_parser,
                           MP4File & output_mp4,
                           const uint32_t seg_num)
 {
@@ -236,8 +240,9 @@ void create_media_segment(const shared_ptr<StszBox> & stsz_box,
   unsigned int sidx_reference_list_pos = create_sidx_box(output_mp4, seg_num);
 
   uint64_t moof_offset = output_mp4.curr_offset();
-  create_moof_box(stsz_box, ctts_box, output_mp4, seg_num);
+  create_moof_box(mp4_parser, output_mp4, seg_num);
 
+  auto mdat_box = mp4_parser.find_first_box_of("mdat");
   mdat_box->write_box(output_mp4);
 
   /* fill in 'referenced_size' in sidx box */
@@ -248,19 +253,27 @@ void create_media_segment(const shared_ptr<StszBox> & stsz_box,
                              sidx_offset + sidx_reference_list_pos);
 }
 
-void fragment(MP4Parser & mp4_parser, MP4File & output_mp4,
-              const uint32_t seg_num)
+void fragment(const string & input_mp4,
+              const string & init_segment,
+              const string & media_segment)
 {
-  /* save boxes in case create_init_segment() removes them */
-  auto stsz_box = static_pointer_cast<StszBox>(
-                      mp4_parser.find_first_box_of("stsz"));
-  auto ctts_box = static_pointer_cast<CttsBox>(
-                      mp4_parser.find_first_box_of("ctts"));
-  auto mdat_box = mp4_parser.find_first_box_of("mdat");
+  MP4Parser mp4_parser(input_mp4);
+  /* save stsd box in raw data as it is too complex to construct manually */
+  mp4_parser.ignore_box("stsd");
+  mp4_parser.parse();
 
-  create_init_segment(mp4_parser, output_mp4);
+  /* run create_init_segment last so it can safely make changes to parser */
+  if (not media_segment.empty()) {
+    MP4File output_mp4(media_segment, O_WRONLY | O_CREAT | O_TRUNC, 0644);
 
-  create_media_segment(stsz_box, ctts_box, mdat_box, output_mp4, seg_num);
+    uint32_t seg_num = get_segment_number(input_mp4);
+    create_media_segment(mp4_parser, output_mp4, seg_num);
+  }
+  if (not init_segment.empty()) {
+    MP4File output_mp4(init_segment, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+
+    create_init_segment(mp4_parser, output_mp4);
+  }
 }
 
 int main(int argc, char * argv[])
@@ -269,21 +282,46 @@ int main(int argc, char * argv[])
     abort();
   }
 
-  if (argc != 3) {
+  string init_segment, media_segment;
+
+  const option cmd_line_opts[] = {
+    {"init-segment",  required_argument, nullptr, 'i'},
+    {"media-segment", required_argument, nullptr, 'm'},
+    { nullptr,        0,                 nullptr,  0 }
+  };
+
+  while (true) {
+    const int opt = getopt_long(argc, argv, "i:m:", cmd_line_opts, nullptr);
+    if (opt == -1) {
+      break;
+    }
+
+    switch (opt) {
+    case 'i':
+      init_segment = optarg;
+      break;
+    case 'm':
+      media_segment = optarg;
+      break;
+    default:
+      print_usage(argv[0]);
+      return EXIT_FAILURE;
+    }
+  }
+
+  if (optind != argc - 1) {
     print_usage(argv[0]);
     return EXIT_FAILURE;
   }
 
-  string input_mp4 = argv[1];
-  uint32_t seg_num = get_segment_number(input_mp4);
+  string input_segment = argv[optind];
 
-  MP4Parser mp4_parser(input_mp4);
-  mp4_parser.ignore_box("stsd"); /* save stsd box in raw data */
-  mp4_parser.parse();
+  if (init_segment.empty() and media_segment.empty()) {
+    print_usage(argv[0]);
+    return EXIT_FAILURE;
+  }
 
-  MP4File output_mp4(argv[2], O_WRONLY | O_CREAT | O_TRUNC, 0644);
-
-  fragment(mp4_parser, output_mp4, seg_num);
+  fragment(input_segment, init_segment, media_segment);
 
   return EXIT_SUCCESS;
 }
