@@ -1,0 +1,2 @@
+#!/bin/bash -ex
+rm -rf test-vectors

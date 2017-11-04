@@ -12,10 +12,16 @@ AM_TESTS_ENVIRONMENT = \
 
 EXTRA_DIST = test_helpers.py notified_good_prog.sh notified_bad_prog.sh
 
-dist_check_SCRIPTS = test_notifier.py forwarder.test cleaner.test ssim.test \
-					 mpd.test
+dist_check_SCRIPTS = fetch-vectors.test test_notifier.py forwarder.test \
+					 cleaner.test ssim.test mpd.test cleanup.test
 
 TESTS = $(check_PROGRAMS) $(dist_check_SCRIPTS)
 
 clean-local:
 	-rm -rf $(abs_builddir)/test_tmpdir
+
+mpd.log: fetch-vectors.log
+
+ssim.log: fetch-vectors.log
+
+cleanup.log: mpd.log ssim.log
