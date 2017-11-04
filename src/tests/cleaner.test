@@ -4,7 +4,8 @@ import os
 from os import path
 import sys
 import time
-from test_helpers import check_call
+import datetime
+from test_helpers import check_call, check_output
 
 def main():
     abs_srcdir = os.environ['abs_srcdir']
@@ -22,17 +23,19 @@ def main():
     cleaner = path.abspath(
             path.join(abs_builddir, os.pardir, 'cleaner', 'cleaner'))
 
-    cmd = [cleaner, cleaner_testdir, "-p", 't\d+', "-t", "1"]
+    cmd = [cleaner, cleaner_testdir, "-p", 't\d+', "-t", "50"]
 
-    start_time = time.time()
-    check_call(["touch", test_file1])
+    now = datetime.datetime.now()
+    time_string = datetime.datetime.fromtimestamp(0).strftime(
+            "%b %m %Y %H:%M:%S")
+    check_call(["touch", test_file1, "-d", time_string])
 
-    time.sleep(1)
+    time_string = now.strftime("%b %m %Y %H:%M:%S")
 
-    check_call(["touch", test_file2])
+    check_call(["touch", test_file2, "-d", time_string])
 
     # run the cleaner
-    check_call(cmd)
+    print(check_output(cmd))
     # this should only delete t1
     if os.path.isfile(test_file1):
         exit(1)

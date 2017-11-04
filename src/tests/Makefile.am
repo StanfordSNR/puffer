@@ -19,6 +19,7 @@ TESTS = $(check_PROGRAMS) $(dist_check_SCRIPTS)
 
 clean-local:
 	-rm -rf $(abs_builddir)/test_tmpdir
+	-rm -rf $(abs_builddir)/test-vectors
 
 mpd.log: fetch-vectors.log
 
