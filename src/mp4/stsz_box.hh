@@ -20,6 +20,9 @@ public:
   uint32_t sample_count() { return entries_.size(); }
   std::vector<uint32_t> entries() { return entries_; }
 
+  /* mutators */
+  void set_entries(std::vector<uint32_t> entries);
+
   void print_box(const unsigned int indent = 0);
 
   void parse_data(MP4File & mp4, const uint64_t data_size);

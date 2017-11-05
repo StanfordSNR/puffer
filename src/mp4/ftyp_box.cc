@@ -34,7 +34,8 @@ void FtypBox::print_box(const unsigned int indent)
 
   string indent_str = string(indent + 2, ' ') + "| ";
   cout << indent_str << "major brand " << major_brand_ << endl;
-  cout << indent_str << "minor version " << minor_version_ << endl;
+  cout << indent_str << "minor version 0x"
+       << hex << minor_version_ << dec << endl;
 
   cout << indent_str << "compatible brands";
   for (const auto & brand : compatible_brands_) {
