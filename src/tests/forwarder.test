@@ -4,52 +4,70 @@ import os
 from os import path
 import random
 import string
-from time import sleep
-from test_helpers import get_open_port, Popen, check_call, check_output
+import time
+import socket
+from test_helpers import get_open_port, Popen
 
+
+def test_loop(content, abs_builddir):
+    # state flags
+    RUN_TCP = 0
+    RUN_FORWARDER = 1
+    RUN_UDP = 2
+    TCP_LISTEN = 3
+
+    # timeout after 1 seconds
+    TIMEOUT = 1
+
+    state = RUN_TCP
+    start_time = time.time()
+    status = False
+    while time.time() < start_time + TIMEOUT:
+        if state == RUN_TCP:
+            # create TCP socket
+            tcp_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            tcp_port = get_open_port()
+            tcp_sock.bind(("127.0.0.1", tcp_port))
+            tcp_sock.listen(1)
+            state = RUN_FORWARDER
+        elif state == RUN_FORWARDER:
+            forwarder = path.abspath(path.join(abs_builddir, os.pardir,
+                'forwarder', 'forwarder'))
+            udp_port = get_open_port()
+            forwarder_proc = Popen([forwarder, '--udp-port', str(udp_port),
+                            '--tcp', '127.0.0.1:' + str(tcp_port)])
+            # receive connection
+            connection, client_address = tcp_sock.accept()
+            state = RUN_UDP
+        elif state == RUN_UDP:
+            # send udp content
+            udp_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            udp_sock.sendto(content, ("127.0.0.1", udp_port))
+            state = TCP_LISTEN
+        elif state == TCP_LISTEN:
+            data = connection.recv(len(content))
+            if data != content:
+                forwarder_proc.terminate()
+                tcp_sock.close()
+                raise Exception("data received not equal to data sent")
+            else:
+                status = True
+                forwarder_proc.terminate()
+                tcp_sock.close()
+                break
+        else:
+            # error state
+            raise Exception("program in a wrong state")
+    if not status:
+        raise Exception("Test timeout")
 
 def main():
     # generate a random file
     content = ''.join(random.choice(string.letters) for _ in xrange(2000))
 
     abs_builddir = os.environ['abs_builddir']
-    test_tmpdir = path.join(abs_builddir, 'test_tmpdir')
 
-    orig_file = path.join(test_tmpdir, 'orig_file')
-    copy_file = path.join(test_tmpdir, 'copy_file')
-
-    with open(orig_file, 'w') as f:
-        f.write(content)
-
-    # run TCP receiver
-    tcp_port = get_open_port()
-    tcp_proc = Popen('nc -l %s > %s' % (tcp_port, copy_file), shell=True)
-    sleep(0.5)
-
-    # run forwarder
-    forwarder = path.abspath(
-        path.join(abs_builddir, os.pardir, 'forwarder', 'forwarder'))
-
-    udp_port = get_open_port()
-    forwarder_proc = Popen([forwarder, '--udp-port', udp_port,
-                            '--tcp', '127.0.0.1:' + tcp_port])
-    sleep(0.5)
-
-    # run UDP sender, which will after completing the file transfer
-    check_call('nc -w 0 -u 127.0.0.1 %s < %s' %
-               (udp_port, orig_file), shell=True)
-    sleep(0.5)
-
-    forwarder_proc.terminate()
-    tcp_proc.terminate()
-
-    # compare orig_file and copy_file
-    if not path.exists(copy_file):
-        sys.exit('%s does not exist' % copy_file)
-
-    if check_output(['diff', orig_file, copy_file]):
-        sys.exit('%s and %s diff' % (orig_file, copy_file))
-
+    test_loop(content, abs_builddir)
 
 if __name__ == '__main__':
     main()

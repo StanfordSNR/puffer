@@ -13,7 +13,7 @@ def get_open_port():
     sock.bind(('', 0))
     port = sock.getsockname()[1]
     sock.close()
-    return str(port)
+    return port
 
 
 def make_sure_path_exists(target_path):
