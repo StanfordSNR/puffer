@@ -11,8 +11,12 @@ libmp4_a_SOURCES = \
 	mfhd_box.hh mfhd_box.cc \
 	trex_box.hh trex_box.cc \
 	sidx_box.hh sidx_box.cc \
+	stco_box.hh stco_box.cc \
+	stsc_box.hh stsc_box.cc \
 	stsd_box.hh stsd_box.cc \
+	stss_box.hh stss_box.cc \
 	stsz_box.hh stsz_box.cc \
+	stts_box.hh stts_box.cc \
 	trun_box.hh trun_box.cc \
 	tfhd_box.hh tfhd_box.cc \
 	tkhd_box.hh tkhd_box.cc \
