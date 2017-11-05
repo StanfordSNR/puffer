@@ -6,60 +6,38 @@ import random
 import string
 import time
 import socket
-from test_helpers import get_open_port, Popen
+from test_helpers import get_open_port, Popen, timeout
 
-
+# timeout after 1 seconds
+@timeout(1)
 def test_loop(content, abs_builddir):
-    # state flags
-    RUN_TCP = 0
-    RUN_FORWARDER = 1
-    RUN_UDP = 2
-    TCP_LISTEN = 3
-
-    # timeout after 1 seconds
-    TIMEOUT = 1
-
-    state = RUN_TCP
-    start_time = time.time()
     status = False
-    while time.time() < start_time + TIMEOUT:
-        if state == RUN_TCP:
-            # create TCP socket
-            tcp_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            tcp_port = get_open_port()
-            tcp_sock.bind(("127.0.0.1", tcp_port))
-            tcp_sock.listen(1)
-            state = RUN_FORWARDER
-        elif state == RUN_FORWARDER:
-            forwarder = path.abspath(path.join(abs_builddir, os.pardir,
-                'forwarder', 'forwarder'))
-            udp_port = get_open_port()
-            forwarder_proc = Popen([forwarder, '--udp-port', str(udp_port),
-                            '--tcp', '127.0.0.1:' + str(tcp_port)])
-            # receive connection
-            connection, client_address = tcp_sock.accept()
-            state = RUN_UDP
-        elif state == RUN_UDP:
-            # send udp content
-            udp_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            udp_sock.sendto(content, ("127.0.0.1", udp_port))
-            state = TCP_LISTEN
-        elif state == TCP_LISTEN:
-            data = connection.recv(len(content))
-            if data != content:
-                forwarder_proc.terminate()
-                tcp_sock.close()
-                raise Exception("data received not equal to data sent")
-            else:
-                status = True
-                forwarder_proc.terminate()
-                tcp_sock.close()
-                break
-        else:
-            # error state
-            raise Exception("program in a wrong state")
-    if not status:
-        raise Exception("Test timeout")
+    # create TCP socket
+    tcp_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    tcp_port = get_open_port()
+    tcp_sock.bind(("127.0.0.1", tcp_port))
+    tcp_sock.listen(1)
+
+    forwarder = path.abspath(path.join(abs_builddir, os.pardir,
+        'forwarder', 'forwarder'))
+    udp_port = get_open_port()
+    forwarder_proc = Popen([forwarder, '--udp-port', str(udp_port),
+                    '--tcp', '127.0.0.1:' + str(tcp_port)])
+    # receive connection
+    connection, client_address = tcp_sock.accept()
+
+    # send udp content
+    udp_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    udp_sock.sendto(content, ("127.0.0.1", udp_port))
+
+    data = connection.recv(len(content))
+    if data != content:
+        forwarder_proc.terminate()
+        tcp_sock.close()
+        raise Exception("data received not equal to data sent")
+    else:
+        forwarder_proc.terminate()
+        tcp_sock.close()
 
 def main():
     # generate a random file
