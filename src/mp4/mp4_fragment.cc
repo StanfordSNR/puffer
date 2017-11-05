@@ -20,6 +20,11 @@
 #include "tfdt_box.hh"
 #include "stsz_box.hh"
 #include "ctts_box.hh"
+#include "stss_box.hh"
+#include "stts_box.hh"
+#include "stsc_box.hh"
+#include "stsz_box.hh"
+#include "stco_box.hh"
 #include "trun_box.hh"
 
 using namespace std;
@@ -40,12 +45,12 @@ uint32_t get_segment_number(const string & mp4_filename)
 {
   // TODO: get segment number from filename
   (void) mp4_filename;
-  return 1;
+  return 0;
 }
 
 void create_ftyp_box(MP4Parser & mp4_parser, MP4File & output_mp4)
 {
-  /* CReate ftyp box and add compatible brand */
+  /* Create ftyp box and add compatible brand */
   auto ftyp_box = static_pointer_cast<FtypBox>(
       mp4_parser.find_first_box_of("ftyp"));
   ftyp_box->add_compatible_brand("iso5");
@@ -74,10 +79,23 @@ void create_moov_box(MP4Parser & mp4_parser, MP4File & output_mp4)
       mp4_parser.find_first_box_of("mdhd"));
   mdhd_box->set_duration(0);
 
-  /* remove stss and ctts boxes in stbl box */
+  /* remove stss and ctts boxes from stbl box */
   auto stbl_box = mp4_parser.find_first_box_of("stbl");
   stbl_box->remove_child("stss");
   stbl_box->remove_child("ctts");
+
+  /* clear the entries in stts, stsc, stsz, stco boxes */
+  auto stts_box = static_pointer_cast<SttsBox>(stbl_box->find_child("stts"));
+  stts_box->set_entries({});
+
+  auto stsc_box = static_pointer_cast<StscBox>(stbl_box->find_child("stsc"));
+  stsc_box->set_entries({});
+
+  auto stsz_box = static_pointer_cast<StszBox>(stbl_box->find_child("stsz"));
+  stsz_box->set_entries({});
+
+  auto stco_box = static_pointer_cast<StcoBox>(stbl_box->find_child("stco"));
+  stco_box->set_entries({});
 
   /* create mvex box */
   auto trex_box = make_shared<TrexBox>(
@@ -147,7 +165,14 @@ vector<TrunBox::Sample> create_samples(MP4Parser & mp4_parser)
                       mp4_parser.find_first_box_of("ctts"));
 
   const vector<uint32_t> & size_entries = stsz_box->entries();
-  const vector<int64_t> & offset_entries = ctts_box->entries();
+
+  const auto & ctts_entries = ctts_box->entries();
+  vector<int64_t> offset_entries;
+  for (const auto & ctts_entry : ctts_entries) {
+    for (uint32_t i = 0; i < ctts_entry.sample_count; ++i) {
+      offset_entries.emplace_back(ctts_entry.sample_offset);
+    }
+  }
 
   if (size_entries.size() != offset_entries.size()) {
     throw runtime_error(
