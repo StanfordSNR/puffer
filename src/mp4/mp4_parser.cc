@@ -21,6 +21,10 @@
 #include "mdhd_box.hh"
 #include "elst_box.hh"
 #include "ctts_box.hh"
+#include "stco_box.hh"
+#include "stsc_box.hh"
+#include "stss_box.hh"
+#include "stts_box.hh"
 
 using namespace std;
 using namespace MP4;
@@ -120,6 +124,14 @@ shared_ptr<Box> MP4Parser::box_factory(const uint64_t size,
       box = make_shared<CttsBox>(size, type);
     } else if (type == "stsd") {
       box = make_shared<StsdBox>(size, type);
+    } else if (type == "stco") {
+      box = make_shared<StcoBox>(size, type);
+    } else if (type == "stsc") {
+      box = make_shared<StscBox>(size, type);
+    } else if (type == "stss") {
+      box = make_shared<StssBox>(size, type);
+    } else if (type == "stts") {
+      box = make_shared<SttsBox>(size, type);
     } else {
       box = make_shared<Box>(size, type);
     }
