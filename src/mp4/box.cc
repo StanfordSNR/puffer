@@ -44,6 +44,17 @@ void Box::insert_child(shared_ptr<Box> && child, const string & type)
   }
 }
 
+shared_ptr<Box> Box::find_child(const string & type)
+{
+  for (const auto & child : children_) {
+    if (child->type() == type) {
+      return child;
+    }
+  }
+
+  return nullptr;
+}
+
 list<shared_ptr<Box>>::const_iterator Box::children_begin()
 {
   return children_.cbegin();

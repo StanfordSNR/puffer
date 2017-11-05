@@ -32,6 +32,8 @@ public:
   /* insert 'child' after the first child of type 'type' */
   void insert_child(std::shared_ptr<Box> && child, const std::string & type);
 
+  std::shared_ptr<Box> find_child(const std::string & type);
+
   unsigned int children_size() { return children_.size(); }
 
   std::list<std::shared_ptr<Box>>::const_iterator children_begin();
