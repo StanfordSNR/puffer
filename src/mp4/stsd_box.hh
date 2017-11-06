@@ -121,6 +121,9 @@ private:
   static const uint8_t config_type_tag = 0x04;
   static const uint8_t tag_string_start = 0x80;
   static const uint8_t tag_string_end = 0xFE;
+  static const uint8_t flag_stream_dependency = 1;
+  static const uint8_t flag_url               = 2;
+  static const uint8_t flag_ocr_stream        = 4;
 
   void read_tag_string(MP4File & file);
 };

@@ -199,7 +199,22 @@ void EsdsBox::parse_data(MP4File & mp4, const uint64_t data_size)
   mp4.read(1); /* descriptor type length */
 
   es_id_ = mp4.read_uint16();
-  stream_priority_ = mp4.read_uint8();
+  uint8_t bits = mp4.read_uint8();
+  uint8_t flags = (bits >> 5) & 0x7;
+  stream_priority_ = bits & 0x1F;
+  if (flags & flag_stream_dependency) {
+    mp4.read_uint16();
+  }
+  if (flags & flag_url) {
+    uint8_t length = mp4.read_uint8();
+    if (length) {
+      mp4.read(length - 1); /* skip all the data */
+    }
+  }
+
+  if (flags & flag_ocr_stream) {
+    mp4.read_uint16();
+  }
   if (mp4.read_uint8() != config_type_tag) {
     throw runtime_error("expect config type tag");
   }
@@ -220,11 +235,14 @@ void EsdsBox::parse_data(MP4File & mp4, const uint64_t data_size)
 
 void EsdsBox::read_tag_string(MP4File & mp4)
 {
+  uint64_t init_pos = mp4.curr_offset();
   for (int i = 0; i < 3; i++) {
     uint8_t tag = mp4.read_uint8();
 
     if (tag != tag_string_start and tag != tag_string_end) {
-      throw runtime_error("expect 3 start/end tags");
+      /* no optional start and end flags */
+      mp4.seek(init_pos, 0);
+      break;
     }
   }
 }
