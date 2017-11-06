@@ -14,10 +14,10 @@ TfhdBox::TfhdBox(const string & type,
                  const uint32_t flags,
                  const uint32_t track_id,
                  const uint32_t default_sample_duration,
+                 const uint32_t default_sample_size,
                  const uint32_t default_sample_flags,
                  const uint64_t base_data_offset,
-                 const uint32_t sample_description_index,
-                 const uint32_t default_sample_size)
+                 const uint32_t sample_description_index)
   : FullBox(type, version, flags), track_id_(track_id)
 {
   if (flags & base_data_offset_present) {
@@ -44,8 +44,19 @@ void TfhdBox::print_box(const unsigned int indent)
 
   string indent_str = string(indent + 2, ' ') + "| ";
   cout << indent_str << "track id " << track_id_ << endl;
-  cout << indent_str << "sample default duration "
-       << default_sample_duration_ << endl;
+
+  if (flags() & default_sample_duration_present) {
+    cout << indent_str << "default sample duration "
+         << default_sample_duration_ << endl;
+  }
+  if (flags() & default_sample_size_present) {
+    cout << indent_str << "default sample size "
+         << default_sample_size_ << endl;
+  }
+  if (flags() & default_sample_flags_present) {
+    cout << indent_str << "default sample flags 0x"
+         << hex << default_sample_flags_ << dec << endl;
+  }
 }
 
 void TfhdBox::parse_data(MP4File & mp4, const uint64_t data_size)
