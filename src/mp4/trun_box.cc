@@ -1,5 +1,4 @@
 #include <iostream>
-#include <algorithm>
 
 #include "trun_box.hh"
 #include "strict_conversions.hh"
@@ -65,23 +64,60 @@ void TrunBox::print_box(const unsigned int indent)
          << dec << endl;
   }
 
-  if (sample_count()) {
-    uint32_t count = min(sample_count(), 5u);
-
-    cout << indent_str << "[#] size, composition time offset" << endl;
-    for (uint32_t i = 0; i < count; ++i) {
-      cout << indent_str << "[" << i << "] " << samples_[i].sample_size
-           << ", " << samples_[i].sample_composition_time_offset << endl;
-    }
-
-    if (count < sample_count()) {
-      cout << indent_str << "..." << endl;
-    }
+  if (sample_count() == 0) {
+    return;
   }
 
-  cout << indent_str << "total sample duration "
-                     << total_sample_duration() << endl;
-  cout << indent_str << "total sample size " << total_sample_size() << endl;
+  bool duration_present = flags() & sample_duration_present;
+  bool size_present = flags() & sample_size_present;
+  bool offset_present = flags() & sample_composition_time_offsets_present;
+
+  string table_header;
+
+  if (duration_present) {
+    table_header += table_header.empty() ? "[#] duration" : ", duration";
+  }
+  if (size_present) {
+    table_header += table_header.empty() ? "[#] size" : ", size";
+  }
+  if (offset_present) {
+    table_header += table_header.empty() ? "[#] composition time offset"
+                                         : ", composition time offset";
+  }
+
+  cout << indent_str << table_header << endl;
+
+  for (uint32_t i = 0; i < sample_count() and i < 5; ++i) {
+    string i_str = "[" + to_string(i) + "] ";
+    string row;
+
+    if (duration_present) {
+      row += row.empty() ? i_str : ", ";
+      row += to_string(samples_[i].sample_duration);
+    }
+    if (size_present) {
+      row += row.empty() ? i_str : ", ";
+      row += to_string(samples_[i].sample_size);
+    }
+    if (offset_present) {
+      row += row.empty() ? i_str : ", ";
+      row += to_string(samples_[i].sample_composition_time_offset);
+    }
+
+    cout << indent_str << row << endl;
+  }
+
+  if (sample_count() > 5) {
+    cout << indent_str << "..." << endl;
+  }
+
+  if (duration_present) {
+    cout << indent_str << "total sample duration "
+                       << total_sample_duration() << endl;
+  }
+  if (size_present) {
+    cout << indent_str << "total sample size " << total_sample_size() << endl;
+  }
 }
 
 void TrunBox::parse_data(MP4File & mp4, const uint64_t data_size)
