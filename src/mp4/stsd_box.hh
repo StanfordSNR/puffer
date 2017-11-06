@@ -1,6 +1,8 @@
 #ifndef STSD_BOX_HH
 #define STSD_BOX_HH
 
+#include <set>
+
 #include "box.hh"
 
 namespace MP4 {
@@ -10,7 +12,17 @@ class StsdBox : public FullBox
 public:
   StsdBox(const uint64_t size, const std::string & type);
 
+  /* accessors */
+  uint32_t num_sample_entries() { return children_size(); }
+
+  void ignore_sample_entry(const std::string & sample_type);
+  bool is_ignored(const std::string & sample_type);
+
   void parse_data(MP4File & mp4, const uint64_t data_size);
+  void write_box(MP4File & mp4);
+
+private:
+  std::set<std::string> ignored_boxes_;
 };
 
 class SampleEntry : public Box
