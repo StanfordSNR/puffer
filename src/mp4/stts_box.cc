@@ -9,6 +9,16 @@ SttsBox::SttsBox(const uint64_t size, const string & type)
   : FullBox(size, type), entries_()
 {}
 
+uint32_t SttsBox::total_sample_count()
+{
+  uint32_t total_sample_count = 0;
+  for (const auto & entry : entries_) {
+    total_sample_count += entry.sample_count;
+  }
+
+  return total_sample_count;
+}
+
 void SttsBox::set_entries(vector<Entry> entries)
 {
   entries_ = move(entries);
@@ -19,7 +29,23 @@ void SttsBox::print_box(const unsigned int indent)
   print_size_type(indent);
 
   string indent_str = string(indent + 2, ' ') + "| ";
+
   cout << indent_str << "entry count " << entry_count() << endl;
+
+  if (entry_count() == 0) {
+    return;
+  }
+
+  cout << indent_str << "[#] count, sample duration" << endl;
+
+  for (uint32_t i = 0; i < entry_count() and i < 5; ++i) {
+    cout << indent_str << "[" << i << "] " << entries_[i].sample_count << ", "
+         << entries_[i].sample_delta << endl;
+  }
+
+  if (entry_count() > 5) {
+    cout << indent_str << "..." << endl;
+  }
 }
 
 void SttsBox::parse_data(MP4File & mp4, const uint64_t data_size)

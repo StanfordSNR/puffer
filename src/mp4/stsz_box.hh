@@ -21,6 +21,7 @@ public:
   std::vector<uint32_t> entries() { return entries_; }
 
   /* mutators */
+  void set_sample_size(const uint32_t sample_size);
   void set_entries(std::vector<uint32_t> entries);
 
   void print_box(const unsigned int indent = 0);

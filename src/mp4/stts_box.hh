@@ -19,6 +19,8 @@ public:
   uint32_t entry_count() { return entries_.size(); }
   std::vector<Entry> entries() { return entries_; }
 
+  uint32_t total_sample_count();
+
   /* mutators */
   void set_entries(std::vector<Entry> entries);
 

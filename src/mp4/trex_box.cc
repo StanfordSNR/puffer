@@ -31,8 +31,6 @@ void TrexBox::print_box(const unsigned int indent)
 
   string indent_str = string(indent + 2, ' ') + "| ";
   cout << indent_str << "track id " << track_id_ << endl;
-  cout << indent_str << "default sample duration "
-       << default_sample_duration_ << endl;
 }
 
 void TrexBox::parse_data(MP4File & mp4, const uint64_t data_size)
