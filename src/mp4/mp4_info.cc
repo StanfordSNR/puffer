@@ -175,7 +175,7 @@ uint32_t MP4Info::get_sample_rate()
   return audio_box->sample_rate();
 }
 
-std::pair<uint8_t, uint16_t> MP4Info::get_audio_code_channel()
+pair<uint8_t, uint16_t> MP4Info::get_audio_code_channel()
 {
   auto box = parser_->find_first_box_of("mp4a");
   if (box == nullptr) {

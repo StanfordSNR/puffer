@@ -267,13 +267,14 @@ void EsdsBox::parse_data(MP4File & mp4, const uint64_t data_size)
 
 void EsdsBox::read_tag_string(MP4File & mp4)
 {
-  uint64_t init_pos = mp4.curr_offset();
+  uint64_t init_offset = mp4.curr_offset();
+
   for (int i = 0; i < 3; i++) {
     uint8_t tag = mp4.read_uint8();
 
     if (tag != tag_string_start and tag != tag_string_end) {
       /* no optional start and end flags */
-      mp4.seek(init_pos, 0);
+      mp4.seek(init_offset, SEEK_SET);
       break;
     }
   }
