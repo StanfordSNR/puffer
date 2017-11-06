@@ -1,5 +1,4 @@
 #include <iostream>
-#include <algorithm>
 #include <stdexcept>
 
 #include "sidx_box.hh"
@@ -67,16 +66,14 @@ void SidxBox::print_box(const unsigned int indent)
                      << earlist_presentation_time_ << endl;
 
   if (reference_count()) {
-    unsigned int count = min(static_cast<unsigned int>(reference_count()), 5u);
-
     cout << indent_str << "[#] referenced size, subsegment duration" << endl;
-    for (unsigned int i = 0; i < count; ++i) {
+    for (unsigned int i = 0; i < reference_count() and i < 5; ++i) {
       const auto & ref = reference_list_[i];
       cout << indent_str << "[" << i << "] "
            << ref.referenced_size << ", " << ref.subsegment_duration << endl;
     }
 
-    if (count < reference_count()) {
+    if (reference_count() > 5) {
       cout << indent_str << "..." << endl;
     }
   }
