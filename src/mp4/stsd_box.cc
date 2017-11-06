@@ -196,7 +196,7 @@ void EsdsBox::parse_data(MP4File & mp4, const uint64_t data_size)
   }
   read_tag_string(mp4);
 
-  mp4.read(1); /* ignore */
+  mp4.read(1); /* descriptor type length */
 
   es_id_ = mp4.read_uint16();
   stream_priority_ = mp4.read_uint8();
@@ -205,12 +205,12 @@ void EsdsBox::parse_data(MP4File & mp4, const uint64_t data_size)
   }
   read_tag_string(mp4);
 
-  mp4.read(1); /* ignore */
+  mp4.read(1); /* descriptor type length */
 
   object_type_ = mp4.read_uint8();
 
-  mp4.read(1); /* ignore */
-  mp4.read(4); /* ignore */
+  mp4.read(1); /* stream type, upstream flag, reserved flag */
+  mp4.read(3); /* buffer size */
 
   max_bitrate_ = mp4.read_uint32();
   avg_bitrate_ = mp4.read_uint32();
@@ -222,6 +222,7 @@ void EsdsBox::read_tag_string(MP4File & mp4)
 {
   for (int i = 0; i < 3; i++) {
     uint8_t tag = mp4.read_uint8();
+
     if (tag != tag_string_start and tag != tag_string_end) {
       throw runtime_error("expect 3 start/end tags");
     }
@@ -233,8 +234,7 @@ void EsdsBox::print_box(const unsigned int indent)
   print_size_type(indent);
 
   string indent_str = string(indent + 2, ' ') + "| ";
-  cout << indent_str << "object type 0x"
-       << hex << unsigned(object_type_) << dec << endl;
+  cout << indent_str << "object type " << unsigned(object_type_) << endl;
   cout << indent_str << "max bitrate " << max_bitrate_ << endl;
   cout << indent_str << "avg bitrate " << avg_bitrate_ << endl;
 }
