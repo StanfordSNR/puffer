@@ -66,6 +66,16 @@ shared_ptr<Box> MP4Parser::find_first_box_of(const string & type)
   return do_find_first_box_of(root_box_, type);
 }
 
+bool MP4Parser::is_video()
+{
+  return find_first_box_of("avc1") != nullptr;
+}
+
+bool MP4Parser::is_audio()
+{
+  return find_first_box_of("mp4a") != nullptr;
+}
+
 void MP4Parser::print_structure()
 {
   for (auto it = root_box_->children_begin();
@@ -94,6 +104,7 @@ shared_ptr<Box> MP4Parser::box_factory(const uint64_t size,
   shared_ptr<Box> box;
 
   if (is_ignored(type)) {
+    /* skip parsing box but save raw data */
     box = make_shared<Box>(size, type);
   } else {
     if (type == "ftyp" or type == "styp") {
@@ -122,8 +133,6 @@ shared_ptr<Box> MP4Parser::box_factory(const uint64_t size,
       box = make_shared<ElstBox>(size, type);
     } else if (type == "ctts") {
       box = make_shared<CttsBox>(size, type);
-    } else if (type == "stsd") {
-      box = make_shared<StsdBox>(size, type);
     } else if (type == "stco") {
       box = make_shared<StcoBox>(size, type);
     } else if (type == "stsc") {
@@ -132,7 +141,20 @@ shared_ptr<Box> MP4Parser::box_factory(const uint64_t size,
       box = make_shared<StssBox>(size, type);
     } else if (type == "stts") {
       box = make_shared<SttsBox>(size, type);
+    } else if (type == "stsd") {
+      auto stsd_box = make_shared<StsdBox>(size, type);
+
+      /* special case: a sample entry box of stsd can be ignored too */
+      if (is_ignored("avc1")) {
+        stsd_box->ignore_sample_entry("avc1");
+      }
+      if (is_ignored("mp4a")) {
+        stsd_box->ignore_sample_entry("mp4a");
+      }
+
+      box = move(stsd_box);
     } else {
+      /* unknown box type */
       box = make_shared<Box>(size, type);
     }
   }

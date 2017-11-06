@@ -20,6 +20,7 @@ public:
   uint32_t get_bitrate();
   uint32_t get_bitrate(uint32_t timescale, uint32_t duration);
   bool is_video();
+  bool is_audio();
   uint32_t get_sample_rate();
   std::pair<uint8_t, uint16_t> get_audio_code_channel();
 

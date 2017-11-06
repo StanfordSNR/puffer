@@ -128,8 +128,12 @@ float MP4Info::get_fps(uint16_t frame_count)
 
 bool MP4Info::is_video()
 {
-  auto box = parser_->find_first_box_of("avc1");
-  return box != nullptr;
+  return parser_->is_video();
+}
+
+bool MP4Info::is_audio()
+{
+  return parser_->is_audio();
 }
 
 uint32_t MP4Info::get_bitrate(uint32_t timescale, uint32_t duration)
