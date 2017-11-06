@@ -7,8 +7,18 @@ using namespace std;
 using namespace MP4;
 
 StsdBox::StsdBox(const uint64_t size, const string & type)
-  : FullBox(size, type)
+  : FullBox(size, type), ignored_boxes_()
 {}
+
+void StsdBox::ignore_sample_entry(const string & sample_type)
+{
+  ignored_boxes_.insert(sample_type);
+}
+
+bool StsdBox::is_ignored(const string & sample_type)
+{
+  return ignored_boxes_.find(sample_type) != ignored_boxes_.end();
+}
 
 void StsdBox::parse_data(MP4File & mp4, const uint64_t data_size)
 {
@@ -25,19 +35,41 @@ void StsdBox::parse_data(MP4File & mp4, const uint64_t data_size)
 
     shared_ptr<Box> box;
 
-    if (sample_type == "avc1") {
-      box = make_shared<AVC1>(sample_size, sample_type);
-    } else if (sample_type == "mp4a") {
-      box = make_shared<MP4A>(sample_size, sample_type);
-    } else {
+    if (is_ignored(sample_type)) {
+      /* ignore parsing sample entry but save raw data */
       box = make_shared<Box>(sample_size, sample_type);
+    } else {
+      if (sample_type == "avc1") {
+        box = make_shared<AVC1>(sample_size, sample_type);
+      } else if (sample_type == "mp4a") {
+        box = make_shared<MP4A>(sample_size, sample_type);
+      } else {
+        /* unknown sample entry type */
+        box = make_shared<Box>(sample_size, sample_type);
+      }
     }
 
     box->parse_data(mp4, sample_size - 8);
     add_child(move(box));
   }
 
-  skip_data_left(mp4, data_size, init_offset);
+  check_data_left(mp4, data_size, init_offset);
+}
+
+void StsdBox::write_box(MP4File & mp4)
+{
+  uint64_t size_offset = mp4.curr_offset();
+
+  write_size_type(mp4);
+  write_version_flags(mp4);
+
+  mp4.write_uint32(num_sample_entries());
+
+  for (auto it = children_begin(); it != children_end(); ++it) {
+    (*it)->write_box(mp4);
+  }
+
+  fix_size_at(mp4, size_offset);
 }
 
 SampleEntry::SampleEntry(const uint64_t size, const string & type)
