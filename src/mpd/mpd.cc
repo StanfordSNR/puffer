@@ -184,23 +184,23 @@ void MPD::AdaptionSet::check_timescale_duration(shared_ptr<Representation> repr)
   if (duration() == 0) {
    /* fisrt repr */
    set_duration(repr->duration);
-   } else {
-     if (duration() != repr->duration) {
-       /* duration mismatch */
-       throw runtime_error("representation duration does not match with \
+  } else {
+    if (duration() != repr->duration) {
+      /* duration mismatch */
+      throw runtime_error("representation duration does not match with \
 the adaption set");
-     }
-   }
+    }
+  }
 
-   if(timescale() == 0) {
+  if(timescale() == 0) {
      set_timescale(repr->timescale);
-   } else {
-     if (timescale() != repr->timescale) {
-       /* timescale mismatch */
-       throw runtime_error("representation timescale does not math with the \
+  } else {
+    if (timescale() != repr->timescale) {
+      /* timescale mismatch */
+      throw runtime_error("representation timescale does not math with the \
 adaption set");
-     }
-   }
+    }
+  }
 }
 
 void MPD::AudioAdaptionSet::add_repr(shared_ptr<AudioRepresentation> repr)
@@ -258,19 +258,17 @@ string MPDWriter::write_video_codec(shared_ptr<MPD::VideoRepresentation> repr)
 
 string MPDWriter::write_audio_codec(shared_ptr<MPD::AudioRepresentation> repr)
 {
-  char buf[20];
   if (repr->type == MPD::MimeType::Audio_AAC_LC) {
-    snprintf(buf, sizeof(buf), "mp4a.40.2");
+    return "mp4a.40.2";
   } else if (repr->type == MPD::MimeType::Audio_HE_AAC) {
-    snprintf(buf, sizeof(buf), "mp4a.40.5");
+    return "mp4a.40.5";
   } else if (repr->type == MPD::MimeType::Audio_MP3) {
-    snprintf(buf, sizeof(buf), "mp4a.40.34");
+    return "mp4a.40.34";
   } else if (repr->type == MPD::MimeType::Audio_OPUS) {
-    snprintf(buf, sizeof(buf), "opus"); /* assume it is opus format */
+    return "opus"; /* assume it is opus format */
   } else {
     throw std::runtime_error("Unsupported MIME type");
   }
-  return buf;
 }
 
 
@@ -402,7 +400,6 @@ void MPDWriter::write_adaption_set(shared_ptr<MPD::AdaptionSet> set)
 
 string MPDWriter::convert_pt(unsigned int seconds)
 {
-  /* This is only computes to 24 hours*/
   unsigned int hours = 0;
   unsigned int minutes = 0;
   if (seconds >= 3600) {
