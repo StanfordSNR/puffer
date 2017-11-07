@@ -44,17 +44,18 @@ const uint32_t media_duration = 0xFFFFFFFF;
 
 void print_usage(const string & program_name)
 {
-  cerr << "Usage: " << program_name << " [options] <dir> <dir> ...\n\n"
-       << "<dir>                        Directory where media segments are stored" << endl
-       << "-u --url <base_url>          Set the base url for all media segments." << endl
-       << "-b --buffer-time <time>      Set the minimum buffer time in seconds."
-       << "-s --segment-name <name>     Set the segment name template." << endl
-       << "-i --init-name <name>        Set the initial segment name." << endl
-       << "-a --audio-start <num>       Set the audio segment start number as <num>" << endl
-       << "-v --video-start <num>       Set the video segment start number as <num>" << endl
-       << "-p --publish-time <time>     Set the publish time to <time> in unix timestamp" << endl
-       << "-o --output <path.mpd>       Output mpd info to <path.mpd>. stdout will be used if not specified" << endl
-       << endl;
+  cerr
+  << "Usage: " << program_name << " [options] <dir> <dir> ...\n\n"
+  << "<dir>                        Directory where media segments are stored.\n"
+  << "-u --url <base_url>          Set the base url for all media segments.\n"
+  << "-b --buffer-time <time>      Set the minimum buffer time in seconds.\n"
+  << "-s --segment-name <name>     Set the segment name template.\n"
+  << "-i --init-name <name>        Set the initial segment name.\n"
+  << "-a --audio-start <num>       Set the audio segment start number as <num>\n"
+  << "-v --video-start <num>       Set the video segment start number as <num>\n"
+  << "-p --publish-time <time>     Set the publish time to <time> in unix timestamp\n"
+  << "-o --output <path.mpd>       Output mpd info to <path.mpd>. stdout will be used if not specified\n"
+  << endl;
 }
 
 void add_representation(string repr_id,
