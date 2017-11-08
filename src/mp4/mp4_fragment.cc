@@ -39,8 +39,8 @@ void print_usage(const string & program_name)
   "<input_segment>    input MP4 segment to fragment\n\n"
   "Options:\n"
   "--init-segment, -i     output initial segment\n"
-  "--media-segment, -m    output media segment in the format of <num>.m4s, \
-where <num> denotes the segment number"
+  "--media-segment, -m    output media segment in the format of <num>.m4s,\n"
+  "                       where <num> denotes the segment number"
   << endl;
 }
 
@@ -315,7 +315,7 @@ void create_moof_box(MP4Parser & mp4_parser, MP4File & output_mp4,
   );
 
   auto mdhd_box = static_pointer_cast<MdhdBox>(
-  mp4_parser.find_first_box_of("mdhd"));
+      mp4_parser.find_first_box_of("mdhd"));
   uint32_t duration = narrow_cast<uint32_t>(mdhd_box->duration());
   uint64_t base_media_decode_time = sequence_number * duration;
   auto tfdt_box = make_shared<TfdtBox>(
@@ -395,7 +395,8 @@ void fragment(const string & input_mp4,
   auto path_components = media_path.path_components();
   string filename = path_components.back();
   string number_str = split_filename(filename).first;
-  const uint32_t sequence_number = stoi(number_str);
+  const uint32_t sequence_number = narrow_cast<uint32_t>(stoi(number_str));
+
   MP4Parser mp4_parser(input_mp4);
   /* skip parsing avc1 and mp4a boxes (if exist) but save them as raw data */
   mp4_parser.ignore_box("avc1");
