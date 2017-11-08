@@ -7,6 +7,8 @@
 #include <getopt.h>
 
 #include "strict_conversions.hh"
+#include "path.hh"
+#include "tokenize.hh"
 #include "mp4_parser.hh"
 #include "mp4_file.hh"
 #include "ftyp_box.hh"
@@ -30,11 +32,6 @@
 using namespace std;
 using namespace MP4;
 
-// TODO: obtain the values below somehow
-uint32_t sequence_number = 0;
-uint64_t earlist_presentation_time = 0;
-uint64_t base_media_decode_time = 0;
-
 void print_usage(const string & program_name)
 {
   cerr <<
@@ -42,7 +39,8 @@ void print_usage(const string & program_name)
   "<input_segment>    input MP4 segment to fragment\n\n"
   "Options:\n"
   "--init-segment, -i     output initial segment\n"
-  "--media-segment, -m    output media segment"
+  "--media-segment, -m    output media segment in the format of <num>.m4s, \
+where <num> denotes the segment number"
   << endl;
 }
 
@@ -134,13 +132,14 @@ void create_styp_box(MP4File & output_mp4)
   styp_box->write_box(output_mp4);
 }
 
-unsigned int create_sidx_box(MP4Parser & mp4_parser, MP4File & output_mp4)
+unsigned int create_sidx_box(MP4Parser & mp4_parser, MP4File & output_mp4,
+                             uint32_t sequence_number)
 {
   auto mdhd_box = static_pointer_cast<MdhdBox>(
       mp4_parser.find_first_box_of("mdhd"));
   uint32_t timescale = mdhd_box->timescale();
   uint32_t duration = narrow_cast<uint32_t>(mdhd_box->duration());
-
+  uint64_t earlist_presentation_time = sequence_number * duration;
   auto sidx_box = make_shared<SidxBox>(
       "sidx",    // type
       1,         // version
@@ -262,7 +261,8 @@ uint32_t get_default_sample_size(MP4Parser & mp4_parser)
   return stsz_box->sample_size();
 }
 
-void create_moof_box(MP4Parser & mp4_parser, MP4File & output_mp4)
+void create_moof_box(MP4Parser & mp4_parser, MP4File & output_mp4,
+                     uint32_t sequence_number)
 {
   auto mfhd_box = make_shared<MfhdBox>(
       "mfhd",         // type
@@ -314,11 +314,15 @@ void create_moof_box(MP4Parser & mp4_parser, MP4File & output_mp4)
       default_sample_flags
   );
 
+  auto mdhd_box = static_pointer_cast<MdhdBox>(
+  mp4_parser.find_first_box_of("mdhd"));
+  uint32_t duration = narrow_cast<uint32_t>(mdhd_box->duration());
+  uint64_t base_media_decode_time = sequence_number * duration;
   auto tfdt_box = make_shared<TfdtBox>(
-      "tfdt",                // type
-      1,                     // version
-      0,                     // flags
-      base_media_decode_time
+      "tfdt",                   // type
+      1,                        // version
+      0,                        // flags
+      base_media_decode_time    // base_media_decode_time
   );
 
   vector<TrunBox::Sample> samples = create_samples(mp4_parser, trun_flags);
@@ -358,16 +362,18 @@ void create_moof_box(MP4Parser & mp4_parser, MP4File & output_mp4)
                             trun_offset + trun_box->data_offset_pos());
 }
 
-void create_media_segment(MP4Parser & mp4_parser, MP4File & output_mp4)
+void create_media_segment(MP4Parser & mp4_parser, MP4File & output_mp4,
+                          uint32_t sequence_number)
 {
   create_styp_box(output_mp4);
 
   /* create sidx box and save the position of referenced_size */
   uint64_t sidx_offset = output_mp4.curr_offset();
-  unsigned int sidx_ref_list_pos = create_sidx_box(mp4_parser, output_mp4);
+  unsigned int sidx_ref_list_pos = create_sidx_box(mp4_parser, output_mp4,
+                                                   sequence_number);
 
   uint64_t moof_offset = output_mp4.curr_offset();
-  create_moof_box(mp4_parser, output_mp4);
+  create_moof_box(mp4_parser, output_mp4, sequence_number);
 
   auto mdat_box = mp4_parser.find_first_box_of("mdat");
   mdat_box->write_box(output_mp4);
@@ -384,6 +390,12 @@ void fragment(const string & input_mp4,
               const string & init_segment,
               const string & media_segment)
 {
+  /* get sequence number from media_segment's filename */
+  roost::path media_path = roost::path(media_segment);
+  auto path_components = media_path.path_components();
+  string filename = path_components.back();
+  string number_str = split_filename(filename).first;
+  const uint32_t sequence_number = stoi(number_str);
   MP4Parser mp4_parser(input_mp4);
   /* skip parsing avc1 and mp4a boxes (if exist) but save them as raw data */
   mp4_parser.ignore_box("avc1");
@@ -400,7 +412,7 @@ void fragment(const string & input_mp4,
   if (not media_segment.empty()) {
     MP4File output_mp4(media_segment, O_WRONLY | O_CREAT | O_TRUNC, 0644);
 
-    create_media_segment(mp4_parser, output_mp4);
+    create_media_segment(mp4_parser, output_mp4, sequence_number);
   }
   if (not init_segment.empty()) {
     MP4File output_mp4(init_segment, O_WRONLY | O_CREAT | O_TRUNC, 0644);
