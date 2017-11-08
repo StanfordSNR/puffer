@@ -10,7 +10,7 @@ fi
 TEST_VECTOR="test-vectors"
 
 MPD_WRITER=$abs_builddir/../mpd/mpd_writer
-MPD_DIR="$TEST_VECTOR/test_mpd"
+MPD_DIR="$TEST_VECTOR/mpd"
 REFERENCE="$MPD_DIR/reference.mpd"
 MP4_SEG="$MPD_DIR/video/1.m4s $MPD_DIR/audio/0.m4s"
 
