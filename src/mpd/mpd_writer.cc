@@ -84,7 +84,7 @@ void add_representation(
   if (seg_path_list.size() < 2) {
     throw runtime_error(segment + " is in top folder");
   }
-  string name = seg_path_list[seg_path_list.size() - 1];
+  string name = seg_path_list.back();
   uint32_t start_number = stoi(name);
   string repr_id = seg_path_list[seg_path_list.size() - 2];
   if (i_info.is_video()) {
