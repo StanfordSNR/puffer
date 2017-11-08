@@ -1,0 +1,32 @@
+#!/bin/bash -ex
+
+pwd="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
+if [ -z $abs_builddir ]; then
+    $abs_builddir=$pwd
+fi
+
+# fetch the files
+TEST_VECTOR="test-vectors"
+
+MP4_FRAGMENT=$abs_builddir/../mp4/mp4_fragment
+MP4_DIR="$TEST_VECTOR/mp4"
+REFERENCE_INIT="$MP4_DIR/init.mp4"
+REFERENCE_SEG_0="$MP4_DIR/0.m4s"
+REFERENCE_SEG_1="$MP4_DIR/1.m4s"
+TEST_MP4="$MP4_DIR/seg.mp4"
+
+INIT_OUTPUT="$test_tmpdir/init.mp4"
+SEG_0_OUTPUT="$test_tmpdir/0.m4s"
+SEG_1_OUTPUT="$test_tmpdir/1.m4s"
+
+SEG_0_ARG="-i $INIT_OUTPUT -m $SEG_0_OUTPUT $TEST_MP4"
+SEG_1_ARG="-i $INIT_OUTPUT -m $SEG_1_OUTPUT $TEST_MP4"
+
+# run the commands
+$MP4_FRAGMENT $SEG_0_ARG
+$MP4_FRAGMENT $SEG_1_ARG
+
+# compare the result
+cmp $SEG_0_OUTPUT $REFERENCE_SEG_0
+cmp $SEG_1_OUTPUT $REFERENCE_SEG_1
