@@ -42,6 +42,7 @@ AC_CONFIG_FILES([
     src/forwarder/Makefile
     src/encoder/Makefile
     src/mp4/Makefile
+    src/webm/Makefile
     src/mpd/Makefile
     src/ssim/Makefile
     src/cleaner/Makefile
