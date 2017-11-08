@@ -141,19 +141,18 @@ void XMLWriter::output(std::ofstream &out)
 }
 
 MPD::AdaptionSet::AdaptionSet(
-    int id, string init_uri, string media_uri, uint32_t start_number)
-  : id_(id), init_uri_(init_uri), media_uri_(media_uri), duration_(0),
-    start_number_(start_number)
+    int id, string init_uri, string media_uri)
+  : id_(id), init_uri_(init_uri), media_uri_(media_uri), duration_(0)
 {}
 
 MPD::VideoAdaptionSet::VideoAdaptionSet(
-    int id, string init_uri, string media_uri, uint32_t start_number)
-  : AdaptionSet(id, init_uri, media_uri, start_number), repr_set_()
+    int id, string init_uri, string media_uri)
+  : AdaptionSet(id, init_uri, media_uri), repr_set_()
 {}
 
 MPD::AudioAdaptionSet::AudioAdaptionSet(
-    int id, string init_uri, string media_uri, uint32_t start_number)
-  : AdaptionSet(id, init_uri, media_uri, start_number), repr_set_()
+    int id, string init_uri, string media_uri)
+  : AdaptionSet(id, init_uri, media_uri), repr_set_()
 {}
 
 std::set<shared_ptr<MPD::Representation>>
@@ -179,39 +178,42 @@ MPD::VideoAdaptionSet::get_repr()
 /*
  * C++ doesn't allow shared_ptr as a non-type parameter for a template
  */
-void MPD::AdaptionSet::check_timescale_duration(shared_ptr<Representation> repr)
+void MPD::AdaptionSet::check_data(shared_ptr<Representation> repr)
 {
   if (duration() == 0) {
    /* fisrt repr */
    set_duration(repr->duration);
-  } else {
-    if (duration() != repr->duration) {
-      /* duration mismatch */
-      throw runtime_error("representation duration does not match with \
+  } else if (duration() != repr->duration) {
+    /* duration mismatch */
+    throw runtime_error("representation duration does not match with \
 the adaption set");
-    }
   }
 
   if(timescale() == 0) {
      set_timescale(repr->timescale);
-  } else {
-    if (timescale() != repr->timescale) {
-      /* timescale mismatch */
-      throw runtime_error("representation timescale does not math with the \
+  } else if (timescale() != repr->timescale) {
+    /* timescale mismatch */
+    throw runtime_error("representation timescale does not math with the \
 adaption set");
-    }
+  }
+
+  if (size() == 0) {
+    start_number_ = repr->start_number;
+  } else if (start_number() != repr->start_number) {
+    throw runtime_error("representation start number does not math with the\
+adaption set");
   }
 }
 
 void MPD::AudioAdaptionSet::add_repr(shared_ptr<AudioRepresentation> repr)
 {
-  AdaptionSet::check_timescale_duration(repr);
+  AdaptionSet::check_data(repr);
   repr_set_.insert(repr);
 }
 
 void MPD::VideoAdaptionSet::add_repr(shared_ptr<VideoRepresentation> repr)
 {
-  AdaptionSet::check_timescale_duration(repr);
+  AdaptionSet::check_data(repr);
   repr_set_.insert(repr);
 }
 

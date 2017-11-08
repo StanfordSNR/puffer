@@ -17,14 +17,12 @@ using namespace std;
 using namespace MPD;
 using namespace MP4;
 
-const char *optstring = "u:b:s:i:a:v:o:p:";
+const char *optstring = "u:b:s:i:o:p:";
 const struct option options[] = {
   {"url", required_argument, NULL, 'u'},
   {"buffer-time", required_argument, NULL, 'b'},
   {"segment-name", required_argument, NULL, 's'},
   {"init-name", required_argument, NULL, 'i'},
-  {"audio-start", required_argument, NULL, 'a'},
-  {"video-start", required_argument, NULL, 'v'},
   {"output", required_argument, NULL, 'o'},
   {"publish-time", required_argument, NULL, 'p'},
   {NULL, 0, NULL, 0},
@@ -45,20 +43,18 @@ const uint32_t media_duration = 0xFFFFFFFF;
 void print_usage(const string & program_name)
 {
   cerr
-  << "Usage: " << program_name << " [options] <dir> <dir> ...\n\n"
-  << "<dir>                        Directory where media segments are stored.\n"
+  << "Usage: " << program_name << " [options] <seg> <seg> ...\n\n"
+  << "<seg>                        Path to video/audio segments. If not exists, program will exist without outputing mpd.\n"
   << "-u --url <base_url>          Set the base url for all media segments.\n"
   << "-b --buffer-time <time>      Set the minimum buffer time in seconds.\n"
   << "-s --segment-name <name>     Set the segment name template.\n"
   << "-i --init-name <name>        Set the initial segment name.\n"
-  << "-a --audio-start <num>       Set the audio segment start number as <num>\n"
-  << "-v --video-start <num>       Set the video segment start number as <num>\n"
   << "-p --publish-time <time>     Set the publish time to <time> in unix timestamp\n"
   << "-o --output <path.mpd>       Output mpd info to <path.mpd>. stdout will be used if not specified\n"
   << endl;
 }
 
-void add_representation(string repr_id,
+void add_representation(
     shared_ptr<VideoAdaptionSet> v_set, shared_ptr<AudioAdaptionSet> a_set,
     const string & init, const string & segment)
 {
@@ -82,20 +78,30 @@ void add_representation(string repr_id,
   }
   /* get bitrate */
   uint32_t bitrate = s_info.get_bitrate(timescale, duration);
-  /* get fps */
+
+  /* we assume the segment name is a number */
+  auto seg_path_list = split(segment, "/");
+  if (seg_path_list.size() < 2) {
+    throw runtime_error(segment + " is in top folder");
+  }
+  string name = seg_path_list[seg_path_list.size() - 1];
+  uint32_t start_number = stoi(name);
+  string repr_id = seg_path_list[seg_path_list.size() - 2];
   if (i_info.is_video()) {
     /* this is a video */
     uint16_t width, height;
     uint8_t profile, avc_level;
     tie(width, height) = i_info.get_width_height();
     tie(profile, avc_level) = i_info.get_avc_profile_level();
+    /* get fps */
     float fps = s_info.get_fps(timescale, duration);
     auto repr_v = make_shared<VideoRepresentation>(
         repr_id, width, height, bitrate, profile, avc_level, fps, timescale,
-        duration);
+        duration, start_number);
     v_set->add_repr(repr_v);
   } else {
     /* this is an audio */
+    /* TODO: add webm support */
     uint32_t sample_rate = i_info.get_sample_rate();
     uint8_t audio_code;
     uint16_t channel_count;
@@ -108,7 +114,7 @@ void add_representation(string repr_id,
       type = MimeType::Audio_MP3;
     }
     auto repr_a = make_shared<AudioRepresentation>(repr_id, bitrate,
-        sample_rate, type, timescale, duration);
+        sample_rate, type, timescale, duration, start_number);
     a_set->add_repr(repr_a);
   }
 }
@@ -117,12 +123,10 @@ int main(int argc, char * argv[])
 {
   int c, long_option_index;
   uint32_t buffer_time = default_buffer_time;
-  uint32_t a_start = default_seg_start;
-  uint32_t v_start = default_seg_start;
   string base_url = default_base_uri;
   string segment_name = default_media_uri;
   string init_name = default_init_uri;
-  vector<string> dirs;
+  vector<string> seg_list;
   /* default time is when the program starts */
   chrono::seconds publish_time = chrono::seconds(std::time(NULL));
   string output = "";
@@ -134,8 +138,6 @@ int main(int argc, char * argv[])
       case 'b': buffer_time = stoi(optarg); break;
       case 's': segment_name = optarg; break;
       case 'i': init_name = optarg; break;
-      case 'a': a_start = stoi(optarg); break;
-      case 'v': v_start = stoi(optarg); break;
       case 'p': publish_time = chrono::seconds(stoi(optarg)); break;
       case 'o': output = optarg; break;
       default : {
@@ -145,19 +147,19 @@ int main(int argc, char * argv[])
     }
   }
   if (optind == argc) {
-    /* no dir input */
+    /* no seg input */
     print_usage(argv[0]);
     return EXIT_FAILURE;
   }
 
-  /* check and add to dirs */
+  /* check and add to seg_list */
   for (int i = optind; i < argc; i++) {
     string path = argv[i];
     if (not roost::exists(path)) {
       cerr << path << " does not exist" << endl;
       return EXIT_FAILURE;
     } else {
-      dirs.emplace_back(path);
+      seg_list.emplace_back(path);
     }
   }
 
@@ -167,31 +169,16 @@ int main(int argc, char * argv[])
   auto set_a = make_shared<AudioAdaptionSet>(2, init_name, segment_name);
 
   /* figure out what kind of representation each folder is */
-  for (auto const & path : dirs) {
+  for (auto const & path : seg_list) {
     /* find the init mp4 */
-    string init_mp4_path = roost::join(path, "init.mp4");
+    string base = roost::dirname(roost::path(path)).string();
+    string init_mp4_path = roost::join(base, "init.mp4");
     if (not roost::exists(init_mp4_path)) {
       cerr << "Cannnot find " << init_mp4_path << endl;
       return EXIT_FAILURE;
     }
-    /* trying to find a m4s segment. It does not necessary start from 0 */
-    string m4s = "";
-    for (const auto & m4s_path : roost::get_directory_listing(path)) {
-      if (split_filename(m4s_path).second == "m4s") {
-        m4s = m4s_path;
-        break;
-      }
-    }
-    if (m4s == "") {
-      /* no m4s file found */
-      throw runtime_error("No m4s file found in " + path);
-    }
-    string m4s_path = roost::join(path, m4s);
     /* add repr set */
-    /* find its top level basedir */
-    auto result = split(path, "/");
-    string id = result[result.size() - 1];
-    add_representation(id, set_v, set_a, init_mp4_path, m4s_path);
+    add_representation(set_v, set_a, init_mp4_path, path);
   }
 
   /* set time */
@@ -202,6 +189,9 @@ int main(int argc, char * argv[])
   uint32_t v_timescale = set_v->timescale();
   uint32_t a_duration = set_a->duration();
   uint32_t a_timescale = set_a->timescale();
+
+  uint32_t v_start = set_v->start_number();
+  uint32_t a_start = set_a->start_number();
 
   if (v_timescale != 0 and a_timescale != 0) {
     /* we have both video and audio */
