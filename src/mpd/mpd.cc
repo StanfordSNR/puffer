@@ -388,14 +388,18 @@ void MPDWriter::write_adaption_set(shared_ptr<MPD::AdaptionSet> set)
     writer_->attr("presentationTimeOffset", set->presentation_time_offset());
   }
 
+  writer_->attr("duration", set->duration());
+
+  /* remove timeline to make it cleaner */
   /* write dummy segment timeline */
-  writer_->open_elt("SegmentTimeline");
+  /* writer_->open_elt("SegmentTimeline");
   writer_->open_elt("S");
   writer_->attr("d", set->duration());
-  /* use the largest number because each segment will be the same length */
+  // use the largest number because each segment will be the same length
   writer_->attr("r", 0xFFFFFFFF);
   writer_->close_elt();
   writer_->close_elt();
+  */
 
   writer_->close_elt();
 }
