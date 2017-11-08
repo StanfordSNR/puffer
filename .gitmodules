@@ -1,3 +1,6 @@
 [submodule "third_party/daala_tools.upstream"]
 	path = third_party/daala_tools.upstream
 	url = https://github.com/excamera/daala_tools.git
+[submodule "third_party/libwebm.upstream"]
+	path = third_party/libwebm.upstream
+	url = https://chromium.googlesource.com/webm/libwebm
