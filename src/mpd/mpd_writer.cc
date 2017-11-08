@@ -225,7 +225,7 @@ int main(int argc, char * argv[])
   } else {
     FileDescriptor output_fd(
         CheckSystemCall("open (" + output + ")",
-          open(output.c_str(), O_WRONLY | O_CREAT, 0644)));
+          open(output.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644)));
     output_fd.write(out, true);
     output_fd.close();
   }
