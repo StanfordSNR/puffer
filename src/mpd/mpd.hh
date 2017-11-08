@@ -74,11 +74,12 @@ struct Representation {
   MimeType type;
   uint32_t timescale;
   uint32_t duration;
+  uint32_t start_number;
 
   Representation(std::string id, unsigned int bitrate, MimeType type,
-      uint32_t timescale, uint32_t duration)
+      uint32_t timescale, uint32_t duration, uint32_t start_number)
     : id(id), bitrate(bitrate), type(type), timescale(timescale),
-      duration(duration)
+      duration(duration), start_number(start_number)
   {}
 
   virtual ~Representation() {}
@@ -94,10 +95,11 @@ struct VideoRepresentation : public Representation {
   VideoRepresentation(
       std::string id, unsigned int width, unsigned int height,
       unsigned int bitrate, uint8_t profile, unsigned int avc_level,
-      float framerate, uint32_t timescale, uint32_t duration)
-    : Representation(id, bitrate, MimeType::Video, timescale, duration),
-      width(width), height(height), profile(profile),  avc_level(avc_level),
-      framerate(framerate)
+      float framerate, uint32_t timescale, uint32_t duration,
+      uint32_t start_number)
+    : Representation(id, bitrate, MimeType::Video, timescale, duration,
+      start_number), width(width), height(height), profile(profile),
+      avc_level(avc_level), framerate(framerate)
   {
     if (std::find(std::begin(AvailableProfile), std::end(AvailableProfile),
           profile) == std::end(AvailableProfile))
@@ -110,8 +112,9 @@ struct AudioRepresentation : public Representation {
 
   AudioRepresentation(
       std::string id, unsigned int bitrate, unsigned int sampling_rate,
-      MimeType mp4a, uint32_t timescale, uint32_t duration)
-    : Representation(id, bitrate, mp4a, timescale, duration),
+      MimeType mp4a, uint32_t timescale, uint32_t duration,
+      uint32_t start_number)
+    : Representation(id, bitrate, mp4a, timescale, duration, start_number),
       sampling_rate(sampling_rate)
   {
     /* check mp4a here */
@@ -132,23 +135,24 @@ public:
   std::string init_uri() { return init_uri_; }
   std::string media_uri() { return media_uri_; }
   uint32_t duration() { return duration_; }
+  uint32_t timescale() { return timescale_; }
   virtual std::set<std::shared_ptr<Representation>> get_repr()
   { return std::set<std::shared_ptr<Representation>>(); }
   uint32_t start_number() { return start_number_; }
-  uint32_t presentation_time_offset()
-  { return presentation_time_offset_; }
+  uint32_t presentation_time_offset() { return presentation_time_offset_; }
+
   void set_presentation_time_offset(uint32_t value)
   { presentation_time_offset_ = value; }
-  uint32_t timescale() { return timescale_; }
+
+  virtual uint32_t size() { return get_repr().size(); }
 
 protected:
   void set_duration(uint32_t duration) { duration_ = duration; }
   void set_timescale(uint32_t timescale) { timescale_ = timescale; }
 
-  AdaptionSet(int id, std::string init_uri, std::string media_uri,
-      uint32_t start_number);
+  AdaptionSet(int id, std::string init_uri, std::string media_uri);
 
-  void check_timescale_duration(std::shared_ptr<Representation> repr);
+  void check_data(std::shared_ptr<Representation> repr);
   virtual ~AdaptionSet() {}
 
 private:
@@ -156,7 +160,7 @@ private:
   std::string init_uri_;
   std::string media_uri_;
   uint32_t duration_;
-  uint32_t start_number_;
+  uint32_t start_number_ = 0;
   uint32_t presentation_time_offset_ = 0;
   uint32_t timescale_ = 0;
 };
@@ -165,12 +169,13 @@ class AudioAdaptionSet : public AdaptionSet {
 public:
   void add_repr(std::shared_ptr<AudioRepresentation> repr);
 
-  AudioAdaptionSet(int id, std::string init_uri, std::string media_uri,
-      uint32_t start_number = 1);
+  AudioAdaptionSet(int id, std::string init_uri, std::string media_uri);
 
   std::set<std::shared_ptr<Representation>> get_repr();
   std::set<std::shared_ptr<AudioRepresentation>> get_audio_repr()
   { return repr_set_; }
+
+  uint32_t size() override { return repr_set_.size(); }
 
 private:
   std::set<std::shared_ptr<AudioRepresentation>> repr_set_;
@@ -181,14 +186,15 @@ public:
   float framerate() { return framerate_; }
   void set_framerate(float framerate) { framerate_ = framerate; }
 
-  VideoAdaptionSet(int id, std::string init_uri, std::string media_uri,
-      uint32_t start_number = 1);
+  VideoAdaptionSet(int id, std::string init_uri, std::string media_uri);
 
   void add_repr(std::shared_ptr<VideoRepresentation> repr);
 
   std::set<std::shared_ptr<Representation>> get_repr();
   std::set<std::shared_ptr<VideoRepresentation>> get_video_repr()
   { return repr_set_; }
+
+  uint32_t size() override { return repr_set_.size(); }
 
 private:
   float framerate_ = 0; /* this will be set later */
