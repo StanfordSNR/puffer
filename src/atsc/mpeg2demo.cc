@@ -4,6 +4,10 @@
 
 #include <cstdlib>
 #include <iostream>
+#include <memory>
+#include <vector>
+#include <cstring>
+#include <array>
 
 #ifdef HAVE_STRING_VIEW
 #include <string_view>
@@ -12,6 +16,10 @@
 using std::experimental::string_view;
 #endif
 
+extern "C" {
+#include "mpeg2.h"
+}
+ 
 #include "file_descriptor.hh"
 #include "exception.hh"
 
@@ -20,6 +28,7 @@ using namespace std;
 const size_t ts_packet_length = 188;
 const char ts_packet_sync_byte = 0x47;
 const size_t packets_in_chunk = 512;
+const size_t max_frame_size = 1048576 * 10;
 
 struct TSPacketRequirements
 {
@@ -174,6 +183,52 @@ struct PESPacketHeader
   }
 };
 
+class MPEG2VideoDecoder
+{
+private:
+  struct MPEG2Deleter
+  {
+    void operator()( mpeg2dec_t * const x ) const
+    {
+      mpeg2_close( x );
+    }
+  };
+  
+  unique_ptr<mpeg2dec_t, MPEG2Deleter> decoder_;
+
+  template <typename T>
+  inline T * notnull( const string & context, T * const x )
+  {
+    return x ? x : throw runtime_error( context + ": returned null pointer" );
+  }
+
+  array<uint8_t, max_frame_size> mutable_coded_frame_ {};
+  
+public:
+  MPEG2VideoDecoder()
+    : decoder_( notnull( "mpeg2_init", mpeg2_init() ) )
+  {}
+
+  void tag_time_stamps( const uint64_t presentation_time_stamp,
+                        const uint64_t decoding_time_stamp )
+  {
+    mpeg2_tag_picture( decoder_.get(), presentation_time_stamp, decoding_time_stamp );
+  }
+
+  void decode_frame( const string & coded_frame )
+  {
+    if ( coded_frame.size() > max_frame_size ) {
+      throw runtime_error( "coded frame too big to fit in buffer" );
+    }
+    
+    memcpy( &mutable_coded_frame_[ 0 ], coded_frame.data(), coded_frame.size() );
+
+    mpeg2_buffer( decoder_.get(),
+                  &mutable_coded_frame_[ 0 ],
+                  &mutable_coded_frame_[ 0 ] + coded_frame.size() );
+  }
+};
+
 class TSParser
 {
 private:
@@ -189,6 +244,8 @@ private:
     PES_packet_.append( payload.begin(), payload.end() );
   }
 
+  MPEG2VideoDecoder mpeg2_decoder_ {};
+  
 public:
   TSParser( const unsigned int pid )
     : pid_( pid )
@@ -209,12 +266,13 @@ public:
     if ( header.payload_unit_start_indicator ) {
       /* start of new PES packet */
 
-      /* step 1: parse and output old PES packet if there is one */
+      /* step 1: parse and decode old PES packet if there is one */
       if ( not PES_packet_.empty() ) {
         PESPacketHeader pes_header { PES_packet_ };
 
-        cout << PES_packet_.substr( pes_header.payload_start );
-        cerr << pes_header.decoding_time_stamp << "\n";
+        mpeg2_decoder_.tag_time_stamps( pes_header.presentation_time_stamp,
+                                        pes_header.decoding_time_stamp );
+        mpeg2_decoder_.decode_frame( PES_packet_.substr( pes_header.payload_start ) );
 
         PES_packet_.clear();
       }
