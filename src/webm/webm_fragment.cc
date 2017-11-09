@@ -6,8 +6,8 @@
 
 #include "mkvparser/mkvparser.h"
 #include "mkvparser/mkvreader.h"
-
 #include "mkvmuxer/mkvmuxer.h"
+#include "mkvmuxer/mkvmuxerutil.h"
 #include "mkvmuxer/mkvwriter.h"
 
 using namespace std;
@@ -24,18 +24,73 @@ void print_usage(const string & program_name)
   << endl;
 }
 
-void create_init_segment(mkvparser::MkvReader & reader,
-                         long long & pos,
-                         mkvmuxer::MkvWriter & writer)
+void create_init_segment(mkvparser::MkvReader * reader,
+                         mkvmuxer::MkvWriter * writer)
 {
+  long long pos = 0;
+
   /* parse and write EBML header */
   mkvparser::EBMLHeader ebml_header;
-  long long ret = ebml_header.Parse(&reader, pos);
+  long long ret = ebml_header.Parse(reader, pos);
   if (ret) {
     throw runtime_error("EBMLHeader::Parse() failed");
   }
-  mkvmuxer::WriteEbmlHeader(&writer, ebml_header.m_docTypeVersion,
+  mkvmuxer::WriteEbmlHeader(writer, ebml_header.m_docTypeVersion,
                             ebml_header.m_docType);
+
+  /* parse Segment element but stop at the first Cluster element */
+  mkvparser::Segment * parser_segment_raw;
+  ret = mkvparser::Segment::CreateInstance(reader, pos, parser_segment_raw);
+  if (ret) {
+    throw runtime_error("Segment::CreateInstance() failed");
+  }
+
+  std::unique_ptr<mkvparser::Segment> parser_segment(parser_segment_raw);
+  ret = parser_segment->ParseHeaders();
+  if (ret < 0) {
+    throw runtime_error("Segment::ParseHeaders() failed");
+  }
+
+  /* get Segment Info element */
+  auto parser_info = parser_segment->GetInfo();
+  if (not parser_info) {
+    throw runtime_error("Segment::GetInfo() failed");
+  }
+
+  /* get Tracks element */
+  auto parser_tracks = parser_segment->GetTracks();
+  if (not parser_tracks) {
+    throw runtime_error("Segment::GetTracks() failed");
+  }
+
+  /* get Tags element */
+  auto parser_tags = parser_segment->GetTags();
+  if (not parser_tags) {
+    throw runtime_error("Segment::GetTags() failed");
+  }
+
+  /* create muxer for Segment */
+  auto muxer_segment = make_unique<mkvmuxer::Segment>();
+  if (not muxer_segment->Init(writer)) {
+    throw runtime_error("failed to initialize muxer segment");
+  }
+
+  /* write Segment header */
+  if (WriteID(writer, libwebm::kMkvSegment)) {
+    throw runtime_error("WriteID");
+  }
+
+  if (SerializeInt(writer, mkvmuxer::kEbmlUnknownValue, 8)) {
+    throw runtime_error("SerializeInt");
+  }
+
+  /* write Segment Info with no duration in particular */
+  auto muxer_info = muxer_segment->GetSegmentInfo();
+  muxer_info->set_timecode_scale(parser_info->GetTimeCodeScale());
+  muxer_info->Write(writer);
+
+  // TODO: copy Tracks element
+  // TODO: remove the Tag with DURATION as TagName and copy the other tags
 }
 
 void fragment(const string & input_webm,
@@ -47,15 +102,13 @@ void fragment(const string & input_webm,
     throw runtime_error("error while opening " + input_webm);
   }
 
-  long long pos = 0;
-
   if (not init_segment.empty()) {
     mkvmuxer::MkvWriter writer;
     if (not writer.Open(init_segment.c_str())) {
       throw runtime_error("error while opening " + init_segment);
     }
 
-    create_init_segment(reader, pos, writer);
+    create_init_segment(&reader, &writer);
   }
 }
 
