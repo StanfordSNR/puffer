@@ -12,7 +12,7 @@ AM_TESTS_ENVIRONMENT = \
 
 EXTRA_DIST = test_helpers.py notified_good_prog.sh notified_bad_prog.sh
 
-dist_check_SCRIPTS = fetch-vectors.test test_notifier.py forwarder.test \
+dist_check_SCRIPTS = fetch-vectors.test forwarder.test \
 					 cleaner.test ssim.test mpd.test mp4.test cleanup.test
 
 TESTS = $(check_PROGRAMS) $(dist_check_SCRIPTS)
