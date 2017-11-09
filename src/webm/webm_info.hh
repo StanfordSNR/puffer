@@ -18,13 +18,20 @@ struct AudioInfo
   uint32_t duration = 0;
   uint32_t sample_rate = 0;
   uint32_t bitrate = 0;
+  uint32_t size = 0;
 };
 
 class InfoCallback : public Callback
 {
 public:
-  webm::Status OnTrackEntry(const webm::ElementMetadata & metadata,
+  Status OnTrackEntry(const webm::ElementMetadata & metadata,
                       const webm::TrackEntry & track_entry) override;
+  Status OnInfo(const ElementMetadata & metadata, const Info & info) override;
+
+  Status OnClusterBegin(
+      const ElementMetadata & metadata, const Cluster & cluster,
+      Action * action) override;
+
   InfoCallback(AudioInfo & info) : info_(info)
   {}
 
@@ -35,12 +42,10 @@ private:
 class WebmInfo
 {
 public:
-  /*
-  std::tuple<uint32_t, uint32_t> get_timescale_duration();
+  uint32_t get_sample_rate() { return info_.sample_rate; }
+  std::pair<uint32_t, uint32_t> get_timescale_duration();
   uint32_t get_bitrate();
-  uint32_t get_bitrate(uint32_t timescale, uint32_t duration);
-  uint32_t get_sample_rate();
-  */
+
   WebmInfo(const std::string & filename);
 
   /* It's a mess to have File*, but we have no other choice */
