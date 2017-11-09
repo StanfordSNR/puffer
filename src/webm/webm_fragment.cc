@@ -124,7 +124,7 @@ void create_media_segment(
     throw runtime_error("input WebM should contain a single Cluster element");
   }
 
-  /* copy Cluster element; assume BlockGroup is at the end and don't copy it */
+  /* copy Cluster except BlockGroup; assume it's at the end if there's one */
   auto cluster = parser_segment->GetFirst();
   if (not cluster) {
     throw runtime_error("no Cluster element is found");
@@ -138,8 +138,6 @@ void create_media_segment(
   const mkvparser::BlockEntry * prev_block_entry = nullptr;
 
   while (block_entry and not block_entry->EOS()) {
-    auto block = block_entry->GetBlock();
-
     if (block_entry->GetKind() != mkvparser::BlockEntry::kBlockSimple) {
       break;
     }
@@ -154,9 +152,10 @@ void create_media_segment(
     throw runtime_error("no SimpleBlock exists");
   }
 
-  /* last SimpleBlock before BlockGroup */
+  /* last SimpleBlock */
   auto prev_block = prev_block_entry->GetBlock();
 
+  /* get new payload size of Cluster (BlockGroup may have been removed) */
   long long cluster_start = cluster->m_element_start;
   long new_cluster_size = narrow_cast<long>(prev_block->m_start +
                               prev_block->m_size - cluster_start);
