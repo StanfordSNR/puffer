@@ -1,6 +1,6 @@
 AM_CPPFLAGS = $(CXX17_FLAGS) -I$(srcdir)/../util \
-	-I$(srcdir)/../../third_party/libwebm.upstream/webm_parser/include
-AM_CXXFLAGS = $(PICKY_CXXFLAGS)
+	-I$(srcdir)/../../third_party/libwebm.upstream/webm_parser/include \
+	-I$(srcdir)/../../third_party/libwebm.upstream
 
 noinst_LIBRARIES = libwebm.a
 
