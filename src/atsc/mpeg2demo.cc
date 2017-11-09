@@ -221,12 +221,39 @@ public:
     if ( coded_frame.size() > mutable_coded_frame_.size() ) {
       throw runtime_error( "coded frame too big to fit in buffer" );
     }
-    
+
     memcpy( mutable_coded_frame_.data(), coded_frame.data(), coded_frame.size() );
 
+    /* give bytes to the MPEG-2 video decoder */
     mpeg2_buffer( decoder_.get(),
                   mutable_coded_frame_.data(),
                   mutable_coded_frame_.data() + coded_frame.size() );
+
+    /* actually decode the frame */
+    unsigned int picture_count = 0;
+
+    while ( true ) {
+      mpeg2_state_t state = mpeg2_parse( decoder_.get() );
+
+      switch ( state ) {
+      case STATE_BUFFER:
+        if ( picture_count != 1 ) {
+          cerr << "PES packet with picture_count = " << picture_count << "\n";
+        }
+        return;
+      case STATE_SLICE:
+        picture_count++;
+        /* write out y4m */
+        break;
+      case STATE_INVALID:
+      case STATE_INVALID_END:
+        cerr << "invalid\n";
+        break;
+      default:
+        /* do nothing */
+        break;
+      }
+    }
   }
 };
 
