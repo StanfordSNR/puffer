@@ -1,8 +1,13 @@
 #include <iostream>
 #include <string>
+#include <cstring>
+#include <vector>
+#include <utility>
 #include <memory>
 #include <stdexcept>
 #include <getopt.h>
+
+#include "strict_conversions.hh"
 
 #include "mkvparser/mkvparser.h"
 #include "mkvparser/mkvreader.h"
@@ -89,8 +94,49 @@ void create_init_segment(mkvparser::MkvReader * reader,
   muxer_info->set_timecode_scale(parser_info->GetTimeCodeScale());
   muxer_info->Write(writer);
 
-  // TODO: copy Tracks element
-  // TODO: remove the Tag with DURATION as TagName and copy the other tags
+  /* simply copy Tracks element */
+  long long tracks_start = parser_tracks->m_element_start;
+  long tracks_size = narrow_cast<long>(parser_tracks->m_element_size);
+  auto tracks_buffer = make_unique<unsigned char[]>(tracks_size);
+
+  if (reader->Read(tracks_start, tracks_size, tracks_buffer.get())) {
+    throw runtime_error("failed to read (copy) tracks element");
+  }
+
+  if (writer->Write(tracks_buffer.get(), tracks_size)) {
+    throw runtime_error("failed to write (forward) tracks element");
+  }
+
+  /* copy all tags but the one with DURATION as TagName */
+  auto muxer_tags = make_unique<mkvmuxer::Tags>();
+
+  for (int i = 0; i < parser_tags->GetTagCount(); ++i) {
+    auto parser_tag = parser_tags->GetTag(i);
+
+    vector<pair<const char *, const char *>> tag_list;
+
+    for (int j = 0; j < parser_tag->GetSimpleTagCount(); ++j) {
+      auto parser_simple_tag = parser_tag->GetSimpleTag(j);
+
+      auto tag_name = parser_simple_tag->GetTagName();
+      if (strcmp(tag_name, "DURATION") == 0) {
+        continue;
+      }
+
+      auto tag_string = parser_simple_tag->GetTagString();
+      tag_list.emplace_back(make_pair(tag_name, tag_string));
+    }
+
+    if (not tag_list.empty()) {
+      auto muxer_tag = muxer_tags->AddTag();
+
+      for (const auto & item : tag_list) {
+        muxer_tag->add_simple_tag(item.first, item.second);
+      }
+    }
+  }
+
+  muxer_tags->Write(writer);
 }
 
 void fragment(const string & input_webm,
