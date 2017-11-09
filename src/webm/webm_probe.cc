@@ -1,5 +1,6 @@
-#include "webm_info.hh"
+#include "webm_parser.hh"
 #include <iostream>
+#include <memory>
 
 using namespace std;
 using namespace webm;
@@ -16,7 +17,6 @@ int main(int argc, char * argv[])
     print_usage(argv[0]);
     return EXIT_FAILURE;
   }
-  WebmInfo info(argv[1]);
-  info.print_info();
+  auto p = make_unique<WebmParser>(string(argv[1]));
   return EXIT_SUCCESS;
 }

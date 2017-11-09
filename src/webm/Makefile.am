@@ -5,12 +5,13 @@ AM_CXXFLAGS = $(PICKY_CXXFLAGS)
 noinst_LIBRARIES = libwebm.a
 
 libwebm_a_SOURCES = \
-	webm_info.hh webm_info.cc
+	webm_info.hh webm_info.cc \
+	webm_parser.hh webm_parser.cc
 
 bin_PROGRAMS = webm_fragment webm_probe
 
 webm_fragment_SOURCES = webm_fragment.cc
 webm_fragment_LDADD = ../util/libutil.a ../../third_party/libwebm/libwebm.a
 
-webm_probe_SOURCES = webm_probe.cc webm_info.hh webm_info.cc
+webm_probe_SOURCES = webm_probe.cc webm_parser.hh webm_parser.cc
 webm_probe_LDADD = ../util/libutil.a ../../third_party/libwebm/libwebm.a
