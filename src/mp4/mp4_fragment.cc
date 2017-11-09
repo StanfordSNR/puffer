@@ -390,32 +390,30 @@ void fragment(const string & input_mp4,
               const string & init_segment,
               const string & media_segment)
 {
-  /* get sequence number from media_segment's filename */
-  roost::path media_path = roost::path(media_segment);
-  auto path_components = media_path.path_components();
-  string filename = path_components.back();
-  string number_str = split_filename(filename).first;
-  const uint32_t sequence_number = narrow_cast<uint32_t>(stoi(number_str));
-
   MP4Parser mp4_parser(input_mp4);
   /* skip parsing avc1 and mp4a boxes (if exist) but save them as raw data */
   mp4_parser.ignore_box("avc1");
   mp4_parser.ignore_box("mp4a");
   mp4_parser.parse();
 
-  mp4_parser.print_structure();
-
   if (not mp4_parser.is_video() and not mp4_parser.is_audio()) {
     throw runtime_error("input MP4 is not a supported video or audio");
   }
 
   /* run create_init_segment last so it can safely make changes to parser */
-  if (not media_segment.empty()) {
+  if (media_segment.size()) {
+    /* get sequence number from media_segment's filename */
+    roost::path media_path = roost::path(media_segment);
+    string filename = roost::rbasename(media_path).string();
+    string number_str = split_filename(filename).first;
+    const uint32_t sequence_number = narrow_cast<uint32_t>(stoi(number_str));
+
     MP4File output_mp4(media_segment, O_WRONLY | O_CREAT | O_TRUNC, 0644);
 
     create_media_segment(mp4_parser, output_mp4, sequence_number);
   }
-  if (not init_segment.empty()) {
+
+  if (init_segment.size()) {
     MP4File output_mp4(init_segment, O_WRONLY | O_CREAT | O_TRUNC, 0644);
 
     create_init_segment(mp4_parser, output_mp4);
