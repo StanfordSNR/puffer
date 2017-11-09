@@ -29,33 +29,10 @@ void print_usage(const string & program_name)
   << endl;
 }
 
-void create_init_segment(mkvparser::MkvReader * reader,
-                         mkvmuxer::MkvWriter * writer)
+void create_init_segment(
+    mkvmuxer::MkvWriter * writer, mkvparser::MkvReader * reader,
+    const unique_ptr<mkvparser::Segment> & parser_segment)
 {
-  long long pos = 0;
-
-  /* parse and write EBML header */
-  mkvparser::EBMLHeader ebml_header;
-  long long ret = ebml_header.Parse(reader, pos);
-  if (ret) {
-    throw runtime_error("EBMLHeader::Parse() failed");
-  }
-  mkvmuxer::WriteEbmlHeader(writer, ebml_header.m_docTypeVersion,
-                            ebml_header.m_docType);
-
-  /* parse Segment element but stop at the first Cluster element */
-  mkvparser::Segment * parser_segment_raw;
-  ret = mkvparser::Segment::CreateInstance(reader, pos, parser_segment_raw);
-  if (ret) {
-    throw runtime_error("Segment::CreateInstance() failed");
-  }
-
-  std::unique_ptr<mkvparser::Segment> parser_segment(parser_segment_raw);
-  ret = parser_segment->ParseHeaders();
-  if (ret < 0) {
-    throw runtime_error("Segment::ParseHeaders() failed");
-  }
-
   /* get Segment Info element */
   auto parser_info = parser_segment->GetInfo();
   if (not parser_info) {
@@ -82,11 +59,11 @@ void create_init_segment(mkvparser::MkvReader * reader,
 
   /* write Segment header */
   if (WriteID(writer, libwebm::kMkvSegment)) {
-    throw runtime_error("WriteID");
+    throw runtime_error("WriteID failed while writing Segment header");
   }
 
   if (SerializeInt(writer, mkvmuxer::kEbmlUnknownValue, 8)) {
-    throw runtime_error("SerializeInt");
+    throw runtime_error("SerializeInt failed while writing Segment header");
   }
 
   /* write Segment Info with no duration in particular */
@@ -100,11 +77,11 @@ void create_init_segment(mkvparser::MkvReader * reader,
   auto tracks_buffer = make_unique<unsigned char[]>(tracks_size);
 
   if (reader->Read(tracks_start, tracks_size, tracks_buffer.get())) {
-    throw runtime_error("failed to read (copy) tracks element");
+    throw runtime_error("failed to read (copy) Tracks element");
   }
 
   if (writer->Write(tracks_buffer.get(), tracks_size)) {
-    throw runtime_error("failed to write (forward) tracks element");
+    throw runtime_error("failed to write (forward) Tracks element");
   }
 
   /* copy all tags but the one with DURATION as TagName */
@@ -127,7 +104,7 @@ void create_init_segment(mkvparser::MkvReader * reader,
       tag_list.emplace_back(make_pair(tag_name, tag_string));
     }
 
-    if (not tag_list.empty()) {
+    if (tag_list.size()) {
       auto muxer_tag = muxer_tags->AddTag();
 
       for (const auto & item : tag_list) {
@@ -139,6 +116,75 @@ void create_init_segment(mkvparser::MkvReader * reader,
   muxer_tags->Write(writer);
 }
 
+void create_media_segment(
+    mkvmuxer::MkvWriter * writer, mkvparser::MkvReader * reader,
+    const unique_ptr<mkvparser::Segment> & parser_segment)
+{
+  if (parser_segment->GetCount() != 1) {
+    throw runtime_error("input WebM should contain a single Cluster element");
+  }
+
+  /* copy Cluster element; assume BlockGroup is at the end and don't copy it */
+  auto cluster = parser_segment->GetFirst();
+  if (not cluster) {
+    throw runtime_error("no Cluster element is found");
+  }
+
+  const mkvparser::BlockEntry * block_entry;
+  if (cluster->GetFirst(block_entry)) {
+    throw runtime_error("failed to get the first block of cluster");
+  }
+
+  const mkvparser::BlockEntry * prev_block_entry = nullptr;
+
+  while (block_entry and not block_entry->EOS()) {
+    auto block = block_entry->GetBlock();
+
+    if (block_entry->GetKind() != mkvparser::BlockEntry::kBlockSimple) {
+      break;
+    }
+
+    prev_block_entry = block_entry;
+    if (cluster->GetNext(block_entry, block_entry)) {
+      throw runtime_error("failed to get the next block of cluster");
+    }
+  }
+
+  if (prev_block_entry == nullptr) {
+    throw runtime_error("no SimpleBlock exists");
+  }
+
+  /* last SimpleBlock before BlockGroup */
+  auto prev_block = prev_block_entry->GetBlock();
+
+  long long cluster_start = cluster->m_element_start;
+  long new_cluster_size = narrow_cast<long>(prev_block->m_start +
+                              prev_block->m_size - cluster_start);
+  const int header_size = 12; /* ID (4) + size (8) */
+  long payload_size = new_cluster_size - header_size;
+
+  /* manually write Cluster header with the correct payload size */
+  if (WriteID(writer, libwebm::kMkvCluster)) {
+    throw runtime_error("WriteID failed while writing Cluster header");
+  }
+
+  if (WriteUIntSize(writer, payload_size, 8)) {
+    throw runtime_error("SerializeInt failed while writing Cluster header");
+  }
+
+  /* copy the payload of Cluster element */
+  auto cluster_buffer = make_unique<unsigned char[]>(payload_size);
+
+  if (reader->Read(cluster_start + header_size, payload_size,
+                   cluster_buffer.get())) {
+    throw runtime_error("failed to read (copy) Cluster element");
+  }
+
+  if (writer->Write(cluster_buffer.get(), payload_size)) {
+    throw runtime_error("failed to write (forward) Cluster element");
+  }
+}
+
 void fragment(const string & input_webm,
               const string & init_segment,
               const string & media_segment)
@@ -148,13 +194,56 @@ void fragment(const string & input_webm,
     throw runtime_error("error while opening " + input_webm);
   }
 
-  if (not init_segment.empty()) {
-    mkvmuxer::MkvWriter writer;
-    if (not writer.Open(init_segment.c_str())) {
+  mkvmuxer::MkvWriter init_writer;
+  if (init_segment.size()) {
+    if (not init_writer.Open(init_segment.c_str())) {
       throw runtime_error("error while opening " + init_segment);
     }
+  }
 
-    create_init_segment(&reader, &writer);
+  mkvmuxer::MkvWriter media_writer;
+  if (media_segment.size()) {
+    if (not media_writer.Open(media_segment.c_str())) {
+      throw runtime_error("error while opening " + media_segment);
+    }
+  }
+
+  long long pos = 0;
+
+  /* parse EBML header */
+  mkvparser::EBMLHeader ebml_header;
+  long long ret = ebml_header.Parse(&reader, pos);
+  if (ret) {
+    throw runtime_error("EBMLHeader::Parse() failed");
+  }
+
+  /* write EBML header in init segment */
+  if (init_segment.size()) {
+    mkvmuxer::WriteEbmlHeader(&init_writer, ebml_header.m_docTypeVersion,
+                              ebml_header.m_docType);
+  }
+
+  /* parse Segment element */
+  mkvparser::Segment * parser_segment_raw;
+  ret = mkvparser::Segment::CreateInstance(&reader, pos, parser_segment_raw);
+  if (ret) {
+    throw runtime_error("Segment::CreateInstance() failed");
+  }
+
+  std::unique_ptr<mkvparser::Segment> parser_segment(parser_segment_raw);
+  ret = parser_segment->Load();
+  if (ret < 0) {
+    throw runtime_error("Segment::Load() failed");
+  }
+
+  /* write the rest of init segment */
+  if (init_segment.size()) {
+    create_init_segment(&init_writer, &reader, parser_segment);
+  }
+
+  /* write media segment */
+  if (media_segment.size()) {
+    create_media_segment(&media_writer, &reader, parser_segment);
   }
 }
 
