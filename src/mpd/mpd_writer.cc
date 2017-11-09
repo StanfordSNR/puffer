@@ -12,6 +12,7 @@
 #include "tokenize.hh"
 #include "file_descriptor.hh"
 #include "exception.hh"
+#include "webm_info.hh"
 
 using namespace std;
 using namespace MPD;
