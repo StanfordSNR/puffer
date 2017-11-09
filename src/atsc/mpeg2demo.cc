@@ -203,6 +203,7 @@ private:
   }
 
   vector<uint8_t> mutable_coded_frame_;
+  uint64_t last_presentation_time_stamp_ {};
   
 public:
   MPEG2VideoDecoder()
@@ -210,10 +211,11 @@ public:
       mutable_coded_frame_( max_frame_size )
   {}
 
-  void tag_time_stamps( const uint64_t presentation_time_stamp,
-                        const uint64_t decoding_time_stamp )
+  void tag_presentation_time_stamp( const uint64_t presentation_time_stamp )
   {
-    mpeg2_tag_picture( decoder_.get(), presentation_time_stamp, decoding_time_stamp );
+    mpeg2_tag_picture( decoder_.get(),
+                       presentation_time_stamp >> 32,
+                       presentation_time_stamp & 0xFFFFFFFF );
   }
 
   void decode_frame( const string & coded_frame )
@@ -248,6 +250,20 @@ public:
       case STATE_INVALID:
       case STATE_INVALID_END:
         cerr << "invalid\n";
+        break;
+      case STATE_PICTURE:
+        {
+          const mpeg2_info_t * decoder_info = mpeg2_info( decoder_.get() );
+          const mpeg2_picture_t * pic = decoder_info->current_picture;
+
+          if ( not (pic->flags & PIC_FLAG_TAGS) ) {
+            cerr << "untimestamped picture???\n";
+          } else {
+            const uint64_t pts = (uint64_t( pic->tag ) << 32) | (pic->tag2);
+            cerr << "PICTURE with pts delta " << pts - last_presentation_time_stamp_ << "\n";
+            last_presentation_time_stamp_ = pts;
+          }
+        }
         break;
       default:
         /* do nothing */
@@ -298,8 +314,8 @@ public:
       if ( not PES_packet_.empty() ) {
         PESPacketHeader pes_header { PES_packet_ };
 
-        mpeg2_decoder_.tag_time_stamps( pes_header.presentation_time_stamp,
-                                        pes_header.decoding_time_stamp );
+        cerr << "decoding picture with pts " << pes_header.presentation_time_stamp << "\n";
+        mpeg2_decoder_.tag_presentation_time_stamp( pes_header.presentation_time_stamp );
         mpeg2_decoder_.decode_frame( PES_packet_.substr( pes_header.payload_start ) );
 
         PES_packet_.clear();
