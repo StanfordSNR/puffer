@@ -202,11 +202,12 @@ private:
     return x ? x : throw runtime_error( context + ": returned null pointer" );
   }
 
-  array<uint8_t, max_frame_size> mutable_coded_frame_ {};
+  vector<uint8_t> mutable_coded_frame_;
   
 public:
   MPEG2VideoDecoder()
-    : decoder_( notnull( "mpeg2_init", mpeg2_init() ) )
+    : decoder_( notnull( "mpeg2_init", mpeg2_init() ) ),
+      mutable_coded_frame_( max_frame_size )
   {}
 
   void tag_time_stamps( const uint64_t presentation_time_stamp,
@@ -217,15 +218,15 @@ public:
 
   void decode_frame( const string & coded_frame )
   {
-    if ( coded_frame.size() > max_frame_size ) {
+    if ( coded_frame.size() > mutable_coded_frame_.size() ) {
       throw runtime_error( "coded frame too big to fit in buffer" );
     }
     
-    memcpy( &mutable_coded_frame_[ 0 ], coded_frame.data(), coded_frame.size() );
+    memcpy( mutable_coded_frame_.data(), coded_frame.data(), coded_frame.size() );
 
     mpeg2_buffer( decoder_.get(),
-                  &mutable_coded_frame_[ 0 ],
-                  &mutable_coded_frame_[ 0 ] + coded_frame.size() );
+                  mutable_coded_frame_.data(),
+                  mutable_coded_frame_.data() + coded_frame.size() );
   }
 };
 
