@@ -289,6 +289,71 @@ private:
       throw runtime_error( "frame interval mismatch" );
     }
   }
+
+  void output_picture( const mpeg2_picture_t * pic,
+                       const mpeg2_fbuf_t * display_raster )
+  {
+    if ( not (pic->flags & PIC_FLAG_TAGS) ) {
+      throw runtime_error( "picture without timestamp" );
+    }
+
+    const uint64_t pts = (uint64_t( pic->tag ) << 32) | (pic->tag2);
+    last_presentation_time_stamp_ = pts;
+
+    string tag;
+    if ( pic->flags & PIC_FLAG_PROGRESSIVE_FRAME ) {
+      if ( pic->nb_fields != 2 ) {
+        throw runtime_error( "unhandled repeated progressive frame" );
+      }
+      tag = "I1pp";
+    } else if ( pic->flags & PIC_FLAG_TOP_FIELD_FIRST ) {
+      switch ( pic->nb_fields ) {
+      case 2:
+        tag = "Itii";
+        break;
+      case 3:
+        tag = "ITii";
+        break;
+      default:
+        throw runtime_error( "unsupported top-field flag combination" );
+      }
+    } else {
+      switch ( pic->nb_fields ) {
+      case 2:
+        tag = "Ibii";
+        break;
+      case 3:
+        tag = "IBii";
+        break;
+      default:
+        throw runtime_error( "unsupported bottom-field flag combination" );
+      }
+    }
+    
+    /* write out y4m */
+    output_.write( "FRAME " + tag + "\n" );
+
+    /* Y */
+    for ( unsigned int row = 0; row < display_height_; row++ ) {
+      string_view the_row( reinterpret_cast<char *>( display_raster->buf[ 0 ] + row * physical_luma_width() ),
+                           display_width_ );
+      output_.write( the_row );
+    }
+
+    /* Cb */
+    for ( unsigned int row = 0; row < display_chroma_height(); row++ ) {
+      string_view the_row( reinterpret_cast<char *>( display_raster->buf[ 1 ] + row * physical_chroma_width() ),
+                           display_chroma_width() );
+      output_.write( the_row );
+    }
+              
+    /* Cr */
+    for ( unsigned int row = 0; row < display_chroma_height(); row++ ) {
+      string_view the_row( reinterpret_cast<char *>( display_raster->buf[ 2 ] + row * physical_chroma_width() ),
+                           display_chroma_width() );
+      output_.write( the_row );
+    }
+  }
   
 public:
   MPEG2VideoDecoder( const unsigned int expected_display_width,
@@ -314,7 +379,7 @@ public:
  
     output_.write( "YUV4MPEG2 W" + to_string( display_width_ )
                    + " H" + to_string( display_height_ ) + " " + pp_interval
-                   + " Ip A1:1 C420mpeg2\n" );
+                   + " Im A1:1 C420mpeg2\n" );
   }
 
   void tag_presentation_time_stamp( const uint64_t presentation_time_stamp )
@@ -355,8 +420,8 @@ public:
         }
         break;
       case STATE_BUFFER:
-        if ( picture_count != 1 ) {
-          cerr << "PES packet with picture_count = " << picture_count << "\n";
+        if ( picture_count > 1 ) {
+          throw runtime_error( "PES packet with multiple pictures" );
         }
         return;
       case STATE_SLICE:
@@ -366,39 +431,8 @@ public:
           const mpeg2_picture_t * pic = decoder_info->display_picture;
           if ( pic ) {
             /* picture ready for display */          
-            if ( not (pic->flags & PIC_FLAG_TAGS) ) {
-              throw runtime_error( "picture without timestamp" );
-            } else {
-              const uint64_t pts = (uint64_t( pic->tag ) << 32) | (pic->tag2);
-              cerr << "PICTURE with pts delta " << pts - last_presentation_time_stamp_ << "\n";
-              last_presentation_time_stamp_ = pts;
-
-              /* write out y4m */
-              const mpeg2_fbuf_t * display_raster = notnull( "display_fbuf", decoder_info->display_fbuf );
-
-              output_.write( "FRAME\n" );
-
-              /* Y */
-              for ( unsigned int row = 0; row < display_height_; row++ ) {
-                string_view the_row( reinterpret_cast<char *>( display_raster->buf[ 0 ] + row * physical_luma_width() ),
-                                     display_width_ );
-                output_.write( the_row );
-              }
-
-              /* Cb */
-              for ( unsigned int row = 0; row < display_chroma_height(); row++ ) {
-                string_view the_row( reinterpret_cast<char *>( display_raster->buf[ 1 ] + row * physical_chroma_width() ),
-                                     display_chroma_width() );
-                output_.write( the_row );
-              }
-
-              /* Cr */
-              for ( unsigned int row = 0; row < display_chroma_height(); row++ ) {
-                string_view the_row( reinterpret_cast<char *>( display_raster->buf[ 2 ] + row * physical_chroma_width() ),
-                                     display_chroma_width() );
-                output_.write( the_row );
-              }
-            }
+            const mpeg2_fbuf_t * display_raster = notnull( "display_fbuf", decoder_info->display_fbuf );
+            output_picture( pic, display_raster );
           }
         }
         break;
