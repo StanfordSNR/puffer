@@ -312,8 +312,6 @@ private:
     PES_packet_.append( payload.begin(), payload.end() );
   }
 
-  MPEG2VideoDecoder mpeg2_decoder_ {};
-
 public:
   TSParser( const unsigned int pid )
     : pid_( pid )
@@ -323,7 +321,7 @@ public:
     }
   }
 
-  void parse( const string_view & packet )
+  void parse( const string_view & packet, MPEG2VideoDecoder & video_decoder )
   {
     TSPacketHeader header { packet };
 
@@ -338,8 +336,8 @@ public:
       if ( not PES_packet_.empty() ) {
         PESPacketHeader pes_header { PES_packet_ };
 
-        mpeg2_decoder_.tag_presentation_time_stamp( pes_header.presentation_time_stamp );
-        mpeg2_decoder_.decode_frame( PES_packet_.substr( pes_header.payload_start ) );
+        video_decoder.tag_presentation_time_stamp( pes_header.presentation_time_stamp );
+        video_decoder.decode_frame( PES_packet_.substr( pes_header.payload_start ) );
 
         PES_packet_.clear();
       }
@@ -375,7 +373,7 @@ int main( int argc, char *argv[] )
   FileDescriptor stdin { 0 };
 
   TSParser parser { pid };
-  int ret = EXIT_SUCCESS;
+  MPEG2VideoDecoder mpeg2_decoder_ {};
 
   try {
     while ( true ) {
@@ -386,15 +384,14 @@ int main( int argc, char *argv[] )
 
       for ( unsigned packet_no = 0; packet_no < packets_in_chunk; packet_no++ ) {
         parser.parse( chunk_view.substr( packet_no * ts_packet_length,
-                                         ts_packet_length ) );
+                                         ts_packet_length ),
+                      mpeg2_decoder_ );
       }
     }
   } catch ( const exception & e ) {
     print_exception( argv[ 0 ], e );
-    ret = EXIT_FAILURE;
+    return EXIT_FAILURE;
   }
 
-  cerr << "Packets successfully parsed: " << parser.packets_parsed() << "\n";
-
-  return ret;
+  return EXIT_SUCCESS;
 }
