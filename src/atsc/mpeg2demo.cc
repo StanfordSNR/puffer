@@ -236,8 +236,27 @@ public:
 
     while ( true ) {
       mpeg2_state_t state = mpeg2_parse( decoder_.get() );
-
+      const mpeg2_info_t * decoder_info = notnull( "mpeg2_info",
+                                                   mpeg2_info( decoder_.get() ) );
+      
       switch ( state ) {
+      case STATE_SEQUENCE:
+        {
+          const mpeg2_sequence_t * sequence = notnull( "sequence",
+                                                       decoder_info->sequence );
+          cerr << "Sequence header: " << sequence->width << " "
+               << sequence->height << " "
+               << sequence->chroma_width << " "
+               << sequence->chroma_height << " "
+               << sequence->picture_width << " "
+               << sequence->picture_height << " "
+               << sequence->display_width << " "
+               << sequence->display_height << " "
+               << sequence->pixel_width << " "
+               << sequence->pixel_height << " "
+               << sequence->frame_period << "\n";
+            }
+        break;
       case STATE_BUFFER:
         if ( picture_count != 1 ) {
           cerr << "PES packet with picture_count = " << picture_count << "\n";
@@ -246,19 +265,18 @@ public:
       case STATE_SLICE:
         picture_count++;
 
-        /* write out y4m */
         {
-          const mpeg2_info_t * decoder_info = notnull( "mpeg2_info",
-                                                       mpeg2_info( decoder_.get() ) );
           const mpeg2_picture_t * pic = decoder_info->display_picture;
           if ( pic ) {
             /* picture ready for display */          
             if ( not (pic->flags & PIC_FLAG_TAGS) ) {
-              cerr << "untimestamped picture???\n";
+              throw runtime_error( "picture without timestamp" );
             } else {
               const uint64_t pts = (uint64_t( pic->tag ) << 32) | (pic->tag2);
               cerr << "PICTURE with pts delta " << pts - last_presentation_time_stamp_ << "\n";
               last_presentation_time_stamp_ = pts;
+
+              /* write out y4m */
             }
           }
         }
@@ -295,7 +313,7 @@ private:
   }
 
   MPEG2VideoDecoder mpeg2_decoder_ {};
-  
+
 public:
   TSParser( const unsigned int pid )
     : pid_( pid )
@@ -342,14 +360,17 @@ public:
 
 int main( int argc, char *argv[] )
 {
-  if ( argc != 2 ) {
-    cerr << "Usage: " << argv[ 0 ] << " PID\n";
+  if ( argc != 5 ) {
+    cerr << "Usage: " << argv[ 0 ] << " VIDEO_PID EXPECTED_WIDTH EXPECTED_HEIGHT EXPECTED_FRAME_INTERVAL [e.g. 900900 for 30i]\n";
     return EXIT_FAILURE;
   }
 
-  unsigned int pid = stoi( argv[ 1 ] );
-
-  cerr << "Demultiplexing transport stream for pid " << pid << "...\n";
+  const unsigned int pid = stoi( argv[ 1 ] );
+  /*
+  const unsigned int expected_width = stoi( argv[ 2 ] );
+  const unsigned int expected_height = stoi( argv[ 3 ] );
+  const unsigned int expected_frame_interval = stoi( argv[ 4 ] );
+  */
 
   FileDescriptor stdin { 0 };
 
