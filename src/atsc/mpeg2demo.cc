@@ -260,7 +260,7 @@ public:
             cerr << "untimestamped picture???\n";
           } else {
             const uint64_t pts = (uint64_t( pic->tag ) << 32) | (pic->tag2);
-            cerr << "PICTURE with pts delta " << pts - last_presentation_time_stamp_ << "\n";
+            cerr << "PICTURE with pts " << hex << pts << "\n";
             last_presentation_time_stamp_ = pts;
           }
         }
@@ -314,7 +314,7 @@ public:
       if ( not PES_packet_.empty() ) {
         PESPacketHeader pes_header { PES_packet_ };
 
-        cerr << "decoding picture with pts " << pes_header.presentation_time_stamp << "\n";
+        cerr << "decoding picture with pts " << hex << pes_header.presentation_time_stamp << "\n";
         mpeg2_decoder_.tag_presentation_time_stamp( pes_header.presentation_time_stamp );
         mpeg2_decoder_.decode_frame( PES_packet_.substr( pes_header.payload_start ) );
 
