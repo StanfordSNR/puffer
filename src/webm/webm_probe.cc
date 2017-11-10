@@ -2,11 +2,10 @@
 #include <iostream>
 #include <memory>
 #include <map>
-#include "webm_parser.hh"
+#include "webm_info.hh"
 #include "strict_conversions.hh"
 
 using namespace std;
-using namespace webm;
 
 static map<uint32_t, pair<string, char>> print_map = {
   { 0x1a45dfa3, make_pair("EBML Header", 'm') },
@@ -24,28 +23,6 @@ void print_usage(const string & name)
 {
   cerr << "Usage: " + name + " <filename>" << endl
        << "<filename>       webm file that contains an audio track" << endl;
-}
-
-/* an improved version of read_raw with data padding */
-template<typename T>
-T read_raw(string data, uint64_t size, bool switch_endian = false)
-{
-  string raw_data = data;
-  uint32_t s = narrow_cast<uint32_t>(size);
-  uint32_t data_size = sizeof(T);
-  const T * value = reinterpret_cast<const T *>(data.c_str());
-  if (switch_endian) {
-    T result;
-    char * dst = reinterpret_cast<char *>(&result);
-    memset(dst, 0, sizeof(T));
-    const char * src = reinterpret_cast<const char *>(value);
-    for(int i = 0; i < size; i++) {
-      dst[size - i - 1] = src[i];
-    }
-    return result;
-  } else {
-    return *value;
-  }
 }
 
 int main(int argc, char * argv[])

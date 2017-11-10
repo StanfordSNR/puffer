@@ -6,8 +6,7 @@ AM_CXXFLAGS = $(PICKY_CXXFLAGS)
 noinst_LIBRARIES = libwebm.a
 
 libwebm_a_SOURCES = \
-	webm_info.hh webm_info.cc \
-	webm_parser.hh webm_parser.cc
+	webm_info.hh webm_info.cc
 
 bin_PROGRAMS = webm_fragment webm_probe
 
