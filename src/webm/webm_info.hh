@@ -119,7 +119,6 @@ const std::set<uint32_t> master_elements {
 template<typename T>
 T read_raw(std::string data, uint64_t size, bool switch_endian = true)
 {
-  std::string raw_data = data;
   const T * value = reinterpret_cast<const T *>(data.c_str());
   if (switch_endian) {
     T result;

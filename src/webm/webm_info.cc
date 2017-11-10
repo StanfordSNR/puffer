@@ -133,7 +133,10 @@ uint32_t WebmInfo::get_timescale()
   if (elm) {
     uint32_t data_size = elm->size();
     string data = elm->value();
-    return read_raw<uint32_t>(data, data_size);
+    uint32_t timescale = read_raw<uint32_t>(data, data_size);
+    /* because it's timescode scale, we need to transform it to
+     * mp4's timescale */
+    return 1000000000 / timescale;
   } else {
     return 0;
   }
@@ -141,13 +144,29 @@ uint32_t WebmInfo::get_timescale()
 
 uint32_t WebmInfo::get_bitrate()
 {
-  return 0; // TODO: fix this after getting duration
+  uint32_t total_size = 0;
+  auto elems = parser_.find_all_elem(0x000000a3);
+  for (const auto & elem : elems) {
+    /* ignore the header size, which is much smaller than the actual size */
+    total_size += elem->size();
+  }
+  return total_size;
 }
 
 uint32_t WebmInfo::get_duration()
 {
-  return 0; // TODO: find a way to calculate duration
+  /* get duration from cue duration */
+  auto elm = parser_.find_first_elem(0x000000b2);
+  if (elm) {
+    uint32_t data_size = elm->size();
+    string data = elm->value();
+    uint32_t result = read_raw<uint32_t>(data, data_size);
+    return result;
+  } else {
+    return 0;
+  }
 }
+
 uint32_t WebmInfo::get_sample_rate()
 {
   auto elm = parser_.find_first_elem(0x000000b5);
