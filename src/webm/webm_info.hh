@@ -120,15 +120,13 @@ template<typename T>
 T read_raw(std::string data, uint64_t size, bool switch_endian = true)
 {
   std::string raw_data = data;
-  uint32_t s = narrow_cast<uint32_t>(size);
-  uint32_t data_size = sizeof(T);
   const T * value = reinterpret_cast<const T *>(data.c_str());
   if (switch_endian) {
     T result;
     char * dst = reinterpret_cast<char *>(&result);
     memset(dst, 0, sizeof(T));
     const char * src = reinterpret_cast<const char *>(value);
-    for(int i = 0; i < size; i++) {
+    for(uint32_t i = 0; i < size; i++) {
       dst[size - i - 1] = src[i];
     }
     return result;
