@@ -48,7 +48,7 @@ class WebmElement
 {
 public:
   WebmElement(uint32_t tag, std::string value)
-            : tag_(tag), value_(value), size_(value.size())
+            : tag_(tag), size_(value.size()), value_(value)
   {}
 
   WebmElement(uint32_t tag, uint64_t size, BinaryReader & br)
@@ -59,7 +59,7 @@ public:
             : tag_(tag), size_(size), value_()
   {}
 
-  virtual void print()
+  void print()
   {
     std::cout << "Tag: 0x" << std::hex << tag_ << " Size: 0x" << size()
               << std::endl;
@@ -79,7 +79,7 @@ class WebmParser
 {
 public:
   WebmParser(const std::string & filename);
-  std::shared_ptr<WebmElement> find_frst_elem(uint32_t tag);
+  std::shared_ptr<WebmElement> find_first_elem(uint32_t tag);
   std::vector<std::shared_ptr<WebmElement>> find_all_elem(uint32_t tag);
   void print();
   std::vector<std::shared_ptr<WebmElement>> get_elements()
@@ -136,5 +136,19 @@ T read_raw(std::string data, uint64_t size, bool switch_endian = true)
     return *value;
   }
 }
+
+class WebmInfo
+{
+public:
+  WebmInfo(const std::string & filename) : parser_(filename)
+  {}
+  uint32_t get_timescale();
+  uint32_t get_duration();
+  uint32_t get_bitrate();
+  uint32_t get_sample_rate();
+
+private:
+  WebmParser parser_;
+};
 
 #endif /* WEBM_INFO_HH */

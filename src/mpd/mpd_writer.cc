@@ -55,10 +55,46 @@ void print_usage(const string & program_name)
   << endl;
 }
 
+inline bool is_webm(const string & filename)
+{
+  auto results = split_filename(filename);
+  return results.second == "webm" or results.second == "chk";
+}
+
+void add_webm_audio(shared_ptr<AudioAdaptionSet> a_set, const string & init,
+                    const string & segment, const string & repr_id,
+                    uint32_t start_number)
+{
+  WebmInfo i_info(init);
+  WebmInfo s_info(segment);
+  uint32_t duration = s_info.get_duration();
+  uint32_t timescale = i_info.get_timescale();
+  uint32_t bitrate = i_info.get_bitrate();
+  uint32_t sample_rate = i_info.get_sample_rate();
+  auto repr_a = make_shared<AudioRepresentation>(repr_id, bitrate,
+        sample_rate, MimeType::Audio_OPUS, timescale, duration, start_number);
+  a_set->add_repr(repr_a);
+}
+
 void add_representation(
     shared_ptr<VideoAdaptionSet> v_set, shared_ptr<AudioAdaptionSet> a_set,
     const string & init, const string & segment)
 {
+  /* get numbering info from file name
+   * we assume the segment name is a number */
+  auto seg_path_list = split(segment, "/");
+  if (seg_path_list.size() < 2) {
+    throw runtime_error(segment + " is in top folder");
+  }
+  string name = seg_path_list.back();
+  uint32_t start_number = stoi(name);
+  string repr_id = seg_path_list[seg_path_list.size() - 2];
+
+  /* if this is a webm segment */
+  if (is_webm(segment)) {
+    add_webm_audio(a_set, init, segment, repr_id, start_number);
+    return;
+  }
   /* load mp4 up using parser */
   auto i_parser = make_shared<MP4Parser>(init);
   auto s_parser = make_shared<MP4Parser>(segment);
@@ -80,14 +116,6 @@ void add_representation(
   /* get bitrate */
   uint32_t bitrate = s_info.get_bitrate(timescale, duration);
 
-  /* we assume the segment name is a number */
-  auto seg_path_list = split(segment, "/");
-  if (seg_path_list.size() < 2) {
-    throw runtime_error(segment + " is in top folder");
-  }
-  string name = seg_path_list.back();
-  uint32_t start_number = stoi(name);
-  string repr_id = seg_path_list[seg_path_list.size() - 2];
   if (i_info.is_video()) {
     /* this is a video */
     uint16_t width, height;
