@@ -56,8 +56,8 @@ FileDescriptor::~FileDescriptor()
 }
 
 /* attempt to write a portion of a string */
-string::const_iterator FileDescriptor::write( const string::const_iterator & begin,
-                       const string::const_iterator & end )
+string_view::const_iterator FileDescriptor::write( const string_view::const_iterator & begin,
+                                              const string_view::const_iterator & end )
 {
   if ( begin >= end ) {
     throw runtime_error( "nothing to write" );
@@ -89,7 +89,7 @@ string FileDescriptor::read( const size_t limit )
 }
 
 /* write method */
-string::const_iterator FileDescriptor::write( const std::string & buffer, const bool write_all )
+string_view::const_iterator FileDescriptor::write( const std::string_view & buffer, const bool write_all )
 {
   auto it = buffer.begin();
 

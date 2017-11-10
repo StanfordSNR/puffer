@@ -209,6 +209,8 @@ private:
   unsigned int display_height_;
   unsigned int frame_interval_;
 
+  FileDescriptor output_ { 1 }; /* stdout */
+
   static unsigned int macroblock_dimension( const unsigned int num )
   {
     return ( num + 15 ) / 16;
@@ -232,6 +234,16 @@ private:
   unsigned int physical_chroma_height() const
   {
     return (1 + physical_luma_height()) / 2;
+  }
+
+  unsigned int display_chroma_width() const
+  {
+    return (1 + display_width_) / 2;
+  }
+  
+  unsigned int display_chroma_height() const
+  {
+    return (1 + display_height_) / 2;
   }
 
   void enforce_as_expected( const mpeg2_sequence_t * sequence ) const
@@ -287,7 +299,23 @@ public:
       display_width_( expected_display_width ),
       display_height_( expected_display_height ),
       frame_interval_( expected_frame_interval )
-  {}
+  {
+    string pp_interval;
+    switch ( frame_interval_ ) {
+    case 900900:
+      pp_interval = "F30000:1001";
+      break;
+    case 450450:
+      pp_interval = "F60000:1001";
+      break;
+    default:
+      throw runtime_error( "cannot do basic arithmetic with frame_interval of " + to_string( frame_interval_ ) );
+    }
+ 
+    output_.write( "YUV4MPEG2 W" + to_string( display_width_ )
+                   + " H" + to_string( display_height_ ) + " " + pp_interval
+                   + " Ip A1:1 C420mpeg2\n" );
+  }
 
   void tag_presentation_time_stamp( const uint64_t presentation_time_stamp )
   {
@@ -346,6 +374,30 @@ public:
               last_presentation_time_stamp_ = pts;
 
               /* write out y4m */
+              const mpeg2_fbuf_t * display_raster = notnull( "display_fbuf", decoder_info->display_fbuf );
+
+              output_.write( "FRAME\n" );
+
+              /* Y */
+              for ( unsigned int row = 0; row < display_height_; row++ ) {
+                string_view the_row( reinterpret_cast<char *>( display_raster->buf[ 0 ] + row * physical_luma_width() ),
+                                     display_width_ );
+                output_.write( the_row );
+              }
+
+              /* Cb */
+              for ( unsigned int row = 0; row < display_chroma_height(); row++ ) {
+                string_view the_row( reinterpret_cast<char *>( display_raster->buf[ 1 ] + row * physical_chroma_width() ),
+                                     display_chroma_width() );
+                output_.write( the_row );
+              }
+
+              /* Cr */
+              for ( unsigned int row = 0; row < display_chroma_height(); row++ ) {
+                string_view the_row( reinterpret_cast<char *>( display_raster->buf[ 2 ] + row * physical_chroma_width() ),
+                                     display_chroma_width() );
+                output_.write( the_row );
+              }
             }
           }
         }

@@ -6,6 +6,13 @@
 #include <string>
 #include <unistd.h>
 
+#ifdef HAVE_STRING_VIEW
+#include <string_view>
+#elif HAVE_EXPERIMENTAL_STRING_VIEW
+#include <experimental/string_view>
+using std::experimental::string_view;
+#endif
+
 /* maximum size of a read */
 static constexpr size_t BUFFER_SIZE = 1024 * 1024;
 
@@ -46,9 +53,9 @@ public:
   /* read and write methods */
   std::string read( const size_t limit = BUFFER_SIZE );
   std::string read_exactly( const size_t length, const bool fail_silently = false );
-  std::string::const_iterator write( const std::string & buffer, const bool write_all = true );
-  std::string::const_iterator write( const std::string::const_iterator & begin,
-                                     const std::string::const_iterator & end );
+  std::string_view::const_iterator write( const std::string_view & buffer, const bool write_all = true );
+  std::string_view::const_iterator write( const std::string_view::const_iterator & begin,
+                                          const std::string_view::const_iterator & end );
 
   /* manipulate file offset */
   uint64_t seek(const int64_t offset, const int whence);
