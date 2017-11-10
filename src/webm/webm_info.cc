@@ -106,7 +106,7 @@ void WebmParser::print()
   }
 }
 
-shared_ptr<WebmElement> WebmParser::find_frst_elem(uint32_t tag)
+shared_ptr<WebmElement> WebmParser::find_first_elem(uint32_t tag)
 {
   for (auto & elem : elements_) {
     if (elem->tag() == tag) {
@@ -125,4 +125,45 @@ vector<shared_ptr<WebmElement>> WebmParser::find_all_elem(uint32_t tag)
     }
   }
   return result;
+}
+
+uint32_t WebmInfo::get_timescale()
+{
+  auto elm = parser_.find_first_elem(0x002ad7b1);
+  if (elm) {
+    uint32_t data_size = elm->size();
+    string data = elm->value();
+    return read_raw<uint32_t>(data, data_size);
+  } else {
+    return 0;
+  }
+}
+
+uint32_t WebmInfo::get_bitrate()
+{
+  return 0; // TODO: fix this after getting duration
+}
+
+uint32_t WebmInfo::get_duration()
+{
+  return 0; // TODO: find a way to calculate duration
+}
+uint32_t WebmInfo::get_sample_rate()
+{
+  auto elm = parser_.find_first_elem(0x000000b5);
+  if (elm) {
+    uint32_t data_size = elm->size();
+    string data = elm->value();
+    if (data_size == 4) {
+      float value = read_raw<float>(data, data_size);
+      return static_cast<uint32_t>(value);
+    } else if (data_size == 8) {
+      double value = read_raw<double>(data, data_size);
+      return static_cast<uint32_t>(value);
+    } else {
+      throw runtime_error("Invalid sampling frequency");
+    }
+  } else {
+    return 0;
+  }
 }
