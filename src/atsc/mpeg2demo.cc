@@ -63,8 +63,8 @@ struct TSPacketHeader : TSPacketRequirements
     : TSPacketRequirements( packet ),
       transport_error_indicator( packet[ 1 ] & 0x80 ),
       payload_unit_start_indicator( packet[ 1 ] & 0x40 ),
-      pid( ((packet[ 1 ] & 0x1f) << 8) | packet[ 2 ] ),
-      adaptation_field_control( (packet[ 3 ] & 0x30) >> 4 ),
+      pid( ((uint8_t( packet[ 1 ] ) & 0x1f) << 8) | uint8_t( packet[ 2 ] ) ),
+      adaptation_field_control( (uint8_t( packet[ 3 ] ) & 0x30) >> 4 ),
       payload_start( 4 )
   {
     /* find start of payload */
@@ -457,8 +457,6 @@ class TSParser
 private:
   unsigned int pid_; /* program ID of interest */
 
-  unsigned int packets_parsed_ {}; /* count of TS packets successfully parsed */
-
   string PES_packet_ {};
 
   void append_payload( const string_view & packet, const TSPacketHeader & header )
@@ -503,12 +501,7 @@ public:
       /* interior TS packet within a PES packet */
       append_payload( packet, header );
     }
-
-    packets_parsed_++;
   }
-
-  /* accessors */
-  unsigned int packets_parsed() const { return packets_parsed_; }
 };
 
 int main( int argc, char *argv[] )
