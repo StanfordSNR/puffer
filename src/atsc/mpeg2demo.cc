@@ -199,16 +199,94 @@ private:
       mpeg2_close( x );
     }
   };
-  
+
   unique_ptr<mpeg2dec_t, MPEG2Deleter> decoder_;
 
   vector<uint8_t> mutable_coded_frame_;
   uint64_t last_presentation_time_stamp_ {};
+
+  unsigned int display_width_;
+  unsigned int display_height_;
+  unsigned int frame_interval_;
+
+  static unsigned int macroblock_dimension( const unsigned int num )
+  {
+    return ( num + 15 ) / 16;
+  }
+
+  unsigned int physical_luma_width() const
+  {
+    return macroblock_dimension( display_width_ ) * 16;
+  }
+
+  unsigned int physical_luma_height() const
+  {
+    return macroblock_dimension( display_height_ ) * 16;
+  }
+
+  unsigned int physical_chroma_width() const
+  {
+    return (1 + physical_luma_width()) / 2;
+  }
+  
+  unsigned int physical_chroma_height() const
+  {
+    return (1 + physical_luma_height()) / 2;
+  }
+
+  void enforce_as_expected( const mpeg2_sequence_t * sequence ) const
+  {
+    if ( sequence->width != physical_luma_width() ) {
+      throw runtime_error( "width mismatch" );
+    }
+
+    if ( sequence->height != physical_luma_height() ) {
+      throw runtime_error( "height mismatch" );
+    }
+
+    if ( sequence->chroma_width != physical_chroma_width() ) {
+      throw runtime_error( "chroma width mismatch" );
+    }
+
+    if ( sequence->chroma_height != physical_chroma_height() ) {
+      throw runtime_error( "chroma height mismatch" );
+    }
+
+    if ( sequence->picture_width != display_width_ ) {
+      throw runtime_error( "picture width mismatch" );
+    }
+
+    if ( sequence->picture_height != display_height_ ) {
+      throw runtime_error( "picture height mismatch" );
+    }
+
+    if ( sequence->display_width != display_width_ ) {
+      throw runtime_error( "display width mismatch" );
+    }
+
+    if ( sequence->display_height != display_height_ ) {
+      throw runtime_error( "display height mismatch" );
+    }
+
+    if ( sequence->pixel_width != 1
+         or sequence->pixel_height != 1 ) {
+      throw runtime_error( "non-square pels" );
+    }
+    
+    if ( sequence->frame_period != frame_interval_ ) {
+      throw runtime_error( "frame interval mismatch" );
+    }
+  }
   
 public:
-  MPEG2VideoDecoder()
+  MPEG2VideoDecoder( const unsigned int expected_display_width,
+                     const unsigned int expected_display_height,
+                     const unsigned int expected_frame_interval )
     : decoder_( notnull( "mpeg2_init", mpeg2_init() ) ),
-      mutable_coded_frame_( max_frame_size )
+      mutable_coded_frame_( max_frame_size ),
+      display_width_( expected_display_width ),
+      display_height_( expected_display_height ),
+      frame_interval_( expected_frame_interval )
   {}
 
   void tag_presentation_time_stamp( const uint64_t presentation_time_stamp )
@@ -241,21 +319,12 @@ public:
       
       switch ( state ) {
       case STATE_SEQUENCE:
+      case STATE_SEQUENCE_REPEATED:
         {
           const mpeg2_sequence_t * sequence = notnull( "sequence",
                                                        decoder_info->sequence );
-          cerr << "Sequence header: " << sequence->width << " "
-               << sequence->height << " "
-               << sequence->chroma_width << " "
-               << sequence->chroma_height << " "
-               << sequence->picture_width << " "
-               << sequence->picture_height << " "
-               << sequence->display_width << " "
-               << sequence->display_height << " "
-               << sequence->pixel_width << " "
-               << sequence->pixel_height << " "
-               << sequence->frame_period << "\n";
-            }
+          enforce_as_expected( sequence );
+        }
         break;
       case STATE_BUFFER:
         if ( picture_count != 1 ) {
@@ -364,16 +433,16 @@ int main( int argc, char *argv[] )
   }
 
   const unsigned int pid = stoi( argv[ 1 ] );
-  /*
   const unsigned int expected_width = stoi( argv[ 2 ] );
   const unsigned int expected_height = stoi( argv[ 3 ] );
   const unsigned int expected_frame_interval = stoi( argv[ 4 ] );
-  */
 
   FileDescriptor stdin { 0 };
 
   TSParser parser { pid };
-  MPEG2VideoDecoder mpeg2_decoder_ {};
+  MPEG2VideoDecoder mpeg2_decoder_ { expected_width,
+      expected_height,
+      expected_frame_interval };
 
   try {
     while ( true ) {
