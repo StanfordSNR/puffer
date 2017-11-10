@@ -1,14 +1,51 @@
-#include "webm_parser.hh"
+#include <cstring>
 #include <iostream>
 #include <memory>
+#include <map>
+#include "webm_parser.hh"
+#include "strict_conversions.hh"
 
 using namespace std;
 using namespace webm;
+
+static map<uint32_t, pair<string, char>> print_map = {
+  { 0x1a45dfa3, make_pair("EBML Header", 'm') },
+  { 0x18538067, make_pair("Segment", 'm') },
+  { 0x1549a966, make_pair("Info", 'm') },
+  { 0x002ad7b1, make_pair("TimecodeScale", 'u') },
+  { 0x1654ae6b, make_pair("Tracks", 'm') },
+  { 0x000000d7, make_pair("TrackNumber", 'u') },
+  { 0x00000083, make_pair("TrackType", 'u') },
+  { 0x000000e7, make_pair("Timecode", 'u') },
+  { 0x000000b5, make_pair("SamplingFrequency", 'f') },
+};
 
 void print_usage(const string & name)
 {
   cerr << "Usage: " + name + " <filename>" << endl
        << "<filename>       webm file that contains an audio track" << endl;
+}
+
+/* an improved version of read_raw with data padding */
+template<typename T>
+T read_raw(string data, uint64_t size, bool switch_endian = false)
+{
+  string raw_data = data;
+  uint32_t s = narrow_cast<uint32_t>(size);
+  uint32_t data_size = sizeof(T);
+  const T * value = reinterpret_cast<const T *>(data.c_str());
+  if (switch_endian) {
+    T result;
+    char * dst = reinterpret_cast<char *>(&result);
+    memset(dst, 0, sizeof(T));
+    const char * src = reinterpret_cast<const char *>(value);
+    for(int i = 0; i < size; i++) {
+      dst[size - i - 1] = src[i];
+    }
+    return result;
+  } else {
+    return *value;
+  }
 }
 
 int main(int argc, char * argv[])
@@ -18,5 +55,41 @@ int main(int argc, char * argv[])
     return EXIT_FAILURE;
   }
   auto p = make_unique<WebmParser>(string(argv[1]));
+  for (const auto & elem : p->get_elements()) {
+    uint32_t tag = elem->tag();
+    if (print_map.find(tag) == print_map.end()) {
+      elem->print();
+    } else {
+      auto info = print_map[tag];
+      string name = info.first;
+      char type = info.second;
+      uint64_t size = elem->size();
+      string data = elem->value();
+      switch (type) {
+        case 'm':
+          cout << "Tag: " << name << endl;
+          break;
+        case 'f':
+          {
+            double value;
+            if (size == 4) {
+              value = read_raw<float>(data, size, true);
+            } else {
+              value = read_raw<double>(data, size, true);
+            }
+            cout << "Tag: " << name << " Value: " << value << endl;
+          }
+          break;
+        case 'u':
+          {
+            uint64_t value = read_raw<uint64_t>(data, size, true);
+            cout << "Tag: " << name << " Value: " << dec << value << endl;
+          }
+          break;
+        default:
+          break;
+      }
+    }
+  }
   return EXIT_SUCCESS;
 }
