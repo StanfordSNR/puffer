@@ -30,6 +30,12 @@ const char ts_packet_sync_byte = 0x47;
 const size_t packets_in_chunk = 512;
 const size_t max_frame_size = 1048576 * 10;
 
+template <typename T>
+inline T * notnull( const string & context, T * const x )
+{
+  return x ? x : throw runtime_error( context + ": returned null pointer" );
+}
+
 struct TSPacketRequirements
 {
   TSPacketRequirements( const string_view & packet )
@@ -196,12 +202,6 @@ private:
   
   unique_ptr<mpeg2dec_t, MPEG2Deleter> decoder_;
 
-  template <typename T>
-  inline T * notnull( const string & context, T * const x )
-  {
-    return x ? x : throw runtime_error( context + ": returned null pointer" );
-  }
-
   vector<uint8_t> mutable_coded_frame_;
   uint64_t last_presentation_time_stamp_ {};
   
@@ -245,26 +245,32 @@ public:
         return;
       case STATE_SLICE:
         picture_count++;
+
         /* write out y4m */
+        {
+          const mpeg2_info_t * decoder_info = notnull( "mpeg2_info",
+                                                       mpeg2_info( decoder_.get() ) );
+          const mpeg2_picture_t * pic = decoder_info->display_picture;
+          if ( pic ) {
+            /* picture ready for display */          
+            if ( not (pic->flags & PIC_FLAG_TAGS) ) {
+              cerr << "untimestamped picture???\n";
+            } else {
+              const uint64_t pts = (uint64_t( pic->tag ) << 32) | (pic->tag2);
+              cerr << "PICTURE with pts delta " << pts - last_presentation_time_stamp_ << "\n";
+              last_presentation_time_stamp_ = pts;
+            }
+          }
+        }
         break;
       case STATE_INVALID:
       case STATE_INVALID_END:
         cerr << "invalid\n";
         break;
       case STATE_PICTURE:
-        {
-          const mpeg2_info_t * decoder_info = mpeg2_info( decoder_.get() );
-          const mpeg2_picture_t * pic = decoder_info->current_picture;
-
-          if ( not (pic->flags & PIC_FLAG_TAGS) ) {
-            cerr << "untimestamped picture???\n";
-          } else {
-            const uint64_t pts = (uint64_t( pic->tag ) << 32) | (pic->tag2);
-            cerr << "PICTURE with pts " << hex << pts << "\n";
-            last_presentation_time_stamp_ = pts;
-          }
-        }
         break;
+      case STATE_PICTURE_2ND:
+        throw runtime_error( "unsupported field pictures" );
       default:
         /* do nothing */
         break;
@@ -314,7 +320,6 @@ public:
       if ( not PES_packet_.empty() ) {
         PESPacketHeader pes_header { PES_packet_ };
 
-        cerr << "decoding picture with pts " << hex << pes_header.presentation_time_stamp << "\n";
         mpeg2_decoder_.tag_presentation_time_stamp( pes_header.presentation_time_stamp );
         mpeg2_decoder_.decode_frame( PES_packet_.substr( pes_header.payload_start ) );
 
