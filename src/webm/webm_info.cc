@@ -1,85 +1,128 @@
-#include <iostream>
-#include <memory>
-#include "webm/callback.h"
-#include "webm/file_reader.h"
-#include "webm/status.h"
-#include "webm/webm_parser.h"
-
+#include <string>
+#include <algorithm>
+#include "exception.hh"
 #include "webm_info.hh"
 
-using namespace webm;
 using namespace std;
 
-Status InfoCallback::OnTrackEntry(const ElementMetadata &,
-                                   const TrackEntry & track_entry)
+template<typename T> T BinaryReader::read(bool switch_endian)
 {
-  auto audio = track_entry.audio.value();
-  auto sampling_frequency = audio.sampling_frequency.value();
-  info_.sample_rate = sampling_frequency;
-  return Status(Status::kOkCompleted);
+  string data = fd_.read(sizeof(T));
+  return read_raw<T>(data, sizeof(T), switch_endian);
 }
 
-Status InfoCallback::OnInfo(const ElementMetadata & , const Info & info)
+uint64_t BinaryReader::size()
 {
-  info_.timescale = info.timecode_scale.value();
-  info_.duration = info.duration.value();
-  return Status(Status::kOkCompleted);
+  uint64_t current_pos = pos();
+  uint64_t fsize = seek(0, SEEK_END);
+  seek(current_pos, SEEK_SET);
+  return fsize;
 }
 
-Status InfoCallback::OnClusterBegin(
-      const ElementMetadata & metadata, const Cluster & ,
-      Action * action)
+WebmParser::WebmParser(const string & filename)
+  : br_(filename), elements_()
 {
-  info_.size += metadata.size;
-  *action = Action::kRead;
-  return Status(Status::kOkCompleted);
+  parse(br_.size());
 }
 
-WebmInfo::WebmInfo(
-    const string & filename)
-  : file_(), parser_(), reader_(), info_()
+void WebmParser::parse(uint64_t max_pos)
 {
-    file_ = fopen(filename.c_str(), "rb");
-    reader_ = make_shared<FileReader>(file_);
-    parser_ = make_shared<WebmParser>();
-    InfoCallback callback(info_);
-    Status status = parser_->Feed(&callback, reader_.get());
-    if (!status.completed_ok()) {
-      throw runtime_error("parsing error for " + filename);
+  while (br_.pos() < max_pos ) {
+    const uint32_t tag = scan_tag();
+    if (tag == 0) {
+      return; /* terminate */
     }
-}
-
-WebmInfo & WebmInfo::operator=(WebmInfo & other)
-{
-  if (this != &other) {
-    file_ = other.file_;
-    parser_ = other.parser_;
-    reader_ = other.reader_;
+    uint64_t data_size = scan_data_size();
+    if (data_size == static_cast<uint64_t>(-1)) {
+      auto elem = make_shared<WebmElement>(tag, "");
+      elements_.emplace_back(elem);
+      continue;
+    }
+    if (find(begin(master_elements), end(master_elements), tag)
+        == end(master_elements)) {
+      auto elem = make_shared<WebmElement>(tag, br_.read_bytes(data_size));
+      elements_.emplace_back(elem);
+    } else {
+      /* master block */
+      auto elem = make_shared<WebmElement>(tag, "");
+      elements_.emplace_back(elem);
+      parse(br_.pos() + data_size);
+    }
   }
-
-  return *this;
 }
 
-void WebmInfo::print_info()
+uint64_t WebmParser::scan_tag()
 {
-  cout << "Sample rate: " << info_.sample_rate << " Hz" << endl
-       << "Timescale:   " << info_.timescale << endl
-       << "Duration:    " << ((double)info_.duration / 1000) << " s" << endl
-       << "Size:        " << info_.size / 1000 << " kB" << endl
-       << "Bitrate:     " << get_bitrate() / 1000 << " kbps" << endl;
+  const uint8_t first_byte = br_.read_uint8();
+  const uint8_t mask = 0xFF;
+  uint32_t tag_size = 4; /* by default it's an impossible state */
+  if (!first_byte) {
+    return 0; /* end of stream */
+  }
+  for (uint32_t i = 0; i < 4; i++) {
+    if (first_byte & (0x80 >> i)) {
+      tag_size = i;
+      break;
+    }
+  }
+  if (tag_size == 4) {
+    cout << unsigned(first_byte) << endl;
+    throw runtime_error("Invalid tag type at pos " + to_string(br_.pos()));
+  }
+  return decode_bytes(tag_size, first_byte, mask);
 }
 
-pair<uint32_t, uint32_t> WebmInfo::get_timescale_duration()
+uint64_t WebmParser::decode_bytes(uint32_t tag_size, uint8_t first,
+                                uint8_t first_mask)
 {
-  /* convert duration to the timescale ticks */
-  uint32_t duration = info_.timescale * info_.duration;
-  return make_pair(info_.timescale, duration);
+  uint64_t value = first & first_mask;
+  for (uint32_t i = 0; i < tag_size; i++) {
+    uint8_t next_byte = br_.read_uint8();
+    value = (value << 8) + next_byte;
+  }
+  return value;
 }
 
-uint32_t WebmInfo::get_bitrate()
+uint64_t WebmParser::scan_data_size()
 {
-  double size = static_cast<double>(info_.size);
-  double d_bitrate = size / info_.duration * 1000 * 8;
-  uint32_t bitrate = static_cast<uint32_t>(d_bitrate);
-  return (bitrate / 1000) * 1000;
+  uint32_t size = 0;
+  uint32_t mask = 0xFF;
+
+  uint8_t first_byte = br_.read_uint8();
+  for (int i = 0; i < 8; i++) {
+    if (first_byte & (0x80 >> i)) {
+      size = i;
+      mask = 0x7F >> i;
+      break;
+    }
+  }
+  return decode_bytes(size, first_byte, mask);
+}
+
+void WebmParser::print()
+{
+  for (const auto & elem : elements_) {
+    elem->print();
+  }
+}
+
+shared_ptr<WebmElement> WebmParser::find_frst_elem(uint32_t tag)
+{
+  for (auto & elem : elements_) {
+    if (elem->tag() == tag) {
+      return elem;
+    }
+  }
+  return nullptr;
+}
+
+vector<shared_ptr<WebmElement>> WebmParser::find_all_elem(uint32_t tag)
+{
+  vector<shared_ptr<WebmElement>> result;
+  for (auto & elem : elements_) {
+    if (elem->tag() == tag) {
+      result.emplace_back(elem);
+    }
+  }
+  return result;
 }
