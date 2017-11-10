@@ -129,7 +129,7 @@ void create_media_segment(
   if (not cluster) {
     throw runtime_error("no Cluster element is found");
   }
-
+  /* set the time code */
   const mkvparser::BlockEntry * block_entry;
   if (cluster->GetFirst(block_entry)) {
     throw runtime_error("failed to get the first block of cluster");

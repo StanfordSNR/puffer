@@ -6,11 +6,21 @@
 using namespace std;
 using namespace webm;
 
-template<typename T> T BinaryReader::read()
+template<typename T> T BinaryReader::read(bool switch_endian)
 {
   string data = fd_.read(sizeof(T));
   const T * size = reinterpret_cast<const T *>(data.c_str());
-  return *size;
+  if (switch_endian) {
+    T result;
+    char * dst = reinterpret_cast<char *>(&result);
+    const char * src = reinterpret_cast<const char *>(size);
+    for(int i = 0; i < sizeof(T); i++) {
+      dst[i] = src[sizeof(T) - i - 1];
+    }
+    return result;
+  } else {
+    return *size;
+  }
 }
 
 uint64_t BinaryReader::size()
@@ -22,7 +32,7 @@ uint64_t BinaryReader::size()
 }
 
 WebmParser::WebmParser(const string & filename)
-  : br_(filename)
+  : br_(filename), elements_()
 {
   parse(br_.size());
 }
@@ -31,12 +41,23 @@ void WebmParser::parse(uint64_t max_pos)
 {
   while (br_.pos() < max_pos ) {
     const uint32_t tag = scan_tag();
+    if (tag == 0) {
+      return; /* terminate */
+    }
     uint64_t data_size = scan_data_size();
-    cout << "TAG: 0x" << hex << tag << " Size: " << data_size << endl;
+    if (data_size == static_cast<uint64_t>(-1)) {
+      auto elem = make_shared<WebmElement>(tag, "");
+      elements_.emplace_back(elem);
+      continue;
+    }
     if (find(begin(master_elements), end(master_elements), tag)
         == end(master_elements)) {
-      br_.read_bytes(data_size);
+      auto elem = make_shared<WebmElement>(tag, br_.read_bytes(data_size));
+      elements_.emplace_back(elem);
     } else {
+      /* master block */
+      auto elem = make_shared<WebmElement>(tag, "");
+      elements_.emplace_back(elem);
       parse(br_.pos() + data_size);
     }
   }
@@ -46,16 +67,17 @@ uint64_t WebmParser::scan_tag()
 {
   const uint8_t first_byte = br_.read_uint8();
   const uint8_t mask = 0xFF;
-  uint32_t tag_size;
-  if (first_byte & 0x80) {
-    tag_size = 0;
-  } else if (first_byte & 0x40) {
-    tag_size = 1;
-  } else if (first_byte & 0x20) {
-    tag_size = 2;
-  } else if (first_byte & 0x10) {
-    tag_size = 3;
-  } else {
+  uint32_t tag_size = 4; /* by default it's an impossible state */
+  if (!first_byte) {
+    return 0; /* end of stream */
+  }
+  for (uint32_t i = 0; i < 4; i++) {
+    if (first_byte & (0x80 >> i)) {
+      tag_size = i;
+      break;
+    }
+  }
+  if (tag_size == 4) {
     cout << unsigned(first_byte) << endl;
     throw runtime_error("Invalid tag type at pos " + to_string(br_.pos()));
   }
@@ -87,4 +109,32 @@ uint64_t WebmParser::scan_data_size()
     }
   }
   return decode_bytes(size, first_byte, mask);
+}
+
+void WebmParser::print()
+{
+  for (const auto & elem : elements_) {
+    elem->print();
+  }
+}
+
+shared_ptr<WebmElement> WebmParser::find_frst_elem(uint32_t tag)
+{
+  for (auto & elem : elements_) {
+    if (elem->tag() == tag) {
+      return elem;
+    }
+  }
+  return nullptr;
+}
+vector<shared_ptr<WebmElement>> WebmParser::find_all_elem(uint32_t tag)
+{
+  vector<shared_ptr<WebmElement>> result;
+  for (auto & elem : elements_) {
+    if (elem->tag() == tag) {
+      result.emplace_back(elem);
+    }
+  }
+  return result;
+
 }

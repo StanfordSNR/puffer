@@ -14,5 +14,5 @@ bin_PROGRAMS = webm_fragment webm_probe
 webm_fragment_SOURCES = webm_fragment.cc
 webm_fragment_LDADD = ../util/libutil.a ../../third_party/libwebm/libwebm.a
 
-webm_probe_SOURCES = webm_probe.cc webm_parser.hh webm_parser.cc
-webm_probe_LDADD = ../util/libutil.a ../../third_party/libwebm/libwebm.a
+webm_probe_SOURCES = webm_probe.cc
+webm_probe_LDADD = libwebm.a ../util/libutil.a
