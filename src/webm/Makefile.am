@@ -1,5 +1,4 @@
 AM_CPPFLAGS = $(CXX17_FLAGS) -I$(srcdir)/../util \
-	-isystem$(srcdir)/../../third_party/libwebm.fork/webm_parser/include \
 	-isystem$(srcdir)/../../third_party/libwebm.fork
 AM_CXXFLAGS = $(PICKY_CXXFLAGS)
 
