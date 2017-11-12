@@ -90,32 +90,19 @@ void create_init_segment(mkvmuxer::MkvWriter * writer,
     throw runtime_error("failed to write (forward) Tracks element");
   }
 
-  /* copy all tags but the one with DURATION as TagName */
+  /* copy all tags */
   auto muxer_tags = make_unique<mkvmuxer::Tags>();
 
   for (int i = 0; i < parser_tags->GetTagCount(); ++i) {
     auto parser_tag = parser_tags->GetTag(i);
 
-    vector<pair<const char *, const char *>> tag_list;
-
     for (int j = 0; j < parser_tag->GetSimpleTagCount(); ++j) {
       auto parser_simple_tag = parser_tag->GetSimpleTag(j);
-
       auto tag_name = parser_simple_tag->GetTagName();
-      if (strcmp(tag_name, "DURATION") == 0) {
-        continue;
-      }
-
       auto tag_string = parser_simple_tag->GetTagString();
-      tag_list.emplace_back(make_pair(tag_name, tag_string));
-    }
 
-    if (tag_list.size()) {
       auto muxer_tag = muxer_tags->AddTag();
-
-      for (const auto & item : tag_list) {
-        muxer_tag->add_simple_tag(item.first, item.second);
-      }
+      muxer_tag->add_simple_tag(tag_name, tag_string);
     }
   }
 
