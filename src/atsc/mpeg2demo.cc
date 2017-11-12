@@ -36,6 +36,85 @@ inline T * notnull( const string & context, T * const x )
   return x ? x : throw runtime_error( context + ": returned null pointer" );
 }
 
+class VideoOutput
+{
+private:
+  unsigned int display_width_;
+  unsigned int display_height_;
+  uint64_t frame_interval_;
+
+  bool video_output_has_started_ {};
+  uint64_t initial_presentation_time_stamp_ {};
+  uint64_t field_count_ {};
+
+  bool next_field_is_top {};
+
+  static int64_t pts_difference ( const uint64_t a, const uint64_t b )
+  {
+    if ( a != (a & 0x1FFFFFFFF) ) {
+      throw runtime_error( "invalid pts a" );
+    }
+
+    if ( b != (b & 0x1FFFFFFFF) ) {
+      throw runtime_error( "invalid pts b" );
+    }
+
+    const int64_t difference = a - b;
+    return ((difference & 0x1FFFFFFFF) + (uint64_t(1)<<33)) & 0x1FFFFFFFF;
+  }
+  
+public:
+  VideoOutput( const unsigned int expected_display_width,
+               const unsigned int expected_display_height,
+               const unsigned int expected_frame_interval )
+    : display_width_( expected_display_width ),
+      display_height_( expected_display_height ),
+      frame_interval_( expected_frame_interval )
+  {
+    switch ( frame_interval_ ) {
+    case 900900:
+    case 450450:
+      break;
+    default:
+      throw runtime_error( "unhandled frame interval: " + to_string( expected_frame_interval ) );
+    }
+  }
+
+  void write_picture( const uint64_t presentation_time_stamp,
+                      const uint8_t number_of_fields,
+                      const bool top_field_first,
+                      const mpeg2_fbuf_t * const,
+                      const unsigned int,
+                      const unsigned int )
+  {
+    if ( not video_output_has_started_ ) {
+      video_output_has_started_ = true;
+      initial_presentation_time_stamp_ = presentation_time_stamp;
+      next_field_is_top = top_field_first;
+    } else {
+      const uint64_t expected_presentation_time_stamp =
+        (initial_presentation_time_stamp_ + ((frame_interval_ * field_count_) / 600))
+        & 0x1FFFFFFFF;
+      const int64_t pts_diff = pts_difference( presentation_time_stamp,
+                                               expected_presentation_time_stamp );
+      if ( abs( pts_diff ) > 10 ) {
+        throw runtime_error( "unexpected gap in presentation timestamps: " + to_string( pts_diff ) );
+      }
+
+      if ( next_field_is_top != top_field_first ) {
+        throw runtime_error( "frame cadence mismatch" );
+      }
+    }
+
+    /* output the frame */
+    for ( unsigned int field = 0; field < number_of_fields; field++ ) {
+      next_field_is_top = !next_field_is_top;
+    }
+    
+    field_count_ += number_of_fields;
+  }
+};
+
 struct TSPacketRequirements
 {
   TSPacketRequirements( const string_view & packet )
@@ -203,20 +282,17 @@ private:
   unique_ptr<mpeg2dec_t, MPEG2Deleter> decoder_;
 
   vector<uint8_t> mutable_coded_frame_;
-  uint64_t last_presentation_time_stamp_ {};
 
   unsigned int display_width_;
   unsigned int display_height_;
   unsigned int frame_interval_;
-
-  FileDescriptor output_ { 1 }; /* stdout */
 
   static unsigned int macroblock_dimension( const unsigned int num )
   {
     return ( num + 15 ) / 16;
   }
 
-  unsigned int physical_luma_width() const
+    unsigned int physical_luma_width() const
   {
     return macroblock_dimension( display_width_ ) * 16;
   }
@@ -236,6 +312,16 @@ private:
     return (1 + physical_luma_height()) / 2;
   }
 
+  unsigned int display_luma_width() const
+  {
+    return display_width_;
+  }
+  
+  unsigned int display_luma_height() const
+  {
+    return display_height_;
+  }
+  
   unsigned int display_chroma_width() const
   {
     return (1 + display_width_) / 2;
@@ -264,19 +350,19 @@ private:
       throw runtime_error( "chroma height mismatch" );
     }
 
-    if ( sequence->picture_width != display_width_ ) {
+    if ( sequence->picture_width != display_luma_width() ) {
       throw runtime_error( "picture width mismatch" );
     }
 
-    if ( sequence->picture_height != display_height_ ) {
+    if ( sequence->picture_height != display_luma_height() ) {
       throw runtime_error( "picture height mismatch" );
     }
 
-    if ( sequence->display_width != display_width_ ) {
+    if ( sequence->display_width != display_luma_width() ) {
       throw runtime_error( "display width mismatch" );
     }
 
-    if ( sequence->display_height != display_height_ ) {
+    if ( sequence->display_height != display_luma_height() ) {
       throw runtime_error( "display height mismatch" );
     }
 
@@ -291,68 +377,21 @@ private:
   }
 
   void output_picture( const mpeg2_picture_t * pic,
-                       const mpeg2_fbuf_t * display_raster )
+                       const mpeg2_fbuf_t * display_raster,
+                       VideoOutput & output )
   {
     if ( not (pic->flags & PIC_FLAG_TAGS) ) {
       throw runtime_error( "picture without timestamp" );
     }
 
     const uint64_t pts = (uint64_t( pic->tag ) << 32) | (pic->tag2);
-    last_presentation_time_stamp_ = pts;
 
-    string tag;
-    if ( pic->flags & PIC_FLAG_PROGRESSIVE_FRAME ) {
-      if ( pic->nb_fields != 2 ) {
-        throw runtime_error( "unhandled repeated progressive frame" );
-      }
-      tag = "I1pp";
-    } else if ( pic->flags & PIC_FLAG_TOP_FIELD_FIRST ) {
-      switch ( pic->nb_fields ) {
-      case 2:
-        tag = "Itii";
-        break;
-      case 3:
-        tag = "ITii";
-        break;
-      default:
-        throw runtime_error( "unsupported top-field flag combination" );
-      }
-    } else {
-      switch ( pic->nb_fields ) {
-      case 2:
-        tag = "Ibii";
-        break;
-      case 3:
-        tag = "IBii";
-        break;
-      default:
-        throw runtime_error( "unsupported bottom-field flag combination" );
-      }
-    }
-    
-    /* write out y4m */
-    output_.write( "FRAME " + tag + "\n" );
-
-    /* Y */
-    for ( unsigned int row = 0; row < display_height_; row++ ) {
-      string_view the_row( reinterpret_cast<char *>( display_raster->buf[ 0 ] + row * physical_luma_width() ),
-                           display_width_ );
-      output_.write( the_row );
-    }
-
-    /* Cb */
-    for ( unsigned int row = 0; row < display_chroma_height(); row++ ) {
-      string_view the_row( reinterpret_cast<char *>( display_raster->buf[ 1 ] + row * physical_chroma_width() ),
-                           display_chroma_width() );
-      output_.write( the_row );
-    }
-              
-    /* Cr */
-    for ( unsigned int row = 0; row < display_chroma_height(); row++ ) {
-      string_view the_row( reinterpret_cast<char *>( display_raster->buf[ 2 ] + row * physical_chroma_width() ),
-                           display_chroma_width() );
-      output_.write( the_row );
-    }
+    output.write_picture( pts,
+                          pic->nb_fields,
+                          pic->flags & PIC_FLAG_TOP_FIELD_FIRST,
+                          display_raster,
+                          physical_luma_width(),
+                          physical_chroma_width() );
   }
   
 public:
@@ -364,23 +403,7 @@ public:
       display_width_( expected_display_width ),
       display_height_( expected_display_height ),
       frame_interval_( expected_frame_interval )
-  {
-    string pp_interval;
-    switch ( frame_interval_ ) {
-    case 900900:
-      pp_interval = "F30000:1001";
-      break;
-    case 450450:
-      pp_interval = "F60000:1001";
-      break;
-    default:
-      throw runtime_error( "cannot do basic arithmetic with frame_interval of " + to_string( frame_interval_ ) );
-    }
- 
-    output_.write( "YUV4MPEG2 W" + to_string( display_width_ )
-                   + " H" + to_string( display_height_ ) + " " + pp_interval
-                   + " Im A1:1 C420mpeg2\n" );
-  }
+  {}
 
   void tag_presentation_time_stamp( const uint64_t presentation_time_stamp )
   {
@@ -389,7 +412,7 @@ public:
                        presentation_time_stamp & 0xFFFFFFFF );
   }
 
-  void decode_frame( const string & coded_frame )
+  void decode_frame( const string & coded_frame, VideoOutput & output )
   {
     if ( coded_frame.size() > mutable_coded_frame_.size() ) {
       throw runtime_error( "coded frame too big to fit in buffer" );
@@ -432,7 +455,7 @@ public:
           if ( pic ) {
             /* picture ready for display */          
             const mpeg2_fbuf_t * display_raster = notnull( "display_fbuf", decoder_info->display_fbuf );
-            output_picture( pic, display_raster );
+            output_picture( pic, display_raster, output );
           }
         }
         break;
@@ -474,7 +497,7 @@ public:
     }
   }
 
-  void parse( const string_view & packet, MPEG2VideoDecoder & video_decoder )
+  void parse( const string_view & packet, MPEG2VideoDecoder & video_decoder, VideoOutput & output )
   {
     TSPacketHeader header { packet };
 
@@ -490,7 +513,8 @@ public:
         PESPacketHeader pes_header { PES_packet_ };
 
         video_decoder.tag_presentation_time_stamp( pes_header.presentation_time_stamp );
-        video_decoder.decode_frame( PES_packet_.substr( pes_header.payload_start ) );
+        video_decoder.decode_frame( PES_packet_.substr( pes_header.payload_start ),
+                                    output );
 
         PES_packet_.clear();
       }
@@ -519,10 +543,9 @@ int main( int argc, char *argv[] )
   FileDescriptor stdin { 0 };
 
   TSParser parser { pid };
-  MPEG2VideoDecoder mpeg2_decoder_ { expected_width,
-      expected_height,
-      expected_frame_interval };
-
+  MPEG2VideoDecoder video_decoder { expected_width, expected_height, expected_frame_interval };
+  VideoOutput video_output { expected_width, expected_height, expected_frame_interval };
+  
   try {
     while ( true ) {
       /* read chunks of MPEG-2 transport-stream packets in a loop */
@@ -533,7 +556,8 @@ int main( int argc, char *argv[] )
       for ( unsigned packet_no = 0; packet_no < packets_in_chunk; packet_no++ ) {
         parser.parse( chunk_view.substr( packet_no * ts_packet_length,
                                          ts_packet_length ),
-                      mpeg2_decoder_ );
+                      video_decoder,
+                      video_output );
       }
     }
   } catch ( const exception & e ) {
