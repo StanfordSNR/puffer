@@ -22,19 +22,8 @@ install:
   - sudo apt-get update -q
   - sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-7 99
   - sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-7 99
-  # upgrade cmake
-  - CMAKE_VERSION="3.9.5"
-  - wget "https://cmake.org/files/v3.9/cmake-${CMAKE_VERSION}.tar.gz"
-  - tar xf "cmake-${CMAKE_VERSION}.tar.gz"
-  - cd "cmake-${CMAKE_VERSION}"
-  - ./bootstrap --prefix=~
-  - make -j3
-  - make install
-  - export PATH="~/bin:${PATH}"
-  - cd ..
   # verify installed versions
   - g++ -v
-  - cmake --version
 
 script:
   - ./autogen.sh
