@@ -19,13 +19,42 @@ uint64_t BinaryReader::size()
   return fsize;
 }
 
-WebmParser::WebmParser(const string & filename)
-  : br_(filename), elements_()
+shared_ptr<WebmElement> WebmElement::find_first(const uint32_t tag)
 {
-  parse(br_.size());
+  if (tag_ == tag) {
+    return shared_from_this();
+  } else {
+    for (const auto elem : children_ ) {
+      if (elem->tag() == tag) {
+        return elem;
+      }
+    }
+  }
+  return nullptr;
 }
 
-void WebmParser::parse(uint64_t max_pos)
+set<shared_ptr<WebmElement>> WebmElement::find_all(const uint32_t tag)
+{
+  set<shared_ptr<WebmElement>> result;
+  if (tag_ == tag) {
+    result.insert(shared_from_this());
+  } else {
+    for (const auto elem : children_) {
+      for (const auto r : elem->find_all(tag)) {
+        result.insert(r);
+      }
+    }
+  }
+  return result;
+}
+
+WebmParser::WebmParser(const string & filename)
+  : br_(filename)
+{
+  parse(br_.size(), root_);
+}
+
+void WebmParser::parse(uint64_t max_pos, shared_ptr<WebmElement> parent)
 {
   while (br_.pos() < max_pos) {
     const uint32_t tag = scan_tag();
@@ -35,17 +64,17 @@ void WebmParser::parse(uint64_t max_pos)
     uint64_t data_size = scan_data_size();
     if (data_size == static_cast<uint64_t>(-1)) {
       auto elem = make_shared<WebmElement>(tag, "");
-      elements_.emplace_back(elem);
+      parent->add_element(elem);
       continue;
     }
     if (master_elements.find(tag) == master_elements.end()) {
       auto elem = make_shared<WebmElement>(tag, br_.read_bytes(data_size));
-      elements_.emplace_back(elem);
+      parent->add_element(elem);
     } else {
       /* master block */
-      auto elem = make_shared<WebmElement>(tag, "");
-      elements_.emplace_back(elem);
-      parse(br_.pos() + data_size);
+      auto elem = make_shared<WebmElement>(tag, data_size);
+      parent->add_element(elem);
+      parse(br_.pos() + data_size, elem);
     }
   }
 }
@@ -98,37 +127,20 @@ uint64_t WebmParser::scan_data_size()
   return decode_bytes(size, first_byte, mask);
 }
 
-void WebmParser::print()
+shared_ptr<WebmElement> WebmParser::find_first(const uint32_t tag)
 {
-  for (const auto & elem : elements_) {
-    elem->print();
-  }
+  return root_->find_first(tag);
 }
 
-shared_ptr<WebmElement> WebmParser::find_first_elem(uint32_t tag)
-{
-  for (auto & elem : elements_) {
-    if (elem->tag() == tag) {
-      return elem;
-    }
-  }
-  return nullptr;
-}
 
-vector<shared_ptr<WebmElement>> WebmParser::find_all_elem(uint32_t tag)
+set<shared_ptr<WebmElement>> WebmParser::find_all(const uint32_t tag)
 {
-  vector<shared_ptr<WebmElement>> result;
-  for (auto & elem : elements_) {
-    if (elem->tag() == tag) {
-      result.emplace_back(elem);
-    }
-  }
-  return result;
+  return root_->find_all(tag);
 }
 
 uint32_t WebmInfo::get_timescale()
 {
-  auto elm = parser_.find_first_elem(0x002ad7b1);
+  auto elm = parser_.find_first(0x002ad7b1);
   if (elm) {
     uint32_t data_size = elm->size();
     string data = elm->value();
@@ -144,7 +156,7 @@ uint32_t WebmInfo::get_timescale()
 uint32_t WebmInfo::get_bitrate()
 {
   uint32_t total_size = 0;
-  auto elems = parser_.find_all_elem(0x000000a3);
+  auto elems = parser_.find_all(0x000000a3);
   for (const auto & elem : elems) {
     /* ignore the header size, which is much smaller than the actual size */
     total_size += elem->size();
@@ -154,8 +166,8 @@ uint32_t WebmInfo::get_bitrate()
 
 uint32_t WebmInfo::get_duration()
 {
-  /* get duration from cue duration */
-  auto elm = parser_.find_first_elem(0x000000b2);
+  /* get duration from TAG */
+  auto elm = parser_.find_first(0x000000b2);
   if (elm) {
     uint32_t data_size = elm->size();
     string data = elm->value();
@@ -168,7 +180,7 @@ uint32_t WebmInfo::get_duration()
 
 uint32_t WebmInfo::get_sample_rate()
 {
-  auto elm = parser_.find_first_elem(0x000000b5);
+  auto elm = parser_.find_first(0x000000b5);
   if (elm) {
     uint32_t data_size = elm->size();
     string data = elm->value();

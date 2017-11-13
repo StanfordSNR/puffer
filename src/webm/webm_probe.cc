@@ -24,6 +24,7 @@ static map<uint32_t, pair<string, char>> print_map = {
   { 0x000000e3, make_pair("TrackCombinePlanes", 'm') },
   { 0x1254c367, make_pair("Tags", 'm') },
   { 0x00007373, make_pair("Tag", 'm') },
+  { 0x000067c8, make_pair("SimpleTag", 'm') },
   { 0x000045a3, make_pair("TagName", 's') },
   { 0x00004487, make_pair("TagString", 's') },
 };
@@ -34,26 +35,24 @@ void print_usage(const string & name)
        << "<filename>       webm file that contains an audio track" << endl;
 }
 
-int main(int argc, char * argv[])
+void print(shared_ptr<WebmElement> element, uint32_t indent = 0)
 {
-  if (argc != 2) {
-    print_usage(argv[0]);
-    return EXIT_FAILURE;
-  }
-  auto p = make_unique<WebmParser>(string(argv[1]));
-  for (const auto & elem : p->get_elements()) {
+  for (const auto & elem : element->get_children()) {
     uint32_t tag = elem->tag();
+    uint64_t size = elem->size();
+    string indent_str = string(indent, ' ');
     if (print_map.find(tag) == print_map.end()) {
-      elem->print();
+      cout << indent_str << "Tag: 0x" << hex << tag << " Size: 0x:"
+           << size << endl;
     } else {
       auto info = print_map[tag];
       string name = info.first;
       char type = info.second;
-      uint64_t size = elem->size();
       string data = elem->value();
       switch (type) {
         case 'm':
-          cout << "Tag: " << name << endl;
+          cout << indent_str << "Tag: " << name << endl;
+          print(elem, indent + 2);
           break;
         case 'f':
           {
@@ -63,22 +62,38 @@ int main(int argc, char * argv[])
             } else {
               value = read_raw<double>(data, size, true);
             }
-            cout << "Tag: " << name << " Value: " << value << endl;
+            cout << indent_str << "Tag: " << name << " Value: " << value
+                 << endl;
           }
           break;
         case 'u':
           {
             uint64_t value = read_raw<uint64_t>(data, size, true);
-            cout << "Tag: " << name << " Value: " << dec << value << endl;
+            cout << indent_str << "Tag: " << name << " Value: "
+                 << value << endl;
           }
           break;
         case 's':
-          cout << "Tag: " << name << " Value: " << data << endl;
-          break;
+          {
+            string s = string(data);
+            cout << indent_str << "Tag: " << name << " Value: " << s << endl;
+          }
         default:
           break;
       }
     }
+  }
+}
+
+int main(int argc, char * argv[])
+{
+  if (argc != 2) {
+    print_usage(argv[0]);
+    return EXIT_FAILURE;
+  }
+  auto p = make_unique<WebmParser>(string(argv[1]));
+  for (const auto & elem : p->get_all()) {
+    print(elem);
   }
   return EXIT_SUCCESS;
 }

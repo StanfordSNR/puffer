@@ -46,7 +46,7 @@ private:
   }
 };
 
-class WebmElement
+class WebmElement : public std::enable_shared_from_this<WebmElement>
 {
 public:
   WebmElement(uint32_t tag, std::string value)
@@ -61,6 +61,9 @@ public:
             : tag_(tag), size_(size), value_()
   {}
 
+  WebmElement() : WebmElement(0, "")
+  {}
+
   void print()
   {
     std::cout << "Tag: 0x" << std::hex << tag_ << " Size: 0x" << size()
@@ -70,31 +73,37 @@ public:
   uint32_t tag() { return tag_; }
   uint64_t size() { return size_; }
   std::string value() { return value_; }
+  std::set<std::shared_ptr<WebmElement>> get_children() { return children_; }
+  void add_element(std::shared_ptr<WebmElement> elem)
+  { children_.insert(elem); }
+
+  std::shared_ptr<WebmElement> find_first(const uint32_t tag);
+  std::set<std::shared_ptr<WebmElement>> find_all(const uint32_t tag);
 
 protected:
   uint32_t tag_;
   uint64_t size_;
   std::string value_;
+  std::set<std::shared_ptr<WebmElement>> children_ = { };
 };
 
 class WebmParser
 {
 public:
   WebmParser(const std::string & filename);
-  std::shared_ptr<WebmElement> find_first_elem(uint32_t tag);
-  std::vector<std::shared_ptr<WebmElement>> find_all_elem(uint32_t tag);
-  void print();
-  std::vector<std::shared_ptr<WebmElement>> get_elements()
-  { return elements_; }
+  std::shared_ptr<WebmElement> find_first(uint32_t tag);
+  std::set<std::shared_ptr<WebmElement>> find_all(uint32_t tag);
+  std::set<std::shared_ptr<WebmElement>> get_all()
+  { return root_->get_children(); }
 
 private:
   BinaryReader br_;
-  std::vector<std::shared_ptr<WebmElement>> elements_;
+  std::shared_ptr<WebmElement> root_ = std::make_shared<WebmElement>();
 
   uint64_t scan_tag();
   uint64_t decode_bytes(uint32_t tag_size, uint8_t first, uint8_t first_mask);
   uint64_t scan_data_size();
-  void parse(uint64_t max_pos);
+  void parse(uint64_t max_pos, std::shared_ptr<WebmElement> parent);
 };
 
 const std::set<uint32_t> master_elements {
