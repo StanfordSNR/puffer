@@ -61,7 +61,8 @@ public:
             : tag_(tag), size_(size), value_()
   {}
 
-  WebmElement() : WebmElement(0, "")
+  WebmElement()
+    : WebmElement(0, "")
   {}
 
   void print()
