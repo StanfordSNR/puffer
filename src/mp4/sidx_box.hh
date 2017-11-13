@@ -1,6 +1,9 @@
 #ifndef SIDX_BOX_HH
 #define SIDX_BOX_HH
 
+#include <string>
+#include <vector>
+
 #include "box.hh"
 
 namespace MP4 {
@@ -53,6 +56,6 @@ private:
   std::vector<SidxReference> reference_list_;
 };
 
-}
+} /* namespace MP4 */
 
 #endif /* SIDX_BOX_HH */

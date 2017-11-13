@@ -92,7 +92,7 @@ void TkhdBox::write_box(MP4File & mp4)
   if (version() == 1) {
     mp4.write_uint64(creation_time_);
     mp4.write_uint64(modification_time_);
-    mp4.write_uint32(track_id_ );
+    mp4.write_uint32(track_id_);
     mp4.write_zeros(4); /* reserved */
     mp4.write_uint64(duration_);
   } else {

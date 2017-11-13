@@ -1,6 +1,9 @@
 #ifndef MVHD_BOX_HH
 #define MVHD_BOX_HH
 
+#include <string>
+#include <vector>
+
 #include "box.hh"
 
 namespace MP4 {
@@ -51,6 +54,6 @@ private:
   };
 };
 
-}
+} /* namespace MP4 */
 
 #endif /* MVHD_BOX_HH */

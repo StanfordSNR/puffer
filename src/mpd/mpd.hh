@@ -14,9 +14,10 @@ class XMLNode
 public:
   const std::string tag_;
   bool hasContent;
-  XMLNode(const std::string tag, bool hasContent): tag_(tag), hasContent(hasContent)
-    { }
-  XMLNode(const std::string tag): XMLNode(tag, false) { }
+  XMLNode(const std::string tag, bool hasContent)
+    : tag_(tag), hasContent(hasContent) {}
+  XMLNode(const std::string tag)
+    : XMLNode(tag, false) {}
 };
 
 // based on
@@ -58,14 +59,15 @@ public:
 
 
 namespace MPD {
-enum class MimeType{
+
+enum class MimeType {
     Video,
     Audio_OPUS,
     Audio_HE_AAC,
     Audio_AAC_LC,
     Audio_MP3
 };
-const static uint8_t AvailableProfile[] {66, 88, 77, 100, 110, 122, 244, 44,
+const uint8_t AvailableProfile[] {66, 88, 77, 100, 110, 122, 244, 44,
   83, 86, 128, 118, 138 };
 
 struct Representation {
@@ -77,7 +79,7 @@ struct Representation {
   uint32_t start_number;
 
   Representation(std::string id, unsigned int bitrate, MimeType type,
-      uint32_t timescale, uint32_t duration, uint32_t start_number)
+                 uint32_t timescale, uint32_t duration, uint32_t start_number)
     : id(id), bitrate(bitrate), type(type), timescale(timescale),
       duration(duration), start_number(start_number)
   {}
@@ -97,8 +99,9 @@ struct VideoRepresentation : public Representation {
       unsigned int bitrate, uint8_t profile, unsigned int avc_level,
       float framerate, uint32_t timescale, uint32_t duration,
       uint32_t start_number)
-    : Representation(id, bitrate, MimeType::Video, timescale, duration,
-      start_number), width(width), height(height), profile(profile),
+    : Representation(id, bitrate, MimeType::Video,
+                     timescale, duration, start_number),
+      width(width), height(height), profile(profile),
       avc_level(avc_level), framerate(framerate)
   {
     if (std::find(std::begin(AvailableProfile), std::end(AvailableProfile),
@@ -129,7 +132,8 @@ inline bool operator<(const Representation & a, const Representation & b)
   return a.id < b.id;
 }
 
-class AdaptionSet {
+class AdaptionSet
+{
 public:
   uint32_t id() const { return id_; }
   std::string init_uri() { return init_uri_; }
@@ -165,7 +169,8 @@ private:
   uint32_t timescale_ = 0;
 };
 
-class AudioAdaptionSet : public AdaptionSet {
+class AudioAdaptionSet : public AdaptionSet
+{
 public:
   void add_repr(std::shared_ptr<AudioRepresentation> repr);
 
@@ -181,7 +186,8 @@ private:
   std::set<std::shared_ptr<AudioRepresentation>> repr_set_;
 };
 
-class VideoAdaptionSet : public AdaptionSet {
+class VideoAdaptionSet : public AdaptionSet
+{
 public:
   float framerate() { return framerate_; }
   void set_framerate(float framerate) { framerate_ = framerate; }
@@ -205,13 +211,14 @@ inline bool operator<(const AdaptionSet & a, const AdaptionSet & b)
 {
   return a.id() < b.id();
 }
-}
+
+} /* namespace MPD */
 
 class MPDWriter
 {
 public:
   MPDWriter(uint32_t medua_duration, uint32_t min_buffer_time,
-      std::string base_url);
+            std::string base_url);
   ~MPDWriter();
   std::string flush();
   void add_video_adaption_set(std::shared_ptr<MPD::VideoAdaptionSet> set);

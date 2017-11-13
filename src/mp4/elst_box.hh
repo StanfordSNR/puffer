@@ -1,6 +1,9 @@
 #ifndef ELST_BOX_HH
 #define ELST_BOX_HH
 
+#include <string>
+#include <vector>
+
 #include "box.hh"
 
 namespace MP4 {
@@ -35,6 +38,6 @@ private:
   std::vector<Edit> edit_list_;
 };
 
-}
+} /* namespace MP4 */
 
 #endif /* ELST_BOX_HH */

@@ -113,8 +113,8 @@ float MP4Info::get_fps(
     /* no divided by 0 */
     return 0;
   } else {
-    return ((float)trun_box->sample_count() * timescale * frame_count)
-      / duration;
+    return static_cast<float>(trun_box->sample_count()) * timescale *
+           frame_count / duration;
   }
 }
 
@@ -146,7 +146,7 @@ uint32_t MP4Info::get_bitrate(uint32_t timescale, uint32_t duration)
   if (timescale == 0) {
     return 0;
   }
-  float s_duration =  duration / (float)timescale; /* in seconds */
+  float s_duration =  static_cast<float>(duration) / timescale; /* seconds */
   if (s_duration == 0) {
     return 0;
   } else {

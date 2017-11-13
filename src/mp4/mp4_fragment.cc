@@ -1,10 +1,10 @@
+#include <getopt.h>
+#include <cstdint>
+#include <cassert>
 #include <iostream>
 #include <string>
 #include <memory>
 #include <vector>
-#include <cstdint>
-#include <cassert>
-#include <getopt.h>
 
 #include "strict_conversions.hh"
 #include "path.hh"
@@ -25,7 +25,6 @@
 #include "ctts_box.hh"
 #include "stts_box.hh"
 #include "stsc_box.hh"
-#include "stsz_box.hh"
 #include "stco_box.hh"
 #include "trun_box.hh"
 
@@ -96,14 +95,14 @@ void create_moov_box(MP4Parser & mp4_parser, MP4File & output_mp4)
 
   /* create mvex box */
   auto trex_box = make_shared<TrexBox>(
-      "trex", // type
-      0,      // version
-      0,      // flags,
-      1,      // track_id
-      1,      // default_sample_description_index
-      0,      // default_sample_duration
-      0,      // default_sample_size
-      0       // default_sample_flags
+      "trex",  // type
+      0,       // version
+      0,       // flags,
+      1,       // track_id
+      1,       // default_sample_description_index
+      0,       // default_sample_duration
+      0,       // default_sample_size
+      0        // default_sample_flags
   );
   auto mvex_box = make_shared<Box>("mvex");
   mvex_box->add_child(move(trex_box));
@@ -123,10 +122,10 @@ void create_init_segment(MP4Parser & mp4_parser, MP4File & output_mp4)
 void create_styp_box(MP4File & output_mp4)
 {
   auto styp_box = make_shared<FtypBox>(
-      "styp", // type
-      "msdh", // major_brand
-      0,      // minor_version
-      vector<string>{"msdh", "msix"} // compatible_brands
+      "styp",  // type
+      "msdh",  // major_brand
+      0,       // minor_version
+      vector<string>{"msdh", "msix"}  // compatible_brands
   );
 
   styp_box->write_box(output_mp4);
@@ -141,14 +140,14 @@ unsigned int create_sidx_box(MP4Parser & mp4_parser, MP4File & output_mp4,
   uint32_t duration = narrow_cast<uint32_t>(mdhd_box->duration());
   uint64_t earlist_presentation_time = sequence_number * duration;
   auto sidx_box = make_shared<SidxBox>(
-      "sidx",    // type
-      1,         // version
-      0,         // flags
-      1,         // reference_id
-      timescale, // timescale
-      earlist_presentation_time, // earlist_presentation_time
-      0,         // first_offset
-      vector<SidxBox::SidxReference>{ // reference_list
+      "sidx",     // type
+      1,          // version
+      0,          // flags
+      1,          // reference_id
+      timescale,  // timescale
+      earlist_presentation_time,  // earlist_presentation_time
+      0,          // first_offset
+      vector<SidxBox::SidxReference>{  // reference_list
         {false, 0 /* referenced_size, will be filled in later */,
          duration /* subsegment_duration */, true, 4, 0}
       }
@@ -229,12 +228,14 @@ vector<TrunBox::Sample> create_samples(MP4Parser & mp4_parser,
   uint32_t sample_cnt = check_sample_count(size_cnt, duration_cnt, offset_cnt);
 
   for (unsigned int i = 0; i < sample_cnt; ++i) {
-    samples.emplace_back(TrunBox::Sample{
-        duration_cnt ? duration_entries[i] : 0, // sample_duration
-        size_cnt ? size_entries[i] : 0,     // sample_size
-        0,                                  // sample_flags (not present)
-        offset_cnt ? offset_entries[i] : 0, // sample_composition_time_offset
-    });
+    samples.emplace_back(
+      TrunBox::Sample{
+        duration_cnt ? duration_entries[i] : 0,  // sample_duration
+        size_cnt ? size_entries[i] : 0,      // sample_size
+        0,                                   // sample_flags (not present)
+        offset_cnt ? offset_entries[i] : 0,  // sample_composition_time_offset
+      }
+    );
   }
 
   return samples;
@@ -328,11 +329,11 @@ void create_moof_box(MP4Parser & mp4_parser, MP4File & output_mp4,
   vector<TrunBox::Sample> samples = create_samples(mp4_parser, trun_flags);
 
   auto trun_box = make_shared<TrunBox>(
-      "trun",        // type
-      0,             // version
-      trun_flags,    // flags
-      move(samples), // samples
-      0,             // data_offset, will be filled in once moof is created
+      "trun",         // type
+      0,              // version
+      trun_flags,     // flags
+      move(samples),  // samples
+      0,              // data_offset, will be filled in once moof is created
       first_sample_flags
   );
 

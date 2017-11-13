@@ -1,7 +1,10 @@
 #ifndef STSD_BOX_HH
 #define STSD_BOX_HH
 
+#include <string>
+#include <vector>
 #include <set>
+#include <memory>
 
 #include "box.hh"
 
@@ -155,6 +158,6 @@ private:
   std::shared_ptr<EsdsBox> esds_box_;
 };
 
-}
+} /* namespace MP4 */
 
 #endif /* STSD_BOX_HH */

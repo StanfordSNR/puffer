@@ -1,9 +1,10 @@
+#include <getopt.h>
+#include <fcntl.h>
+
 #include <iostream>
 #include <memory>
 #include <string>
 #include <utility>
-#include <getopt.h>
-#include <fcntl.h>
 
 #include "path.hh"
 #include "system_runner.hh"

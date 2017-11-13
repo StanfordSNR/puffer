@@ -1,11 +1,10 @@
 #ifndef BOX_HH
 #define BOX_HH
 
+#include <cstdint>
 #include <string>
-#include <vector>
 #include <list>
 #include <memory>
-#include <cstdint>
 
 #include "mp4_file.hh"
 
@@ -95,6 +94,6 @@ private:
   uint32_t flags_;
 };
 
-}
+} /* namespace MP4 */
 
 #endif /* BOX_HH */

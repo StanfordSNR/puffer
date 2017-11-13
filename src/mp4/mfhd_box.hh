@@ -1,6 +1,8 @@
 #ifndef MFHD_BOX_HH
 #define MFHD_BOX_HH
 
+#include <string>
+
 #include "box.hh"
 
 namespace MP4 {
@@ -26,6 +28,6 @@ private:
   uint32_t sequence_number_;
 };
 
-}
+} /* namespace MP4 */
 
 #endif /* MFHD_BOX_HH */

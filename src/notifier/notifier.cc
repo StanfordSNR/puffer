@@ -1,7 +1,7 @@
-#include <stdexcept>
 #include <sys/inotify.h>
 #include <limits.h>
 #include <unistd.h>
+#include <stdexcept>
 
 #include "exception.hh"
 #include "notifier.hh"
@@ -26,7 +26,8 @@ int Notifier::add_watch(const string & path,
                         const uint32_t mask,
                         const callback_t & callback)
 {
-  int wd = CheckSystemCall("inotify_add_watch",
+  int wd = CheckSystemCall(
+             "inotify_add_watch",
              inotify_add_watch(inotify_fd_.fd_num(), path.c_str(), mask));
 
   /* insert a new key-value pair or update the current value */

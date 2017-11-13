@@ -1,4 +1,6 @@
 #include "mpd.hh"
+
+#include <time.h>
 #include <sstream>
 #include <stack>
 #include <set>
@@ -9,16 +11,15 @@
 #include <string>
 #include <limits>
 #include <cmath>
-#include <time.h>
 
 using std::string;
 using std::runtime_error;
 using std::endl;
 using std::shared_ptr;
 
-XMLWriter::XMLWriter():
-  tag_open_(false), newline_( true), os_(std::ostringstream()),
-  elt_stack_(std::stack<XMLNode>())
+XMLWriter::XMLWriter()
+  : tag_open_(false), newline_(true), os_(std::ostringstream()),
+    elt_stack_(std::stack<XMLNode>())
 {
   os_ << (xml_header) << endl;
 }
@@ -42,8 +43,9 @@ void XMLWriter::open_elt(const string & tag)
 
 void XMLWriter::close_elt()
 {
-  if (not elt_stack_.size())
+  if (not elt_stack_.size()) {
     throw std::runtime_error("XMLWriter is in an incorrect state.");
+  }
   XMLNode node = elt_stack_.top();
   elt_stack_.pop();
   if (not node.hasContent) {
@@ -112,8 +114,9 @@ inline void XMLWriter::close_tag()
 
 inline void XMLWriter::indent()
 {
-  for (unsigned int i = 0; i < elt_stack_.size(); i++)
+  for (unsigned int i = 0; i < elt_stack_.size(); i++) {
     os_ << xml_indent;
+  }
 }
 
 inline void XMLWriter::write_escape(const string & str)
@@ -181,27 +184,27 @@ MPD::VideoAdaptionSet::get_repr()
 void MPD::AdaptionSet::check_data(shared_ptr<Representation> repr)
 {
   if (duration() == 0) {
-   /* fisrt repr */
-   set_duration(repr->duration);
+    /* fisrt repr */
+    set_duration(repr->duration);
   } else if (duration() != repr->duration) {
     /* duration mismatch */
-    throw runtime_error("representation duration does not match with \
-the adaption set");
+    throw runtime_error("representation duration does not match with "
+                        "the adaption set");
   }
 
-  if(timescale() == 0) {
+  if (timescale() == 0) {
      set_timescale(repr->timescale);
   } else if (timescale() != repr->timescale) {
     /* timescale mismatch */
-    throw runtime_error("representation timescale does not math with the \
-adaption set");
+    throw runtime_error("representation timescale does not math with the "
+                        "adaption set");
   }
 
   if (size() == 0) {
     start_number_ = repr->start_number;
   } else if (start_number() != repr->start_number) {
-    throw runtime_error("representation start number does not math with the\
-adaption set");
+    throw runtime_error("representation start number does not math with the "
+                        "adaption set");
   }
 }
 
@@ -218,9 +221,9 @@ void MPD::VideoAdaptionSet::add_repr(shared_ptr<VideoRepresentation> repr)
 }
 
 MPDWriter::MPDWriter(uint32_t media_duration, uint32_t min_buffer_time,
-    string base_url)
+                     string base_url)
   : media_duration_(media_duration), min_buffer_time_(min_buffer_time),
-    publish_time_(std::time(NULL)), writer_(std::make_unique<XMLWriter>()),
+    publish_time_(std::time(nullptr)), writer_(std::make_unique<XMLWriter>()),
     base_url_(base_url), video_adaption_set_(), audio_adaption_set_()
 {}
 
@@ -230,7 +233,7 @@ MPDWriter::~MPDWriter()
 string MPDWriter::format_time(const time_t time)
 {
   char buf[42];
-  tm * now_tm= gmtime(&time);
+  tm * now_tm = gmtime(&time);
   strftime(buf, sizeof buf, "%Y-%m-%dT%H:%M:%SZ", now_tm);
   return buf;
 }
@@ -297,7 +300,7 @@ void MPDWriter::write_framerate(const float & framerate)
     writer_->attr("frameRate", 60);
   } else {
     throw std::runtime_error("Unsupported frame rate " +
-        std::to_string(framerate));
+                             std::to_string(framerate));
   }
 }
 
@@ -322,7 +325,7 @@ void MPDWriter::write_audio_repr(shared_ptr<MPD::AudioRepresentation> repr)
   writer_->open_elt("Representation");
   writer_->attr("id", repr->id);
   writer_->attr("mimeType", repr->type != MPD::MimeType::Audio_OPUS?
-      "audio/mp4": "audio/webm");
+                "audio/mp4": "audio/webm");
   string codec = write_audio_codec(repr);
   writer_->attr("codecs", codec);
   writer_->attr("audioSamplingRate", repr->sampling_rate);
@@ -446,13 +449,13 @@ string MPDWriter::flush()
   writer_->open_elt("MPD");
   /* MPD scheme */
   writer_->attr("xmlns:xsi",
-      "http://www.w3.org/2001/XMLSchema-instance");
+                "http://www.w3.org/2001/XMLSchema-instance");
   writer_->attr("xmlns", "urn:mpeg:dash:schema:mpd:2011");
   writer_->attr("xmlns:xlink", "http://www.w3.org/1999/xlink");
   writer_->attr("xsi:schemaLocation",
-      "urn:mpeg:DASH:schema:MPD:2011 \
-http://standards.iso.org/ittf/PubliclyAvailableStandards/\
-MPEG-DASH_schema_files/DASH-MPD.xsd");
+                "urn:mpeg:DASH:schema:MPD:2011 "
+                "http://standards.iso.org/ittf/PubliclyAvailableStandards/"
+                "MPEG-DASH_schema_files/DASH-MPD.xsd");
   writer_->attr("publishTime", format_time(publish_time_));
   writer_->attr("profiles", "urn:mpeg:dash:profile:isoff-live:2011");
   writer_->attr("type", "static");
@@ -469,11 +472,11 @@ MPEG-DASH_schema_files/DASH-MPD.xsd");
   writer_->open_elt("Period");
   writer_->attr("id", "1");
   /* Adaption Set */
-  for (const auto & it: video_adaption_set_) {
+  for (const auto & it : video_adaption_set_) {
     write_video_adaption_set(it);
   }
 
-  for (const auto & it: audio_adaption_set_) {
+  for (const auto & it : audio_adaption_set_) {
     write_audio_adaption_set(it);
   }
 

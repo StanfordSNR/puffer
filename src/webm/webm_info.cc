@@ -27,7 +27,7 @@ WebmParser::WebmParser(const string & filename)
 
 void WebmParser::parse(uint64_t max_pos)
 {
-  while (br_.pos() < max_pos ) {
+  while (br_.pos() < max_pos) {
     const uint32_t tag = scan_tag();
     if (tag == 0) {
       return; /* terminate */
@@ -38,8 +38,7 @@ void WebmParser::parse(uint64_t max_pos)
       elements_.emplace_back(elem);
       continue;
     }
-    if (find(begin(master_elements), end(master_elements), tag)
-        == end(master_elements)) {
+    if (master_elements.find(tag) == master_elements.end()) {
       auto elem = make_shared<WebmElement>(tag, br_.read_bytes(data_size));
       elements_.emplace_back(elem);
     } else {
@@ -73,7 +72,7 @@ uint64_t WebmParser::scan_tag()
 }
 
 uint64_t WebmParser::decode_bytes(uint32_t tag_size, uint8_t first,
-                                uint8_t first_mask)
+                                  uint8_t first_mask)
 {
   uint64_t value = first & first_mask;
   for (uint32_t i = 0; i < tag_size; i++) {

@@ -1,9 +1,9 @@
 #ifndef NOTIFIER_HH
 #define NOTIFIER_HH
 
+#include <cstdint>
 #include <vector>
 #include <string>
-#include <cstdint>
 #include <unordered_map>
 #include <functional>
 #include <tuple>
@@ -16,7 +16,7 @@ class Notifier
 public:
   /* callback function type; args: inotify event and path */
   using callback_t = std::function<void(const inotify_event &,
-                                   const std::string &)>;
+                                        const std::string &)>;
 
   Notifier();
 

@@ -102,13 +102,13 @@ void TfhdBox::write_box(MP4File & mp4)
     mp4.write_uint32(sample_description_index_);
   }
   if (flags() & default_sample_duration_present) {
-    mp4.write_uint32(default_sample_duration_ );
+    mp4.write_uint32(default_sample_duration_);
   }
   if (flags() & default_sample_size_present) {
-    mp4.write_uint32(default_sample_size_ );
+    mp4.write_uint32(default_sample_size_);
   }
   if (flags() & default_sample_flags_present) {
-    mp4.write_uint32(default_sample_flags_ );
+    mp4.write_uint32(default_sample_flags_);
   }
 
   fix_size_at(mp4, size_offset);

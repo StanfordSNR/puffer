@@ -1,6 +1,7 @@
 #ifndef TRUN_BOX_HH
 #define TRUN_BOX_HH
 
+#include <string>
 #include <vector>
 
 #include "box.hh"
@@ -61,6 +62,6 @@ private:
   uint32_t first_sample_flags_ = 0;
 };
 
-}
+} /* namespace MP4 */
 
 #endif /* TRUN_BOX_HH */

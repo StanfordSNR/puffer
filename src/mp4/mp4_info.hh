@@ -1,6 +1,10 @@
 #ifndef MP4_INFO_HH
 #define MP4_INFO_HH
 
+#include <utility>
+#include <tuple>
+#include <memory>
+
 #include "mp4_parser.hh"
 
 namespace MP4 {
@@ -15,7 +19,7 @@ public:
   std::tuple<uint8_t, uint8_t> get_avc_profile_level();
   float get_fps(uint16_t frame_count = 1);
   float get_fps(uint32_t timescale, uint32_t duration,
-      uint16_t frame_count = 1);
+                uint16_t frame_count = 1);
   uint16_t get_frame_per_sample();
   uint32_t get_bitrate();
   uint32_t get_bitrate(uint32_t timescale, uint32_t duration);
@@ -28,6 +32,6 @@ private:
   std::shared_ptr<MP4Parser> parser_;
 };
 
-}
+} /* namespace MP4 */
 
 #endif /* MP4_INFO_HH */

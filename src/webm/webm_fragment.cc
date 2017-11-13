@@ -1,12 +1,12 @@
+#include <getopt.h>
+#include <fcntl.h>
+#include <cstring>
 #include <iostream>
 #include <string>
-#include <cstring>
 #include <vector>
 #include <utility>
 #include <memory>
 #include <stdexcept>
-#include <getopt.h>
-#include <fcntl.h>
 
 #include "path.hh"
 #include "tokenize.hh"
@@ -80,7 +80,7 @@ void create_init_segment(mkvmuxer::MkvWriter * writer,
   /* simply copy Tracks element */
   long long tracks_start = parser_tracks->m_element_start;
   long tracks_size = narrow_cast<long>(parser_tracks->m_element_size);
-  auto tracks_buffer = make_unique<unsigned char []>(tracks_size);
+  auto tracks_buffer = make_unique<unsigned char[]>(tracks_size);
 
   if (reader->Read(tracks_start, tracks_size, tracks_buffer.get())) {
     throw runtime_error("failed to read (copy) Tracks element");
@@ -219,7 +219,7 @@ void create_media_segment(
   }
 
   /* copy all SimpleBlocks */
-  auto cluster_buffer = make_unique<unsigned char []>(copy_size);
+  auto cluster_buffer = make_unique<unsigned char[]>(copy_size);
 
   if (reader->Read(first_block_start, copy_size, cluster_buffer.get())) {
     throw runtime_error("failed to read (copy) Cluster element");
