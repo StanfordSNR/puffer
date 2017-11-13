@@ -1,0 +1,56 @@
+#!/usr/bin/env python
+
+import os
+from os import path
+import sys
+import time
+import shutil
+from test_helpers import (check_call, Popen, create_tmp_and_move_to,
+                          timeout, touch, make_sure_path_exists)
+
+
+@timeout(1)
+def check_file_existence(file_to_check):
+    # busy wait for at most 1 seconds
+    while True:
+        if path.isfile(file_to_check):
+            return True
+        time.sleep(0.1)
+
+
+def main():
+    abs_srcdir = os.environ['abs_srcdir']
+
+    abs_builddir = os.environ['abs_builddir']
+    test_tmpdir = path.join(abs_builddir, 'test_tmpdir')
+
+    notifier_srcdir = path.join(test_tmpdir, 'notifier_good_srcdir')
+    notifier_dstdir = path.join(test_tmpdir, 'notifier_good_dstdir')
+
+    for directory in [notifier_srcdir, notifier_dstdir]:
+        make_sure_path_exists(directory)
+
+    run_notifier = path.abspath(
+        path.join(abs_builddir, os.pardir, 'notifier', 'run_notifier'))
+
+    # create pre-existing files before running notifier
+    existing_test_file = create_tmp_and_move_to(notifier_srcdir)
+
+    # run a notifier that will call the "good" program
+    good_prog = path.join(abs_srcdir, 'notified_good_prog.sh')
+    cmd = [run_notifier, notifier_srcdir, notifier_dstdir, good_prog]
+    notifier_proc = Popen(cmd)
+
+    # expect pre-existing files to be processed (copied)
+    check_file_existence(path.join(notifier_dstdir, existing_test_file))
+
+    # create and move a tmp file; expect it to be processed (copied)
+    tmp_filename = create_tmp_and_move_to(notifier_srcdir)
+    check_file_existence(path.join(notifier_dstdir, tmp_filename))
+
+    if notifier_proc:
+        notifier_proc.kill()
+
+
+if __name__ == '__main__':
+    main()
