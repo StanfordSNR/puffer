@@ -26,19 +26,13 @@ void print_usage(const string & program_name)
   << endl;
 }
 
-
-bool do_run_program(const string & program,
-                    const string & src_file, const string & dst_dir)
+void run_program(const string & program,
+                 const string & src_file, const string & dst_dir)
 {
   vector<string> args{program, src_file, dst_dir};
   cerr << "$ " << command_str(args, {}) << endl;
 
-  try {
-    run(program, args, {}, true, true);
-  } catch (const exception & e) {
-    print_exception(program.c_str(), e);
-    return false;
-  }
+  run(program, args, {}, true, true);
 
   /* check if program wrote to dst_dir correctly */
   string src_filename = roost::rbasename(src_file).string();
@@ -46,22 +40,16 @@ bool do_run_program(const string & program,
 
   vector<string> dst_filenames = roost::get_directory_listing(dst_dir);
 
+  bool success = false;
   for (const string & dst_filename : dst_filenames) {
     if (src_filename_prefix == split_filename(dst_filename).first) {
-      return true;
+      success = true;
+      break;
     }
   }
 
-  return false;
-}
-
-void run_program(const string & program,
-                 const string & src_file, const string & dst_dir)
-{
-  if (do_run_program(program, src_file, dst_dir)) {
-    cerr << program << " succeeded" << endl;
-  } else {
-    cerr << program << " failed" << endl;
+  if (not success) {
+    throw runtime_error("program didn't write correct file to dst dir");
   }
 }
 
@@ -101,6 +89,10 @@ int main(int argc, char * argv[])
   }
 
   string src_dir{argv[1]}, dst_dir{argv[2]}, program{argv[3]};
+
+  /* convert src & dst dir to absolute paths as they'll be passed to program */
+  src_dir = roost::canonical(src_dir).string();
+  dst_dir = roost::canonical(dst_dir).string();
 
   Notifier notifier;
 
