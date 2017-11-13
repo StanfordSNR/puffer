@@ -112,7 +112,10 @@ const std::set<uint32_t> master_elements {
     0x000000E9,     // TrackJoinBlocks
     0x1C53BB6B,     // Cues
     0x000000BB,     // CuePoint
-    0x000000B7      // CueTrackPositions
+    0x000000B7,     // CueTrackPositions
+    0x1254c367,     // Tags
+    0x00007373,     // Tag
+    0x000067c8,     // SimpleTag
 };
 
 
