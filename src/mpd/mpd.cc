@@ -233,8 +233,9 @@ MPDWriter::~MPDWriter()
 string MPDWriter::format_time(const time_t time)
 {
   char buf[42];
-  tm * now_tm = gmtime(&time);
-  strftime(buf, sizeof buf, "%Y-%m-%dT%H:%M:%SZ", now_tm);
+  tm now_tm;
+  gmtime_r(&time, &now_tm);
+  strftime(buf, sizeof buf, "%Y-%m-%dT%H:%M:%SZ", &now_tm);
   return buf;
 }
 

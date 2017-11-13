@@ -24,7 +24,7 @@ shared_ptr<WebmElement> WebmElement::find_first(const uint32_t tag)
   if (tag_ == tag) {
     return shared_from_this();
   } else {
-    for (const auto elem : children_ ) {
+    for (const auto elem : children_) {
       auto result = elem->find_first(tag);
       if (result) {
         return result;

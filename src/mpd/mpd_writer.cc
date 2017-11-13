@@ -18,19 +18,6 @@ using namespace std;
 using namespace MPD;
 using namespace MP4;
 
-const char *optstring = "u:b:i:e:a:v:o:p:";
-const struct option options[] = {
-  {"url", required_argument, NULL, 'u'},
-  {"buffer-time", required_argument, NULL, 'b'},
-  {"audio-name", required_argument, NULL, 'i'},
-  {"video-name", required_argument, NULL, 'e'},
-  {"audio-init-name", required_argument, NULL, 'a'},
-  {"video-init-name", required_argument, NULL, 'v'},
-  {"output", required_argument, NULL, 'o'},
-  {"publish-time", required_argument, NULL, 'p'},
-  {NULL, 0, NULL, 0},
-};
-
 const char default_base_uri[] = "/";
 const char default_audio_uri[] = "$RepresentationID$/$Number$.chk";
 const char default_video_uri[] = "$RepresentationID$/$Number$.m4s";
@@ -49,14 +36,17 @@ void print_usage(const string & program_name)
 {
   cerr
   << "Usage: " << program_name << " [options] <seg> <seg> ...\n\n"
-  << "<seg>                        Path to video/audio segments. If not exists, program will exist without outputing mpd.\n"
-  << "-u --url <base_url>          Set the base url for all media segments.\n"
-  << "-b --buffer-time <time>      Set the minimum buffer time in seconds.\n"
-  << "-s --segment-name <name>     Set the segment name template.\n"
-  << "-a --audio-init-name <name>  Set the audio initial segment name.\n"
-  << "-v --video-init-name <name>  Set the video initial segment name.\n"
-  << "-p --publish-time <time>     Set the publish time to <time> in unix timestamp\n"
-  << "-o --output <path.mpd>       Output mpd info to <path.mpd>. stdout will be used if not specified\n"
+  "<seg>                        Path to video/audio segments. If not exists,"
+  "                             program will exist without outputing mpd.\n"
+  "-u --url <base_url>          Set the base url for all media segments.\n"
+  "-b --buffer-time <time>      Set the minimum buffer time in seconds.\n"
+  "-s --segment-name <name>     Set the segment name template.\n"
+  "-a --audio-init-name <name>  Set the audio initial segment name.\n"
+  "-v --video-init-name <name>  Set the video initial segment name.\n"
+  "-p --publish-time <time>     Set the publish time to <time> in unix"
+  "                             timestamp\n"
+  "-o --output <path.mpd>       Output mpd info to <path.mpd>."
+  "                             stdout will be used if not specified\n"
   << endl;
 }
 
@@ -166,22 +156,54 @@ int main(int argc, char * argv[])
   /* default time is when the program starts */
   chrono::seconds publish_time = chrono::seconds(std::time(nullptr));
   string output = "";
-  int c, long_option_index;
-  while ((c = getopt_long(argc, argv, optstring, options, &long_option_index))
-      != EOF) {
-    switch (c) {
-      case 'u': base_url = optarg; break;
-      case 'b': buffer_time = stoi(optarg); break;
-      case 'i': audio_name = optarg; break;
-      case 'e': video_name = optarg; break;
-      case 'a': audio_init_name = optarg; break;
-      case 'v': video_init_name = optarg; break;
-      case 'p': publish_time = chrono::seconds(stoi(optarg)); break;
-      case 'o': output = optarg; break;
-      default : {
-                  print_usage(argv[0]);
-                  return EXIT_FAILURE;
-                }
+  int opt, long_option_index;
+
+  const char *optstring = "u:b:i:e:a:v:o:p:";
+  const struct option options[] = {
+    {"url",               required_argument, nullptr, 'u'},
+    {"buffer-time",       required_argument, nullptr, 'b'},
+    {"audio-name",        required_argument, nullptr, 'i'},
+    {"video-name",        required_argument, nullptr, 'e'},
+    {"audio-init-name",   required_argument, nullptr, 'a'},
+    {"video-init-name",   required_argument, nullptr, 'v'},
+    {"output",            required_argument, nullptr, 'o'},
+    {"publish-time",      required_argument, nullptr, 'p'},
+    { nullptr,            0,                 nullptr,  0 },
+  };
+
+  while (true) {
+    opt = getopt_long(argc, argv, optstring, options, &long_option_index);
+    if (opt == EOF) {
+      break;
+    }
+    switch (opt) {
+      case 'u':
+        base_url = optarg;
+        break;
+      case 'b':
+        buffer_time = stoi(optarg);
+        break;
+      case 'i':
+        audio_name = optarg;
+        break;
+      case 'e':
+        video_name = optarg;
+        break;
+      case 'a':
+        audio_init_name = optarg;
+        break;
+      case 'v':
+        video_init_name = optarg;
+        break;
+      case 'p':
+        publish_time = chrono::seconds(stoi(optarg));
+        break;
+      case 'o':
+        output = optarg;
+        break;
+      default:
+        print_usage(argv[0]);
+        return EXIT_FAILURE;
     }
   }
 
