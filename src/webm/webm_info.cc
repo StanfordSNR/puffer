@@ -166,7 +166,6 @@ uint32_t WebmInfo::get_bitrate(const uint32_t timescale,
     /* ignore the header size, which is much smaller than the actual size */
     total_size += elem->size();
   }
-  cout << "total size: " << total_size << endl;
   double raw_bitrate = total_size / duration * timescale * 8;
   uint32_t bitrate = static_cast<uint32_t>(raw_bitrate);
   return (bitrate / 100) * 100;
