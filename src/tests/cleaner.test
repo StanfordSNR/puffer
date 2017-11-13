@@ -17,22 +17,19 @@ def main():
 
     check_call(['mkdir', '-p', cleaner_testdir])
 
-    test_file1 = path.join(cleaner_testdir, "t1")
-    test_file2 = path.join(cleaner_testdir, "t2")
+    test_file1 = path.join(cleaner_testdir, 't1')
+    test_file2 = path.join(cleaner_testdir, 't2')
 
     cleaner = path.abspath(
             path.join(abs_builddir, os.pardir, 'cleaner', 'cleaner'))
 
-    cmd = [cleaner, cleaner_testdir, "-p", 't\d+', "-t", "50"]
+    cmd = [cleaner, cleaner_testdir, '-p', 't\d+', '-t', '50']
 
-    now = datetime.datetime.now()
     time_string = datetime.datetime.fromtimestamp(0).strftime(
-            "%b %m %Y %H:%M:%S")
-    check_call(["touch", test_file1, "-d", time_string])
+            '%b %m %Y %H:%M:%S')
+    check_call(['touch', test_file1, '-d', time_string])
 
-    time_string = now.strftime("%b %m %Y %H:%M:%S")
-
-    check_call(["touch", test_file2, "-d", time_string])
+    check_call(['touch', test_file2])
 
     # run the cleaner
     print(check_output(cmd))
@@ -43,5 +40,5 @@ def main():
         exit(1)
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()
