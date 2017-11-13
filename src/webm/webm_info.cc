@@ -25,8 +25,9 @@ shared_ptr<WebmElement> WebmElement::find_first(const uint32_t tag)
     return shared_from_this();
   } else {
     for (const auto elem : children_ ) {
-      if (elem->tag() == tag) {
-        return elem;
+      auto result = elem->find_first(tag);
+      if (result) {
+        return result;
       }
     }
   }
@@ -153,29 +154,50 @@ uint32_t WebmInfo::get_timescale()
   }
 }
 
-uint32_t WebmInfo::get_bitrate()
+uint32_t WebmInfo::get_bitrate(const uint32_t timescale,
+                               const uint32_t duration)
 {
-  uint32_t total_size = 0;
+  if (duration == 0) {
+    throw runtime_error("Duration cannot be zero");
+  }
+  double total_size = 0;
   auto elems = parser_.find_all(0x000000a3);
   for (const auto & elem : elems) {
     /* ignore the header size, which is much smaller than the actual size */
     total_size += elem->size();
   }
-  return total_size;
+  cout << "total size: " << total_size << endl;
+  double raw_bitrate = total_size / duration * timescale * 8;
+  uint32_t bitrate = static_cast<uint32_t>(raw_bitrate);
+  return (bitrate / 100) * 100;
 }
 
-uint32_t WebmInfo::get_duration()
+uint32_t WebmInfo::get_duration(uint32_t timescale)
 {
   /* get duration from TAG */
-  auto elm = parser_.find_first(0x000000b2);
-  if (elm) {
-    uint32_t data_size = elm->size();
-    string data = elm->value();
-    uint32_t result = read_raw<uint32_t>(data, data_size);
-    return result;
-  } else {
-    return 0;
+  auto tags = parser_.find_all(0x000067c8);
+  for (const auto tag : tags) {
+    auto name_tag = tag->find_first(0x000045a3);
+    if (name_tag) {
+      string tag_name = name_tag->value();
+      if (tag_name == "DURATION") {
+        /* actual duration in seconds */
+        auto time_tag = tag->find_first(0x00004487);
+        if (!time_tag) {
+          throw runtime_error("Tag string not found for DURATION tag");
+        }
+        string time = time_tag->value();
+        /* parse the actual time string */
+        int hour, minute;
+        float seconds;
+        sscanf(time.c_str(), "%2d:%2d:%f", &hour, &minute, &seconds);
+        float total_seconds = seconds + minute * 60 + hour * 3600;
+        float duration = total_seconds * timescale;
+        return static_cast<uint32_t>(duration);
+      }
+    }
   }
+  return 0;
 }
 
 uint32_t WebmInfo::get_sample_rate()
