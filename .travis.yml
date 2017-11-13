@@ -2,11 +2,6 @@ language: cpp
 sudo: required
 services: docker
 
-branches:
-  only:
-    - master
-    - development
-
 addons:
   apt:
     sources:
