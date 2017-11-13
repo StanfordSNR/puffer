@@ -156,8 +156,11 @@ public:
   {}
 
   uint32_t get_timescale();
-  uint32_t get_duration();
-  uint32_t get_bitrate();
+  uint32_t get_duration(uint32_t timescale);
+  uint32_t get_duration() { return get_duration(get_timescale()); }
+  uint32_t get_bitrate() { return get_bitrate(get_timescale(),
+                                              get_duration()); }
+  uint32_t get_bitrate(uint32_t timescale, uint32_t duration);
   uint32_t get_sample_rate();
 
 private:
