@@ -1,4 +1,5 @@
 import os
+from os import path
 import sys
 import errno
 import socket
@@ -56,8 +57,10 @@ def Popen(cmd, **kwargs):
     print_cmd(cmd)
     return subprocess.Popen(cmd, **kwargs)
 
+
 class TimeoutError(Exception):
     pass
+
 
 # from https://stackoverflow.com/a/2282656
 def timeout(seconds=10, error_message=os.strerror(errno.ETIME)):
@@ -77,3 +80,18 @@ def timeout(seconds=10, error_message=os.strerror(errno.ETIME)):
         return wraps(func)(wrapper)
 
     return decorator
+
+
+def create_tmp_and_move_to(directory):
+    tmp_filepath = check_output(['mktemp']).strip()
+    tmp_filename = path.basename(tmp_filepath) + '.file'
+
+    new_filepath = path.join(directory, tmp_filename)
+    check_call(['mv', tmp_filepath, new_filepath])
+
+    return tmp_filename
+
+
+def touch(filename, times=None):
+    with open(filename, 'a'):
+        os.utime(filename, times)
