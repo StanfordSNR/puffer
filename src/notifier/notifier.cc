@@ -93,12 +93,10 @@ Result Notifier::handle_events()
     const uint32_t mask = get<1>(value_ref);
     const callback_t & callback = get<2>(value_ref);
 
-    if ((event->mask & mask) == 0) {
-      throw runtime_error("inotify returns non-registered events");
+    /* ignore events not interested in */
+    if ((event->mask & mask) != 0) {
+      callback(*event, path);
     }
-
-    /* run the callback function */
-    callback(*event, path);
 
     ptr += sizeof(inotify_event) + event->len;
   }
