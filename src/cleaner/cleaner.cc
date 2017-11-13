@@ -56,14 +56,13 @@ void clean_files(const string & working_dir, const string & pattern,
       CheckSystemCall("stat", stat(fullpath.c_str(), &file_stat));
 
       timespec file_time = file_stat.st_atim;
-      auto last_chrono = chrono::seconds(file_time.tv_sec) +
-                         chrono::nanoseconds(file_time.tv_nsec);
+      auto last_chrono = chrono::seconds(file_time.tv_sec);
       auto last = chrono::system_clock::time_point(last_chrono);
 
       auto now = chrono::system_clock::now();
-      auto elapsed = chrono::duration_cast<chrono::milliseconds>(now - last);
+      auto elapsed_sec = chrono::duration_cast<chrono::seconds>(now - last);
 
-      if (elapsed.count() < 1000 * stale_time_sec) {
+      if (elapsed_sec.count() < stale_time_sec) {
         /* file is not stale yet */
         continue;
       }
