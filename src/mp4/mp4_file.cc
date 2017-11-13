@@ -108,7 +108,7 @@ int64_t MP4File::read_int64()
 
 void MP4File::write_uint8(const uint8_t data)
 {
-  write(string(1, char(data)));
+  write(string(1, static_cast<char>(data)));
 }
 
 void MP4File::write_uint16(const uint16_t data)
@@ -134,7 +134,7 @@ void MP4File::write_uint64(const uint64_t data)
 
 void MP4File::write_int8(const int8_t data)
 {
-  write(string(1, char(data)));
+  write(string(1, static_cast<char>(data)));
 }
 
 void MP4File::write_int16(const int16_t data)
@@ -161,7 +161,7 @@ void MP4File::write_int64(const int64_t data)
 void MP4File::write_zeros(const size_t bytes)
 {
   for (size_t i = 0; i < bytes; ++i) {
-    write(string(1, char(0)));
+    write(string(1, static_cast<char>(0)));
   }
 }
 

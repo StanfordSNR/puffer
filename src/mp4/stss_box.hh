@@ -1,6 +1,9 @@
 #ifndef STSS_BOX_HH
 #define STSS_BOX_HH
 
+#include <string>
+#include <vector>
+
 #include "box.hh"
 
 namespace MP4 {
@@ -26,6 +29,6 @@ private:
   std::vector<uint32_t> entries_;
 };
 
-}
+} /* namespace MP4 */
 
 #endif /* STSS_BOX_HH */

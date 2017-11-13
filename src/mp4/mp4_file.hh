@@ -1,10 +1,10 @@
 #ifndef MP4_FILE_HH
 #define MP4_FILE_HH
 
+#include <fcntl.h>
+#include <cstdint>
 #include <string>
 #include <tuple>
-#include <cstdint>
-#include <fcntl.h>
 
 #include "file_descriptor.hh"
 
@@ -56,6 +56,6 @@ public:
   void write_int32_at(const int32_t data, const uint64_t offset);
 };
 
-}
+} /* namespace MP4 */
 
 #endif /* MP4_FILE_HH */

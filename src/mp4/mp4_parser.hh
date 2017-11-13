@@ -1,9 +1,9 @@
 #ifndef MP4_PARSER_HH
 #define MP4_PARSER_HH
 
+#include <cstdint>
 #include <string>
 #include <memory>
-#include <cstdint>
 #include <set>
 
 #include "mp4_file.hh"
@@ -67,6 +67,6 @@ private:
                                             const std::string & type);
 };
 
-}
+} /* namespace MP4 */
 
 #endif /* MP4_PARSER_HH */

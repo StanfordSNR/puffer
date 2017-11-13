@@ -1,6 +1,9 @@
 #ifndef FTYP_BOX_HH
 #define FTYP_BOX_HH
 
+#include <string>
+#include <vector>
+
 #include "box.hh"
 
 namespace MP4 {
@@ -33,5 +36,6 @@ private:
   std::vector<std::string> compatible_brands_;
 };
 
-}
+} /* namespace MP4 */
+
 #endif /* FTYP_BOX_HH */

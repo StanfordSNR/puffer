@@ -1,9 +1,9 @@
+#include <getopt.h>
+#include <sys/stat.h>
 #include <iostream>
 #include <string>
 #include <regex>
 #include <chrono>
-#include <getopt.h>
-#include <sys/stat.h>
 
 #include "path.hh"
 #include "strict_conversions.hh"

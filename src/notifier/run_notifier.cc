@@ -1,10 +1,10 @@
+#include <sys/inotify.h>
+#include <cassert>
 #include <iostream>
 #include <vector>
 #include <string>
 #include <stdexcept>
-#include <cassert>
 #include <set>
-#include <sys/inotify.h>
 
 #include "path.hh"
 #include "system_runner.hh"

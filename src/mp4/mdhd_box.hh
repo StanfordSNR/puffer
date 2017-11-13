@@ -1,6 +1,8 @@
 #ifndef MDHD_BOX_HH
 #define MDHD_BOX_HH
 
+#include <string>
+
 #include "box.hh"
 
 namespace MP4 {
@@ -40,6 +42,6 @@ private:
   uint16_t language_;
 };
 
-}
+} /* namespace MP4 */
 
 #endif /* MDHD_BOX_HH */

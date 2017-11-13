@@ -1,6 +1,8 @@
 #ifndef TFHD_BOX_HH
 #define TFHD_BOX_HH
 
+#include <string>
+
 #include "box.hh"
 
 namespace MP4 {
@@ -48,5 +50,6 @@ private:
   uint32_t default_sample_flags_ = 0;
 };
 
-}
+} /* namespace MP4 */
+
 #endif /* TFHD_BOX_HH */

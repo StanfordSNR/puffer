@@ -1,6 +1,9 @@
 #ifndef TKHD_BOX_HH
 #define TKHD_BOX_HH
 
+#include <string>
+#include <vector>
+
 #include "box.hh"
 
 namespace MP4 {
@@ -56,5 +59,6 @@ private:
   };
 };
 
-}
+} /* namespace MP4 */
+
 #endif /* TKHD_BOX_HH */

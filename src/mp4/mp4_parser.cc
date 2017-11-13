@@ -17,7 +17,6 @@
 #include "stsd_box.hh"
 #include "stsz_box.hh"
 #include "trun_box.hh"
-#include "tkhd_box.hh"
 #include "mdhd_box.hh"
 #include "elst_box.hh"
 #include "ctts_box.hh"

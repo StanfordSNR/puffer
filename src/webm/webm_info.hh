@@ -4,10 +4,12 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <cstring>
+#include <string>
 #include <set>
 #include <vector>
 #include <memory>
 #include <iostream>
+
 #include "file_descriptor.hh"
 #include "exception.hh"
 #include "strict_conversions.hh"
@@ -128,7 +130,7 @@ T read_raw(std::string data, uint64_t size, bool switch_endian = true)
     char * dst = reinterpret_cast<char *>(&result);
     memset(dst, 0, sizeof(T));
     const char * src = reinterpret_cast<const char *>(value);
-    for(uint32_t i = 0; i < size; i++) {
+    for (uint32_t i = 0; i < size; i++) {
       dst[size - i - 1] = src[i];
     }
     return result;
@@ -140,8 +142,10 @@ T read_raw(std::string data, uint64_t size, bool switch_endian = true)
 class WebmInfo
 {
 public:
-  WebmInfo(const std::string & filename) : parser_(filename)
+  WebmInfo(const std::string & filename)
+    : parser_(filename)
   {}
+
   uint32_t get_timescale();
   uint32_t get_duration();
   uint32_t get_bitrate();

@@ -1,6 +1,9 @@
 #ifndef CTTS_BOX_HH
 #define CTTS_BOX_HH
 
+#include <string>
+#include <vector>
+
 #include "box.hh"
 
 namespace MP4 {
@@ -34,6 +37,6 @@ private:
   std::vector<Entry> entries_;
 };
 
-}
+} /* namespace MP4 */
 
 #endif /* CTTS_BOX_HH */

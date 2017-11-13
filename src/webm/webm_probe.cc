@@ -2,6 +2,7 @@
 #include <iostream>
 #include <memory>
 #include <map>
+
 #include "webm_info.hh"
 #include "strict_conversions.hh"
 
@@ -72,10 +73,8 @@ int main(int argc, char * argv[])
           }
           break;
         case 's':
-          {
-            string s = string(data);
-            cout << "Tag: " << name << " Value: " << s << endl;
-          }
+          cout << "Tag: " << name << " Value: " << data << endl;
+          break;
         default:
           break;
       }

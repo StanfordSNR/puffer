@@ -1,7 +1,7 @@
+#include <getopt.h>
 #include <iostream>
 #include <string>
 #include <stdexcept>
-#include <getopt.h>
 #include <tuple>
 
 #include "socket.hh"

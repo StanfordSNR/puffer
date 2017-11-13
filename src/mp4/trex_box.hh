@@ -1,6 +1,8 @@
 #ifndef TREX_BOX_HH
 #define TREX_BOX_HH
 
+#include <string>
+
 #include "box.hh"
 
 namespace MP4 {
@@ -39,6 +41,6 @@ private:
   uint32_t default_sample_flags_;
 };
 
-}
+} /* namespace MP4 */
 
 #endif /* TREX_BOX_HH */

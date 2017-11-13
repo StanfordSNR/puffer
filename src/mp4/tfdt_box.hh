@@ -1,6 +1,8 @@
 #ifndef TFDT_BOX_HH
 #define TFDT_BOX_HH
 
+#include <string>
+
 #include "box.hh"
 
 namespace MP4 {
@@ -26,6 +28,6 @@ private:
   uint64_t base_media_decode_time_;
 };
 
-}
+} /* namespace MP4 */
 
 #endif /* TFDT_BOX_HH */
