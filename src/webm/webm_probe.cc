@@ -17,6 +17,10 @@ static map<uint32_t, pair<string, char>> print_map = {
   { 0x00000083, make_pair("TrackType", 'u') },
   { 0x000000e7, make_pair("Timecode", 'u') },
   { 0x000000b5, make_pair("SamplingFrequency", 'f') },
+  { 0x1f43b675, make_pair("Cluster", 'm') },
+  { 0x000000ae, make_pair("TrackEntry", 'm') },
+  { 0x000000e1, make_pair("Audio", 'm') },
+  { 0x000000e3, make_pair("TrackCombinePlanes", 'm') },
 };
 
 void print_usage(const string & name)
