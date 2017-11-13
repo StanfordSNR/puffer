@@ -18,9 +18,24 @@ using namespace std;
 using namespace MPD;
 using namespace MP4;
 
+const char *optstring = "u:b:i:e:a:v:o:p:";
+const struct option options[] = {
+  {"url", required_argument, NULL, 'u'},
+  {"buffer-time", required_argument, NULL, 'b'},
+  {"audio-name", required_argument, NULL, 'i'},
+  {"video-name", required_argument, NULL, 'e'},
+  {"audio-init-name", required_argument, NULL, 'a'},
+  {"video-init-name", required_argument, NULL, 'v'},
+  {"output", required_argument, NULL, 'o'},
+  {"publish-time", required_argument, NULL, 'p'},
+  {NULL, 0, NULL, 0},
+};
+
 const char default_base_uri[] = "/";
-const char default_media_uri[] = "$RepresentationID$/$Number$.m4s";
-const char default_init_uri[] = "$RepresentationID$/init.mp4";
+const char default_audio_uri[] = "$RepresentationID$/$Number$.chk";
+const char default_video_uri[] = "$RepresentationID$/$Number$.m4s";
+const char default_video_init_uri[] = "$RepresentationID$/init.mp4";
+const char default_audio_init_uri[] = "$RepresentationID$/init.webm";
 const uint32_t default_buffer_time = 2;
 const uint32_t default_seg_start = 0;
 
@@ -32,17 +47,16 @@ const uint32_t media_duration = 0xFFFFFFFF;
 
 void print_usage(const string & program_name)
 {
-  cerr <<
-  "Usage: " << program_name << " [options] <seg> <seg> ...\n\n"
-  "<seg>                       Path to video/audio segments. If not exists,\n"
-  "                            program will exist without outputing mpd.\n"
-  "-u --url <base_url>         Set the base url for all media segments.\n"
-  "-b --buffer-time <time>     Set the minimum buffer time in seconds.\n"
-  "-s --segment-name <name>    Set the segment name template.\n"
-  "-i --init-name <name>       Set the initial segment name.\n"
-  "-p --publish-time <time>    Set the publish time to <time> unix timestamp\n"
-  "-o --output <path.mpd>      Output mpd info to <path.mpd>. stdout will be\n"
-  "                            used if not specified"
+  cerr
+  << "Usage: " << program_name << " [options] <seg> <seg> ...\n\n"
+  << "<seg>                        Path to video/audio segments. If not exists, program will exist without outputing mpd.\n"
+  << "-u --url <base_url>          Set the base url for all media segments.\n"
+  << "-b --buffer-time <time>      Set the minimum buffer time in seconds.\n"
+  << "-s --segment-name <name>     Set the segment name template.\n"
+  << "-a --audio-init-name <name>  Set the audio initial segment name.\n"
+  << "-v --video-init-name <name>  Set the video initial segment name.\n"
+  << "-p --publish-time <time>     Set the publish time to <time> in unix timestamp\n"
+  << "-o --output <path.mpd>       Output mpd info to <path.mpd>. stdout will be used if not specified\n"
   << endl;
 }
 
@@ -58,9 +72,10 @@ void add_webm_audio(shared_ptr<AudioAdaptionSet> a_set, const string & init,
 {
   WebmInfo i_info(init);
   WebmInfo s_info(segment);
-  uint32_t duration = s_info.get_duration();
+  uint32_t duration = i_info.get_duration();
   uint32_t timescale = i_info.get_timescale();
-  uint32_t bitrate = i_info.get_bitrate();
+  cout << init << " " << timescale << endl;
+  uint32_t bitrate = s_info.get_bitrate(timescale, duration);
   uint32_t sample_rate = i_info.get_sample_rate();
   auto repr_a = make_shared<AudioRepresentation>(repr_id, bitrate,
         sample_rate, MimeType::Audio_OPUS, timescale, duration, start_number);
@@ -143,52 +158,30 @@ int main(int argc, char * argv[])
 {
   uint32_t buffer_time = default_buffer_time;
   string base_url = default_base_uri;
-  string segment_name = default_media_uri;
-  string init_name = default_init_uri;
+  string audio_name = default_audio_uri;
+  string video_name = default_video_uri;
+  string audio_init_name = default_audio_init_uri;
+  string video_init_name = default_video_init_uri;
   vector<string> seg_list;
   /* default time is when the program starts */
   chrono::seconds publish_time = chrono::seconds(std::time(nullptr));
   string output = "";
-
-  const option cmd_line_opts[] = {
-    {"url",          required_argument, nullptr, 'u'},
-    {"buffer-time",  required_argument, nullptr, 'b'},
-    {"segment-name", required_argument, nullptr, 's'},
-    {"init-name",    required_argument, nullptr, 'i'},
-    {"output",       required_argument, nullptr, 'o'},
-    {"publish-time", required_argument, nullptr, 'p'},
-    { nullptr,       0,                 nullptr,  0 },
-  };
-
-  while (true) {
-    const int opt = getopt_long(argc, argv, "u:b:s:i:o:p:",
-                                cmd_line_opts, nullptr);
-    if (opt == -1) {
-      break;
-    }
-
-    switch (opt) {
-      case 'u':
-        base_url = optarg;
-        break;
-      case 'b':
-        buffer_time = stoi(optarg);
-        break;
-      case 's':
-        segment_name = optarg;
-        break;
-      case 'i':
-        init_name = optarg;
-        break;
-      case 'p':
-        publish_time = chrono::seconds(stoi(optarg));
-        break;
-      case 'o':
-        output = optarg;
-        break;
-      default:
-        print_usage(argv[0]);
-        return EXIT_FAILURE;
+  int c, long_option_index;
+  while ((c = getopt_long(argc, argv, optstring, options, &long_option_index))
+      != EOF) {
+    switch (c) {
+      case 'u': base_url = optarg; break;
+      case 'b': buffer_time = stoi(optarg); break;
+      case 'i': audio_name = optarg; break;
+      case 'e': video_name = optarg; break;
+      case 'a': audio_init_name = optarg; break;
+      case 'v': video_init_name = optarg; break;
+      case 'p': publish_time = chrono::seconds(stoi(optarg)); break;
+      case 'o': output = optarg; break;
+      default : {
+                  print_usage(argv[0]);
+                  return EXIT_FAILURE;
+                }
     }
   }
 
@@ -211,20 +204,26 @@ int main(int argc, char * argv[])
 
   auto w = make_unique<MPDWriter>(media_duration, buffer_time, base_url);
 
-  auto set_v = make_shared<VideoAdaptionSet>(1, init_name, segment_name);
-  auto set_a = make_shared<AudioAdaptionSet>(2, init_name, segment_name);
+  auto set_v = make_shared<VideoAdaptionSet>(1, video_init_name, video_name);
+  auto set_a = make_shared<AudioAdaptionSet>(2, audio_init_name, audio_name);
 
   /* figure out what kind of representation each folder is */
   for (auto const & path : seg_list) {
-    /* find the init mp4 */
     string base = roost::dirname(roost::path(path)).string();
-    string init_mp4_path = roost::join(base, "init.mp4");
-    if (not roost::exists(init_mp4_path)) {
-      cerr << "Cannnot find " << init_mp4_path << endl;
+    string init_seg_path;
+    if (is_webm(path)) {
+      string filename = roost::rbasename(roost::path(audio_init_name)).string();
+      init_seg_path = roost::join(base, filename);
+    } else {
+      string filename = roost::rbasename(roost::path(video_init_name)).string();
+      init_seg_path = roost::join(base, filename);
+    }
+    if (not roost::exists(init_seg_path)) {
+      cerr << "Cannnot find " << init_seg_path << endl;
       return EXIT_FAILURE;
     }
     /* add repr set */
-    add_representation(set_v, set_a, init_mp4_path, path);
+    add_representation(set_v, set_a, init_seg_path, path);
   }
 
   /* set time */
