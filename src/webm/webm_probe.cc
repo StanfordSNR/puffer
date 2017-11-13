@@ -21,6 +21,10 @@ static map<uint32_t, pair<string, char>> print_map = {
   { 0x000000ae, make_pair("TrackEntry", 'm') },
   { 0x000000e1, make_pair("Audio", 'm') },
   { 0x000000e3, make_pair("TrackCombinePlanes", 'm') },
+  { 0x1254c367, make_pair("Tags", 'm') },
+  { 0x00007373, make_pair("Tag", 'm') },
+  { 0x000045a3, make_pair("TagName", 's') },
+  { 0x00004487, make_pair("TagString", 's') },
 };
 
 void print_usage(const string & name)
@@ -67,6 +71,11 @@ int main(int argc, char * argv[])
             cout << "Tag: " << name << " Value: " << dec << value << endl;
           }
           break;
+        case 's':
+          {
+            string s = string(data);
+            cout << "Tag: " << name << " Value: " << s << endl;
+          }
         default:
           break;
       }
