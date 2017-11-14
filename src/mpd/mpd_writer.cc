@@ -217,7 +217,7 @@ int main(int argc, char * argv[])
   for (int i = optind; i < argc; i++) {
     string path = argv[i];
     if (not roost::exists(path)) {
-      cerr << path << " does not exist" << endl;
+      throw runtime_error(path + " does not exist");
       return EXIT_FAILURE;
     } else {
       seg_list.emplace_back(path);
@@ -241,7 +241,7 @@ int main(int argc, char * argv[])
       init_seg_path = roost::join(base, filename);
     }
     if (not roost::exists(init_seg_path)) {
-      cerr << "Cannnot find " << init_seg_path << endl;
+      throw runtime_error("Cannnot find " + init_seg_path);
       return EXIT_FAILURE;
     }
     /* add repr set */
