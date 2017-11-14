@@ -47,7 +47,7 @@ private:
   uint64_t initial_presentation_time_stamp_ {};
   uint64_t field_count_ {};
 
-  bool next_field_is_top {};
+  bool next_field_is_top_ { true };
 
   static int64_t pts_difference ( const uint64_t a, const uint64_t b )
   {
@@ -59,10 +59,20 @@ private:
       throw runtime_error( "invalid pts b" );
     }
 
-    const int64_t difference = a - b;
-    return ((difference & 0x1FFFFFFFF) + (uint64_t(1)<<33)) & 0x1FFFFFFFF;
+    const int64_t difference = int64_t( a ) - int64_t( b );
+
+    const int64_t mod = uint64_t(1) << 33;
+    int64_t mod_difference = ((difference % mod) + mod) % mod;
+
+    if ( mod_difference > (mod>>1) ) {
+      mod_difference -= mod;
+    }
+
+    return mod_difference;
   }
   
+  FileDescriptor output_ { STDOUT_FILENO };
+
 public:
   VideoOutput( const unsigned int expected_display_width,
                const unsigned int expected_display_height,
@@ -78,19 +88,27 @@ public:
     default:
       throw runtime_error( "unhandled frame interval: " + to_string( expected_frame_interval ) );
     }
+
+    
+
+    output_.write( "YUV4MPEG2 W" + to_string( display_width_ )
+                   + " H" + to_string( display_height_ / 2 ) + " " + "F60000:1001"
+                   + " Ip A1:1 C420mpeg2\n" );
   }
 
   void write_picture( const uint64_t presentation_time_stamp,
                       const uint8_t number_of_fields,
                       const bool top_field_first,
-                      const mpeg2_fbuf_t * const,
-                      const unsigned int,
-                      const unsigned int )
+                      const mpeg2_fbuf_t * const display_raster,
+                      const unsigned int physical_luma_width,
+                      const unsigned int physical_chroma_width )
   {
     if ( not video_output_has_started_ ) {
       video_output_has_started_ = true;
       initial_presentation_time_stamp_ = presentation_time_stamp;
-      next_field_is_top = top_field_first;
+      if ( not top_field_first ) {
+        throw runtime_error( "can't start video output with bottom field" );
+      }
     } else {
       const uint64_t expected_presentation_time_stamp =
         (initial_presentation_time_stamp_ + ((frame_interval_ * field_count_) / 600))
@@ -100,18 +118,41 @@ public:
       if ( abs( pts_diff ) > 10 ) {
         throw runtime_error( "unexpected gap in presentation timestamps: " + to_string( pts_diff ) );
       }
+    }
 
-      if ( next_field_is_top != top_field_first ) {
-        throw runtime_error( "frame cadence mismatch" );
-      }
+    if ( next_field_is_top_ != top_field_first ) {
+      throw runtime_error( "frame cadence mismatch" );
     }
 
     /* output the frame */
     for ( unsigned int field = 0; field < number_of_fields; field++ ) {
-      next_field_is_top = !next_field_is_top;
+      /* write out y4m */
+      output_.write( "FRAME\n" );
+
+      /* Y */
+      for ( unsigned int row = next_field_is_top_ ? 0 : 1; row < display_height_; row += 2 ) {
+        const string_view the_row( reinterpret_cast<char *>( display_raster->buf[ 0 ] + row * physical_luma_width ),
+                                   display_width_ );
+        output_.write( the_row );
+      }
+
+      /* Cb */
+      for ( unsigned int row = next_field_is_top_ ? 0 : 1; row < (1 + display_height_) / 2; row += 2 ) {
+        const string_view the_row( reinterpret_cast<char *>( display_raster->buf[ 1 ] + row * physical_chroma_width ),
+                                   (1 + display_width_ ) / 2 );
+        output_.write( the_row );
+      }
+              
+      /* Cr */
+      for ( unsigned int row = next_field_is_top_ ? 0 : 1; row < (1 + display_height_) / 2; row += 2 ) {
+        const string_view the_row( reinterpret_cast<char *>( display_raster->buf[ 2 ] + row * physical_chroma_width ),
+                                   (1 + display_width_ ) / 2 );
+        output_.write( the_row );
+      }
+
+      next_field_is_top_ = !next_field_is_top_;
+      field_count_++;
     }
-    
-    field_count_ += number_of_fields;
   }
 };
 
