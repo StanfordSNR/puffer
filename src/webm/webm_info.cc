@@ -141,7 +141,7 @@ set<shared_ptr<WebmElement>> WebmParser::find_all(const uint32_t tag)
 
 uint32_t WebmInfo::get_timescale()
 {
-  auto elm = parser_.find_first(0x002ad7b1);
+  auto elm = parser_.find_first(ElementTagID::TimecodeScale);
   if (elm) {
     uint32_t data_size = elm->size();
     string data = elm->value();
@@ -161,7 +161,7 @@ uint32_t WebmInfo::get_bitrate(const uint32_t timescale,
     throw runtime_error("Duration cannot be zero");
   }
   double total_size = 0;
-  auto elems = parser_.find_all(0x000000a3);
+  auto elems = parser_.find_all(ElementTagID::SimpleBlock);
   for (const auto & elem : elems) {
     /* ignore the header size, which is much smaller than the actual size */
     total_size += elem->size();
@@ -174,14 +174,14 @@ uint32_t WebmInfo::get_bitrate(const uint32_t timescale,
 uint32_t WebmInfo::get_duration(uint32_t timescale)
 {
   /* get duration from TAG */
-  auto tags = parser_.find_all(0x000067c8);
+  auto tags = parser_.find_all(ElementTagID::SimpleTag);
   for (const auto tag : tags) {
-    auto name_tag = tag->find_first(0x000045a3);
+    auto name_tag = tag->find_first(ElementTagID::TagName);
     if (name_tag) {
       string tag_name = name_tag->value();
       if (tag_name == "DURATION") {
         /* actual duration in seconds */
-        auto time_tag = tag->find_first(0x00004487);
+        auto time_tag = tag->find_first(ElementTagID::TagString);
         if (!time_tag) {
           throw runtime_error("Tag string not found for DURATION tag");
         }
@@ -201,7 +201,7 @@ uint32_t WebmInfo::get_duration(uint32_t timescale)
 
 uint32_t WebmInfo::get_sample_rate()
 {
-  auto elm = parser_.find_first(0x000000b5);
+  auto elm = parser_.find_first(ElementTagID::SamplingFrequency);
   if (elm) {
     uint32_t data_size = elm->size();
     string data = elm->value();
