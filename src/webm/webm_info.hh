@@ -62,7 +62,7 @@ public:
   {}
 
   WebmElement()
-    : WebmElement(0, "")
+    : WebmElement(0, 0)
   {}
 
   void print()
@@ -107,27 +107,58 @@ private:
   void parse(uint64_t max_pos, std::shared_ptr<WebmElement> parent);
 };
 
+enum ElementTagID {
+    EBML                = 0x1A45DFA3,
+    Segment             = 0x18538067,
+    SeekHead            = 0x114D9B74,
+    Seek                = 0x00004DBB,
+    Info                = 0x1549A966,
+    Cluster             = 0x1F43B675,
+    BlockGroup          = 0x000000AD,
+    Tracks              = 0x1654AE6B,
+    TrackEntry          = 0x000000AE,
+    Audio               = 0x000000E1,
+    TrackOperation      = 0x000000E2,
+    TrackCombinePlanes  = 0x000000E3,
+    TrackPlane          = 0x000000E4,
+    TrackJoinBlocks     = 0x000000E9,
+    Cues                = 0x1C53BB6B,
+    CueuePoint          = 0x000000BB,
+    CueTrackPositions   = 0x000000B7,
+    Tags                = 0x1254c367,
+    Tag                 = 0x00007373,
+    SimpleTag           = 0x000067c8,
+    TimecodeScale       = 0x002ad7b1,
+    TrackNumber         = 0x000000d7,
+    TrackType           = 0x00000083,
+    Timecode            = 0x000000e7,
+    SamplingFrequency   = 0x000000b5,
+    TagName             = 0x000045a3,
+    TagString           = 0x00004487,
+    SimpleBlock         = 0x000000a3,
+};
+
 const std::set<uint32_t> master_elements {
-    0x1A45DFA3,     // EBML
-    0x18538067,     // Segment
-    0x114D9B74,     // SeekHead
-    0x00004DBB,     // Seek
-    0x1549A966,     // Info
-    0x1F43B675,     // Cluster
-    0x000000AD,     // BlockGroup
-    0x1654AE6B,     // Tracks
-    0x000000AE,     // TrackEntry
-    0x000000E1,     // Audio
-    0x000000E2,     // TrackOperation
-    0x000000E3,     // TrackCombinePlanes
-    0x000000E4,     // TrackPlane
-    0x000000E9,     // TrackJoinBlocks
-    0x1C53BB6B,     // Cues
-    0x000000BB,     // CuePoint
-    0x000000B7,     // CueTrackPositions
-    0x1254c367,     // Tags
-    0x00007373,     // Tag
-    0x000067c8,     // SimpleTag
+    EBML,
+    Segment,
+    SeekHead,
+    Seek,
+    Info,
+    Cluster,
+    BlockGroup,
+    Tracks,
+    TrackEntry,
+    Audio,
+    TrackOperation,
+    TrackCombinePlanes,
+    TrackPlane,
+    TrackJoinBlocks,
+    Cues,
+    CueuePoint,
+    CueTrackPositions,
+    Tags,
+    Tag,
+    SimpleTag,
 };
 
 
