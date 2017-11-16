@@ -19,18 +19,12 @@ using namespace MPD;
 using namespace MP4;
 
 const char default_base_uri[] = "/";
-const char default_audio_uri[] = "$RepresentationID$/$Number$.chk";
-const char default_video_uri[] = "$RepresentationID$/$Number$.m4s";
+const char default_audio_uri[] = "$RepresentationID$/$Time$.chk";
+const char default_video_uri[] = "$RepresentationID$/$Time$.m4s";
 const char default_video_init_uri[] = "$RepresentationID$/init.mp4";
 const char default_audio_init_uri[] = "$RepresentationID$/init.webm";
 const uint32_t default_buffer_time = 2;
-const uint32_t default_seg_start = 0;
-
-/* since we are faking live streaming with static mpd, this value has to be
- * as big as possible to prevent the client from finishing playing the stream,
- * although it is highly unlikely (no one is going to have the browser running
- * for years */
-const uint32_t media_duration = 0xFFFFFFFF;
+const string default_time_uri = "/time";
 
 void print_usage(const string & program_name)
 {
@@ -45,6 +39,7 @@ void print_usage(const string & program_name)
   "-v --video-init-name <name>  Set the video initial segment name.\n"
   "-p --publish-time <time>     Set the publish time to <time> in unix"
   "                             timestamp\n"
+  "-t --time-url                Set the iso time url.\n"
   "-o --output <path.mpd>       Output mpd info to <path.mpd>."
   "                             stdout will be used if not specified\n"
   << endl;
@@ -57,18 +52,16 @@ inline bool is_webm(const string & filename)
 }
 
 void add_webm_audio(shared_ptr<AudioAdaptionSet> a_set, const string & init,
-                    const string & segment, const string & repr_id,
-                    uint32_t start_number)
+                    const string & segment, const string & repr_id)
 {
   WebmInfo i_info(init);
   WebmInfo s_info(segment);
   uint32_t duration = i_info.get_duration();
   uint32_t timescale = i_info.get_timescale();
-  cout << init << " " << timescale << endl;
   uint32_t bitrate = s_info.get_bitrate(timescale, duration);
   uint32_t sample_rate = i_info.get_sample_rate();
   auto repr_a = make_shared<AudioRepresentation>(repr_id, bitrate,
-        sample_rate, MimeType::Audio_OPUS, timescale, duration, start_number);
+        sample_rate, MimeType::Audio_OPUS, timescale, duration);
   a_set->add_repr(repr_a);
 }
 
@@ -82,13 +75,11 @@ void add_representation(
   if (seg_path_list.size() < 2) {
     throw runtime_error(segment + " is in top folder");
   }
-  string name = seg_path_list.back();
-  uint32_t start_number = stoi(name);
   string repr_id = seg_path_list[seg_path_list.size() - 2];
 
   /* if this is a webm segment */
   if (is_webm(segment)) {
-    add_webm_audio(a_set, init, segment, repr_id, start_number);
+    add_webm_audio(a_set, init, segment, repr_id);
     return;
   }
   /* load mp4 up using parser */
@@ -122,7 +113,7 @@ void add_representation(
     float fps = s_info.get_fps(timescale, duration);
     auto repr_v = make_shared<VideoRepresentation>(
         repr_id, width, height, bitrate, profile, avc_level, fps, timescale,
-        duration, start_number);
+        duration);
     v_set->add_repr(repr_v);
   } else {
     /* this is an audio */
@@ -139,7 +130,7 @@ void add_representation(
       type = MimeType::Audio_MP3;
     }
     auto repr_a = make_shared<AudioRepresentation>(repr_id, bitrate,
-        sample_rate, type, timescale, duration, start_number);
+        sample_rate, type, timescale, duration);
     a_set->add_repr(repr_a);
   }
 }
@@ -152,6 +143,7 @@ int main(int argc, char * argv[])
   string video_name = default_video_uri;
   string audio_init_name = default_audio_init_uri;
   string video_init_name = default_video_init_uri;
+  string time_url = default_time_uri;
   vector<string> seg_list;
   /* default time is when the program starts */
   chrono::seconds publish_time = chrono::seconds(std::time(nullptr));
@@ -168,6 +160,7 @@ int main(int argc, char * argv[])
     {"video-init-name",   required_argument, nullptr, 'v'},
     {"output",            required_argument, nullptr, 'o'},
     {"publish-time",      required_argument, nullptr, 'p'},
+    {"time-url",          required_argument, nullptr, 't'},
     { nullptr,            0,                 nullptr,  0 },
   };
 
@@ -201,6 +194,9 @@ int main(int argc, char * argv[])
       case 'o':
         output = optarg;
         break;
+      case 't':
+        time_url = optarg;
+        break;
       default:
         print_usage(argv[0]);
         return EXIT_FAILURE;
@@ -224,7 +220,7 @@ int main(int argc, char * argv[])
     }
   }
 
-  auto w = make_unique<MPDWriter>(media_duration, buffer_time, base_url);
+  auto w = make_unique<MPDWriter>(buffer_time, base_url, time_url);
 
   auto set_v = make_shared<VideoAdaptionSet>(1, video_init_name, video_name);
   auto set_a = make_shared<AudioAdaptionSet>(2, audio_init_name, audio_name);
@@ -250,35 +246,6 @@ int main(int argc, char * argv[])
 
   /* set time */
   w->set_publish_time(publish_time);
-
-  /* compute for the offset time */
-  uint32_t v_duration = set_v->duration();
-  uint32_t v_timescale = set_v->timescale();
-  uint32_t a_duration = set_a->duration();
-  uint32_t a_timescale = set_a->timescale();
-
-  uint32_t v_start = set_v->start_number();
-  uint32_t a_start = set_a->start_number();
-
-  if (v_timescale != 0 and a_timescale != 0) {
-    /* we have both video and audio */
-    /* calculate how long the segments have been playing */
-    double v_time = static_cast<double>(v_duration) * v_start / v_timescale;
-    double a_time = static_cast<double>(a_duration) * a_start / a_timescale;
-    if (v_time > a_time) {
-      double time_offset = (v_time - a_time) * a_timescale;
-      uint32_t offset = static_cast<uint32_t>(time_offset);
-      set_a->set_presentation_time_offset(offset);
-    } else if (v_time < a_time) {
-      double time_offset = (a_time - v_time) * v_timescale;
-      uint32_t offset = static_cast<uint32_t>(time_offset);
-      set_v->set_presentation_time_offset(offset);
-    } else {
-      /* they're perfectly aligned, although very unlikely */
-    }
-    w->set_audio_start_number(a_start);
-    w->set_video_start_number(v_start);
-  }
 
   w->add_video_adaption_set(set_v);
   w->add_audio_adaption_set(set_a);

@@ -199,13 +199,6 @@ void MPD::AdaptionSet::check_data(shared_ptr<Representation> repr)
     throw runtime_error("representation timescale does not math with the "
                         "adaption set");
   }
-
-  if (size() == 0) {
-    start_number_ = repr->start_number;
-  } else if (start_number() != repr->start_number) {
-    throw runtime_error("representation start number does not math with the "
-                        "adaption set");
-  }
 }
 
 void MPD::AudioAdaptionSet::add_repr(shared_ptr<AudioRepresentation> repr)
@@ -220,11 +213,12 @@ void MPD::VideoAdaptionSet::add_repr(shared_ptr<VideoRepresentation> repr)
   repr_set_.insert(repr);
 }
 
-MPDWriter::MPDWriter(uint32_t media_duration, uint32_t min_buffer_time,
-                     string base_url)
-  : media_duration_(media_duration), min_buffer_time_(min_buffer_time),
-    publish_time_(std::time(nullptr)), writer_(std::make_unique<XMLWriter>()),
-    base_url_(base_url), video_adaption_set_(), audio_adaption_set_()
+MPDWriter::MPDWriter(uint32_t min_buffer_time,
+                     string base_url,
+                     string time_url)
+  : min_buffer_time_(min_buffer_time), publish_time_(std::time(nullptr)),
+    writer_(std::make_unique<XMLWriter>()), base_url_(base_url),
+    time_url_(time_url), video_adaption_set_(), audio_adaption_set_()
 {}
 
 MPDWriter::~MPDWriter()
@@ -385,7 +379,6 @@ void MPDWriter::write_adaption_set(shared_ptr<MPD::AdaptionSet> set)
   writer_->attr("media", set->media_uri());
   writer_->attr("timescale", timescale);
   /* the initial segment number */
-  writer_->attr("startNumber", set->start_number());
   writer_->attr("initialization", set->init_uri());
   /* offset the audio segment */
   if (set->presentation_time_offset() != 0) {
@@ -404,6 +397,9 @@ void MPDWriter::write_adaption_set(shared_ptr<MPD::AdaptionSet> set)
   writer_->close_elt();
   writer_->close_elt();
   */
+
+  /* allow bitstream switching */
+  writer_->attr("bitstreamSwitching", "true");
 
   writer_->close_elt();
 }
@@ -459,9 +455,8 @@ string MPDWriter::flush()
                 "MPEG-DASH_schema_files/DASH-MPD.xsd");
   writer_->attr("publishTime", format_time(publish_time_));
   writer_->attr("profiles", "urn:mpeg:dash:profile:isoff-live:2011");
-  writer_->attr("type", "static");
+  writer_->attr("type", mpd_type);
   writer_->attr("minBufferTime", convert_pt(min_buffer_time_));
-  writer_->attr("mediaPresentationDuration", convert_pt(media_duration_));
 
   /* Base URL */
   writer_->open_elt("BaseURL");
@@ -480,6 +475,14 @@ string MPDWriter::flush()
   for (const auto & it : audio_adaption_set_) {
     write_audio_adaption_set(it);
   }
+
+  /* Period end */
+  writer_->close_elt();
+
+  /* write UTCTiming tag */
+  writer_-> open_elt("UTCTiming");
+  writer_->attr("schemeIdUri", utctiming_scheme);
+  writer_->attr("value", time_url_);
 
   /* Close all tags */
   writer_->close_all();
