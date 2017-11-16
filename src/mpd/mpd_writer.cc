@@ -4,6 +4,8 @@
 #include <string>
 #include <chrono>
 #include <memory>
+#include <set>
+#include <algorithm>
 
 #include "mpd.hh"
 #include "path.hh"
@@ -26,12 +28,15 @@ const char default_audio_init_uri[] = "$RepresentationID$/init.webm";
 const uint32_t default_buffer_time = 2;
 const string default_time_uri = "/time";
 
+const set<string> media_extension {"m4s", "chk", "webm"};
+
 void print_usage(const string & program_name)
 {
   cerr
-  << "Usage: " << program_name << " [options] <seg> <seg> ...\n\n"
-  "<seg>                        Path to video/audio segments. If not exists,"
-  "                             program will exist without outputing mpd.\n"
+  << "Usage: " << program_name << " [options] <dir> <dir> ...\n\n"
+  "<dir>                        Path to video/audio folders. If media segment\n"
+  "                             does not exists in the folder, program will\n"
+  "                             exist without outputing mpd.\n"
   "-u --url <base_url>          Set the base url for all media segments.\n"
   "-b --buffer-time <time>      Set the minimum buffer time in seconds.\n"
   "-s --segment-name <name>     Set the segment name template.\n"
@@ -144,7 +149,7 @@ int main(int argc, char * argv[])
   string audio_init_name = default_audio_init_uri;
   string video_init_name = default_video_init_uri;
   string time_url = default_time_uri;
-  vector<string> seg_list;
+  vector<string> dir_list;
   /* default time is when the program starts */
   chrono::seconds publish_time = chrono::seconds(std::time(nullptr));
   string output = "";
@@ -204,19 +209,19 @@ int main(int argc, char * argv[])
   }
 
   if (optind >= argc) {
-    /* no seg input */
+    /* no dir input */
     print_usage(argv[0]);
     return EXIT_FAILURE;
   }
 
-  /* check and add to seg_list */
+  /* check and add to dir_list */
   for (int i = optind; i < argc; i++) {
     string path = argv[i];
     if (not roost::exists(path)) {
       throw runtime_error(path + " does not exist");
       return EXIT_FAILURE;
     } else {
-      seg_list.emplace_back(path);
+      dir_list.emplace_back(path);
     }
   }
 
@@ -226,22 +231,43 @@ int main(int argc, char * argv[])
   auto set_a = make_shared<AudioAdaptionSet>(2, audio_init_name, audio_name);
 
   /* figure out what kind of representation each folder is */
-  for (auto const & path : seg_list) {
-    string base = roost::dirname(roost::path(path)).string();
+  for (auto const & path : dir_list) {
     string init_seg_path;
-    if (is_webm(path)) {
-      string filename = roost::rbasename(roost::path(audio_init_name)).string();
-      init_seg_path = roost::join(base, filename);
-    } else {
-      string filename = roost::rbasename(roost::path(video_init_name)).string();
-      init_seg_path = roost::join(base, filename);
+    string seg_path = "";
+    string file_extension = "";
+
+    for (const auto & file : roost::get_directory_listing(path)) {
+      file_extension = split_filename(file).second;
+      if (find(media_extension.begin(), media_extension.end(), file_extension)
+          != media_extension.end()) {
+        seg_path = file;
+        break;
+      }
     }
+
+    if (file_extension != "m4s") {
+      string filename = roost::rbasename(roost::path(audio_init_name)).string();
+      init_seg_path = roost::join(path, filename);
+    } else {
+      /* make an assumption here that media segments (audio and video) have
+       * the same extension, i.e., .m4s
+       */
+      string filename = roost::rbasename(roost::path(video_init_name)).string();
+      init_seg_path = roost::join(path, filename);
+    }
+
     if (not roost::exists(init_seg_path)) {
       throw runtime_error("Cannnot find " + init_seg_path);
       return EXIT_FAILURE;
     }
+
+    if (seg_path == "") {
+      throw runtime_error("No media segments found in " + path);
+    }
+
+    seg_path = roost::join(path, seg_path);
     /* add repr set */
-    add_representation(set_v, set_a, init_seg_path, path);
+    add_representation(set_v, set_a, init_seg_path, seg_path);
   }
 
   /* set time */
