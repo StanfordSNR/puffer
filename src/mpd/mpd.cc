@@ -457,6 +457,12 @@ string MPDWriter::flush()
   writer_->attr("profiles", "urn:mpeg:dash:profile:isoff-live:2011");
   writer_->attr("type", mpd_type);
   writer_->attr("minBufferTime", convert_pt(min_buffer_time_));
+  /* set to epoch 0 */
+  writer_->attr("availabilityStartTime", format_time(0));
+  /* set to 60 seconds as it really doesn't matter:
+   * the mpd file will not change over time
+   */
+  writer_->attr("minimumUpdatePeriod", convert_pt(60));
 
   /* Base URL */
   writer_->open_elt("BaseURL");
