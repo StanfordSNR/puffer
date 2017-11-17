@@ -473,6 +473,8 @@ string MPDWriter::flush()
   /* only 1 period for now */
   writer_->open_elt("Period");
   writer_->attr("id", "1");
+  /* start right away */
+  writer_->attr("start", "PT0S");
   /* Adaption Set */
   for (const auto & it : video_adaption_set_) {
     write_video_adaption_set(it);
