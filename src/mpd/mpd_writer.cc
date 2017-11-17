@@ -42,10 +42,10 @@ void print_usage(const string & program_name)
   "-s --segment-name <name>     Set the segment name template.\n"
   "-a --audio-init-name <name>  Set the audio initial segment name.\n"
   "-v --video-init-name <name>  Set the video initial segment name.\n"
-  "-p --publish-time <time>     Set the publish time to <time> in unix"
+  "-p --publish-time <time>     Set the publish time to <time> in unix\n"
   "                             timestamp\n"
   "-t --time-url                Set the iso time url.\n"
-  "-o --output <path.mpd>       Output mpd info to <path.mpd>."
+  "-o --output <path.mpd>       Output mpd info to <path.mpd>.\n"
   "                             stdout will be used if not specified\n"
   << endl;
 }
