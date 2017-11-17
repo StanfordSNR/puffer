@@ -20,6 +20,8 @@ using namespace std;
 using namespace MPD;
 using namespace MP4;
 
+const uint32_t global_timescale = 90000;
+
 const char default_base_uri[] = "/";
 const char default_audio_uri[] = "$RepresentationID$/$Time$.chk";
 const char default_video_uri[] = "$RepresentationID$/$Time$.m4s";
@@ -65,6 +67,12 @@ void add_webm_audio(shared_ptr<AudioAdaptionSet> a_set, const string & init,
   uint32_t timescale = i_info.get_timescale();
   uint32_t bitrate = s_info.get_bitrate(timescale, duration);
   uint32_t sample_rate = i_info.get_sample_rate();
+
+  /* scale the timescale to global timescale */
+  uint32_t scaling_factor = global_timescale / timescale;
+  duration *= scaling_factor;
+  timescale *= scaling_factor;
+
   auto repr_a = make_shared<AudioRepresentation>(repr_id, bitrate,
         sample_rate, MimeType::Audio_OPUS, timescale, duration);
   a_set->add_repr(repr_a);
@@ -107,6 +115,11 @@ void add_representation(
   }
   /* get bitrate */
   uint32_t bitrate = s_info.get_bitrate(timescale, duration);
+
+  /* scale the timescale to global timescale */
+  uint32_t scaling_factor = global_timescale / timescale;
+  duration *= scaling_factor;
+  timescale *= scaling_factor;
 
   if (i_info.is_video()) {
     /* this is a video */
