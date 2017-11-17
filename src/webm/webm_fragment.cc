@@ -109,12 +109,11 @@ void create_init_segment(mkvmuxer::MkvWriter * writer,
   muxer_tags->Write(writer);
 }
 
-int get_sequence_number(const string & filepath)
+uint64_t get_timestamp(const string & filepath)
 {
-  roost::path file_path = roost::path(filepath);
-  string filename = roost::rbasename(file_path).string();
+  string filename = roost::rbasename(filepath).string();
   string number_str = split_filename(filename).first;
-  return stoi(number_str);
+  return narrow_cast<uint64_t>(stoll(number_str));
 }
 
 long long get_timecode(const string & timecode_file)
@@ -126,7 +125,7 @@ long long get_timecode(const string & timecode_file)
   return stoll(timecode_fd.read());
 }
 
-void set_timecode(const string & timecode_file, long long timecode)
+void set_timecode(const string & timecode_file, const long long timecode)
 {
   FileDescriptor timecode_fd(CheckSystemCall("open (" + timecode_file + ")",
       open(timecode_file.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644)));
@@ -138,7 +137,7 @@ void create_media_segment(
     mkvmuxer::MkvWriter * writer,
     mkvparser::MkvReader * reader,
     const unique_ptr<mkvparser::Segment> & parser_segment,
-    const string & media_segment,
+    const string & input_webm,
     const string & timecode_file)
 {
   if (parser_segment->GetCount() != 1) {
@@ -186,8 +185,7 @@ void create_media_segment(
 
   if (timecode_file.empty()) {
     /* ... from filename */
-    int sequence_number = get_sequence_number(media_segment);
-    abs_timecode = sequence_number * rel_timecode;
+    abs_timecode = get_timestamp(input_webm);
   } else {
     /* ... from timecode file and save the timecode for the next segment */
     abs_timecode = get_timecode(timecode_file);
@@ -290,7 +288,7 @@ void fragment(const string & input_webm,
   /* write media segment */
   if (media_segment.size()) {
     create_media_segment(&media_writer, &reader, parser_segment,
-                         media_segment, timecode_file);
+                         input_webm, timecode_file);
   }
 }
 
