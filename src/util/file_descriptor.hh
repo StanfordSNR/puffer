@@ -50,6 +50,16 @@ public:
   std::string::const_iterator write( const std::string::const_iterator & begin,
                                      const std::string::const_iterator & end );
 
+  /* manipulate file offset */
+  uint64_t seek(const int64_t offset, const int whence);
+  uint64_t curr_offset();
+  uint64_t inc_offset(const int64_t offset);
+
+  uint64_t filesize();
+
+  /* reset file offset to the beginning and set EOF to false */
+  void reset();
+
   /* block on an exclusive lock */
   void block_for_exclusive_lock();
   void release_flock();

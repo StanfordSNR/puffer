@@ -143,3 +143,35 @@ void FileDescriptor::set_blocking( const bool block )
 
   CheckSystemCall( "fcntl F_SETFL", fcntl( fd_, F_SETFL, flags ) );
 }
+
+uint64_t FileDescriptor::seek(const int64_t offset, const int whence)
+{
+  return CheckSystemCall("lseek", lseek(fd_num(), offset, whence));
+}
+
+uint64_t FileDescriptor::curr_offset()
+{
+  return seek(0, SEEK_CUR);
+}
+
+uint64_t FileDescriptor::inc_offset(const int64_t offset)
+{
+  return seek(offset, SEEK_CUR);
+}
+
+uint64_t FileDescriptor::filesize()
+{
+  uint64_t prev_offset = curr_offset();
+  uint64_t fsize = seek(0, SEEK_END);
+
+  /* seek back to the previous offset */
+  seek(prev_offset, SEEK_SET);
+
+  return fsize;
+}
+
+void FileDescriptor::reset()
+{
+  seek(0, SEEK_SET);
+  set_eof(false);
+}
