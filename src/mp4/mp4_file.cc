@@ -18,38 +18,6 @@ MP4File::MP4File(const string & filename, int flags, mode_t mode)
                                    open(filename.c_str(), flags, mode)))
 {}
 
-uint64_t MP4File::seek(const int64_t offset, const int whence)
-{
-  return CheckSystemCall("lseek", lseek(fd_num(), offset, whence));
-}
-
-uint64_t MP4File::curr_offset()
-{
-  return seek(0, SEEK_CUR);
-}
-
-uint64_t MP4File::inc_offset(const int64_t offset)
-{
-  return seek(offset, SEEK_CUR);
-}
-
-uint64_t MP4File::filesize()
-{
-  uint64_t prev_offset = curr_offset();
-  uint64_t fsize = seek(0, SEEK_END);
-
-  /* seek back to the previous offset */
-  seek(prev_offset, SEEK_SET);
-
-  return fsize;
-}
-
-void MP4File::reset()
-{
-  seek(0, SEEK_SET);
-  set_eof(false);
-}
-
 uint8_t MP4File::read_uint8()
 {
   string data = read(1);
