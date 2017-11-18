@@ -249,7 +249,7 @@ int main(int argc, char * argv[])
     string seg_path = "";
     string file_extension = "";
 
-    for (const auto & file : roost::get_directory_listing(path)) {
+    for (const auto & file : roost::get_file_listing(path)) {
       file_extension = split_filename(file).second;
       if (find(media_extension.begin(), media_extension.end(), file_extension)
           != media_extension.end()) {

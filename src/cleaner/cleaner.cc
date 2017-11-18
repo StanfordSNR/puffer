@@ -41,7 +41,7 @@ void clean_files(const string & working_dir, const string & pattern,
     stale_time_sec = strict_atoi(stale_time);
   }
 
-  vector<string> filenames = roost::get_directory_listing(working_dir);
+  vector<string> filenames = roost::get_file_listing(working_dir);
 
   for (const auto & filename : filenames) {
     string fullpath = roost::join(working_dir, filename);
