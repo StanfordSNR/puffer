@@ -1,0 +1,27 @@
+#!/bin/bash -ex
+
+TIME=$abs_builddir/../time/time
+TIME_REF1="1970-01-01T00:00:02Z"
+TIME_REF2="1970-01-01T00:00:04Z"
+REF_NAME1="$test_tmpdir/time_ref1"
+REF_NAME2="$test_tmpdir/time_ref2"
+
+TEST_NAME="$test_tmpdir/time_test"
+
+TEST_TIME1="180180.m4s"
+TEST_TIME2="360360.m4s"
+
+# write out files to temp folder
+printf $TIME_REF1 >> $REF_NAME1
+printf $TIME_REF2 >> $REF_NAME2
+
+$TIME -i $TEST_TIME1 -o $TEST_NAME
+diff $REF_NAME1 $TEST_NAME
+
+# increase
+$TIME -i $TEST_TIME2 -o $TEST_NAME
+diff $REF_NAME2 $TEST_NAME
+
+# decrease
+$TIME -i $TEST_TIME1 -o $TEST_NAME
+diff $REF_NAME2 $TEST_NAME
