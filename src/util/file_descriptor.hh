@@ -52,6 +52,7 @@ public:
 
   /* block on an exclusive lock */
   void block_for_exclusive_lock();
+  void release_flock();
 
   /* set nonblocking/blocking behavior */
   void set_blocking( const bool block );
