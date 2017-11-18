@@ -46,6 +46,7 @@ AC_CONFIG_FILES([
     src/mpd/Makefile
     src/ssim/Makefile
     src/cleaner/Makefile
+    src/time/Makefile
     src/tests/Makefile
 ])
 AC_OUTPUT
