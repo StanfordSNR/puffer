@@ -42,7 +42,7 @@ void run_program(const string & program,
   string src_filename = roost::rbasename(src_file).string();
   string src_filename_prefix = split_filename(src_filename).first;
 
-  vector<string> dst_filenames = roost::get_directory_listing(dst_dir);
+  vector<string> dst_filenames = roost::get_file_listing(dst_dir);
 
   bool success = false;
   for (const string & dst_filename : dst_filenames) {
@@ -63,14 +63,14 @@ void process_existing_files(const string & program,
                             const vector<string> & prog_args)
 {
   /* create a set containing the basename of files in dst_dir */
-  vector<string> dst_filenames = roost::get_directory_listing(dst_dir);
+  vector<string> dst_filenames = roost::get_file_listing(dst_dir);
   set<string> dst_fileset;
 
   for (const string & dst_filename : dst_filenames) {
     dst_fileset.insert(split_filename(dst_filename).first);
   }
 
-  vector<string> src_filenames = roost::get_directory_listing(src_dir);
+  vector<string> src_filenames = roost::get_file_listing(src_dir);
 
   for (const string & src_filename : src_filenames) {
     string src_filename_prefix = split_filename(src_filename).first;
