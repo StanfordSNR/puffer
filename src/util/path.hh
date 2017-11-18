@@ -52,6 +52,7 @@ namespace roost {
   path current_working_directory();
   void create_directories( const path & pathn );
   bool is_directory( const path & pathn );
+  bool is_regular_file( const path & pathn );
   bool remove( const path & pathn );
   bool remove_at( const Directory & directory, const path & pathn,
                   const bool is_directory = false );
@@ -60,6 +61,7 @@ namespace roost {
   void chmod( const path & pathn, mode_t mode );
   std::string readlink( const path & pathn );
   std::vector<std::string> get_directory_listing( const path & pathn );
+  std::vector<std::string> get_file_listing( const path & pathn );
   bool is_absolute( const path & pathn );
   void make_executable( const path & pathn );
   void atomic_create( const std::string & contents, const path & dst,

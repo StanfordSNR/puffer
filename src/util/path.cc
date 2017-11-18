@@ -285,6 +285,14 @@ namespace roost {
     return S_ISDIR( file_info.st_mode );
   }
 
+  bool is_regular_file( const path & pathn )
+  {
+    struct stat file_info;
+    CheckSystemCall( "stat " + pathn.string(),
+                     stat( pathn.string().c_str(), &file_info ) );
+    return S_ISREG( file_info.st_mode );
+  }
+
   bool is_directory_at( const Directory & parent_directory, const path & pathn )
   {
     struct stat file_info;
@@ -382,6 +390,32 @@ namespace roost {
     while ( ( errno = 0, entry = readdir( dir.get() ) ) != NULL ) {
       string name { entry->d_name };
       if ( name != ".." and name != "." ) {
+        result.push_back( name );
+      }
+    }
+
+    if ( errno ) {
+      throw unix_error( "readdir" );
+    }
+
+    return result;
+  }
+
+  vector<string> get_file_listing( const path & pathn )
+  {
+    Directory directory( pathn.string() );
+    shared_ptr<DIR> dir { fdopendir( directory.num() ), closedir };
+
+    if ( dir.get() == NULL ) {
+      throw unix_error( "fdopendir" );
+    }
+
+    vector<string> result;
+
+    struct dirent * entry = NULL;
+    while ( ( errno = 0, entry = readdir( dir.get() ) ) != NULL ) {
+      string name { entry->d_name };
+      if ( is_regular_file( pathn / name ) and name != ".." and name != "." ) {
         result.push_back( name );
       }
     }
