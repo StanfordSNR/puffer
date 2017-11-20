@@ -1,27 +1,30 @@
 #include <time.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <getopt.h>
 #include <iostream>
 #include <vector>
-#include <getopt.h>
 #include <chrono>
 
+#include "path.hh"
+#include "strict_conversions.hh"
 #include "file_descriptor.hh"
 #include "tokenize.hh"
 #include "exception.hh"
 
 using namespace std;
 
-const uint32_t default_timescale = 90000;
-const uint32_t buffer_size = 64;
+const int default_timescale = 90000;
+const size_t buffer_size = 64;
 
 void print_usage(const string & program_name)
 {
-  cerr
-    << "Usage: " << program_name << " [options]\n"
-    "-i --input <input>      input file in <time>.m4s format.\n"
-    "-o --output <output>    program will write the timefile to <output>.\n"
-    "-s --scale <timescale>  presentation time scale.\n";
+  cerr <<
+  "Usage: " << program_name << " [options]\n"
+  "-i --input <input>      input file in <time>.m4s format.\n"
+  "-o --output <output>    program will write the timefile to <output>.\n"
+  "-s --scale <timescale>  presentation time scale."
+  << endl;
 }
 
 string format_time(const time_t time)
@@ -35,58 +38,65 @@ string format_time(const time_t time)
 
 int main(int argc, char * argv[])
 {
-  string timescale = "";
-  string input = "";
-  string output = "";
-  uint32_t i_timescale, i_time;
+  if (argc < 1) {
+    abort();
+  }
 
-  int opt, long_option_index;
+  string timescale, input, output;
 
-  const char *optstring = "o:i:s:";
-  const struct option options[] = {
-    {"output",            required_argument, nullptr, 'o'},
-    {"input",             required_argument, nullptr, 'i'},
-    {"scale",             required_argument, nullptr, 's'},
-    { nullptr,            0,                 nullptr,  0 },
+  const option cmd_line_opts[] = {
+    {"output", required_argument, nullptr, 'o'},
+    {"input",  required_argument, nullptr, 'i'},
+    {"scale",  required_argument, nullptr, 's'},
+    { nullptr, 0,                 nullptr,  0 },
   };
 
   while (true) {
-    opt = getopt_long(argc, argv, optstring, options, &long_option_index);
-    if (opt == EOF) {
+    const int opt = getopt_long(argc, argv, "o:i:s:", cmd_line_opts, nullptr);
+    if (opt == -1) {
       break;
     }
+
     switch (opt) {
-      case 'o':
-        output = optarg;
-        break;
-      case 'i':
-        input = optarg;
-        break;
-      case 's':
-        timescale = optarg;
-        break;
-      default:
-        print_usage(argv[0]);
-        return EXIT_FAILURE;
+    case 'o':
+      output = optarg;
+      break;
+    case 'i':
+      input = optarg;
+      break;
+    case 's':
+      timescale = optarg;
+      break;
+    default:
+      print_usage(argv[0]);
+      return EXIT_FAILURE;
     }
   }
 
-  if (output == "") {
+  if (optind != argc) {
+    print_usage(argv[0]);
+    return EXIT_FAILURE;
+  }
+
+  if (output.empty()) {
     cout << "Missing -o <output>" << endl;
     print_usage(argv[0]);
     return EXIT_FAILURE;
   }
-  if (input == "") {
+
+  if (input.empty()) {
     cout << "Missing -i <input>" << endl;
     print_usage(argv[0]);
     return EXIT_FAILURE;
   }
 
-  string time_string = split_filename(input).first;
-  i_time = stoi(time_string);
+  string time_string = roost::rbasename(input).string();
+  time_string = split_filename(time_string).first;
+  long long i_time = stoll(time_string);
 
-  if (timescale != "") {
-    i_timescale = stoi(timescale);
+  long long i_timescale;
+  if (timescale.size()) {
+    i_timescale = stoll(timescale);
   } else {
     i_timescale = default_timescale;
   }
@@ -103,7 +113,7 @@ int main(int argc, char * argv[])
   uint64_t filesize = fd.filesize();
 
   /* actual duration in seconds */
-  time_t duration = static_cast<time_t>(i_time / i_timescale);
+  time_t duration = narrow_cast<time_t>(i_time / i_timescale);
 
   if (filesize > 0) {
     string file_time = fd.read(buffer_size);
