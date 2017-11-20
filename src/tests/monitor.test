@@ -1,0 +1,48 @@
+#!/usr/bin/env python
+
+import os
+from os import path
+import sys
+from test_helpers import (Popen, create_tmp_and_move_to, make_sure_path_exists,
+                          PIPE)
+
+
+def main():
+    abs_srcdir = os.environ['abs_srcdir']
+    monitor_prog = path.join(abs_srcdir, 'notified_monitor_prog.sh')
+
+    abs_builddir = os.environ['abs_builddir']
+    test_tmpdir = path.join(abs_builddir, 'test_tmpdir')
+
+    # create two tmp directories to be monitored
+    dir1 = path.join(test_tmpdir, 'monitored_dir1')
+    dir2 = path.join(test_tmpdir, 'monitored_dir2')
+
+    for directory in [dir1, dir2]:
+        make_sure_path_exists(directory)
+
+    # run monitor
+    monitor = path.abspath(
+        path.join(abs_builddir, os.pardir, 'notifier', 'monitor'))
+
+    cmd = [monitor, dir1, dir2, '-exec', 'basename', '{}']
+    monitor_proc = Popen(cmd, stdout=PIPE)
+
+    # create and move tmp files; expect filenames to be echoed
+    fname_in_dir2 = create_tmp_and_move_to(dir2)
+    fname_in_dir1 = create_tmp_and_move_to(dir1)
+
+    line = monitor_proc.stdout.readline().strip()
+    if line != fname_in_dir2:
+        sys.exit('expect %s but found %s' % (fname_in_dir2, line))
+
+    line = monitor_proc.stdout.readline().strip()
+    if line != fname_in_dir1:
+        sys.exit('expect %s but found %s' % (fname_in_dir1, line))
+
+    if monitor_proc:
+        monitor_proc.kill()
+
+
+if __name__ == '__main__':
+    main()
