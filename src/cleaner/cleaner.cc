@@ -46,12 +46,12 @@ void clean_files(const string & working_dir, const string & pattern,
   for (const auto & filename : filenames) {
     string fullpath = roost::join(working_dir, filename);
 
-    if (not pattern.empty() and not regex_match(filename, pattern_regex)) {
+    if (pattern.size() and not regex_match(filename, pattern_regex)) {
       /* filename does not match pattern */
       continue;
     }
 
-    if (not stale_time.empty()) {
+    if (stale_time.size()) {
       struct stat file_stat;
       CheckSystemCall("stat", stat(fullpath.c_str(), &file_stat));
 
@@ -75,7 +75,7 @@ void clean_files(const string & working_dir, const string & pattern,
   }
 }
 
-int main(int argc, char * *argv)
+int main(int argc, char * argv[])
 {
   if (argc < 1) {
     abort();

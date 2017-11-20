@@ -1,6 +1,5 @@
 #include <getopt.h>
 #include <fcntl.h>
-
 #include <iostream>
 #include <memory>
 #include <string>
