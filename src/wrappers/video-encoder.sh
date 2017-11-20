@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -ex
 
 curr_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 src_path=$1

@@ -68,6 +68,7 @@ int main(int argc, char * argv[])
   }
 
   if (udp_port.empty() or tcp_hostname.empty() or tcp_port.empty()) {
+    cerr << "Error: --udp-port and --tcp are both required" << endl;
     print_usage(argv[0]);
     return EXIT_FAILURE;
   }
@@ -84,7 +85,7 @@ int main(int argc, char * argv[])
     pair<Address, string> addr_payload = udp_sock.recvfrom();
     const string & payload = addr_payload.second;
 
-    if (not payload.empty()) {
+    if (payload.size()) {
       tcp_sock.write(payload);
     }
   }

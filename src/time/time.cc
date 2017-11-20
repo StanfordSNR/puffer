@@ -129,10 +129,10 @@ int main(int argc, char * argv[])
     }
   }
 
-  string format_string = format_time(duration);
+  string updated_time = format_time(duration);
   /* reset the file content */
   fd.reset();
-  fd.write(format_string);
+  fd.write(updated_time);
   fd.release_flock();
   fd.close();
   return EXIT_SUCCESS;

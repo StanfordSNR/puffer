@@ -94,16 +94,16 @@ int main(int argc, char * argv[])
     return EXIT_FAILURE;
   }
 
-  string src_dir{argv[1]}, dst_dir{argv[2]}, program{argv[3]};
+  /* convert src & dst dir to absolute paths */
+  string src_dir = roost::canonical(argv[1]).string();
+  string dst_dir = roost::canonical(argv[2]).string();
+
+  string program = argv[3];
 
   vector<string> prog_args;
   for (int i = 4; i < argc; ++i) {
     prog_args.emplace_back(argv[i]);
   }
-
-  /* convert src & dst dir to absolute paths as they'll be passed to program */
-  src_dir = roost::canonical(src_dir).string();
-  dst_dir = roost::canonical(dst_dir).string();
 
   Notifier notifier;
 
