@@ -102,5 +102,9 @@ tags
 *.log
 *.trs
 *.pyc
+*.ts
+*.y4m
+*.webm
+*.chk
 
 /tv-encoder-*
