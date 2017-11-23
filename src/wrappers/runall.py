@@ -19,7 +19,7 @@ AUDIO_FRAGMENT_PATH = os.path.join(FILE_DIR, "audio-fragment.sh")
 TIME_PATH = os.path.join(FILE_DIR, "..", "time", "time")
 MPD_PATH = os.path.join(FILE_DIR, "..", "mpd", "mpd_writer")
 NOTIFIER_PATH = os.path.join(FILE_DIR, "..", "notifier", "run_notifier")
-# TODO: add cleaner
+MONITOR_PATH = os.path.join(FILE_DIR, "..", "notifier", "monitor")
 
 # wrapper tuple
 VideoConfig = namedtuple("VideoConfig", ["width", "height", "crf"])
@@ -66,11 +66,15 @@ def run_process(command_str):
     # script exits as well as prevent zombie process
     splitted_commands = command_str.split()
     p = subprocess.Popen(splitted_commands,
-                     stdout=open('/dev/null', 'w'),
                      preexec_fn=os.setpgrp)
 
     name = os.path.basename(splitted_commands[0])
-    logger.info("Start a new process [" + str(p.pid) + "]: " + name)
+    logger.info("Start a new process [" + str(p.pid) + "]: " + name + \
+            ". commands: " + " ".join(splitted_commands[1:]))
+
+def get_video_output(output_dir, fmt):
+    return os.path.join(output_dir, fmt.width + "x" + fmt.height + "-" + \
+            fmt.crf)
 
 def main():
     parser = configure_args()
@@ -86,8 +90,7 @@ def main():
         width, height = check_res(res)
         for crf in crfs:
             if not crf.isdigit():
-                print("crf must be an integer")
-                exit(1)
+                sys.exit("crf must be an integer. got " + crf)
             video_formats.append(VideoConfig(width, height, crf))
     for bitrate in arg_output.audio_format:
         # added as a string because we only need that in Popen
@@ -100,23 +103,30 @@ def main():
     # this is only for mock interface
     decoder_command = "-p " + str(port_number) + " -a " + audio_raw_output +\
             " -v " + video_raw_output
-    logger.info("Decoder path: " + DECODER_PATH)
-    logger.info("Decoder command: " +  decoder_command)
     run_process(DECODER_PATH + " " + decoder_command)
+
+
+    # run time/time before the video/audio
+    time_output = os.path.join(output_folder, "time")
+    time_dirs = " ".join([get_video_output(output_folder, fmt) for fmt in \
+            video_formats])
+    monitor_command = time_dirs + " " + output_folder + " " + TIME_PATH + \
+            " -exec -i {} -o " + time_output
+    # run monitor to update the time
+    run_process(MONITOR_PATH + " " + monitor_command)
 
     # (notifier + video_encoder) + (notifier + video_frag)
     for fmt in video_formats:
         # this is also the final output folder basename
         res = fmt.width + "x" + fmt.height
         crf = fmt.crf
-        final_output = os.path.join(output_folder, res + "-" + crf)
-        encoded_output = os.path.join(output_folder, res + "-" + crf + "-mp4")
+        final_output = get_video_output(output_folder, fmt)
+        encoded_output = final_output + "-mp4"
         output_list.append(final_output)
         # mkdir
         check_dir(final_output, encoded_output)
         notifier_command = video_raw_output + " " + encoded_output + " " + \
                 VIDEO_ENCODER_PATH + " " + res  + " " + fmt.crf
-        logger.info("Using notifier command " + notifier_command)
         # run notifier to encode
         run_process(NOTIFIER_PATH + " " + notifier_command)
 
@@ -124,7 +134,6 @@ def main():
         # TODO: this is a bug for initial segment
         notifier_command = encoded_output + " " + final_output + " " + \
                 VIDEO_FRAGMENT_PATH
-        logger.info("Using notifier command " + notifier_command)
         run_process(NOTIFIER_PATH + " " + notifier_command)
 
     # (notifier + video_encoder) + (notifier + video_frag)
