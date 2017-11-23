@@ -23,13 +23,15 @@ def main():
 
     video_path = args.video
     audio_path = args.audio
+    mock_file = args.mock_file
 
     # don't need port number as we're faking a connection
     temp_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), "tmp")
     if not os.path.isdir(temp_dir):
         os.mkdir(temp_dir)
     # run ffmpeg
-    ffmpeg_command = "ffmpeg -nostdin -stream_loop -1 -i leno2.ts -map 0:v -an -f " + \
+    ffmpeg_command = "ffmpeg -nostdin -hide_banner -loglevel panic -y -stream_loop -1 -i " + mock_file + \
+            " -map 0:v -an -f " + \
             "segment -segment_time 2.002 -segment_format yuv4mpegpipe " + \
             temp_dir + "/%d.y4m -map 0:a -vn -f segment -segment_time " + \
             "5.005 -segment_format wave " + temp_dir + "/%d.wav"
