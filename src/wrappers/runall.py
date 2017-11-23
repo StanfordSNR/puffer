@@ -122,6 +122,7 @@ def main():
 
     # video canonicalizer
     video_canonical = os.path.join(output_folder, "video_canonical")
+    check_dir(video_canonical)
     notifier_command = video_raw_output + " " + video_canonical + " " + \
             CANONICALIZER_PATH
     run_process(NOTIFIER_PATH + " " + notifier_command)
