@@ -9,17 +9,21 @@ import logging
 import time
 
 # current python file location
-FILE_DIR = os.path.dirname(os.path.realpath(__file__))
+FILE_DIR            = os.path.dirname(os.path.realpath(__file__))
 # use a mock decoder for now
-DECODER_PATH = os.path.join(FILE_DIR, "..", "mock", "decoder")
-VIDEO_ENCODER_PATH = os.path.join(FILE_DIR, "video-encoder.sh")
-AUDIO_ENCODER_PATH = os.path.join(FILE_DIR, "audio-encoder.sh")
+DECODER_PATH        = os.path.join(FILE_DIR, "..", "mock", "decoder")
+VIDEO_ENCODER_PATH  = os.path.join(FILE_DIR, "video-encoder.sh")
+AUDIO_ENCODER_PATH  = os.path.join(FILE_DIR, "audio-encoder.sh")
 VIDEO_FRAGMENT_PATH = os.path.join(FILE_DIR, "video-fragment.sh")
 AUDIO_FRAGMENT_PATH = os.path.join(FILE_DIR, "audio-fragment.sh")
-TIME_PATH = os.path.join(FILE_DIR, "..", "time", "time")
-MPD_PATH = os.path.join(FILE_DIR, "..", "mpd", "mpd_writer")
-NOTIFIER_PATH = os.path.join(FILE_DIR, "..", "notifier", "run_notifier")
-MONITOR_PATH = os.path.join(FILE_DIR, "..", "notifier", "monitor")
+TIME_PATH           = os.path.join(FILE_DIR, "..", "time", "time")
+MPD_WRITER_PATH     = os.path.join(FILE_DIR, "..", "mpd", "mpd_writer")
+NOTIFIER_PATH       = os.path.join(FILE_DIR, "..", "notifier", "run_notifier")
+MONITOR_PATH        = os.path.join(FILE_DIR, "..", "notifier", "monitor")
+
+# filename constants
+AUDIO_INIT_NAME     = "init.webm"
+VIDEO_INIT_NAME     = "init.mp4"
 
 # wrapper tuple
 VideoConfig = namedtuple("VideoConfig", ["width", "height", "crf"])
@@ -76,6 +80,9 @@ def get_video_output(output_dir, fmt):
     return os.path.join(output_dir, fmt.width + "x" + fmt.height + "-" + \
             fmt.crf)
 
+def get_audio_output(output_dir, bitrate):
+    return os.path.join(output_dir, bitrate)
+
 def main():
     parser = configure_args()
     arg_output = parser.parse_args()
@@ -105,16 +112,6 @@ def main():
             " -v " + video_raw_output
     run_process(DECODER_PATH + " " + decoder_command)
 
-
-    # run time/time before the video/audio
-    time_output = os.path.join(output_folder, "time")
-    time_dirs = " ".join([get_video_output(output_folder, fmt) for fmt in \
-            video_formats])
-    monitor_command = time_dirs + " " + output_folder + " " + TIME_PATH + \
-            " -exec -i {} -o " + time_output
-    # run monitor to update the time
-    run_process(MONITOR_PATH + " " + monitor_command)
-
     # (notifier + video_encoder) + (notifier + video_frag)
     for fmt in video_formats:
         # this is also the final output folder basename
@@ -131,10 +128,14 @@ def main():
         run_process(NOTIFIER_PATH + " " + notifier_command)
 
         # run frag to output the final segment
-        # TODO: this is a bug for initial segment
         notifier_command = encoded_output + " " + final_output + " " + \
                 VIDEO_FRAGMENT_PATH
         run_process(NOTIFIER_PATH + " " + notifier_command)
+        # init segment. use monitor's run once command
+        monitor_command = "-q " + encoded_output + " -exec " + \
+                VIDEO_FRAGMENT_PATH + " {} -i " + VIDEO_INIT_NAME
+        run_process(MONITOR_PATH + " " + monitor_command)
+
 
     # (notifier + video_encoder) + (notifier + video_frag)
     for bitrate in audio_formats:
@@ -151,12 +152,35 @@ def main():
         run_process(NOTIFIER_PATH + " " + notifier_command)
 
         # run frag to output the final segment
-        # TODO: this is a bug for initial segment
+        # media segment
         notifier_command = encoded_output + " " + final_output + " " + \
                 AUDIO_FRAGMENT_PATH
-        logger.info("Using notifier command " + notifier_command)
         run_process(NOTIFIER_PATH + " " + notifier_command)
+        # init segment. use monitor's run once command
+        monitor_command = "-q " + encoded_output + " -exec " + \
+                AUDIO_FRAGMENT_PATH + " {} -i " + AUDIO_INIT_NAME
+        run_process(MONITOR_PATH + " " + monitor_command)
 
+
+    # run time/time
+    time_output = os.path.join(output_folder, "time")
+    time_dirs = " ".join([get_video_output(output_folder, fmt) for fmt in \
+            video_formats])
+    monitor_command = "-a " + time_dirs + " " + output_folder + " -exec " + \
+            TIME_PATH + " -i {} -o " + time_output
+    # run monitor to update the time
+    run_process(MONITOR_PATH + " " + monitor_command)
+
+    # run monitor + mpd_writer for all the output directories
+    audio_dir = " ".join([get_audio_output(output_folder, bitrate) for bitrate \
+            in audio_formats])
+    media_dir = time_dirs[:] + " " + audio_dir
+    mpd_path = os.path.join(output_folder, "live.mpd")
+    # it will try its best to produce the mpd
+    monitor_command = "-a -q " + media_dir + " -exec " + MPD_WRITER_PATH + \
+            " -u " + output_folder + " -t time -o " + mpd_path + \
+            " --ignore {}"
+    run_process(MONITOR_PATH + " " + monitor_command)
 
 if __name__ == "__main__":
     main()

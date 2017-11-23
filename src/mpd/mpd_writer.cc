@@ -216,8 +216,9 @@ int main(int argc, char * argv[])
         time_url = optarg;
         break;
       default:
-        print_usage(argv[0]);
-        return EXIT_FAILURE;
+        break; /* ignore unexpected arguments */
+        // print_usage(argv[0]);
+        // return EXIT_FAILURE;
     }
   }
 
