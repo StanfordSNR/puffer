@@ -4,6 +4,7 @@
 #include <cstring>
 #include <iostream>
 #include <vector>
+#include <unordered_set>
 #include <string>
 #include <stdexcept>
 
@@ -20,10 +21,12 @@ void print_usage(const string & program_name)
   "Usage: " << program_name << " [options] <dir>... -exec <program> <args>\n\n"
   "Options:\n"
   "-q           quit after the first successful run of <program>\n"
+  "-a           run <program> only if at least an event occurs in all <dir>\n"
   "<dir>        directory to monitor IN_MOVED_TO events of regular files\n"
   "<program>    program to run after a new file <filename> is moved into\n"
   "             one of the <dir>. <args> must contain a {} that will be\n"
-  "             replaced by <dir>/<filename>."
+  "             replaced by <dir>/<filename>. When -a exists, {} will be\n"
+  "             replaced by all <dir>/<filename> separated by spaces."
   << endl;
 }
 
@@ -33,9 +36,13 @@ int main(int argc, char * argv[])
     abort();
   }
 
-  vector<string> monitored_dirs;
+  unordered_set<string> monitored_dirs;
   bool after_exec = false;
   bool quit_after_success = false;
+
+  bool monitor_all = false;
+  unordered_set<string> ready_dirs;
+  vector<string> ready_filepaths;
 
   string program;
   vector<string> prog_args;
@@ -50,9 +57,11 @@ int main(int argc, char * argv[])
     if (not after_exec) {
       if (not strcmp(argv[i], "-q")) {
         quit_after_success = true;
+      } else if (not strcmp(argv[i], "-a")) {
+        monitor_all = true;
       } else {
         string dir_abs_path = roost::canonical(argv[i]).string();
-        monitored_dirs.emplace_back(move(dir_abs_path));
+        monitored_dirs.insert(dir_abs_path);
       }
     } else {
       if (program.empty()) {
@@ -94,13 +103,29 @@ int main(int argc, char * argv[])
         }
 
         string filepath = roost::join(dir, event.name);
-
         vector<string> args{program};
-        args.insert(args.end(), prog_args.begin(), prog_args.end());
-        args[braces_idx] = filepath;
+
+        if (monitor_all) {
+          ready_dirs.insert(dir);
+          ready_filepaths.emplace_back(filepath);
+
+          if (monitored_dirs != ready_dirs) {
+            return;
+          }
+
+          args.insert(args.end(), prog_args.begin(), prog_args.end());
+
+          auto args_it = args.erase(args.begin() + braces_idx);
+          args.insert(args_it, ready_filepaths.begin(), ready_filepaths.end());
+
+          ready_dirs.clear();
+          ready_filepaths.clear();
+        } else {
+          args.insert(args.end(), prog_args.begin(), prog_args.end());
+          args[braces_idx] = filepath;
+        }
 
         cerr << "$ " << command_str(args, {}) << endl;
-
         run(program, args, {}, true, true);
 
         if (quit_after_success) {
