@@ -7,5 +7,5 @@ src_fname_prefix=${src_fname%.*}
 dst_dir=$2
 tmp_file=$(mktemp /tmp/tmp.XXXXXX.mp4)
 
-ffmpeg -y -i $src_path -vf yadif $tmp_file
+ffmpeg -y -i $src_path -vf yadif=1 $tmp_file
 mv $tmp_file $dst_dir/$src_fname_prefix.mp4
