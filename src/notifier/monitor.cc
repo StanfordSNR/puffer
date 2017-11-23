@@ -1,3 +1,4 @@
+#include <stdlib.h>
 #include <sys/inotify.h>
 #include <cassert>
 #include <cstring>
@@ -16,10 +17,12 @@ using namespace std;
 void print_usage(const string & program_name)
 {
   cerr <<
-  "Usage: " << program_name << " <dir>... -exec <program> <prog args>\n\n"
+  "Usage: " << program_name << " [options] <dir>... -exec <program> <args>\n\n"
+  "Options:\n"
+  "-q           quit after the first successful run of <program>\n"
   "<dir>        directory to monitor IN_MOVED_TO events of regular files\n"
   "<program>    program to run after a new file <filename> is moved into\n"
-  "             one of the <dir>. <prog args> must contain a {} that will be\n"
+  "             one of the <dir>. <args> must contain a {} that will be\n"
   "             replaced by <dir>/<filename>."
   << endl;
 }
@@ -32,27 +35,32 @@ int main(int argc, char * argv[])
 
   vector<string> monitored_dirs;
   bool after_exec = false;
+  bool quit_after_success = false;
 
   string program;
   vector<string> prog_args;
   int braces_idx = -1;
 
   for (int i = 1; i < argc; ++i) {
-    if (!strcmp(argv[i], "-exec")) {
+    if (not strcmp(argv[i], "-exec")) {
       after_exec = true;
       continue;
     }
 
     if (not after_exec) {
-      string dir_abs_path = roost::canonical(argv[i]).string();
-      monitored_dirs.emplace_back(move(dir_abs_path));
+      if (not strcmp(argv[i], "-q")) {
+        quit_after_success = true;
+      } else {
+        string dir_abs_path = roost::canonical(argv[i]).string();
+        monitored_dirs.emplace_back(move(dir_abs_path));
+      }
     } else {
       if (program.empty()) {
         program = argv[i];
       } else {
         prog_args.emplace_back(argv[i]);
 
-        if (!strcmp(argv[i], "{}")) {
+        if (not strcmp(argv[i], "{}")) {
           braces_idx = prog_args.size();
         }
       }
@@ -94,6 +102,10 @@ int main(int argc, char * argv[])
         cerr << "$ " << command_str(args, {}) << endl;
 
         run(program, args, {}, true, true);
+
+        if (quit_after_success) {
+          exit(EXIT_SUCCESS);
+        }
       }
     );
   }

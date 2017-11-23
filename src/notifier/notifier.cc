@@ -102,5 +102,5 @@ Result Notifier::handle_events()
     ptr += sizeof(inotify_event) + event->len;
   }
 
-  return Result();
+  return {};  /* continue */
 }
