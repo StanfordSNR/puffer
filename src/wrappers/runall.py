@@ -12,6 +12,7 @@ import time
 FILE_DIR            = os.path.dirname(os.path.realpath(__file__))
 # use a mock decoder for now
 DECODER_PATH        = os.path.join(FILE_DIR, "..", "mock", "decoder")
+CANONICALIZER_PATH  = os.path.join(FILE_DIR, "canonicalizer.sh")
 VIDEO_ENCODER_PATH  = os.path.join(FILE_DIR, "video-encoder.sh")
 AUDIO_ENCODER_PATH  = os.path.join(FILE_DIR, "audio-encoder.sh")
 VIDEO_FRAGMENT_PATH = os.path.join(FILE_DIR, "video-fragment.sh")
@@ -112,6 +113,12 @@ def main():
             " -v " + video_raw_output
     run_process(DECODER_PATH + " " + decoder_command)
 
+    # video canonicalizer
+    video_canonical = os.path.join(output_folder, "video_canonical")
+    notifier_command = video_raw_output + " " + video_canonical + " " + \
+            CANONICALIZER_PATH
+    run_process(NOTIFIER_PATH + " " + notifier_command)
+
     # (notifier + video_encoder) + (notifier + video_frag)
     for fmt in video_formats:
         # this is also the final output folder basename
@@ -122,7 +129,7 @@ def main():
         output_list.append(final_output)
         # mkdir
         check_dir(final_output, encoded_output)
-        notifier_command = video_raw_output + " " + encoded_output + " " + \
+        notifier_command = video_canonical + " " + encoded_output + " " + \
                 VIDEO_ENCODER_PATH + " " + res  + " " + fmt.crf
         # run notifier to encode
         run_process(NOTIFIER_PATH + " " + notifier_command)
