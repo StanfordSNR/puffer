@@ -1,0 +1,62 @@
+#!/usr/bin/env python
+
+import time
+import subprocess
+import sys
+import os
+import argparse
+import inotify.adapters
+
+def main():
+    parser = argparse.ArgumentParser("A decoder mock")
+    parser.add_argument("-p", "--port", action = "store", required = True,
+            help = "TCP port number", type = int, dest = "port")
+    parser.add_argument("-a", "--audio", action = "store", required = True,
+            help ="audio output folder", dest="audio")
+
+    parser.add_argument("-v", "--video", action = "store", required = True,
+            help ="video output folder", dest="video")
+
+    parser.add_argument("-m", "--mock-file", action="store", required = True,
+            help="mock video file", dest="mock_file")
+    args = parser.parse_args()
+
+    video_path = args.video
+    audio_path = args.audio
+
+    # don't need port number as we're faking a connection
+    temp_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), "tmp")
+    if not os.path.isdir(temp_dir):
+        os.mkdir(temp_dir)
+    # run ffmpeg
+    ffmpeg_command = "ffmpeg -nostdin -stream_loop -1 -i leno2.ts -map 0:v -an -f " + \
+            "segment -segment_time 2.002 -segment_format yuv4mpegpipe " + \
+            temp_dir + "/%d.y4m -map 0:a -vn -f segment -segment_time " + \
+            "5.005 -segment_format wave " + temp_dir + "/%d.wav"
+    p = subprocess.Popen(ffmpeg_command.split())
+    # use inotify to modify the name to have 90k clock
+    i = inotify.adapters.Inotify()
+    i.add_watch(temp_dir.encode("utf-8"))
+
+    try:
+        for event in i.event_gen():
+            if event is not None:
+                (header, type_names, watch_path, filename) = event
+                filename = filename.decode("utf-8")
+                if "IN_CREATE" in type_names:
+                    name, ext = os.path.basename(filename).split(".")
+                    num = int(name)
+                    # test if it's a video file
+                    if ext == "y4m":
+                        new_name = str(num * 90090 * 2) + ".y4m"
+                        new_path = os.path.join(video_path, new_name)
+                    else:
+                        new_name = str(num * 5 * 90000) + ".wav"
+                        new_path = os.path.join(audio_path, new_name)
+                    os.rename(os.path.join(temp_dir, filename), new_path)
+    finally:
+        p.kill()
+        i.remove_watch(temp_dir.encode("utf-8"))
+
+if __name__ == "__main__":
+    main()

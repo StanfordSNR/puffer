@@ -50,6 +50,8 @@ def configure_args():
     parser.add_argument("-o", "--output", action = "store", required = True,
             help = "output folder. It will be used as BaseURL as well.",
             dest = "output")
+    parser.add_argument("-m", "--mock-file", action="store",
+            help="mock video file", dest="mock_file")
     return parser
 
 def check_res(res):
@@ -89,6 +91,11 @@ def main():
     arg_output = parser.parse_args()
     output_folder = arg_output.output
     port_number = arg_output.port
+    mock_file = arg_output.mock_file
+
+    # TODO: remove this after the actual decoder is finished
+    if len(mock_file) == 0:
+        sys.exit("currently a mock video file is required")
 
     video_formats = []
     audio_formats = []
@@ -110,7 +117,7 @@ def main():
     check_dir(audio_raw_output, video_raw_output)
     # this is only for mock interface
     decoder_command = "-p " + str(port_number) + " -a " + audio_raw_output +\
-            " -v " + video_raw_output
+            " -v " + video_raw_output + " -m " + mock_file
     run_process(DECODER_PATH + " " + decoder_command)
 
     # video canonicalizer
