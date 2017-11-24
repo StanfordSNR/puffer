@@ -27,4 +27,4 @@ ssim.log: fetch_vectors.log
 
 mp4.log: fetch_vectors.log
 
-cleanup.log: mpd.log ssim.log
+cleanup.log: mpd.log ssim.log mp4.log
