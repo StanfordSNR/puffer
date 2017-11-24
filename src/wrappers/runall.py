@@ -32,9 +32,11 @@ VideoConfig = namedtuple("VideoConfig", ["width", "height", "crf"])
 logger = logging.getLogger("runall")
 logger.setLevel(logging.DEBUG)
 ch = logging.StreamHandler()
-formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+formatter = logging.Formatter(
+        '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 ch.setFormatter(formatter)
 logger.addHandler(ch)
+
 
 def configure_args():
     parser = argparse.ArgumentParser("Run all pipeline components")
@@ -55,6 +57,7 @@ def configure_args():
                         help="mock video file", dest="mock_file")
     return parser
 
+
 def check_res(res):
     lst = res.split(":") if ":" in res else res.split("x")
     if len(lst) != 2:
@@ -64,10 +67,12 @@ def check_res(res):
         return None
     return width, height
 
+
 def check_dir(*args):
     for dirname in args:
         if not os.path.isdir(dirname):
             os.makedirs(dirname)
+
 
 def run_process(command_str):
     # this will ensure the subprocess will continue to run even the bootstrap
@@ -77,32 +82,39 @@ def run_process(command_str):
                                preexec_fn=os.setpgrp)
 
     name = os.path.basename(splitted_commands[0])
-    logger.info("Start a new process [" + str(process.pid) + "]: " + name + \
-            ". commands: " + " ".join(splitted_commands[1:]))
+    logger.info("Start a new process [" + str(process.pid) + "]: " + name +
+                ". commands: " + " ".join(splitted_commands[1:]))
+
 
 def run_notifier(notifier_command):
     run_process(NOTIFIER_PATH + " " + notifier_command)
 
+
 def run_monitor(monitor_command):
     run_process(MONITOR_PATH + " " + monitor_command)
 
+
 def get_video_output(output_dir, fmt):
     ''' return the actual output for video segments '''
-    return os.path.join(output_dir, fmt.width + "x" + fmt.height + "-" + \
-            fmt.crf)
+    return os.path.join(output_dir, fmt.width + "x" + fmt.height + "-" +
+                        fmt.crf)
+
 
 def get_audio_output(output_dir, bitrate):
     ''' return the actual output for audio segments '''
     return os.path.join(output_dir, bitrate)
 
+
 def combine_args(*args):
     return " ".join(args)
+
 
 def get_media_raw_path(output_folder):
     audio_raw_output = os.path.join(output_folder, "audio_raw")
     video_raw_output = os.path.join(output_folder, "video_raw")
     check_dir(audio_raw_output, video_raw_output)
     return audio_raw_output, video_raw_output
+
 
 def get_video_path(output_folder, fmt=None):
     video_canonical = os.path.join(output_folder, "video_canonical")
@@ -115,6 +127,7 @@ def get_video_path(output_folder, fmt=None):
     check_dir(final_output, encoded_output)
     return video_canonical, encoded_output, final_output
 
+
 def get_audio_path(output_folder, bitrate):
     ''' return the audio path used in audio encoder and frag '''
     # this is also the final output folder basename
@@ -124,11 +137,13 @@ def get_audio_path(output_folder, bitrate):
     check_dir(final_output, encoded_output)
     return encoded_output, final_output
 
+
 def run_decoder(output_folder, port_number, mock_file):
     # decoder
     audio_raw_output, video_raw_output = get_media_raw_path(output_folder)
     # this is only for mock interface
-    decoder_command = combine_args("-p", str(port_number), "-a", audio_raw_output,
+    decoder_command = combine_args("-p", str(port_number),
+                                   "-a", audio_raw_output,
                                    "-v", video_raw_output, "-m", mock_file)
     run_process(DECODER_PATH + " " + decoder_command)
 
@@ -141,6 +156,7 @@ def run_canonicalizer(output_folder):
                                     CANONICALIZER_PATH)
     run_notifier(notifier_command)
 
+
 def run_video_encoder(video_formats, output_folder):
     for fmt in video_formats:
         # this is also the final output folder basename
@@ -150,6 +166,7 @@ def run_video_encoder(video_formats, output_folder):
                                         VIDEO_ENCODER_PATH, res, fmt.crf)
         # run notifier to encode
         run_notifier(notifier_command)
+
 
 def run_video_frag(video_formats, output_folder):
     for fmt in video_formats:
@@ -176,6 +193,7 @@ def run_audio_encoder(audio_formats, output_folder):
         # run notifier to encode
         run_notifier(notifier_command)
 
+
 def run_audio_frag(audio_formats, output_folder):
     for bitrate in audio_formats:
         encoded_output, final_output = get_audio_path(output_folder, bitrate)
@@ -188,26 +206,29 @@ def run_audio_frag(audio_formats, output_folder):
                                        AUDIO_INIT_NAME, "{}")
         run_monitor(monitor_command)
 
+
 def run_time_mpd(output_folder, audio_formats, video_formats):
     # run time/time
     time_output = os.path.join(output_folder, "time")
-    time_dirs = " ".join([get_video_output(output_folder, fmt) for fmt in \
-            video_formats])
+    time_dirs = " ".join([get_video_output(output_folder, fmt)
+                         for fmt in video_formats])
     monitor_command = combine_args("-a", time_dirs, output_folder, "-exec",
                                    TIME_PATH, "-i", "{}", "-o", time_output)
     # run monitor to update the time
     run_monitor(monitor_command)
 
     # run monitor + mpd_writer for all the output directories
-    audio_dir = " ".join([get_audio_output(output_folder, bitrate) for bitrate \
-            in audio_formats])
+    audio_dir = " ".join([get_audio_output(output_folder, bitrate)
+                         for bitrate in audio_formats])
     media_dir = time_dirs[:] + " " + audio_dir
     mpd_path = os.path.join(output_folder, "live.mpd")
     # it will try its best to produce the mpd
-    monitor_command = combine_args("-a", "-q", media_dir, "-exec", MPD_WRITER_PATH,
+    monitor_command = combine_args("-a", "-q", media_dir,
+                                   "-exec", MPD_WRITER_PATH,
                                    "-u", output_folder, "-t", "time", "-o",
                                    mpd_path, "--ignore", "{}")
     run_monitor(monitor_command)
+
 
 def main():
     parser = configure_args()
@@ -239,6 +260,7 @@ def main():
     run_video_frag(video_formats, output_folder)
     # run_audio_encoder(audio_formats, output_folder)
     # run_audio_frag(audio_formats, output_folder)
+
 
 if __name__ == "__main__":
     main()
