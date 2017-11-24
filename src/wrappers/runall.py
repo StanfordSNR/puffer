@@ -18,6 +18,8 @@ VIDEO_ENCODER_PATH = path.join(FILE_DIR, "video-encoder.sh")
 AUDIO_ENCODER_PATH = path.join(FILE_DIR, "audio-encoder.sh")
 VIDEO_FRAGMENT_PATH = path.join(FILE_DIR, "video-fragment.sh")
 AUDIO_FRAGMENT_PATH = path.join(FILE_DIR, "audio-fragment.sh")
+MP4_FRAGMENT_PATH = path.join(FILE_DIR, os.pardir, "mp4", "mp4_fragment")
+WEBM_FRAGMENT_PATH = path.join(FILE_DIR, os.pardir, "webm", "webm_fragment")
 TIME_PATH = path.join(FILE_DIR, os.pardir, "time", "time")
 MPD_WRITER_PATH = path.join(FILE_DIR, os.pardir, "mpd", "mpd_writer")
 NOTIFIER_PATH = path.join(FILE_DIR, os.pardir, "notifier", "run_notifier")
@@ -127,9 +129,9 @@ def get_video_path(output_folder, fmt=None):
     make_sure_dir_exists(video_canonical)
     if fmt is None:
         return video_canonical
+
     final_output = get_video_output(output_folder, fmt)
     encoded_output = final_output + "-mp4"
-    # mkdir
     make_sure_dir_exists(final_output, encoded_output)
     return video_canonical, encoded_output, final_output
 
@@ -138,8 +140,7 @@ def get_audio_path(output_folder, bitrate):
     ''' return the audio path used in audio encoder and frag '''
     # this is also the final output folder basename
     final_output = path.join(output_folder, bitrate)
-    encoded_output = path.join(output_folder, bitrate + "-webm")
-    # mkdir
+    encoded_output = final_output + "-webm"
     make_sure_dir_exists(final_output, encoded_output)
     return encoded_output, final_output
 
@@ -184,9 +185,10 @@ def run_video_frag(video_formats, output_folder):
                                         VIDEO_FRAGMENT_PATH)
         run_notifier(notifier_command)
         # init segment. use monitor's run once command
+        video_init_path = path.join(final_output, VIDEO_INIT_NAME)
         monitor_command = combine_args("-q", encoded_output, "-exec",
-                                       VIDEO_FRAGMENT_PATH, "-i",
-                                       VIDEO_INIT_NAME, "{}")
+                                       MP4_FRAGMENT_PATH, "-i",
+                                       video_init_path, "{}")
         run_monitor(monitor_command)
 
 
@@ -207,9 +209,10 @@ def run_audio_frag(audio_formats, output_folder):
                                         AUDIO_FRAGMENT_PATH)
         run_notifier(notifier_command)
         # init segment. use monitor's run once command
+        audio_init_path = path.join(final_output, AUDIO_INIT_NAME)
         monitor_command = combine_args("-q", encoded_output, "-exec",
-                                       AUDIO_FRAGMENT_PATH, "-i",
-                                       AUDIO_INIT_NAME, "{}")
+                                       WEBM_FRAGMENT_PATH, "-i",
+                                       audio_init_path, "{}")
         run_monitor(monitor_command)
 
 
@@ -258,12 +261,12 @@ def main():
     for bitrate in args.audio_format:
         audio_formats.append(bitrate)
 
-    # run_decoder(output_folder, port_number, mock_file)
-    # run_canonicalizer(output_folder)
-    # run_video_encoder(video_formats, output_folder)
+    run_canonicalizer(output_folder)
+    run_video_encoder(video_formats, output_folder)
     run_video_frag(video_formats, output_folder)
-    # run_audio_encoder(audio_formats, output_folder)
-    # run_audio_frag(audio_formats, output_folder)
+    #run_audio_encoder(audio_formats, output_folder)
+    #run_audio_frag(audio_formats, output_folder)
+    run_decoder(output_folder, port_number, mock_file)
 
 
 if __name__ == "__main__":
