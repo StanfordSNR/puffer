@@ -1,25 +1,27 @@
 #!/usr/bin/python3
 
 import os
+from os import path
 import sys
+import errno
 import argparse
 import subprocess
 from collections import namedtuple
 import logging
 
 # current python file location
-FILE_DIR = os.path.dirname(os.path.realpath(__file__))
+FILE_DIR = path.dirname(path.realpath(__file__))
 # use a mock decoder for now
-DECODER_PATH = os.path.join(FILE_DIR, "..", "mock", "decoder")
-CANONICALIZER_PATH = os.path.join(FILE_DIR, "canonicalizer.sh")
-VIDEO_ENCODER_PATH = os.path.join(FILE_DIR, "video-encoder.sh")
-AUDIO_ENCODER_PATH = os.path.join(FILE_DIR, "audio-encoder.sh")
-VIDEO_FRAGMENT_PATH = os.path.join(FILE_DIR, "video-fragment.sh")
-AUDIO_FRAGMENT_PATH = os.path.join(FILE_DIR, "audio-fragment.sh")
-TIME_PATH = os.path.join(FILE_DIR, "..", "time", "time")
-MPD_WRITER_PATH = os.path.join(FILE_DIR, "..", "mpd", "mpd_writer")
-NOTIFIER_PATH = os.path.join(FILE_DIR, "..", "notifier", "run_notifier")
-MONITOR_PATH = os.path.join(FILE_DIR, "..", "notifier", "monitor")
+DECODER_PATH = path.join(FILE_DIR, os.pardir, "mock", "decoder")
+CANONICALIZER_PATH = path.join(FILE_DIR, "canonicalizer.sh")
+VIDEO_ENCODER_PATH = path.join(FILE_DIR, "video-encoder.sh")
+AUDIO_ENCODER_PATH = path.join(FILE_DIR, "audio-encoder.sh")
+VIDEO_FRAGMENT_PATH = path.join(FILE_DIR, "video-fragment.sh")
+AUDIO_FRAGMENT_PATH = path.join(FILE_DIR, "audio-fragment.sh")
+TIME_PATH = path.join(FILE_DIR, os.pardir, "time", "time")
+MPD_WRITER_PATH = path.join(FILE_DIR, os.pardir, "mpd", "mpd_writer")
+NOTIFIER_PATH = path.join(FILE_DIR, os.pardir, "notifier", "run_notifier")
+MONITOR_PATH = path.join(FILE_DIR, os.pardir, "notifier", "monitor")
 
 # filename constants
 AUDIO_INIT_NAME = "init.webm"
@@ -38,7 +40,7 @@ ch.setFormatter(formatter)
 logger.addHandler(ch)
 
 
-def configure_args():
+def parse_arguments():
     parser = argparse.ArgumentParser("Run all pipeline components")
     parser.add_argument("-vf", "--video-format", action="append", nargs='+',
                         metavar=("res", "crf"),
@@ -47,7 +49,7 @@ def configure_args():
     parser.add_argument("-af", "--audio-format", action="store", nargs='+',
                         metavar=("bitrate"),
                         help="specify the output audio format",
-                        dest="audio_format", required=True, type=int)
+                        dest="audio_format", required=True)
     parser.add_argument("-p", "--port", action="store", required=True,
                         help="TCP port number", type=int, dest="port")
     parser.add_argument("-o", "--output", action="store", required=True,
@@ -55,33 +57,37 @@ def configure_args():
                         dest="output")
     parser.add_argument("-m", "--mock-file", action="store",
                         help="mock video file", dest="mock_file")
-    return parser
+    return parser.parse_args()
 
 
 def check_res(res):
     lst = res.split(":") if ":" in res else res.split("x")
     if len(lst) != 2:
-        return None
+        raise ValueError('resolution must contain a ":" or "x"')
+
     width, height = lst
     if not width.isdigit() or not height.isdigit():
-        return None
+        raise ValueError('width and height in resolution must be integer')
+
     return width, height
 
 
-def check_dir(*args):
+def make_sure_dir_exists(*args):
     for dirname in args:
-        if not os.path.isdir(dirname):
+        try:
             os.makedirs(dirname)
+        except OSError as exception:
+            if exception.errno != errno.EEXIST:
+                raise
 
 
 def run_process(command_str):
     # this will ensure the subprocess will continue to run even the bootstrap
     # script exits as well as prevent zombie process
     splitted_commands = command_str.split()
-    process = subprocess.Popen(splitted_commands,
-                               preexec_fn=os.setpgrp)
+    process = subprocess.Popen(splitted_commands, preexec_fn=os.setpgrp)
 
-    name = os.path.basename(splitted_commands[0])
+    name = path.basename(splitted_commands[0])
     logger.info("Start a new process [" + str(process.pid) + "]: " + name +
                 ". commands: " + " ".join(splitted_commands[1:]))
 
@@ -96,13 +102,13 @@ def run_monitor(monitor_command):
 
 def get_video_output(output_dir, fmt):
     ''' return the actual output for video segments '''
-    return os.path.join(output_dir, fmt.width + "x" + fmt.height + "-" +
-                        fmt.crf)
+    return path.join(output_dir, fmt.width + "x" + fmt.height + "-" +
+                     fmt.crf)
 
 
 def get_audio_output(output_dir, bitrate):
     ''' return the actual output for audio segments '''
-    return os.path.join(output_dir, bitrate)
+    return path.join(output_dir, bitrate)
 
 
 def combine_args(*args):
@@ -110,31 +116,31 @@ def combine_args(*args):
 
 
 def get_media_raw_path(output_folder):
-    audio_raw_output = os.path.join(output_folder, "audio_raw")
-    video_raw_output = os.path.join(output_folder, "video_raw")
-    check_dir(audio_raw_output, video_raw_output)
+    audio_raw_output = path.join(output_folder, "audio_raw")
+    video_raw_output = path.join(output_folder, "video_raw")
+    make_sure_dir_exists(audio_raw_output, video_raw_output)
     return audio_raw_output, video_raw_output
 
 
 def get_video_path(output_folder, fmt=None):
-    video_canonical = os.path.join(output_folder, "video_canonical")
-    check_dir(video_canonical)
+    video_canonical = path.join(output_folder, "video_canonical")
+    make_sure_dir_exists(video_canonical)
     if fmt is None:
         return video_canonical
     final_output = get_video_output(output_folder, fmt)
     encoded_output = final_output + "-mp4"
     # mkdir
-    check_dir(final_output, encoded_output)
+    make_sure_dir_exists(final_output, encoded_output)
     return video_canonical, encoded_output, final_output
 
 
 def get_audio_path(output_folder, bitrate):
     ''' return the audio path used in audio encoder and frag '''
     # this is also the final output folder basename
-    final_output = os.path.join(output_folder, bitrate)
-    encoded_output = os.path.join(output_folder, bitrate + "-webm")
+    final_output = path.join(output_folder, bitrate)
+    encoded_output = path.join(output_folder, bitrate + "-webm")
     # mkdir
-    check_dir(final_output, encoded_output)
+    make_sure_dir_exists(final_output, encoded_output)
     return encoded_output, final_output
 
 
@@ -142,7 +148,7 @@ def run_decoder(output_folder, port_number, mock_file):
     # decoder
     audio_raw_output, video_raw_output = get_media_raw_path(output_folder)
     # this is only for mock interface
-    decoder_command = combine_args("-p", str(port_number),
+    decoder_command = combine_args("-p", port_number,
                                    "-a", audio_raw_output,
                                    "-v", video_raw_output, "-m", mock_file)
     run_process(DECODER_PATH + " " + decoder_command)
@@ -209,7 +215,7 @@ def run_audio_frag(audio_formats, output_folder):
 
 def run_time_mpd(output_folder, audio_formats, video_formats):
     # run time/time
-    time_output = os.path.join(output_folder, "time")
+    time_output = path.join(output_folder, "time")
     time_dirs = " ".join([get_video_output(output_folder, fmt)
                          for fmt in video_formats])
     monitor_command = combine_args("-a", time_dirs, output_folder, "-exec",
@@ -221,7 +227,7 @@ def run_time_mpd(output_folder, audio_formats, video_formats):
     audio_dir = " ".join([get_audio_output(output_folder, bitrate)
                          for bitrate in audio_formats])
     media_dir = time_dirs[:] + " " + audio_dir
-    mpd_path = os.path.join(output_folder, "live.mpd")
+    mpd_path = path.join(output_folder, "live.mpd")
     # it will try its best to produce the mpd
     monitor_command = combine_args("-a", "-q", media_dir,
                                    "-exec", MPD_WRITER_PATH,
@@ -231,28 +237,26 @@ def run_time_mpd(output_folder, audio_formats, video_formats):
 
 
 def main():
-    parser = configure_args()
-    arg_output = parser.parse_args()
-    output_folder = arg_output.output
-    port_number = arg_output.port
-    mock_file = arg_output.mock_file
+    args = parse_arguments()
+    output_folder = args.output
+    port_number = str(args.port)
+    mock_file = args.mock_file
 
     # TODO: remove this after the actual decoder is finished
-    if len(mock_file) == 0:
+    if mock_file is None:
         sys.exit("currently a mock video file is required")
 
     video_formats = []
     audio_formats = []
 
-    for res, *crfs in arg_output.video_format:
+    for res, *crfs in args.video_format:
         width, height = check_res(res)
         for crf in crfs:
             if not crf.isdigit():
                 sys.exit("crf must be an integer. got " + crf)
             video_formats.append(VideoConfig(width, height, crf))
-    for bitrate in arg_output.audio_format:
-        # added as a string because we only need that in Popen
-        audio_formats.append(str(bitrate))
+    for bitrate in args.audio_format:
+        audio_formats.append(bitrate)
 
     # run_decoder(output_folder, port_number, mock_file)
     # run_canonicalizer(output_folder)
