@@ -9,4 +9,4 @@ bitrate=$3
 tmp_file=`mktemp /tmp/tmp.XXXXXX.webm`
 
 ffmpeg -nostdin -hide_banner -loglevel panic -y -i $src_path -c:a libopus -b:a $bitrate -cluster_time_limit 5100 $tmp_file
-mv $tmp_file $dst_dir/$res/$src_fname_prefix.webm
+mv $tmp_file $dst_dir/$src_fname_prefix.webm
