@@ -20,10 +20,11 @@ const size_t buffer_size = 64;
 void print_usage(const string & program_name)
 {
   cerr <<
-  "Usage: " << program_name << " [options]\n"
-  "-i --input <input>      input file in <time>.m4s format.\n"
+  "Usage: " << program_name << " [options] <seg> <seg>...\n"
   "-o --output <output>    program will write the timefile to <output>.\n"
-  "-s --scale <timescale>  presentation time scale."
+  "-s --scale <timescale>  presentation time scale.\n"
+  "<seg>                   media segment list. Only the first one will be\n"
+  "                        used."
   << endl;
 }
 
@@ -46,7 +47,6 @@ int main(int argc, char * argv[])
 
   const option cmd_line_opts[] = {
     {"output", required_argument, nullptr, 'o'},
-    {"input",  required_argument, nullptr, 'i'},
     {"scale",  required_argument, nullptr, 's'},
     { nullptr, 0,                 nullptr,  0 },
   };
@@ -61,9 +61,6 @@ int main(int argc, char * argv[])
     case 'o':
       output = optarg;
       break;
-    case 'i':
-      input = optarg;
-      break;
     case 's':
       timescale = optarg;
       break;
@@ -73,7 +70,7 @@ int main(int argc, char * argv[])
     }
   }
 
-  if (optind != argc) {
+  if (optind >= argc) {
     print_usage(argv[0]);
     return EXIT_FAILURE;
   }
@@ -84,11 +81,7 @@ int main(int argc, char * argv[])
     return EXIT_FAILURE;
   }
 
-  if (input.empty()) {
-    cout << "Missing -i <input>" << endl;
-    print_usage(argv[0]);
-    return EXIT_FAILURE;
-  }
+  input = argv[optind];
 
   string time_string = roost::rbasename(input).string();
   time_string = split_filename(time_string).first;
