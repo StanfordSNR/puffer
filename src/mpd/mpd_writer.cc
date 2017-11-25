@@ -168,7 +168,7 @@ int main(int argc, char * argv[])
   string output = "";
   int opt, long_option_index;
 
-  const char *optstring = "u:b:i:e:a:v:o:p:";
+  const char *optstring = "u:b:i:e:a:v:o:p:t:";
   const struct option options[] = {
     {"url",               required_argument, nullptr, 'u'},
     {"buffer-time",       required_argument, nullptr, 'b'},
