@@ -1,5 +1,9 @@
 #!/usr/bin/python3
 
+'''
+A script to run the entire DASH media pipeline.
+'''
+
 import os
 from os import path
 import sys
@@ -48,6 +52,7 @@ pid_list = []
 
 
 def parse_arguments():
+    ''' parse command arguments to produce a NameSpace '''
     parser = argparse.ArgumentParser("Run all pipeline components")
     parser.add_argument("-vf", "--video-format", action="append", nargs='+',
                         metavar=("res", "crf"),
@@ -68,6 +73,9 @@ def parse_arguments():
 
 
 def check_res(res):
+    ''' strict check if the given res is a resolution format, i.e., either
+        axb or a:b.
+    '''
     lst = res.split(":") if ":" in res else res.split("x")
     if len(lst) != 2:
         raise ValueError('resolution must contain a ":" or "x"')
@@ -80,6 +88,8 @@ def check_res(res):
 
 
 def make_sure_dir_exists(*args):
+    ''' check if given folders exist. if not, this function will create them
+    '''
     for dirname in args:
         try:
             os.makedirs(dirname)
@@ -89,6 +99,9 @@ def make_sure_dir_exists(*args):
 
 
 def run_process(command_str):
+    ''' run the command_str as a process with different process group
+        this will prevent zombie process
+    '''
     # this will ensure the subprocess will continue to run even the bootstrap
     # script exits as well as prevent zombie process
     splitted_commands = command_str.split()
@@ -101,15 +114,17 @@ def run_process(command_str):
 
 
 def run_notifier(notifier_command):
+    ''' run the notifier command '''
     return run_process(NOTIFIER_PATH + " " + notifier_command)
 
 
 def run_monitor(monitor_command):
+    ''' run the monitor command '''
     return run_process(MONITOR_PATH + " " + monitor_command)
 
 
 def get_video_output(output_dir, fmt):
-    ''' return the actual output for video segments '''
+    ''' get video output based on given fmt. name template ###x###-## '''
     return path.join(output_dir, fmt.width + "x" + fmt.height + "-" +
                      fmt.crf)
 
@@ -120,10 +135,12 @@ def get_audio_output(output_dir, bitrate):
 
 
 def combine_args(*args):
+    ''' combine args together in a pythonic way '''
     return " ".join(args)
 
 
 def get_media_raw_path(output_folder):
+    ''' get audio/video raw folder names '''
     audio_raw_output = path.join(output_folder, "audio_raw")
     video_raw_output = path.join(output_folder, "video_raw")
     make_sure_dir_exists(audio_raw_output, video_raw_output)
@@ -131,6 +148,9 @@ def get_media_raw_path(output_folder):
 
 
 def get_video_path(output_folder, fmt=None):
+    ''' get video folder names, such as canonical, encoded, and final path
+        names. if fmt is not given, only video_canonical is returned
+    '''
     video_canonical = path.join(output_folder, "video_canonical")
     make_sure_dir_exists(video_canonical)
     if fmt is None:
@@ -152,6 +172,7 @@ def get_audio_path(output_folder, bitrate):
 
 
 def run_decoder(output_folder, port_number, mock_file):
+    ''' run the decoder program. currently a mock file is required '''
     # decoder
     audio_raw_output, video_raw_output = get_media_raw_path(output_folder)
     # this is only for mock interface
@@ -163,6 +184,7 @@ def run_decoder(output_folder, port_number, mock_file):
 
 
 def run_canonicalizer(output_folder):
+    ''' run the canonicalizer '''
     _, video_raw_output = get_media_raw_path(output_folder)
     # video canonicalizer
     video_canonical = get_video_path(output_folder)
@@ -173,6 +195,7 @@ def run_canonicalizer(output_folder):
 
 
 def run_video_encoder(video_formats, output_folder):
+    ''' run video_encoder.sh for each video format '''
     for fmt in video_formats:
         # this is also the final output folder basename
         res = fmt.width + "x" + fmt.height
@@ -185,6 +208,7 @@ def run_video_encoder(video_formats, output_folder):
 
 
 def run_video_frag(video_formats, output_folder):
+    ''' frag video segments as well as generat the init segment '''
     for fmt in video_formats:
         # run frag to output the final segment
         # this is also the final output folder basename
@@ -204,6 +228,7 @@ def run_video_frag(video_formats, output_folder):
 
 
 def run_audio_encoder(audio_formats, output_folder):
+    ''' encode the audio segments into webm format '''
     audio_raw_output, _ = get_media_raw_path(output_folder)
     for bitrate in audio_formats:
         encoded_output, _ = get_audio_path(output_folder, bitrate)
@@ -215,6 +240,7 @@ def run_audio_encoder(audio_formats, output_folder):
 
 
 def run_audio_frag(audio_formats, output_folder):
+    ''' frag the audio segment as well as generate the init.webm '''
     for bitrate in audio_formats:
         encoded_output, final_output = get_audio_path(output_folder, bitrate)
         notifier_command = combine_args(encoded_output, final_output,
@@ -231,6 +257,7 @@ def run_audio_frag(audio_formats, output_folder):
 
 
 def run_time(video_formats, output_folder):
+    ''' generate the time content for mpd <UTCTiming> '''
     # run time/time
     time_output = path.join(output_folder, "time")
     time_dirs = " ".join([get_video_output(output_folder, fmt)
@@ -243,6 +270,7 @@ def run_time(video_formats, output_folder):
 
 
 def main():
+    ''' main logic '''
     args = parse_arguments()
     output_folder = args.output
     port_number = str(args.port)
@@ -273,7 +301,7 @@ def main():
     run_decoder(output_folder, port_number, mock_file)
 
     # create killall list to shutdown the entire pipeline
-    if len(pid_list) > 0:
+    if pid_list:
         with open("killall.sh", "w+") as file_sh:
             for pid in pid_list:
                 file_sh.write("kill " + str(pid) + "\n")
