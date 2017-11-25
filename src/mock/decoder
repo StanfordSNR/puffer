@@ -65,7 +65,7 @@ def main():
                         new_name = str(num * 90090 * 2) + ".y4m"
                         new_path = os.path.join(video_path, new_name)
                     else:
-                        new_name = str(num * 5 * 90000) + ".wav"
+                        new_name = str(int(num * 4.8 * 90000)) + ".wav"
                         new_path = os.path.join(audio_path, new_name)
                     os.rename(os.path.join(temp_dir, filename), new_path)
     finally:
