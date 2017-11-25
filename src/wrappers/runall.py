@@ -24,7 +24,6 @@ AUDIO_FRAGMENT_PATH = path.join(FILE_DIR, "audio-fragment.sh")
 MP4_FRAGMENT_PATH = path.join(FILE_DIR, os.pardir, "mp4", "mp4_fragment")
 WEBM_FRAGMENT_PATH = path.join(FILE_DIR, os.pardir, "webm", "webm_fragment")
 TIME_PATH = path.join(FILE_DIR, os.pardir, "time", "time")
-MPD_WRITER_PATH = path.join(FILE_DIR, os.pardir, "mpd", "mpd_writer")
 NOTIFIER_PATH = path.join(FILE_DIR, os.pardir, "notifier", "run_notifier")
 MONITOR_PATH = path.join(FILE_DIR, os.pardir, "notifier", "monitor")
 
@@ -98,7 +97,7 @@ def run_process(command_str):
     name = path.basename(splitted_commands[0])
     logger.info("Start a new process [" + str(process.pid) + "]: " + name +
                 ". commands: " + " ".join(splitted_commands[1:]))
-    return process.pid
+    return process
 
 
 def run_notifier(notifier_command):
