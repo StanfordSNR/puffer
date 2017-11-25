@@ -18,6 +18,8 @@ VIDEO_ENCODER_PATH = path.join(FILE_DIR, "video-encoder.sh")
 AUDIO_ENCODER_PATH = path.join(FILE_DIR, "audio-encoder.sh")
 VIDEO_FRAGMENT_PATH = path.join(FILE_DIR, "video-fragment.sh")
 AUDIO_FRAGMENT_PATH = path.join(FILE_DIR, "audio-fragment.sh")
+
+#TODO: build dir can be different from src dir, so the paths below can be wrong
 MP4_FRAGMENT_PATH = path.join(FILE_DIR, os.pardir, "mp4", "mp4_fragment")
 WEBM_FRAGMENT_PATH = path.join(FILE_DIR, os.pardir, "webm", "webm_fragment")
 TIME_PATH = path.join(FILE_DIR, os.pardir, "time", "time")
@@ -261,10 +263,11 @@ def main():
     for bitrate in args.audio_format:
         audio_formats.append(bitrate)
 
-    run_canonicalizer(output_folder)
-    run_video_encoder(video_formats, output_folder)
-    run_video_frag(video_formats, output_folder)
-    #run_audio_encoder(audio_formats, output_folder)
+    #TODO: debug audio encoding of FFmpeg
+    #run_canonicalizer(output_folder)
+    #run_video_encoder(video_formats, output_folder)
+    #run_video_frag(video_formats, output_folder)
+    run_audio_encoder(audio_formats, output_folder)
     #run_audio_frag(audio_formats, output_folder)
     run_decoder(output_folder, port_number, mock_file)
 
