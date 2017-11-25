@@ -263,12 +263,11 @@ def main():
     for bitrate in args.audio_format:
         audio_formats.append(bitrate)
 
-    #TODO: debug audio encoding of FFmpeg
-    #run_canonicalizer(output_folder)
-    #run_video_encoder(video_formats, output_folder)
-    #run_video_frag(video_formats, output_folder)
+    run_canonicalizer(output_folder)
+    run_video_encoder(video_formats, output_folder)
+    run_video_frag(video_formats, output_folder)
     run_audio_encoder(audio_formats, output_folder)
-    #run_audio_frag(audio_formats, output_folder)
+    run_audio_frag(audio_formats, output_folder)
     run_decoder(output_folder, port_number, mock_file)
 
 
