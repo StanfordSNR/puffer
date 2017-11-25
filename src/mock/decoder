@@ -57,7 +57,7 @@ def main():
             if event is not None:
                 (header, type_names, watch_path, filename) = event
                 filename = filename.decode("utf-8")
-                if "IN_CREATE" in type_names:
+                if "IN_CLOSE_WRITE" in type_names:
                     name, ext = os.path.basename(filename).split(".")
                     num = int(name)
                     # test if it's a video file
