@@ -19,7 +19,8 @@ AUDIO_ENCODER_PATH = path.join(FILE_DIR, "audio-encoder.sh")
 VIDEO_FRAGMENT_PATH = path.join(FILE_DIR, "video-fragment.sh")
 AUDIO_FRAGMENT_PATH = path.join(FILE_DIR, "audio-fragment.sh")
 
-#TODO: build dir can be different from src dir, so the paths below can be wrong
+# TODO: build dir can be different from src dir,
+# so the paths below can be wrong
 MP4_FRAGMENT_PATH = path.join(FILE_DIR, os.pardir, "mp4", "mp4_fragment")
 WEBM_FRAGMENT_PATH = path.join(FILE_DIR, os.pardir, "webm", "webm_fragment")
 TIME_PATH = path.join(FILE_DIR, os.pardir, "time", "time")
@@ -38,10 +39,13 @@ VideoConfig = namedtuple("VideoConfig", ["width", "height", "crf"])
 logger = logging.getLogger("runall")
 logger.setLevel(logging.DEBUG)
 ch = logging.StreamHandler()
-formatter = logging.Formatter(
-        '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - " +
+                              "%(message)s")
 ch.setFormatter(formatter)
 logger.addHandler(ch)
+
+# pid list to create killall.sh
+pid_list = []
 
 
 def parse_arguments():
@@ -94,14 +98,15 @@ def run_process(command_str):
     name = path.basename(splitted_commands[0])
     logger.info("Start a new process [" + str(process.pid) + "]: " + name +
                 ". commands: " + " ".join(splitted_commands[1:]))
+    return process.pid
 
 
 def run_notifier(notifier_command):
-    run_process(NOTIFIER_PATH + " " + notifier_command)
+    return run_process(NOTIFIER_PATH + " " + notifier_command)
 
 
 def run_monitor(monitor_command):
-    run_process(MONITOR_PATH + " " + monitor_command)
+    return run_process(MONITOR_PATH + " " + monitor_command)
 
 
 def get_video_output(output_dir, fmt):
@@ -154,7 +159,8 @@ def run_decoder(output_folder, port_number, mock_file):
     decoder_command = combine_args("-p", port_number,
                                    "-a", audio_raw_output,
                                    "-v", video_raw_output, "-m", mock_file)
-    run_process(DECODER_PATH + " " + decoder_command)
+    pid = run_process(DECODER_PATH + " " + decoder_command)
+    pid_list.append(pid)
 
 
 def run_canonicalizer(output_folder):
@@ -163,7 +169,8 @@ def run_canonicalizer(output_folder):
     video_canonical = get_video_path(output_folder)
     notifier_command = combine_args(video_raw_output, video_canonical,
                                     CANONICALIZER_PATH)
-    run_notifier(notifier_command)
+    pid = run_notifier(notifier_command)
+    pid_list.append(pid)
 
 
 def run_video_encoder(video_formats, output_folder):
@@ -174,7 +181,8 @@ def run_video_encoder(video_formats, output_folder):
         notifier_command = combine_args(video_canonical, encoded_output,
                                         VIDEO_ENCODER_PATH, res, fmt.crf)
         # run notifier to encode
-        run_notifier(notifier_command)
+        pid = run_notifier(notifier_command)
+        pid_list.append(pid)
 
 
 def run_video_frag(video_formats, output_folder):
@@ -185,7 +193,9 @@ def run_video_frag(video_formats, output_folder):
         encoded_output = final_output + "-mp4"
         notifier_command = combine_args(encoded_output, final_output,
                                         VIDEO_FRAGMENT_PATH)
-        run_notifier(notifier_command)
+        pid = run_notifier(notifier_command)
+        pid_list.append(pid)
+
         # init segment. use monitor's run once command
         video_init_path = path.join(final_output, VIDEO_INIT_NAME)
         monitor_command = combine_args("-q", encoded_output, "-exec",
@@ -201,7 +211,8 @@ def run_audio_encoder(audio_formats, output_folder):
         notifier_command = combine_args(audio_raw_output, encoded_output,
                                         AUDIO_ENCODER_PATH, bitrate)
         # run notifier to encode
-        run_notifier(notifier_command)
+        pid = run_notifier(notifier_command)
+    pid_list.append(pid)
 
 
 def run_audio_frag(audio_formats, output_folder):
@@ -209,7 +220,9 @@ def run_audio_frag(audio_formats, output_folder):
         encoded_output, final_output = get_audio_path(output_folder, bitrate)
         notifier_command = combine_args(encoded_output, final_output,
                                         AUDIO_FRAGMENT_PATH)
-        run_notifier(notifier_command)
+        pid = run_notifier(notifier_command)
+        pid_list.append(pid)
+
         # init segment. use monitor's run once command
         audio_init_path = path.join(final_output, AUDIO_INIT_NAME)
         monitor_command = combine_args("-q", encoded_output, "-exec",
@@ -218,27 +231,16 @@ def run_audio_frag(audio_formats, output_folder):
         run_monitor(monitor_command)
 
 
-def run_time_mpd(output_folder, audio_formats, video_formats):
+def run_time(video_formats, output_folder):
     # run time/time
     time_output = path.join(output_folder, "time")
     time_dirs = " ".join([get_video_output(output_folder, fmt)
-                         for fmt in video_formats])
-    monitor_command = combine_args("-a", time_dirs, output_folder, "-exec",
-                                   TIME_PATH, "-i", "{}", "-o", time_output)
+                          for fmt in video_formats])
+    monitor_command = combine_args("-a", time_dirs, "-exec", TIME_PATH,
+                                   "-o", time_output, "{}")
     # run monitor to update the time
-    run_monitor(monitor_command)
-
-    # run monitor + mpd_writer for all the output directories
-    audio_dir = " ".join([get_audio_output(output_folder, bitrate)
-                         for bitrate in audio_formats])
-    media_dir = time_dirs[:] + " " + audio_dir
-    mpd_path = path.join(output_folder, "live.mpd")
-    # it will try its best to produce the mpd
-    monitor_command = combine_args("-a", "-q", media_dir,
-                                   "-exec", MPD_WRITER_PATH,
-                                   "-u", output_folder, "-t", "time", "-o",
-                                   mpd_path, "--ignore", "{}")
-    run_monitor(monitor_command)
+    pid = run_monitor(monitor_command)
+    pid_list.append(pid)
 
 
 def main():
@@ -268,7 +270,17 @@ def main():
     run_video_frag(video_formats, output_folder)
     run_audio_encoder(audio_formats, output_folder)
     run_audio_frag(audio_formats, output_folder)
+    run_time(video_formats, output_folder)
     run_decoder(output_folder, port_number, mock_file)
+
+    # create killall list to shutdown the entire pipeline
+    if len(pid_list) > 0:
+        with open("killall.sh", "w+") as file_sh:
+            for pid in pid_list:
+                file_sh.write("kill " + str(pid) + "\n")
+            file_sh.write("killall monitor")
+        os.chmod("killall.sh", 0o744)
+        logger.info("killall.sh generated")
 
 
 if __name__ == "__main__":
