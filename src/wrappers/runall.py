@@ -179,8 +179,8 @@ def run_decoder(output_folder, port_number, mock_file):
     decoder_command = combine_args("-p", port_number,
                                    "-a", audio_raw_output,
                                    "-v", video_raw_output, "-m", mock_file)
-    pid = run_process(DECODER_PATH + " " + decoder_command)
-    pid_list.append(pid)
+    proc = run_process(DECODER_PATH + " " + decoder_command)
+    pid_list.append(proc.pid)
 
 
 def run_canonicalizer(output_folder):
@@ -190,8 +190,8 @@ def run_canonicalizer(output_folder):
     video_canonical = get_video_path(output_folder)
     notifier_command = combine_args(video_raw_output, video_canonical,
                                     CANONICALIZER_PATH)
-    pid = run_notifier(notifier_command)
-    pid_list.append(pid)
+    proc = run_notifier(notifier_command)
+    pid_list.append(proc.pid)
 
 
 def run_video_encoder(video_formats, output_folder):
@@ -203,8 +203,8 @@ def run_video_encoder(video_formats, output_folder):
         notifier_command = combine_args(video_canonical, encoded_output,
                                         VIDEO_ENCODER_PATH, res, fmt.crf)
         # run notifier to encode
-        pid = run_notifier(notifier_command)
-        pid_list.append(pid)
+        proc = run_notifier(notifier_command)
+        pid_list.append(proc.pid)
 
 
 def run_video_frag(video_formats, output_folder):
@@ -216,8 +216,8 @@ def run_video_frag(video_formats, output_folder):
         encoded_output = final_output + "-mp4"
         notifier_command = combine_args(encoded_output, final_output,
                                         VIDEO_FRAGMENT_PATH)
-        pid = run_notifier(notifier_command)
-        pid_list.append(pid)
+        proc = run_notifier(notifier_command)
+        pid_list.append(proc.pid)
 
         # init segment. use monitor's run once command
         video_init_path = path.join(final_output, VIDEO_INIT_NAME)
@@ -235,8 +235,8 @@ def run_audio_encoder(audio_formats, output_folder):
         notifier_command = combine_args(audio_raw_output, encoded_output,
                                         AUDIO_ENCODER_PATH, bitrate)
         # run notifier to encode
-        pid = run_notifier(notifier_command)
-    pid_list.append(pid)
+        proc = run_notifier(notifier_command)
+        pid_list.append(proc.pid)
 
 
 def run_audio_frag(audio_formats, output_folder):
@@ -245,8 +245,8 @@ def run_audio_frag(audio_formats, output_folder):
         encoded_output, final_output = get_audio_path(output_folder, bitrate)
         notifier_command = combine_args(encoded_output, final_output,
                                         AUDIO_FRAGMENT_PATH)
-        pid = run_notifier(notifier_command)
-        pid_list.append(pid)
+        proc = run_notifier(notifier_command)
+        pid_list.append(proc.pid)
 
         # init segment. use monitor's run once command
         audio_init_path = path.join(final_output, AUDIO_INIT_NAME)
@@ -265,8 +265,19 @@ def run_time(video_formats, output_folder):
     monitor_command = combine_args("-a", time_dirs, "-exec", TIME_PATH,
                                    "-o", time_output, "{}")
     # run monitor to update the time
-    pid = run_monitor(monitor_command)
-    pid_list.append(pid)
+    proc = run_monitor(monitor_command)
+    pid_list.append(proc.pid)
+
+
+def generate_killall(pid_list):
+    if pid_list:
+        with open("killall.sh", "w") as file_sh:
+            file_sh.write("#!/bin/sh -x\n\n")
+            for pid in pid_list:
+                file_sh.write("kill " + str(pid) + "\n")
+            file_sh.write("killall monitor")
+        os.chmod("killall.sh", 0o744)
+        logger.info("killall.sh generated")
 
 
 def main():
@@ -301,13 +312,7 @@ def main():
     run_decoder(output_folder, port_number, mock_file)
 
     # create killall list to shutdown the entire pipeline
-    if pid_list:
-        with open("killall.sh", "w+") as file_sh:
-            for pid in pid_list:
-                file_sh.write("kill " + str(pid) + "\n")
-            file_sh.write("killall monitor")
-        os.chmod("killall.sh", 0o744)
-        logger.info("killall.sh generated")
+    generate_killall(pid_list)
 
 
 if __name__ == "__main__":
