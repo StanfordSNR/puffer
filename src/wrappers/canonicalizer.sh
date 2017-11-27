@@ -9,3 +9,4 @@ tmp_file=$(mktemp /tmp/tmp.XXXXXX.mp4)
 
 ffmpeg -nostdin -hide_banner -loglevel panic -y -i $src_path -vf yadif=1 -c:v libx264 -crf 12 $tmp_file
 mv $tmp_file $dst_dir/$src_fname_prefix.mp4
+rm $src_path
