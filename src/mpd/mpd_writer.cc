@@ -14,6 +14,7 @@
 #include "tokenize.hh"
 #include "file_descriptor.hh"
 #include "exception.hh"
+#include "strict_conversions.hh"
 #include "webm_info.hh"
 
 using namespace std;
@@ -69,9 +70,9 @@ void add_webm_audio(shared_ptr<AudioAdaptionSet> a_set, const string & init,
   uint32_t sample_rate = i_info.get_sample_rate();
 
   /* scale the timescale to global timescale */
-  uint32_t scaling_factor = global_timescale / timescale;
-  duration *= scaling_factor;
-  timescale *= scaling_factor;
+  float scaling_factor = static_cast<float>(global_timescale) / timescale;
+  timescale = global_timescale;
+  duration = narrow_cast<uint32_t>(duration * scaling_factor);
 
   auto repr_a = make_shared<AudioRepresentation>(repr_id, bitrate,
         sample_rate, MimeType::Audio_OPUS, timescale, duration);
@@ -117,9 +118,9 @@ void add_representation(
   uint32_t bitrate = s_info.get_bitrate(timescale, duration);
 
   /* scale the timescale to global timescale */
-  uint32_t scaling_factor = global_timescale / timescale;
-  duration *= scaling_factor;
-  timescale *= scaling_factor;
+  float scaling_factor = static_cast<float>(global_timescale) / timescale;
+  timescale = global_timescale;
+  duration = narrow_cast<uint32_t>(duration * scaling_factor);
 
   if (i_info.is_video()) {
     /* this is a video */
