@@ -50,6 +50,9 @@ logger.addHandler(ch)
 # pid list to create killall.sh
 pid_list = []
 
+# common video resolution
+COMMON_RES = {"1080p": "1920x1080", "720p": "1280x720", "480p": "640x480",
+              "360p": "480x360"}
 
 def parse_arguments():
     ''' parse command arguments to produce a NameSpace '''
@@ -57,11 +60,11 @@ def parse_arguments():
     parser.add_argument("-vf", "--video-format", action="append", nargs='+',
                         metavar=("res", "crf"),
                         help="specify the output video format",
-                        dest="video_format", required=True)
+                        dest="video_formats", required=True)
     parser.add_argument("-af", "--audio-format", action="store", nargs='+',
                         metavar=("bitrate"),
                         help="specify the output audio format",
-                        dest="audio_format", required=True)
+                        dest="audio_formats", required=True)
     parser.add_argument("-p", "--port", action="store", required=True,
                         help="TCP port number", type=int, dest="port")
     parser.add_argument("-o", "--output", action="store", required=True,
@@ -76,6 +79,8 @@ def check_res(res):
     ''' strict check if the given res is a resolution format, i.e., either
         axb or a:b.
     '''
+    if res in COMMON_RES:
+        res = COMMON_RES[res]
     lst = res.split(":") if ":" in res else res.split("x")
     if len(lst) != 2:
         raise ValueError('resolution must contain a ":" or "x"')
@@ -279,6 +284,27 @@ def generate_killall(pid_list):
         os.chmod("killall.sh", 0o744)
         logger.info("killall.sh generated")
 
+def parse_video_formats(arg_vf):
+    video_formats = []
+    for res, *crfs in arg_vf:
+        if not crfs:
+            sys.exit("no crf found for res: " + res)
+        width, height = check_res(res)
+        for crf in crfs:
+            if not crf.isdigit():
+                sys.exit("crf must be an integer. got " + crf)
+            video_formats.append(VideoConfig(width, height, crf))
+    return video_formats
+
+
+def parse_audio_formats(arg_af):
+    audio_formats = []
+    for bitrate in arg_af:
+        if not bitrate.isdigit():
+            if bitrate[-1] != "k" or not bitrate[:-1].isdigit():
+                sys.exit("audio bitrate must be an integer. got " + bitrate)
+        audio_formats.append(bitrate)
+    return audio_formats
 
 def main():
     ''' main logic '''
@@ -291,17 +317,8 @@ def main():
     if mock_file is None:
         sys.exit("currently a mock video file is required")
 
-    video_formats = []
-    audio_formats = []
-
-    for res, *crfs in args.video_format:
-        width, height = check_res(res)
-        for crf in crfs:
-            if not crf.isdigit():
-                sys.exit("crf must be an integer. got " + crf)
-            video_formats.append(VideoConfig(width, height, crf))
-    for bitrate in args.audio_format:
-        audio_formats.append(bitrate)
+    video_formats = parse_video_formats(args.video_formats)
+    audio_formats = parse_audio_formats(args.audio_formats)
 
     run_canonicalizer(output_folder)
     run_video_encoder(video_formats, output_folder)
