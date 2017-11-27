@@ -42,7 +42,7 @@ def main():
     make_sure_path_exists(temp_dir)
 
     # run ffmpeg
-    ffmpeg_cmd = ("ffmpeg -nostdin -hide_banner -loglevel panic -y -t 12 " +
+    ffmpeg_cmd = ("ffmpeg -nostdin -hide_banner -loglevel panic -y -t 50 " +
                   "-i " + mock_file + " -map 0:v -an -f " +
                   "segment -segment_time 2.002 -segment_format yuv4mpegpipe " +
                   temp_dir + "/%d.y4m -map 0:a -vn -f segment -segment_time " +
@@ -62,10 +62,10 @@ def main():
                     num = int(name)
                     # test if it's a video file
                     if ext == "y4m":
-                        new_name = str(num * 90090 * 2) + ".y4m"
+                        new_name = str(num * 180180) + ".y4m"
                         new_path = os.path.join(video_path, new_name)
                     else:
-                        new_name = str(int(num * 4.8 * 90000)) + ".wav"
+                        new_name = str(num * 432000) + ".wav"
                         new_path = os.path.join(audio_path, new_name)
                     os.rename(os.path.join(temp_dir, filename), new_path)
     finally:
