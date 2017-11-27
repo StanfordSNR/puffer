@@ -33,8 +33,6 @@ def is_audio(dirname):
     name = path.basename(dirname)   # remove the output_folder name
     if not path.isdir(dirname):
         return False
-    if not name.isdigit():
-        return False
     if not path.exists(path.join(dirname, "init.webm")):
         return False
     if not glob.glob(path.join(dirname, "*.chk")):
