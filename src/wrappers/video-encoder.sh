@@ -9,6 +9,5 @@ res=$3
 crf=$4
 tmp_file=`mktemp /tmp/tmp.XXXXXX.mp4`
 
-ffmpeg -nostdin -hide_banner -loglevel panic -y -i $src_path -c:v libx264 -s $res -crf $crf -preset veryfast \
-  -video_track_timescale 90000 $tmp_file
+ffmpeg -nostdin -hide_banner -loglevel panic -y -i $src_path -c:v libx264 -s $res -crf $crf -preset veryfast $tmp_file
 mv $tmp_file $dst_dir/$src_fname_prefix.mp4
