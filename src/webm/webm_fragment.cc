@@ -22,6 +22,8 @@
 
 using namespace std;
 
+const uint32_t global_timescale = 90000;
+
 void print_usage(const string & program_name)
 {
   cerr <<
@@ -184,8 +186,10 @@ void create_media_segment(
   long long rel_timecode = block_group_entry->GetBlock()->GetTimeCode(cluster);
 
   if (timecode_file.empty()) {
-    /* ... from filename */
-    abs_timecode = get_timestamp(input_webm);
+    /* ... from filename; the problem is that it's in the global timescale */
+    uint64_t global_timestamp = get_timestamp(input_webm);
+    float sc = global_timescale / 1000.0f;
+    abs_timecode = narrow_cast<uint64_t>(global_timestamp / sc);
   } else {
     /* ... from timecode file and save the timecode for the next segment */
     abs_timecode = get_timecode(timecode_file);
