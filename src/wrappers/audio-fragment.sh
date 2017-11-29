@@ -8,5 +8,12 @@ dst_dir=$2
 tmp_file=`mktemp /tmp/tmp.XXXXXX.webm`
 webm_frag=$curr_dir/../webm/webm_fragment
 
-$webm_frag -m $tmp_file $src_path
+# optional argument for timecode file
+if [ -z "$3" ]
+then
+  $webm_frag -m $tmp_file $src_path
+else
+  $webm_frag -m $tmp_file -t $3 $src_path
+fi
+
 mv $tmp_file $dst_dir/$src_fname_prefix.chk

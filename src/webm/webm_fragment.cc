@@ -120,6 +120,14 @@ uint64_t get_timestamp(const string & filepath)
 
 long long get_timecode(const string & timecode_file)
 {
+  /* create a new timecode file containing 0 if not exists */
+  if (not roost::exists(timecode_file)) {
+    FileDescriptor timecode_fd(CheckSystemCall("open (" + timecode_file + ")",
+        open(timecode_file.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644)));
+    timecode_fd.write("0");
+    return 0;
+  }
+
   FileDescriptor timecode_fd(
       CheckSystemCall("open (" + timecode_file + ")",
                       open(timecode_file.c_str(), O_RDONLY)));
@@ -186,7 +194,8 @@ void create_media_segment(
   long long rel_timecode = block_group_entry->GetBlock()->GetTimeCode(cluster);
 
   if (timecode_file.empty()) {
-    /* ... from filename; the problem is that it's in the global timescale */
+    /* ... by converting the filename/timestamp (in global timescale)
+     * into timescale WebM's default timescale (1000) */
     uint64_t global_timestamp = get_timestamp(input_webm);
     float sc = global_timescale / 1000.0f;
     abs_timecode = narrow_cast<uint64_t>(global_timestamp / sc);
