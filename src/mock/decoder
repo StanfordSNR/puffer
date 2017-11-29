@@ -20,33 +20,43 @@ def make_sure_path_exists(target_path):
 
 def main():
     parser = argparse.ArgumentParser("A decoder mock")
-    parser.add_argument("-p", "--port", action="store", required=True,
-                        help="TCP port number", type=int, dest="port")
-    parser.add_argument("-a", "--audio", action="store", required=True,
-                        help="audio output folder", dest="audio")
+    parser.add_argument("-i", "--input", action="store", required=True,
+                        help="input media", dest="input")
     parser.add_argument("-v", "--video", action="store", required=True,
                         help="video output folder", dest="video")
-    parser.add_argument("-m", "--mock-file", action="store", required=True,
-                        help="mock video file", dest="mock_file")
+    parser.add_argument("-a", "--audio", action="store", required=True,
+                        help="audio output folder", dest="audio")
+    parser.add_argument("--video-pid", action="store",
+                        help="PID of video in hex", dest="video_pid")
+    parser.add_argument("--audio-pid", action="store",
+                        help="PID of audio in hex", dest="audio_pid")
+    parser.add_argument("-p", "--port", action="store",
+                        help="TCP port number", type=int, dest="port")
     args = parser.parse_args()
 
+    input_media = args.input
     video_path = args.video
     make_sure_path_exists(video_path)
     audio_path = args.audio
     make_sure_path_exists(audio_path)
-    mock_file = args.mock_file
 
     # don't need port number as we're faking a connection
     temp_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), "tmp")
     shutil.rmtree(temp_dir, ignore_errors=True)
     make_sure_path_exists(temp_dir)
 
+    # construct the string containing PIDs of video and audio
+    pid_str = ""
+    if args.video_pid is not None and args.audio_pid is not None:
+        pid_str = " -map i:%s -map i:%s" % (args.video_pid, args.audio_pid)
+
     # run ffmpeg
-    ffmpeg_cmd = ("ffmpeg -nostdin -hide_banner -loglevel panic -y -t 50 " +
-                  "-i " + mock_file + " -map 0:v -an -f " +
+    ffmpeg_cmd = ("ffmpeg -nostdin -hide_banner -loglevel panic -y " +
+                  "-i " + input_media + pid_str + " -an -f " +
                   "segment -segment_time 2.002 -segment_format yuv4mpegpipe " +
-                  temp_dir + "/%d.y4m -map 0:a -vn -f segment -segment_time " +
-                  "4.8 -segment_format wave " + temp_dir + "/%d.wav")
+                  temp_dir + "/%d.y4m -vn -af aresample=async=1000 " +
+                  "-f segment -segment_time 4.8 -segment_format wave " +
+                  temp_dir + "/%d.wav")
     p = subprocess.Popen(ffmpeg_cmd.split())
     # use inotify to modify the name to have 90k clock
     i = inotify.adapters.Inotify()
