@@ -78,5 +78,6 @@ def main():
     process = run_process(mpd_command)
     process.wait()  # wait till it's finished
 
+
 if __name__ == "__main__":
     main()

@@ -51,12 +51,17 @@ logger.addHandler(ch)
 pid_list = []
 
 # common video resolution
-COMMON_RES = {"1080p": "1920x1080", "720p": "1280x720", "480p": "640x480",
-              "360p": "480x360"}
+COMMON_RES = {"1080p": "1920x1080", "720p": "1280x720", "480p": "854x480",
+              "360p": "640x360"}
 
 def parse_arguments():
     ''' parse command arguments to produce a NameSpace '''
     parser = argparse.ArgumentParser("Run all pipeline components")
+    parser.add_argument("-i", "--input", action="store", dest="input",
+                        help="input media", required=True)
+    parser.add_argument("-o", "--output", action="store", dest="output",
+                        help="output folder. It will be used as BaseURL.",
+                        required=True)
     parser.add_argument("-vf", "--video-format", action="append", nargs='+',
                         metavar=("res", "crf"),
                         help="specify the output video format",
@@ -65,13 +70,14 @@ def parse_arguments():
                         metavar=("bitrate"),
                         help="specify the output audio format",
                         dest="audio_formats", required=True)
-    parser.add_argument("-p", "--port", action="store", required=True,
+    parser.add_argument("--video-pid", action="store", dest="video_pid",
+                        help="PID of video in hex")
+    parser.add_argument("--audio-pid", action="store", dest="audio_pid",
+                        help="PID of audio in hex")
+    parser.add_argument("-t", "--timecode", action="store", dest="timecode",
+                        help="timecode filename in the output dir")
+    parser.add_argument("-p", "--port", action="store",
                         help="TCP port number", type=int, dest="port")
-    parser.add_argument("-o", "--output", action="store", required=True,
-                        help="output folder. It will be used as BaseURL.",
-                        dest="output")
-    parser.add_argument("-m", "--mock-file", action="store",
-                        help="mock video file", dest="mock_file")
     return parser.parse_args()
 
 
@@ -176,14 +182,22 @@ def get_audio_path(output_folder, bitrate):
     return encoded_output, final_output
 
 
-def run_decoder(output_folder, port_number, mock_file):
+def run_decoder(input_media, output_folder, video_pid, audio_pid, port_number):
     ''' run the decoder program. currently a mock file is required '''
     # decoder
     audio_raw_output, video_raw_output = get_media_raw_path(output_folder)
     # this is only for mock interface
-    decoder_command = combine_args("-p", port_number,
-                                   "-a", audio_raw_output,
-                                   "-v", video_raw_output, "-m", mock_file)
+    decoder_command = combine_args(
+        "-i", input_media,"-v", video_raw_output, "-a", audio_raw_output)
+
+    if video_pid is not None and audio_pid is not None:
+        decoder_command = combine_args(
+            decoder_command, "--video-pid", video_pid,
+            "--audio-pid", audio_pid)
+
+    if port_number is not None:
+        decoder_command = combine_args(decoder_command, str(port_number))
+
     proc = run_process(DECODER_PATH + " " + decoder_command)
     pid_list.append(proc.pid)
 
@@ -244,12 +258,20 @@ def run_audio_encoder(audio_formats, output_folder):
         pid_list.append(proc.pid)
 
 
-def run_audio_frag(audio_formats, output_folder):
+def run_audio_frag(audio_formats, output_folder, timecode):
+    if timecode is not None:
+        with open(timecode, "w") as timecode_fd:
+            timecode_fd.write("0")
+
     ''' frag the audio segment as well as generate the init.webm '''
     for bitrate in audio_formats:
         encoded_output, final_output = get_audio_path(output_folder, bitrate)
+
         notifier_command = combine_args(encoded_output, final_output,
                                         AUDIO_FRAGMENT_PATH)
+        if timecode is not None:
+            notifier_command = combine_args(notifier_command, timecode)
+
         proc = run_notifier(notifier_command)
         pid_list.append(proc.pid)
 
@@ -310,12 +332,7 @@ def main():
     ''' main logic '''
     args = parse_arguments()
     output_folder = args.output
-    port_number = str(args.port)
-    mock_file = args.mock_file
-
-    # TODO: remove this after the actual decoder is finished
-    if mock_file is None:
-        sys.exit("currently a mock video file is required")
+    timecode = path.join(output_folder, args.timecode)
 
     video_formats = parse_video_formats(args.video_formats)
     audio_formats = parse_audio_formats(args.audio_formats)
@@ -324,9 +341,10 @@ def main():
     run_video_encoder(video_formats, output_folder)
     run_video_frag(video_formats, output_folder)
     run_audio_encoder(audio_formats, output_folder)
-    run_audio_frag(audio_formats, output_folder)
+    run_audio_frag(audio_formats, output_folder, timecode)
     run_time(video_formats, output_folder)
-    run_decoder(output_folder, port_number, mock_file)
+    run_decoder(args.input, output_folder,
+                args.video_pid, args.audio_pid, args.port)
 
     # create killall list to shutdown the entire pipeline
     generate_killall(pid_list)
