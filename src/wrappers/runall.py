@@ -48,7 +48,7 @@ ch.setFormatter(formatter)
 logger.addHandler(ch)
 
 # pid list to create killall.sh
-pid_list = []
+pid_list = {}
 
 # common video resolution
 COMMON_RES = {"1080p": "1920x1080", "720p": "1280x720", "480p": "854x480",
@@ -75,7 +75,8 @@ def parse_arguments():
     parser.add_argument("--audio-pid", action="store", dest="audio_pid",
                         help="PID of audio in hex")
     parser.add_argument("-t", "--timecode", action="store", dest="timecode",
-                        help="timecode filename in the output dir")
+                        help="timecode filename in the output dir",
+                        default="timecode")
     parser.add_argument("-p", "--port", action="store",
                         help="TCP port number", type=int, dest="port")
     return parser.parse_args()
@@ -199,7 +200,7 @@ def run_decoder(input_media, output_folder, video_pid, audio_pid, port_number):
         decoder_command = combine_args(decoder_command, str(port_number))
 
     proc = run_process(DECODER_PATH + " " + decoder_command)
-    pid_list.append(proc.pid)
+    pid_list[proc.pid] = "decoder"
 
 
 def run_canonicalizer(output_folder):
@@ -210,7 +211,7 @@ def run_canonicalizer(output_folder):
     notifier_command = combine_args(video_raw_output, video_canonical,
                                     CANONICALIZER_PATH)
     proc = run_notifier(notifier_command)
-    pid_list.append(proc.pid)
+    pid_list[proc.pid]= "notifier: cannoicalizer"
 
 
 def run_video_encoder(video_formats, output_folder):
@@ -223,7 +224,7 @@ def run_video_encoder(video_formats, output_folder):
                                         VIDEO_ENCODER_PATH, res, fmt.crf)
         # run notifier to encode
         proc = run_notifier(notifier_command)
-        pid_list.append(proc.pid)
+        pid_list[proc.pid] = "notifier: video_encoder"
 
 
 def run_video_frag(video_formats, output_folder):
@@ -236,7 +237,7 @@ def run_video_frag(video_formats, output_folder):
         notifier_command = combine_args(encoded_output, final_output,
                                         VIDEO_FRAGMENT_PATH)
         proc = run_notifier(notifier_command)
-        pid_list.append(proc.pid)
+        pid_list[proc.pid] = "notifier: video_frag"
 
         # init segment. use monitor's run once command
         video_init_path = path.join(final_output, VIDEO_INIT_NAME)
@@ -255,7 +256,7 @@ def run_audio_encoder(audio_formats, output_folder):
                                         AUDIO_ENCODER_PATH, bitrate)
         # run notifier to encode
         proc = run_notifier(notifier_command)
-        pid_list.append(proc.pid)
+        pid_list[proc.pid] = "notifier: audio_encoder"
 
 
 def run_audio_frag(audio_formats, output_folder, timecode):
@@ -273,7 +274,7 @@ def run_audio_frag(audio_formats, output_folder, timecode):
             notifier_command = combine_args(notifier_command, timecode)
 
         proc = run_notifier(notifier_command)
-        pid_list.append(proc.pid)
+        pid_list[proc.pid] = "notifier: audio_frag"
 
         # init segment. use monitor's run once command
         audio_init_path = path.join(final_output, AUDIO_INIT_NAME)
@@ -293,18 +294,36 @@ def run_time(video_formats, output_folder):
                                    "-o", time_output, "{}")
     # run monitor to update the time
     proc = run_monitor(monitor_command)
-    pid_list.append(proc.pid)
+    pid_list[proc.pid] = "monitor: time"
 
 
 def generate_killall(pid_list):
     if pid_list:
-        with open("killall.sh", "w") as file_sh:
-            file_sh.write("#!/bin/sh -x\n\n")
+        with open("killall.sh", "w+") as file_sh:
+            file_sh.write("#!/bin/sh\n\n")
             for pid in pid_list:
-                file_sh.write("kill " + str(pid) + "\n")
-            file_sh.write("killall monitor")
+                file_sh.write("kill {} # {} \n".format(pid, pid_list[pid]))
+            file_sh.write("killall monitor") # kill run once monitor, if any
         os.chmod("killall.sh", 0o744)
         logger.info("killall.sh generated")
+
+def generate_isrunning(pid_list):
+    if not pid_list:
+        return
+    with open("isrunning.sh", "w+") as file_sh:
+        file_sh.write("#!/bin/sh\n\n")
+        file_sh.write("RED='\033[0;31m'\nNC='\033[0m'\n")
+        for pid in pid_list:
+            date = "DATE=$(date +\"%m-%d-%y %H:%M:%S\")"
+            command = "if ps -p {0} > /dev/null\nthen\n{2}\necho INFO: $DATE "\
+                      "[{0}]: {1} is running\nelse\necho "\
+                      "${{RED}}WARN: $DATE [{0}]: {1} is not running${{NC}}"\
+                      "\nfi\n".format(pid, pid_list[pid], date)
+            file_sh.write(command)
+        os.chmod("isrunning.sh", 0o744)
+
+    logger.info("isrunning.sh generated")
+
 
 def parse_video_formats(arg_vf):
     video_formats = []
@@ -348,7 +367,8 @@ def main():
 
     # create killall list to shutdown the entire pipeline
     generate_killall(pid_list)
-
+    # create is_running to check if any process stops running
+    generate_isrunning(pid_list)
 
 if __name__ == "__main__":
     main()
