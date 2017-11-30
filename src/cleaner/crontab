@@ -1,0 +1,1 @@
+0 * * * * CLEANER_PATH -r -p "\d+\.(mp4|webm|m4s|chk)" -t 3600 MEDIA_PATH
