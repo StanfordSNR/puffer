@@ -25,6 +25,9 @@ def parse_arguments():
     parser.add_argument("-o", "--name", help="filename of the mpd, such as " +
                         "live.mpd", action="store", default="live.mpd",
                         dest="mpd_name")
+    parser.add_argument("-t", "--time", help="filename of the time file",
+                        action="store", default="time", dest="time")
+
     return parser.parse_args()
 
 
@@ -55,10 +58,11 @@ def main():
     ''' main logic '''
     args = parse_arguments()
     input_dir = args.input_dir
+    time_file = args.time
 
-    # assume some parameters
-    base_url = input_dir
-    time_url = path.join(input_dir, "time")
+    # add '/' to indicate the absolute url
+    base_url = "/" + input_dir
+    time_url = "/" + path.join(input_dir, time_file)
     mpd_path = path.join(input_dir, args.mpd_name)
 
     # get top level subdirectory
