@@ -25,6 +25,8 @@ save_CPPFLAGS="$CPPFLAGS"
 CPPFLAGS="$CXX17_FLAGS"
 AC_CHECK_HEADERS([string_view])
 AC_CHECK_HEADERS([experimental/string_view])
+AC_CHECK_HEADERS([filesystem])
+AC_CHECK_HEADERS([experimental/filesystem])
 CPPFLAGS="$save_CPPFLAGS"
 AC_LANG_POP(C++)
 

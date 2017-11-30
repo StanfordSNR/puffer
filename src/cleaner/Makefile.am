@@ -4,5 +4,4 @@ AM_CXXFLAGS = $(PICKY_CXXFLAGS)
 bin_PROGRAMS = cleaner
 
 cleaner_SOURCES = cleaner.cc
-
-cleaner_LDADD = ../util/libutil.a
+cleaner_LDADD = ../util/libutil.a -lstdc++fs
