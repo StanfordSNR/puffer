@@ -6,8 +6,6 @@
 #include <chrono>
 
 #include "config.h"
-#include "exception.hh"
-
 #ifdef HAVE_FILESYSTEM
 #include <filesystem>
 namespace fs = std::filesystem;
@@ -15,6 +13,8 @@ namespace fs = std::filesystem;
 #include <experimental/filesystem>
 namespace fs = std::experimental::filesystem;
 #endif
+
+#include "exception.hh"
 
 using namespace std;
 

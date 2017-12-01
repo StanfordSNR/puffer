@@ -54,7 +54,7 @@ def main():
     ffmpeg_cmd = ("ffmpeg -nostdin -hide_banner -loglevel panic -y " +
                   "-i " + input_media + pid_str + " -an -f " +
                   "segment -segment_time 2.002 -segment_format yuv4mpegpipe " +
-                  temp_dir + "/%d.y4m -vn -af aresample=async=1000 " +
+                  temp_dir + "/%d.y4m -vn -af aresample=async=48000 " +
                   "-f segment -segment_time 4.8 -segment_format wave " +
                   temp_dir + "/%d.wav")
     p = subprocess.Popen(ffmpeg_cmd.split())
