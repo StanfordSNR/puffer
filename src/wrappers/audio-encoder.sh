@@ -12,4 +12,3 @@ ffmpeg -nostdin -hide_banner -loglevel panic -y -i $src_path -c:a libopus \
   -af aformat=channel_layouts="7.1|5.1|stereo" -b:a $bitrate \
   -cluster_time_limit 5100 $tmp_file
 mv $tmp_file $dst_dir/$src_fname_prefix.webm
-rm $src_path
