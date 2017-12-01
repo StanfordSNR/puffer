@@ -150,7 +150,9 @@ uint32_t WebmInfo::get_timescale()
      * mp4's timescale */
     return 1000000000 / timescale;
   } else {
-    return 0;
+    cerr << "WARN: timecode scale does not found. use default for now"
+         << endl;
+    return 1000;
   }
 }
 
