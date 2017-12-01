@@ -74,11 +74,10 @@ def parse_arguments():
                         help="PID of video in hex")
     parser.add_argument("--audio-pid", action="store", dest="audio_pid",
                         help="PID of audio in hex")
-    parser.add_argument("-t", "--timecode", action="store", dest="timecode",
-                        help="timecode filename in the output dir",
-                        default="timecode")
     parser.add_argument("-p", "--port", action="store",
                         help="TCP port number", type=int, dest="port")
+    parser.add_argument("--timecode", action="store_true", dest="use_timecode",
+                        help="use timecode file during audio fragmentation")
     return parser.parse_args()
 
 
@@ -259,19 +258,20 @@ def run_audio_encoder(audio_formats, output_folder):
         pid_list[proc.pid] = "notifier: audio_encoder"
 
 
-def run_audio_frag(audio_formats, output_folder, timecode):
-    if timecode is not None:
-        with open(timecode, "w") as timecode_fd:
-            timecode_fd.write("0")
-
+def run_audio_frag(audio_formats, output_folder, use_timecode):
     ''' frag the audio segment as well as generate the init.webm '''
     for bitrate in audio_formats:
         encoded_output, final_output = get_audio_path(output_folder, bitrate)
 
         notifier_command = combine_args(encoded_output, final_output,
                                         AUDIO_FRAGMENT_PATH)
-        if timecode is not None:
-            notifier_command = combine_args(notifier_command, timecode)
+
+        if use_timecode:
+            timecode_path = path.join(final_output, "timecode")
+            with open(timecode_path, "w") as timecode_fd:
+                timecode_fd.write("0")
+
+            notifier_command = combine_args(notifier_command, timecode_path)
 
         proc = run_notifier(notifier_command)
         pid_list[proc.pid] = "notifier: audio_frag"
@@ -351,7 +351,6 @@ def main():
     ''' main logic '''
     args = parse_arguments()
     output_folder = args.output
-    timecode = path.join(output_folder, args.timecode)
 
     video_formats = parse_video_formats(args.video_formats)
     audio_formats = parse_audio_formats(args.audio_formats)
@@ -360,7 +359,7 @@ def main():
     run_video_encoder(video_formats, output_folder)
     run_video_frag(video_formats, output_folder)
     run_audio_encoder(audio_formats, output_folder)
-    run_audio_frag(audio_formats, output_folder, timecode)
+    run_audio_frag(audio_formats, output_folder, args.use_timecode)
     run_time(video_formats, output_folder)
     run_decoder(args.input, output_folder,
                 args.video_pid, args.audio_pid, args.port)
