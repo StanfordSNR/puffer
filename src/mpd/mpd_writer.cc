@@ -6,6 +6,8 @@
 #include <memory>
 #include <set>
 #include <algorithm>
+#include <queue>
+#include <numeric>
 
 #include "mpd.hh"
 #include "path.hh"
@@ -30,8 +32,9 @@ const char default_video_init_uri[] = "$RepresentationID$/init.mp4";
 const char default_audio_init_uri[] = "$RepresentationID$/init.webm";
 const uint32_t default_buffer_time = 2;
 const string default_time_uri = "/time";
+const uint32_t default_num_audio_check = 3;
 
-const set<string> media_extension {"m4s", "chk", "webm"};
+const set<string> media_extension {"m4s", "chk"};
 
 void print_usage(const string & program_name)
 {
@@ -48,6 +51,7 @@ void print_usage(const string & program_name)
   "-p --publish-time <time>     Set the publish time to <time> in unix\n"
   "                             timestamp\n"
   "-t --time-url                Set the iso time url.\n"
+  "-n --num-audio               Number of webm audio chunks to check.\n"
   "-o --output <path.mpd>       Output mpd info to <path.mpd>.\n"
   "                             stdout will be used if not specified\n"
   << endl;
@@ -60,20 +64,31 @@ inline bool is_webm(const string & filename)
 }
 
 void add_webm_audio(shared_ptr<AudioAdaptionSet> a_set, const string & init,
-                    const string & segment, const string & repr_id)
+                    const string & segment, const string & repr_id,
+                    const uint32_t expected_duration)
 {
   WebmInfo i_info(init);
   WebmInfo s_info(segment);
-  uint32_t duration = i_info.get_duration();
   uint32_t timescale = i_info.get_timescale();
-  uint32_t bitrate = s_info.get_bitrate(timescale, duration);
-  uint32_t sample_rate = i_info.get_sample_rate();
+  uint32_t duration = i_info.get_duration(timescale);
+  float f_duration = duration / (float)(timescale);
+  float f_expected = expected_duration / (float)global_timescale;
+  if (f_duration != f_expected and expected_duration) {
+    cerr << "WARN: expect to find duration " << f_expected
+         << ". got " << f_duration << endl;
+  }
 
+  uint32_t sample_rate = i_info.get_sample_rate();
   /* scale the timescale to global timescale */
   float scaling_factor = static_cast<float>(global_timescale) / timescale;
   timescale = global_timescale;
   duration = narrow_cast<uint32_t>(duration * scaling_factor);
 
+  if (expected_duration) {
+    duration = expected_duration;
+  }
+
+  uint32_t bitrate = s_info.get_bitrate(timescale, duration);
   auto repr_a = make_shared<AudioRepresentation>(repr_id, bitrate,
         sample_rate, MimeType::Audio_OPUS, timescale, duration);
   a_set->add_repr(repr_a);
@@ -81,7 +96,8 @@ void add_webm_audio(shared_ptr<AudioAdaptionSet> a_set, const string & init,
 
 void add_representation(
     shared_ptr<VideoAdaptionSet> v_set, shared_ptr<AudioAdaptionSet> a_set,
-    const string & init, const string & segment)
+    const string & init, const string & segment,
+    const uint32_t expected_duration)
 {
   /* get numbering info from file name
    * we assume the segment name is a number */
@@ -93,7 +109,7 @@ void add_representation(
 
   /* if this is a webm segment */
   if (is_webm(segment)) {
-    add_webm_audio(a_set, init, segment, repr_id);
+    add_webm_audio(a_set, init, segment, repr_id, expected_duration);
     return;
   }
   /* load mp4 up using parser */
@@ -111,16 +127,23 @@ void add_representation(
   uint32_t duration = s_duration;
   /* override the timescale from init.mp4 */
   uint32_t timescale = s_timescale == 0? i_timescale : s_timescale;
-  if (duration == 0) {
-    throw runtime_error("Cannot find duration in " + segment);
-  }
   /* get bitrate */
   uint32_t bitrate = s_info.get_bitrate(timescale, duration);
 
+  float f_duration = duration / (float)(timescale);
+  float f_expected = expected_duration / (float)global_timescale;
+  if (f_duration != f_expected and expected_duration) {
+    cerr << "WARN: expect to find duration " << f_expected
+         << ". got " << f_duration << endl;
+  }
   /* scale the timescale to global timescale */
   float scaling_factor = static_cast<float>(global_timescale) / timescale;
   timescale = global_timescale;
   duration = narrow_cast<uint32_t>(duration * scaling_factor);
+
+  if (expected_duration) {
+    duration = expected_duration;
+  }
 
   if (i_info.is_video()) {
     /* this is a video */
@@ -164,12 +187,13 @@ int main(int argc, char * argv[])
   string video_init_name = default_video_init_uri;
   string time_url = default_time_uri;
   vector<string> dir_list;
+  uint32_t num_audio_check = default_num_audio_check;
   /* default time is when the program starts */
   chrono::seconds publish_time = chrono::seconds(std::time(nullptr));
   string output = "";
   int opt, long_option_index;
 
-  const char *optstring = "u:b:i:e:a:v:o:p:t:";
+  const char *optstring = "u:b:i:e:a:v:o:p:t:n:";
   const struct option options[] = {
     {"url",               required_argument, nullptr, 'u'},
     {"buffer-time",       required_argument, nullptr, 'b'},
@@ -180,6 +204,7 @@ int main(int argc, char * argv[])
     {"output",            required_argument, nullptr, 'o'},
     {"publish-time",      required_argument, nullptr, 'p'},
     {"time-url",          required_argument, nullptr, 't'},
+    {"num-audio",         required_argument, nullptr, 'n'},
     { nullptr,            0,                 nullptr,  0 },
   };
 
@@ -212,6 +237,9 @@ int main(int argc, char * argv[])
         break;
       case 'o':
         output = optarg;
+        break;
+      case 'n':
+        num_audio_check = stoi(optarg);
         break;
       case 't':
         time_url = optarg;
@@ -250,17 +278,38 @@ int main(int argc, char * argv[])
     string init_seg_path;
     string seg_path = "";
     string file_extension = "";
-
+    uint32_t expected_duration = 0;
+    priority_queue<int> queue;
     for (const auto & file : roost::get_file_listing(path)) {
-      file_extension = split_filename(file).second;
+      string filename = roost::rbasename(file).string();
+      file_extension = split_filename(filename).second;
       if (find(media_extension.begin(), media_extension.end(), file_extension)
           != media_extension.end()) {
-        seg_path = file;
-        break;
+        int file_num = stoi(split_filename(filename).first);
+        /* set the seg_path only once */
+        if (!seg_path.length()) {
+          seg_path = file;
+        }
+        if (queue.size() >= num_audio_check) {
+          if (file_num < queue.top()) {
+            /* find an earlier segment */
+            queue.pop();
+            queue.emplace(file_num);
+          }
+        } else {
+          queue.emplace(file_num);
+        }
       }
     }
 
-    if (file_extension != "m4s") {
+    /* compute the expected duration */
+    expected_duration = queue.top();
+    while (queue.size()) {
+      expected_duration = gcd(queue.top(), expected_duration);
+      queue.pop();
+    }
+
+    if (file_extension != "m4s" and file_extension != "mp4") {
       string filename = roost::rbasename(roost::path(audio_init_name)).string();
       init_seg_path = roost::join(path, filename);
     } else {
@@ -282,7 +331,8 @@ int main(int argc, char * argv[])
 
     seg_path = roost::join(path, seg_path);
     /* add repr set */
-    add_representation(set_v, set_a, init_seg_path, seg_path);
+    add_representation(set_v, set_a, init_seg_path, seg_path,
+                       expected_duration);
   }
 
   /* set time */
