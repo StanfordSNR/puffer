@@ -53,12 +53,6 @@ void create_init_segment(mkvmuxer::MkvWriter * writer,
     throw runtime_error("Segment::GetTracks() failed");
   }
 
-  /* get Tags element */
-  auto parser_tags = parser_segment->GetTags();
-  if (not parser_tags) {
-    throw runtime_error("Segment::GetTags() failed");
-  }
-
   /* create muxer for Segment */
   auto muxer_segment = make_unique<mkvmuxer::Segment>();
   if (not muxer_segment->Init(writer)) {
@@ -92,23 +86,27 @@ void create_init_segment(mkvmuxer::MkvWriter * writer,
     throw runtime_error("failed to write (forward) Tracks element");
   }
 
-  /* copy all tags */
-  auto muxer_tags = make_unique<mkvmuxer::Tags>();
+  /* get and copy Tags element if exists */
+  auto parser_tags = parser_segment->GetTags();
 
-  for (int i = 0; i < parser_tags->GetTagCount(); ++i) {
-    auto parser_tag = parser_tags->GetTag(i);
+  if (parser_tags) {
+    auto muxer_tags = make_unique<mkvmuxer::Tags>();
 
-    for (int j = 0; j < parser_tag->GetSimpleTagCount(); ++j) {
-      auto parser_simple_tag = parser_tag->GetSimpleTag(j);
-      auto tag_name = parser_simple_tag->GetTagName();
-      auto tag_string = parser_simple_tag->GetTagString();
+    for (int i = 0; i < parser_tags->GetTagCount(); ++i) {
+      auto parser_tag = parser_tags->GetTag(i);
 
-      auto muxer_tag = muxer_tags->AddTag();
-      muxer_tag->add_simple_tag(tag_name, tag_string);
+      for (int j = 0; j < parser_tag->GetSimpleTagCount(); ++j) {
+        auto parser_simple_tag = parser_tag->GetSimpleTag(j);
+        auto tag_name = parser_simple_tag->GetTagName();
+        auto tag_string = parser_simple_tag->GetTagString();
+
+        auto muxer_tag = muxer_tags->AddTag();
+        muxer_tag->add_simple_tag(tag_name, tag_string);
+      }
     }
-  }
 
-  muxer_tags->Write(writer);
+    muxer_tags->Write(writer);
+  }
 }
 
 uint64_t get_timestamp(const string & filepath)
