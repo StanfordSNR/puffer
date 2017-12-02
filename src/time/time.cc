@@ -23,6 +23,7 @@ void print_usage(const string & program_name)
   "Usage: " << program_name << " [options] <seg> <seg>...\n"
   "-o --output <output>    program will write the timefile to <output>.\n"
   "-s --scale <timescale>  presentation time scale.\n"
+  "-d --delay <time>       delay presentation time by <time> seconds.\n"
   "<seg>                   media segment list. Only the first one will be\n"
   "                        used."
   << endl;
@@ -43,16 +44,18 @@ int main(int argc, char * argv[])
     abort();
   }
 
-  string timescale, input, output;
+  string timescale, input, output, delay;
 
   const option cmd_line_opts[] = {
     {"output", required_argument, nullptr, 'o'},
     {"scale",  required_argument, nullptr, 's'},
+    {"delay",  required_argument, nullptr, 'd'},
     { nullptr, 0,                 nullptr,  0 },
   };
 
   while (true) {
-    const int opt = getopt_long(argc, argv, "o:i:s:", cmd_line_opts, nullptr);
+    const int opt = getopt_long(argc, argv, "o:s:d:", cmd_line_opts,
+                                nullptr);
     if (opt == -1) {
       break;
     }
@@ -63,6 +66,9 @@ int main(int argc, char * argv[])
       break;
     case 's':
       timescale = optarg;
+      break;
+    case 'd':
+      delay = optarg;
       break;
     default:
       print_usage(argv[0]);
@@ -94,6 +100,13 @@ int main(int argc, char * argv[])
     i_timescale = default_timescale;
   }
 
+  long long i_delay;
+  if (delay.size()) {
+    i_delay = stoll(delay);
+  } else {
+    i_delay = 0;
+  }
+
   /* 1. obtain the lock for the output
    * 2. compare the time file time and input time
    * 3. if input time is >= the time file, flush the time file
@@ -106,7 +119,11 @@ int main(int argc, char * argv[])
   uint64_t filesize = fd.filesize();
 
   /* actual duration in seconds */
-  time_t duration = narrow_cast<time_t>(i_time / i_timescale);
+  uint32_t actual_duration = i_time / i_timescale;
+  actual_duration = actual_duration > i_delay ?
+                    actual_duration - i_delay : 0;
+
+  time_t duration = narrow_cast<time_t>(actual_duration);
 
   if (filesize > 0) {
     string file_time = fd.read(buffer_size);
