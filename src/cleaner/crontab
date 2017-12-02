@@ -1,1 +1,2 @@
-0 * * * * CLEANER_PATH -r -p "\d+\.(y4m|wav|mp4|webm|m4s|chk)" -t 3600 MEDIA_PATH
+# example: clean up MEDIA_PATH recursively every 5 minutes
+*/5 * * * * CLEANER_PATH -r -p "\d+\.(y4m|wav|mp4|webm|m4s|chk)" -t 300 MEDIA_PATH > LOG 2>&1
