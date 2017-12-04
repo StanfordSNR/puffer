@@ -4,16 +4,9 @@
 #include <string>
 #include <regex>
 #include <chrono>
+#include <system_error>
 
-#include "config.h"
-#ifdef HAVE_FILESYSTEM
-#include <filesystem>
-namespace fs = std::filesystem;
-#elif HAVE_EXPERIMENTAL_FILESYSTEM
-#include <experimental/filesystem>
-namespace fs = std::experimental::filesystem;
-#endif
-
+#include "filesystem.hh"
 #include "exception.hh"
 
 using namespace std;
@@ -34,7 +27,8 @@ void print_usage(const string & program_name)
 void remove_file(const string & path,
                  const string & pattern, const long int stale_time_sec)
 {
-  if (not fs::is_regular_file(path)) {
+  error_code ec;
+  if (not fs::is_regular_file(path, ec) or ec) {
     /* only interested in regular files */
     return;
   }
@@ -49,7 +43,10 @@ void remove_file(const string & path,
 
   if (stale_time_sec != -1) {
     struct stat file_stat;
-    CheckSystemCall("stat", stat(path.c_str(), &file_stat));
+    if (stat(path.c_str(), &file_stat)) {
+      cerr << "Warning: failed to run stat on " << path << endl;
+      return;
+    }
 
     timespec file_time = file_stat.st_atim;
     auto last_chrono = chrono::seconds(file_time.tv_sec);
@@ -65,8 +62,8 @@ void remove_file(const string & path,
   }
 
   /* remove the file if it passes all filters */
-  if (not fs::remove(path)) {
-    cerr << "Warning: unable to remove file " << path << endl;
+  if (not fs::remove(path, ec) or ec) {
+    cerr << "Warning: file " << path << " cannot be removed" << endl;
   }
 }
 
@@ -127,6 +124,12 @@ int main(int argc, char * argv[])
   }
 
   working_dir = argv[optind];
+
+  error_code ec;
+  if (not fs::is_directory(working_dir, ec) or ec) {
+    cerr << "directory " << working_dir << " does not exist" << endl;
+    return EXIT_FAILURE;
+  }
 
   long int stale_time_sec = -1;
   if (stale_time.size()) {
