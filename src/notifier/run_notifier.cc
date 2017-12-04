@@ -5,7 +5,7 @@
 #include <string>
 #include <stdexcept>
 #include <system_error>
-#include <set>
+#include <unordered_set>
 
 #include "config.h"
 #ifdef HAVE_FILESYSTEM
@@ -16,7 +16,6 @@ namespace fs = std::filesystem;
 namespace fs = std::experimental::filesystem;
 #endif
 
-#include "path.hh"
 #include "system_runner.hh"
 #include "tokenize.hh"
 #include "exception.hh"
@@ -50,8 +49,7 @@ vector<string> get_file_listing(const string & dst_dir)
   vector<string> result;
   for (auto & path : fs::directory_iterator(dst_dir)) {
     if (fs::is_regular_file(path, ec) and not ec) {
-      string full_path = path.path().string();
-      result.push_back(roost::rbasename(full_path).string());
+      result.push_back(path.path().filename().string());
     }
   }
 
@@ -70,7 +68,7 @@ void run_program(const string & program,
   run(program, args, {}, true, true);
 
   /* check if program wrote to dst_dir correctly */
-  string src_filename = roost::rbasename(src_file).string();
+  string src_filename = fs::path(src_file).filename().string();
   string src_filename_prefix = split_filename(src_filename).first;
 
   vector<string> dst_filenames = get_file_listing(dst_dir);
@@ -95,7 +93,7 @@ void process_existing_files(const string & program,
 {
   /* create a set containing the basename of files in dst_dir */
   vector<string> dst_filenames = get_file_listing(dst_dir);
-  set<string> dst_fileset;
+  unordered_set<string> dst_fileset;
 
   for (const string & dst_filename : dst_filenames) {
     dst_fileset.insert(split_filename(dst_filename).first);
@@ -108,7 +106,7 @@ void process_existing_files(const string & program,
 
     /* process src_filename only if no file in dst_dir has the same prefix */
     if (dst_fileset.find(src_filename_prefix) == dst_fileset.end()) {
-      string src_file = roost::join(src_dir, src_filename);
+      string src_file = (fs::path(src_dir) / fs::path(src_filename)).string();
       run_program(program, src_file, dst_dir, prog_args);
     }
   }
@@ -126,8 +124,8 @@ int main(int argc, char * argv[])
   }
 
   /* convert src & dst dir to absolute paths */
-  string src_dir = roost::canonical(argv[1]).string();
-  string dst_dir = roost::canonical(argv[2]).string();
+  string src_dir = fs::canonical(argv[1]).string();
+  string dst_dir = fs::canonical(argv[2]).string();
 
   string program = argv[3];
 
@@ -156,7 +154,7 @@ int main(int argc, char * argv[])
         throw runtime_error("returned event should contain a new filename");
       }
 
-      string src_file = roost::join(src_dir, event.name);
+      string src_file = (fs::path(src_dir) / fs::path(event.name)).string();
       run_program(program, src_file, dst_dir, prog_args);
     }
   );
