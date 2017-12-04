@@ -5,6 +5,8 @@
 
 using namespace std;
 
+const uint32_t default_timecode_scale = 1000000;
+
 template<typename T> T BinaryReader::read(bool switch_endian)
 {
   string data = fd_.read(sizeof(T));
@@ -133,7 +135,6 @@ shared_ptr<WebmElement> WebmParser::find_first(const uint32_t tag)
   return root_->find_first(tag);
 }
 
-
 set<shared_ptr<WebmElement>> WebmParser::find_all(const uint32_t tag)
 {
   return root_->find_all(tag);
@@ -145,14 +146,18 @@ uint32_t WebmInfo::get_timescale()
   if (elm) {
     uint32_t data_size = elm->size();
     string data = elm->value();
-    uint32_t timescale = read_raw<uint32_t>(data, data_size);
+    uint32_t timecode_scale = read_raw<uint32_t>(data, data_size);
+    if (timecode_scale != default_timecode_scale) {
+        cerr << "WARN: timecode scale is not " << default_timecode_scale
+             << endl;
+    }
     /* because it's timescode scale, we need to transform it to
      * mp4's timescale */
-    return 1000000000 / timescale;
+    return 1000000000 / timecode_scale;
   } else {
-    cerr << "WARN: timecode scale does not found. use default for now"
+    cerr << "WARN: timecode scale not found. use default for now"
          << endl;
-    return 1000;
+    return 1000000000 / default_timecode_scale;
   }
 }
 
