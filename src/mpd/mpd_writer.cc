@@ -79,6 +79,7 @@ void add_webm_audio(shared_ptr<AudioAdaptionSet> a_set, const string & init,
   }
 
   uint32_t sample_rate = i_info.get_sample_rate();
+
   /* scale the timescale to global timescale */
   float scaling_factor = static_cast<float>(global_timescale) / timescale;
   timescale = global_timescale;
@@ -92,6 +93,83 @@ void add_webm_audio(shared_ptr<AudioAdaptionSet> a_set, const string & init,
   auto repr_a = make_shared<AudioRepresentation>(repr_id, bitrate,
         sample_rate, MimeType::Audio_OPUS, timescale, duration);
   a_set->add_repr(repr_a);
+}
+
+void add_mp4_representation(
+    shared_ptr<VideoAdaptionSet> v_set, shared_ptr<AudioAdaptionSet> a_set,
+    const string & init, const string & segment, const string & repr_id,
+    uint32_t expected_duration)
+{
+  /* load mp4 up using parser */
+  auto i_parser = make_shared<MP4Parser>(init);
+  auto s_parser = make_shared<MP4Parser>(segment);
+  i_parser->parse();
+  s_parser->parse();
+  auto i_info = MP4Info(i_parser);
+  auto s_info = MP4Info(s_parser);
+
+  /* find duration, timescale from init and segment individually */
+  uint32_t i_duration, s_duration, i_timescale, s_timescale;
+  tie(i_timescale, i_duration) = i_info.get_timescale_duration();
+  tie(s_timescale, s_duration) = s_info.get_timescale_duration();
+
+  /* selecting the proper values because mp4 atoms are a mess */
+  uint32_t duration = s_duration;
+
+  /* override the timescale from init.mp4 */
+  uint32_t timescale = s_timescale == 0? i_timescale : s_timescale;
+
+  /* get bitrate */
+  uint32_t bitrate = s_info.get_bitrate(timescale, duration);
+
+  float f_duration = duration / (float)(timescale);
+  float f_expected = expected_duration / (float)global_timescale;
+  if (f_duration != f_expected and expected_duration) {
+    cerr << "WARN: expect to find duration " << f_expected
+         << ". got " << f_duration << endl;
+  }
+
+  /* scale the timescale to global timescale */
+  float scaling_factor = static_cast<float>(global_timescale) / timescale;
+  timescale = global_timescale;
+  duration = narrow_cast<uint32_t>(duration * scaling_factor);
+
+  if (expected_duration) {
+    duration = expected_duration;
+  }
+
+  if (i_info.is_video()) {
+    /* this is a video */
+    uint16_t width, height;
+    uint8_t profile, avc_level;
+    tie(width, height) = i_info.get_width_height();
+    tie(profile, avc_level) = i_info.get_avc_profile_level();
+
+    /* get fps */
+    float fps = s_info.get_fps(timescale, duration);
+    auto repr_v = make_shared<VideoRepresentation>(
+        repr_id, width, height, bitrate, profile, avc_level, fps, timescale,
+        duration);
+    v_set->add_repr(repr_v);
+  } else {
+    /* this is an audio */
+    uint32_t sample_rate = i_info.get_sample_rate();
+    uint8_t audio_code;
+    uint16_t channel_count;
+    tie(audio_code, channel_count) = i_info.get_audio_code_channel();
+
+    /* translate audio code. default AAC_LC 0x40 0x67 */
+    MimeType type = MimeType::Audio_AAC_LC;
+    if (audio_code == 0x64) { /* I might be wrong about this value */
+      type = MimeType::Audio_HE_AAC;
+    } else if (audio_code == 0x69) {
+      type = MimeType::Audio_MP3;
+    }
+    auto repr_a = make_shared<AudioRepresentation>(repr_id, bitrate,
+                                                   sample_rate, type,
+                                                   timescale, duration);
+    a_set->add_repr(repr_a);
+  }
 }
 
 void add_representation(
@@ -111,69 +189,9 @@ void add_representation(
   if (is_webm(segment)) {
     add_webm_audio(a_set, init, segment, repr_id, expected_duration);
     return;
-  }
-  /* load mp4 up using parser */
-  auto i_parser = make_shared<MP4Parser>(init);
-  auto s_parser = make_shared<MP4Parser>(segment);
-  i_parser->parse();
-  s_parser->parse();
-  auto i_info = MP4Info(i_parser);
-  auto s_info = MP4Info(s_parser);
-  /* find duration, timescale from init and segment individually */
-  uint32_t i_duration, s_duration, i_timescale, s_timescale;
-  tie(i_timescale, i_duration) = i_info.get_timescale_duration();
-  tie(s_timescale, s_duration) = s_info.get_timescale_duration();
-  /* selecting the proper values because mp4 atoms are a mess */
-  uint32_t duration = s_duration;
-  /* override the timescale from init.mp4 */
-  uint32_t timescale = s_timescale == 0? i_timescale : s_timescale;
-  /* get bitrate */
-  uint32_t bitrate = s_info.get_bitrate(timescale, duration);
-
-  float f_duration = duration / (float)(timescale);
-  float f_expected = expected_duration / (float)global_timescale;
-  if (f_duration != f_expected and expected_duration) {
-    cerr << "WARN: expect to find duration " << f_expected
-         << ". got " << f_duration << endl;
-  }
-  /* scale the timescale to global timescale */
-  float scaling_factor = static_cast<float>(global_timescale) / timescale;
-  timescale = global_timescale;
-  duration = narrow_cast<uint32_t>(duration * scaling_factor);
-
-  if (expected_duration) {
-    duration = expected_duration;
-  }
-
-  if (i_info.is_video()) {
-    /* this is a video */
-    uint16_t width, height;
-    uint8_t profile, avc_level;
-    tie(width, height) = i_info.get_width_height();
-    tie(profile, avc_level) = i_info.get_avc_profile_level();
-    /* get fps */
-    float fps = s_info.get_fps(timescale, duration);
-    auto repr_v = make_shared<VideoRepresentation>(
-        repr_id, width, height, bitrate, profile, avc_level, fps, timescale,
-        duration);
-    v_set->add_repr(repr_v);
   } else {
-    /* this is an audio */
-    /* TODO: add webm support */
-    uint32_t sample_rate = i_info.get_sample_rate();
-    uint8_t audio_code;
-    uint16_t channel_count;
-    tie(audio_code, channel_count) = i_info.get_audio_code_channel();
-    /* translate audio code. default AAC_LC 0x40 0x67 */
-    MimeType type = MimeType::Audio_AAC_LC;
-    if (audio_code == 0x64) { /* I might be wrong about this value */
-      type = MimeType::Audio_HE_AAC;
-    } else if (audio_code == 0x69) {
-      type = MimeType::Audio_MP3;
-    }
-    auto repr_a = make_shared<AudioRepresentation>(repr_id, bitrate,
-        sample_rate, type, timescale, duration);
-    a_set->add_repr(repr_a);
+    add_mp4_representation(v_set, a_set, init, segment, repr_id,
+                           expected_duration);
   }
 }
 
@@ -188,6 +206,7 @@ int main(int argc, char * argv[])
   string time_url = default_time_uri;
   vector<string> dir_list;
   uint32_t num_audio_check = default_num_audio_check;
+
   /* default time is when the program starts */
   chrono::seconds publish_time = chrono::seconds(std::time(nullptr));
   string output = "";
@@ -286,6 +305,7 @@ int main(int argc, char * argv[])
       if (find(media_extension.begin(), media_extension.end(), file_extension)
           != media_extension.end()) {
         int file_num = stoi(split_filename(filename).first);
+
         /* set the seg_path only once */
         if (!seg_path.length()) {
           seg_path = file;
