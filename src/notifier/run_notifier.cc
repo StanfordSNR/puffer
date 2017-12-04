@@ -6,6 +6,15 @@
 #include <stdexcept>
 #include <set>
 
+#include "config.h"
+#ifdef HAVE_FILESYSTEM
+#include <filesystem>
+namespace fs = std::filesystem;
+#elif HAVE_EXPERIMENTAL_FILESYSTEM
+#include <experimental/filesystem>
+namespace fs = std::experimental::filesystem;
+#endif
+
 #include "path.hh"
 #include "system_runner.hh"
 #include "tokenize.hh"
@@ -27,6 +36,23 @@ void print_usage(const string & program_name)
   << endl;
 }
 
+/* filesystem based file listing */
+vector<string> get_file_listing(const string & dst_dir)
+{
+  fs::path dir(dst_dir);
+  if (!fs::is_directory(dir)) {
+    throw runtime_error(dst_dir + " is not a directory");
+  }
+  vector<string> result;
+  for (auto & path : fs::directory_iterator(dst_dir)) {
+    if (fs::exists(path) and fs::is_regular_file(path)) {
+      string full_path = path.path().string();
+      result.push_back(roost::rbasename(full_path).string());
+    }
+  }
+  return result;
+}
+
 void run_program(const string & program,
                  const string & src_file,
                  const string & dst_dir,
@@ -42,7 +68,7 @@ void run_program(const string & program,
   string src_filename = roost::rbasename(src_file).string();
   string src_filename_prefix = split_filename(src_filename).first;
 
-  vector<string> dst_filenames = roost::get_file_listing(dst_dir);
+  vector<string> dst_filenames = get_file_listing(dst_dir);
 
   bool success = false;
   for (const string & dst_filename : dst_filenames) {
@@ -63,14 +89,15 @@ void process_existing_files(const string & program,
                             const vector<string> & prog_args)
 {
   /* create a set containing the basename of files in dst_dir */
-  vector<string> dst_filenames = roost::get_file_listing(dst_dir);
+  vector<string> dst_filenames = get_file_listing(dst_dir);
   set<string> dst_fileset;
 
   for (const string & dst_filename : dst_filenames) {
+    cout << split_filename(dst_filename).first << endl;
     dst_fileset.insert(split_filename(dst_filename).first);
   }
 
-  vector<string> src_filenames = roost::get_file_listing(src_dir);
+  vector<string> src_filenames = get_file_listing(src_dir);
 
   for (const string & src_filename : src_filenames) {
     string src_filename_prefix = split_filename(src_filename).first;
