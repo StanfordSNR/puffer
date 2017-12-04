@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/python3
 
 import os
 from os import path
@@ -7,6 +7,7 @@ import string
 import time
 import socket
 from test_helpers import get_open_port, Popen, timeout
+
 
 # timeout after 1 seconds
 @timeout(1)
@@ -18,11 +19,11 @@ def test_loop(content, abs_builddir):
     tcp_sock.bind(("127.0.0.1", tcp_port))
     tcp_sock.listen(1)
 
-    forwarder = path.abspath(path.join(abs_builddir, os.pardir,
-        'forwarder', 'forwarder'))
+    forwarder = path.abspath(
+        path.join(abs_builddir, os.pardir, 'forwarder', 'forwarder'))
     udp_port = get_open_port()
     forwarder_proc = Popen([forwarder, '--udp-port', str(udp_port),
-                    '--tcp', '127.0.0.1:' + str(tcp_port)])
+                           '--tcp', '127.0.0.1:' + str(tcp_port)])
     # receive connection
     connection, client_address = tcp_sock.accept()
 
@@ -39,13 +40,15 @@ def test_loop(content, abs_builddir):
         forwarder_proc.terminate()
         tcp_sock.close()
 
+
 def main():
     # generate a random file
-    content = ''.join(random.choice(string.letters) for _ in xrange(2000))
+    content = ''.join(random.choice(string.ascii_letters) for _ in range(2000))
 
     abs_builddir = os.environ['abs_builddir']
 
-    test_loop(content, abs_builddir)
+    test_loop(content.encode('utf-8'), abs_builddir)
+
 
 if __name__ == '__main__':
     main()

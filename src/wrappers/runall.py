@@ -54,6 +54,7 @@ pid_list = {}
 COMMON_RES = {"1080p": "1920x1080", "720p": "1280x720", "480p": "854x480",
               "360p": "640x360"}
 
+
 def parse_arguments():
     ''' parse command arguments to produce a NameSpace '''
     parser = argparse.ArgumentParser("Run all pipeline components")
@@ -188,7 +189,7 @@ def run_decoder(input_media, output_folder, video_pid, audio_pid, port_number):
     audio_raw_output, video_raw_output = get_media_raw_path(output_folder)
     # this is only for mock interface
     decoder_command = combine_args(
-        "-i", input_media,"-v", video_raw_output, "-a", audio_raw_output)
+        "-i", input_media, "-v", video_raw_output, "-a", audio_raw_output)
 
     if video_pid is not None and audio_pid is not None:
         decoder_command = combine_args(
@@ -210,7 +211,7 @@ def run_canonicalizer(output_folder):
     notifier_command = combine_args(video_raw_output, video_canonical,
                                     CANONICALIZER_PATH)
     proc = run_notifier(notifier_command)
-    pid_list[proc.pid]= "notifier: cannoicalizer"
+    pid_list[proc.pid] = "notifier: cannoicalizer"
 
 
 def run_video_encoder(video_formats, output_folder):
@@ -303,9 +304,10 @@ def generate_killall(pid_list):
             file_sh.write("#!/bin/sh\n\n")
             for pid in pid_list:
                 file_sh.write("kill {} # {} \n".format(pid, pid_list[pid]))
-            file_sh.write("killall monitor") # kill run once monitor, if any
+            file_sh.write("killall monitor")  # kill run once monitor, if any
         os.chmod("killall.sh", 0o744)
         logger.info("killall.sh generated")
+
 
 def generate_isrunning(pid_list):
     if not pid_list:
@@ -347,6 +349,7 @@ def parse_audio_formats(arg_af):
         audio_formats.append(bitrate)
     return audio_formats
 
+
 def main():
     ''' main logic '''
     args = parse_arguments()
@@ -368,6 +371,7 @@ def main():
     generate_killall(pid_list)
     # create is_running to check if any process stops running
     generate_isrunning(pid_list)
+
 
 if __name__ == "__main__":
     main()
