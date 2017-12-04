@@ -4,6 +4,7 @@
 #include <vector>
 #include <string>
 #include <stdexcept>
+#include <system_error>
 #include <set>
 
 #include "config.h"
@@ -39,17 +40,21 @@ void print_usage(const string & program_name)
 /* filesystem based file listing */
 vector<string> get_file_listing(const string & dst_dir)
 {
+  error_code ec;
+
   fs::path dir(dst_dir);
-  if (!fs::is_directory(dir)) {
+  if (not fs::is_directory(dir, ec) or ec) {
     throw runtime_error(dst_dir + " is not a directory");
   }
+
   vector<string> result;
   for (auto & path : fs::directory_iterator(dst_dir)) {
-    if (fs::exists(path) and fs::is_regular_file(path)) {
+    if (fs::is_regular_file(path, ec) and not ec) {
       string full_path = path.path().string();
       result.push_back(roost::rbasename(full_path).string());
     }
   }
+
   return result;
 }
 
@@ -93,7 +98,6 @@ void process_existing_files(const string & program,
   set<string> dst_fileset;
 
   for (const string & dst_filename : dst_filenames) {
-    cout << split_filename(dst_filename).first << endl;
     dst_fileset.insert(split_filename(dst_filename).first);
   }
 
