@@ -8,7 +8,7 @@
 #include <string>
 #include <stdexcept>
 
-#include "path.hh"
+#include "filesystem.hh"
 #include "system_runner.hh"
 #include "exception.hh"
 #include "notifier.hh"
@@ -60,7 +60,7 @@ int main(int argc, char * argv[])
       } else if (not strcmp(argv[i], "-a")) {
         monitor_all = true;
       } else {
-        string dir_abs_path = roost::canonical(argv[i]).string();
+        string dir_abs_path = fs::canonical(argv[i]).string();
         monitored_dirs.insert(dir_abs_path);
       }
     } else {
@@ -102,7 +102,7 @@ int main(int argc, char * argv[])
           throw runtime_error("returned event should contain a new filename");
         }
 
-        string filepath = roost::join(dir, event.name);
+        string filepath = (fs::path(dir) / fs::path(event.name)).string();
         vector<string> args{program};
 
         if (monitor_all) {

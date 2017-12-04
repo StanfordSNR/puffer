@@ -6,8 +6,8 @@
 #include <memory>
 #include <vector>
 
+#include "filesystem.hh"
 #include "strict_conversions.hh"
-#include "path.hh"
 #include "tokenize.hh"
 #include "mp4_parser.hh"
 #include "mp4_file.hh"
@@ -406,7 +406,7 @@ void create_media_segment(MP4Parser & mp4_parser, MP4File & output_mp4,
 
 uint64_t get_timestamp(const string & filepath)
 {
-  string filename = roost::rbasename(filepath).string();
+  string filename = fs::path(filepath).filename().string();
   string number_str = split_filename(filename).first;
   return narrow_cast<uint64_t>(stoll(number_str));
 }

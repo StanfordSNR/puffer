@@ -33,4 +33,4 @@ mp4_structure_SOURCES = mp4_structure.cc
 mp4_structure_LDADD = libmp4.a ../util/libutil.a
 
 mp4_fragment_SOURCES = mp4_fragment.cc
-mp4_fragment_LDADD = libmp4.a ../util/libutil.a
+mp4_fragment_LDADD = libmp4.a ../util/libutil.a -lstdc++fs

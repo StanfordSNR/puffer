@@ -7,15 +7,7 @@
 #include <system_error>
 #include <unordered_set>
 
-#include "config.h"
-#ifdef HAVE_FILESYSTEM
-#include <filesystem>
-namespace fs = std::filesystem;
-#elif HAVE_EXPERIMENTAL_FILESYSTEM
-#include <experimental/filesystem>
-namespace fs = std::experimental::filesystem;
-#endif
-
+#include "filesystem.hh"
 #include "system_runner.hh"
 #include "tokenize.hh"
 #include "exception.hh"
@@ -40,14 +32,12 @@ void print_usage(const string & program_name)
 vector<string> get_file_listing(const string & dst_dir)
 {
   error_code ec;
-
-  fs::path dir(dst_dir);
-  if (not fs::is_directory(dir, ec) or ec) {
+  if (not fs::is_directory(dst_dir, ec) or ec) {
     throw runtime_error(dst_dir + " is not a directory");
   }
 
   vector<string> result;
-  for (auto & path : fs::directory_iterator(dst_dir)) {
+  for (const auto & path : fs::directory_iterator(dst_dir)) {
     if (fs::is_regular_file(path, ec) and not ec) {
       result.push_back(path.path().filename().string());
     }

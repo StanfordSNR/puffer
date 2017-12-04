@@ -9,4 +9,4 @@ run_notifier_SOURCES = run_notifier.cc $(COMMON_SOURCES)
 run_notifier_LDADD = ../util/libutil.a -lstdc++fs
 
 monitor_SOURCES = monitor.cc $(COMMON_SOURCES)
-monitor_LDADD = ../util/libutil.a
+monitor_LDADD = ../util/libutil.a -lstdc++fs

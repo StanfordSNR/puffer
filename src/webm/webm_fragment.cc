@@ -8,7 +8,7 @@
 #include <memory>
 #include <stdexcept>
 
-#include "path.hh"
+#include "filesystem.hh"
 #include "tokenize.hh"
 #include "exception.hh"
 #include "file_descriptor.hh"
@@ -111,7 +111,7 @@ void create_init_segment(mkvmuxer::MkvWriter * writer,
 
 uint64_t get_timestamp(const string & filepath)
 {
-  string filename = roost::rbasename(filepath).string();
+  string filename = fs::path(filepath).filename().string();
   string number_str = split_filename(filename).first;
   return narrow_cast<uint64_t>(stoll(number_str));
 }
@@ -119,7 +119,7 @@ uint64_t get_timestamp(const string & filepath)
 long long get_timecode(const string & timecode_file)
 {
   /* create a new timecode file containing 0 if not exists */
-  if (not roost::exists(timecode_file)) {
+  if (not fs::exists(timecode_file)) {
     FileDescriptor timecode_fd(CheckSystemCall("open (" + timecode_file + ")",
         open(timecode_file.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644)));
     timecode_fd.write("0");
