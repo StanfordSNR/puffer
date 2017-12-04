@@ -83,7 +83,7 @@ def timeout(seconds=10, error_message=os.strerror(errno.ETIME)):
 
 
 def create_tmp_and_move_to(directory):
-    tmp_filepath = check_output(['mktemp']).strip()
+    tmp_filepath = check_output(['mktemp']).decode('utf-8').strip()
     tmp_filename = path.basename(tmp_filepath) + '.file'
 
     new_filepath = path.join(directory, tmp_filename)

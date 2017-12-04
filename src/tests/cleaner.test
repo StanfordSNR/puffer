@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/python3
 
 import os
 from os import path
@@ -6,6 +6,7 @@ import sys
 import time
 import datetime
 from test_helpers import check_call, check_output
+
 
 def main():
     abs_srcdir = os.environ['abs_srcdir']
