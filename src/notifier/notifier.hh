@@ -19,7 +19,6 @@ public:
                                         const std::string &)>;
 
   Notifier();
-  ~Notifier();
 
   /* add one or more paths to the watch list */
   int add_watch(const std::string & path,
