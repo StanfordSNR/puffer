@@ -48,19 +48,6 @@ vector<int> Notifier::add_watch(const vector<string> & paths,
   return wd_list;
 }
 
-Notifier::~Notifier()
-{
-  /* remove all the fs watches when destructed */
-  /* create a snapshot of the keys */
-  vector<int> key_list;
-  for (const auto & pair : imap_) {
-    key_list.push_back(pair.first);
-  }
-  for (auto wd : key_list) {
-    rm_watch(wd);
-  }
-}
-
 void Notifier::rm_watch(const int wd)
 {
   CheckSystemCall("inotify_rm_watch",
