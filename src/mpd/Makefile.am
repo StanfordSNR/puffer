@@ -7,4 +7,5 @@ bin_PROGRAMS = mpd_writer
 
 mpd_writer_SOURCES = mpd_writer.cc mpd.hh mpd.cc
 
-mpd_writer_LDADD = ../util/libutil.a ../mp4/libmp4.a ../webm/libwebm.a
+mpd_writer_LDADD = ../util/libutil.a ../mp4/libmp4.a ../webm/libwebm.a \
+				   -lstdc++fs
