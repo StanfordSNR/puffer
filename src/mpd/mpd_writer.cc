@@ -10,7 +10,6 @@
 #include <numeric>
 
 #include "mpd.hh"
-#include "path.hh"
 #include "mp4_info.hh"
 #include "mp4_parser.hh"
 #include "tokenize.hh"
@@ -18,6 +17,7 @@
 #include "exception.hh"
 #include "strict_conversions.hh"
 #include "webm_info.hh"
+#include "filesystem.hh"
 
 using namespace std;
 using namespace MPD;
@@ -34,7 +34,7 @@ const uint32_t default_buffer_time = 2;
 const string default_time_uri = "/time";
 const uint32_t default_num_audio_check = 3;
 
-const set<string> media_extension {"m4s", "chk"};
+const set<fs::path> media_extension {".m4s", ".chk"};
 
 void print_usage(const string & program_name)
 {
@@ -57,20 +57,24 @@ void print_usage(const string & program_name)
   << endl;
 }
 
-inline bool is_webm(const string & filename)
+inline bool is_webm(const fs::path & filename)
 {
-  auto results = split_filename(filename);
-  return results.second == "webm" or results.second == "chk";
+  return filename.extension() == ".webm" \
+      or filename.extension() == ".chk";
 }
 
-void add_webm_audio(shared_ptr<AudioAdaptionSet> a_set, const string & init,
-                    const string & segment, const string & repr_id,
+void add_webm_audio(shared_ptr<AudioAdaptionSet> a_set, const fs::path & init,
+                    const fs::path & segment, const string & repr_id,
                     const uint32_t expected_duration)
 {
   WebmInfo i_info(init);
   WebmInfo s_info(segment);
+
+  /* get webm info */
   uint32_t timescale = i_info.get_timescale();
   uint32_t duration = i_info.get_duration(timescale);
+
+  /* compute the expected duration and actual duration */
   float f_duration = duration / (float)(timescale);
   float f_expected = expected_duration / (float)global_timescale;
   if (f_duration != f_expected and expected_duration) {
@@ -97,7 +101,7 @@ void add_webm_audio(shared_ptr<AudioAdaptionSet> a_set, const string & init,
 
 void add_mp4_representation(
     shared_ptr<VideoAdaptionSet> v_set, shared_ptr<AudioAdaptionSet> a_set,
-    const string & init, const string & segment, const string & repr_id,
+    const fs::path & init, const fs::path & segment, const string & repr_id,
     uint32_t expected_duration)
 {
   /* load mp4 up using parser */
@@ -174,16 +178,17 @@ void add_mp4_representation(
 
 void add_representation(
     shared_ptr<VideoAdaptionSet> v_set, shared_ptr<AudioAdaptionSet> a_set,
-    const string & init, const string & segment,
+    const fs::path & init, const fs::path & segment,
     const uint32_t expected_duration)
 {
-  /* get numbering info from file name
-   * we assume the segment name is a number */
-  auto seg_path_list = split(segment, "/");
-  if (seg_path_list.size() < 2) {
-    throw runtime_error(segment + " is in top folder");
+  /* get repr id from it's parent folder.
+   * for instance, if the segment path is a/b/0.m4s,
+   * then we will have b
+   */
+  fs::path repr_id = *(--(--segment.end()));
+  if (repr_id.empty()) {
+    throw runtime_error(segment.string() + " is in top folder");
   }
-  string repr_id = seg_path_list[seg_path_list.size() - 2];
 
   /* if this is a webm segment */
   if (is_webm(segment)) {
@@ -201,10 +206,10 @@ int main(int argc, char * argv[])
   string base_url = default_base_uri;
   string audio_name = default_audio_uri;
   string video_name = default_video_uri;
-  string audio_init_name = default_audio_init_uri;
-  string video_init_name = default_video_init_uri;
+  fs::path audio_init_name = default_audio_init_uri;
+  fs::path video_init_name = default_video_init_uri;
   string time_url = default_time_uri;
-  vector<string> dir_list;
+  vector<fs::path> dir_list;
   uint32_t num_audio_check = default_num_audio_check;
 
   /* default time is when the program starts */
@@ -279,7 +284,7 @@ int main(int argc, char * argv[])
   /* check and add to dir_list */
   for (int i = optind; i < argc; i++) {
     string path = argv[i];
-    if (not roost::exists(path)) {
+    if (not fs::exists(path)) {
       throw runtime_error(path + " does not exist");
       return EXIT_FAILURE;
     } else {
@@ -294,21 +299,21 @@ int main(int argc, char * argv[])
 
   /* figure out what kind of representation each folder is */
   for (auto const & path : dir_list) {
-    string init_seg_path;
-    string seg_path = "";
-    string file_extension = "";
+    fs::path init_seg_path;
+    fs::path seg_path;
+    fs::path file_extension;
     uint32_t expected_duration = 0;
     priority_queue<int> queue;
-    for (const auto & file : roost::get_file_listing(path)) {
-      string filename = roost::rbasename(file).string();
-      file_extension = split_filename(filename).second;
+    for (const auto & p : fs::directory_iterator(path)) {
+      fs::path filename = p.path().filename();
+      file_extension = filename.extension();
       if (find(media_extension.begin(), media_extension.end(), file_extension)
           != media_extension.end()) {
-        int file_num = stoi(split_filename(filename).first);
+        int file_num = stoi(filename.stem().string());
 
         /* set the seg_path only once */
-        if (!seg_path.length()) {
-          seg_path = file;
+        if (seg_path.empty()) {
+          seg_path = p.path();
         }
         if (queue.size() >= num_audio_check) {
           if (file_num < queue.top()) {
@@ -329,27 +334,26 @@ int main(int argc, char * argv[])
       queue.pop();
     }
 
-    if (file_extension != "m4s" and file_extension != "mp4") {
-      string filename = roost::rbasename(roost::path(audio_init_name)).string();
-      init_seg_path = roost::join(path, filename);
+    if (file_extension != ".m4s" and file_extension != ".mp4") {
+      fs::path filename = audio_init_name.filename();
+      init_seg_path = path / filename;
     } else {
       /* make an assumption here that media segments (audio and video) have
        * the same extension, i.e., .m4s
        */
-      string filename = roost::rbasename(roost::path(video_init_name)).string();
-      init_seg_path = roost::join(path, filename);
+      fs::path filename = video_init_name.filename();
+      init_seg_path = path  / filename;
     }
 
-    if (not roost::exists(init_seg_path)) {
-      throw runtime_error("Cannnot find " + init_seg_path);
+    if (not fs::exists(init_seg_path)) {
+      throw runtime_error("Cannnot find " + init_seg_path.string());
       return EXIT_FAILURE;
     }
 
     if (seg_path == "") {
-      throw runtime_error("No media segments found in " + path);
+      throw runtime_error("No media segments found in " + path.string());
     }
 
-    seg_path = roost::join(path, seg_path);
     /* add repr set */
     add_representation(set_v, set_a, init_seg_path, seg_path,
                        expected_duration);
