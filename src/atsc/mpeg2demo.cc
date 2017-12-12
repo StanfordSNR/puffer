@@ -28,7 +28,6 @@ using namespace std;
 const size_t ts_packet_length = 188;
 const char ts_packet_sync_byte = 0x47;
 const size_t packets_in_chunk = 512;
-const size_t max_frame_size = 1048576 * 10;
 
 template <typename T>
 inline T * notnull( const string & context, T * const x )
@@ -88,8 +87,6 @@ public:
     default:
       throw runtime_error( "unhandled frame interval: " + to_string( expected_frame_interval ) );
     }
-
-    
 
     output_.write( "YUV4MPEG2 W" + to_string( display_width_ )
                    + " H" + to_string( display_height_ / 2 ) + " " + "F60000:1001"
@@ -322,8 +319,6 @@ private:
 
   unique_ptr<mpeg2dec_t, MPEG2Deleter> decoder_;
 
-  vector<uint8_t> mutable_coded_frame_;
-
   unsigned int display_width_;
   unsigned int display_height_;
   unsigned int frame_interval_;
@@ -434,37 +429,29 @@ private:
                           physical_luma_width(),
                           physical_chroma_width() );
   }
-  
+
 public:
   MPEG2VideoDecoder( const unsigned int expected_display_width,
                      const unsigned int expected_display_height,
                      const unsigned int expected_frame_interval )
     : decoder_( notnull( "mpeg2_init", mpeg2_init() ) ),
-      mutable_coded_frame_( max_frame_size ),
       display_width_( expected_display_width ),
       display_height_( expected_display_height ),
       frame_interval_( expected_frame_interval )
   {}
 
-  void tag_presentation_time_stamp( const uint64_t presentation_time_stamp )
+  void decode_frame( pair<uint64_t, string> & PES_packet, VideoOutput & output )
   {
+    const uint64_t presentation_time_stamp = PES_packet.first;
+
     mpeg2_tag_picture( decoder_.get(),
                        presentation_time_stamp >> 32,
                        presentation_time_stamp & 0xFFFFFFFF );
-  }
-
-  void decode_frame( const string & coded_frame, VideoOutput & output )
-  {
-    if ( coded_frame.size() > mutable_coded_frame_.size() ) {
-      throw runtime_error( "coded frame too big to fit in buffer" );
-    }
-
-    memcpy( mutable_coded_frame_.data(), coded_frame.data(), coded_frame.size() );
 
     /* give bytes to the MPEG-2 video decoder */
     mpeg2_buffer( decoder_.get(),
-                  mutable_coded_frame_.data(),
-                  mutable_coded_frame_.data() + coded_frame.size() );
+                  reinterpret_cast<uint8_t *>( PES_packet.second.data() ),
+                  reinterpret_cast<uint8_t *>( PES_packet.second.data() + PES_packet.second.size() ) );
 
     /* actually decode the frame */
     unsigned int picture_count = 0;
@@ -538,7 +525,7 @@ public:
     }
   }
 
-  void parse( const string_view & packet, MPEG2VideoDecoder & video_decoder, VideoOutput & output )
+  void parse( const string_view & packet, vector<pair<uint64_t, string>> & video_PES_packets )
   {
     TSPacketHeader header { packet };
 
@@ -553,10 +540,8 @@ public:
       if ( not PES_packet_.empty() ) {
         PESPacketHeader pes_header { PES_packet_ };
 
-        video_decoder.tag_presentation_time_stamp( pes_header.presentation_time_stamp );
-        video_decoder.decode_frame( PES_packet_.substr( pes_header.payload_start ),
-                                    output );
-
+        video_PES_packets.emplace_back( pes_header.presentation_time_stamp,
+                                        move( PES_packet_ ) );
         PES_packet_.clear();
       }
 
@@ -586,10 +571,12 @@ int main( int argc, char *argv[] )
   TSParser parser { pid };
   MPEG2VideoDecoder video_decoder { expected_width, expected_height, expected_frame_interval };
   VideoOutput video_output { expected_width, expected_height, expected_frame_interval };
-  
+
+  vector<pair<uint64_t, string>> video_PES_packets;
+
   try {
     while ( true ) {
-      /* read chunks of MPEG-2 transport-stream packets in a loop */
+      /* parse transport stream packets into video (and eventually audio) PES packets */
 
       const string chunk = stdin.read_exactly( ts_packet_length * packets_in_chunk );
       const string_view chunk_view { chunk };
@@ -597,9 +584,15 @@ int main( int argc, char *argv[] )
       for ( unsigned packet_no = 0; packet_no < packets_in_chunk; packet_no++ ) {
         parser.parse( chunk_view.substr( packet_no * ts_packet_length,
                                          ts_packet_length ),
-                      video_decoder,
-                      video_output );
+                      video_PES_packets );
       }
+
+      /* decode video */
+      for ( auto & video_PES_packet : video_PES_packets ) {
+        video_decoder.decode_frame( video_PES_packet, video_output );
+      }
+
+      video_PES_packets.clear();
     }
   } catch ( const exception & e ) {
     print_exception( argv[ 0 ], e );
