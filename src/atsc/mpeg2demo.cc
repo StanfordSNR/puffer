@@ -554,23 +554,45 @@ public:
   }
 };
 
+struct VideoParameters
+{
+  unsigned int width {};
+  unsigned int height {};
+  unsigned int frame_interval {};
+
+  VideoParameters( const string & format )
+  {
+    if ( format == "1080i30" ) {
+      width = 1920;
+      height = 1080;
+      frame_interval = 900900;
+    } else if ( format == "720p60" ) {
+      width = 1280;
+      height = 720;
+      frame_interval = 450450;
+    } else {
+      throw runtime_error( "unsupported format: " + format );
+    }
+  }
+};
+
 int main( int argc, char *argv[] )
 {
-  if ( argc != 5 ) {
-    cerr << "Usage: " << argv[ 0 ] << " VIDEO_PID EXPECTED_WIDTH EXPECTED_HEIGHT EXPECTED_FRAME_INTERVAL [e.g. 900900 for 30i]\n";
+  if ( argc != 3 ) {
+    cerr << "Usage: " << argv[ 0 ] << " pid format\n\n   format = \"1080i30\" | \"720p60\"\n";
     return EXIT_FAILURE;
   }
 
+  /* NB: "1080i30" is the preferred notation in Poynton's books and "Video Demystified" */
+
   const unsigned int pid = stoi( argv[ 1 ] );
-  const unsigned int expected_width = stoi( argv[ 2 ] );
-  const unsigned int expected_height = stoi( argv[ 3 ] );
-  const unsigned int expected_frame_interval = stoi( argv[ 4 ] );
+  const VideoParameters params { argv[ 2 ] };
 
   FileDescriptor stdin { 0 };
 
   TSParser parser { pid };
-  MPEG2VideoDecoder video_decoder { expected_width, expected_height, expected_frame_interval };
-  VideoOutput video_output { expected_width, expected_height, expected_frame_interval };
+  MPEG2VideoDecoder video_decoder { params.width, params.height, params.frame_interval };
+  VideoOutput video_output { params.width, params.height, params.frame_interval };
 
   vector<pair<uint64_t, string>> video_PES_packets;
 
