@@ -5,13 +5,14 @@
 #include <string>
 #include <utility>
 #include <tuple>
+#include <cstdlib>
 
 #include "path.hh"
 #include "system_runner.hh"
 #include "tokenize.hh"
 #include "file_descriptor.hh"
-#include "temp_file.hh"
 #include "exception.hh"
+#include "filesystem.hh"
 #include "mp4_info.hh"
 #include "mp4_parser.hh"
 
@@ -62,7 +63,7 @@ uint16_t get_width(const string & video_path)
 }
 
 void convert_to_y4m(const vector<string> & mp4_paths,
-                    vector<unique_ptr<TempFile>> & y4m_paths)
+                    vector<string> & y4m_paths)
 {
   uint16_t max_width = 0;
   for (const auto & mp4_path : mp4_paths) {
@@ -77,16 +78,17 @@ void convert_to_y4m(const vector<string> & mp4_paths,
   }
 
   for (const auto & mp4_path : mp4_paths) {
-    auto y4m_file = make_unique<TempFile>("/tmp/y4m");
+    char y4m_path[] = "/tmp/XXXXXX.y4m";
+    CheckSystemCall("mkstemps", mkstemps(y4m_path, 4));
 
     string cmd = "ffmpeg -y -i " + mp4_path + " -f yuv4mpegpipe -vf "
-                 "scale=" + to_string(max_width) + ":-1 " + y4m_file->name();
+                 "scale=" + to_string(max_width) + ":-1 " + y4m_path;
     cerr << "$ " << cmd << endl;
 
     auto args = split(cmd, " ");
     run("ffmpeg", args, {}, true, true);
 
-    y4m_paths.emplace_back(move(y4m_file));
+    y4m_paths.emplace_back(y4m_path);
   }
 }
 
@@ -145,12 +147,8 @@ int main(int argc, char * argv[])
   string output_path = argv[optind + 2];
 
   /* convert MP4 to Y4M videos */
-  vector<unique_ptr<TempFile>> y4m_paths;
+  vector<string> y4m_paths;
   convert_to_y4m(mp4_paths, y4m_paths);
-
-  for (unsigned int i = 0; i < 2; ++i) {
-    mp4_paths[i] = y4m_paths[i]->name();
-  }
 
   /* construct command to run dump_ssim or dump_fastssim */
   string ssim_path = get_ssim_path(fast_ssim);
@@ -165,7 +163,7 @@ int main(int argc, char * argv[])
       cmd += " -l " + frame_limit;
     }
   }
-  cmd += " " + mp4_paths[0] + " " + mp4_paths[1];
+  cmd += " " + y4m_paths[0] + " " + y4m_paths[1];
   cerr << "$ " << cmd << endl;
 
   /* dump SSIM index to the output file */
@@ -173,6 +171,13 @@ int main(int argc, char * argv[])
   string ssim_result = run(ssim_path, args, {}, true, true, true);
   ssim_result = split(ssim_result, " ")[1];
   write_to_file(output_path, ssim_result);
+
+  error_code ec;
+  for (const auto & y4m_path : y4m_paths) {
+    if (not fs::remove(y4m_path, ec) or ec) {
+      cerr << "Warning: file " << y4m_path << " cannot be removed" << endl;
+    }
+  }
 
   return EXIT_SUCCESS;
 }
