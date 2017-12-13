@@ -4,6 +4,7 @@
 #include <memory>
 #include <string>
 #include <utility>
+#include <tuple>
 
 #include "path.hh"
 #include "system_runner.hh"
@@ -11,15 +12,18 @@
 #include "file_descriptor.hh"
 #include "temp_file.hh"
 #include "exception.hh"
+#include "mp4_info.hh"
+#include "mp4_parser.hh"
 
 using namespace std;
+using namespace MP4;
 
 void print_usage(const string & program_name)
 {
   cerr <<
   "Usage: " << program_name << " [options] <video1> <video2> <output>\n\n"
-  "<video1>, <video2>    Y4M files; will be converted to Y4M files if not\n"
-  "<output>              output text file containing SSIM index\n\n"
+  "<video1>, <video2>       MP4 video files\n"
+  "<output>                 output text file containing SSIM index\n\n"
   "Options:\n"
   "--fast-ssim              compute fast SSIM instead\n"
   "-p, --parallel <npar>    run <npar> parallel workers\n"
@@ -45,29 +49,51 @@ string get_ssim_path(const bool fast_ssim)
   return ssim_path;
 }
 
-unique_ptr<TempFile> convert_to_y4m(const string & video_path)
+uint16_t get_width(const string & video_path)
 {
-  if (split_filename(video_path).second == "y4m") {
-    return nullptr;
+  auto parser = make_shared<MP4Parser>(video_path);
+  parser->parse();
+  auto info = MP4Info(parser);
+
+  uint16_t width;
+  tie(width, ignore) = info.get_width_height();
+
+  return width;
+}
+
+void convert_to_y4m(const vector<string> & mp4_paths,
+                    vector<unique_ptr<TempFile>> & y4m_paths)
+{
+  uint16_t max_width = 0;
+  for (const auto & mp4_path : mp4_paths) {
+    if (split_filename(mp4_path).second != "mp4") {
+      throw runtime_error("video " + mp4_path + " should be an MP4 file");
+    }
+
+    uint16_t width = get_width(mp4_path);
+    if (width > max_width) {
+      max_width = width;
+    }
   }
 
-  auto tmp_y4m = make_unique<TempFile>("/tmp/y4m");
+  for (const auto & mp4_path : mp4_paths) {
+    auto y4m_file = make_unique<TempFile>("/tmp/y4m");
 
-  string cmd = "ffmpeg -y -i " + video_path + " -f yuv4mpegpipe " +
-               tmp_y4m->name();
-  cerr << "$ " << cmd << endl;
+    string cmd = "ffmpeg -y -i " + mp4_path + " -f yuv4mpegpipe -vf "
+                 "scale=" + to_string(max_width) + ":-1 " + y4m_file->name();
+    cerr << "$ " << cmd << endl;
 
-  auto args = split(cmd, " ");
-  run("ffmpeg", args, {}, true, true);
+    auto args = split(cmd, " ");
+    run("ffmpeg", args, {}, true, true);
 
-  return move(tmp_y4m);
+    y4m_paths.emplace_back(move(y4m_file));
+  }
 }
 
 void write_to_file(const string & output_path, const string & result)
 {
-  FileDescriptor output_fd(
-    CheckSystemCall("open (" + output_path + ")",
-                    open(output_path.c_str(), O_WRONLY | O_CREAT, 0644)));
+  FileDescriptor output_fd(CheckSystemCall("open (" + output_path + ")",
+      open(output_path.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644)));
   output_fd.write(result, true);
   output_fd.close();
 }
@@ -115,19 +141,15 @@ int main(int argc, char * argv[])
     return EXIT_FAILURE;
   }
 
-  string video1_path = argv[optind];
-  string video2_path = argv[optind + 1];
+  vector<string> mp4_paths = {argv[optind], argv[optind + 1]};
   string output_path = argv[optind + 2];
 
-  /* convert input videos to Y4M if necessary */
-  unique_ptr<TempFile> video1_tmp = convert_to_y4m(video1_path);
-  if (video1_tmp != nullptr) {
-    video1_path = video1_tmp->name();
-  }
+  /* convert MP4 to Y4M videos */
+  vector<unique_ptr<TempFile>> y4m_paths;
+  convert_to_y4m(mp4_paths, y4m_paths);
 
-  unique_ptr<TempFile> video2_tmp = convert_to_y4m(video2_path);
-  if (video2_tmp != nullptr) {
-    video2_path = video2_tmp->name();
+  for (unsigned int i = 0; i < 2; ++i) {
+    mp4_paths[i] = y4m_paths[i]->name();
   }
 
   /* construct command to run dump_ssim or dump_fastssim */
@@ -135,20 +157,21 @@ int main(int argc, char * argv[])
 
   string cmd = ssim_path + " -s";
   if (not fast_ssim) {
-    if (not parallel_cnt.empty()) {
+    if (parallel_cnt.size()) {
       cmd += " -p " + parallel_cnt;
     }
 
-    if (not frame_limit.empty()) {
+    if (frame_limit.size()) {
       cmd += " -l " + frame_limit;
     }
   }
-  cmd += " " + video1_path + " " + video2_path;
+  cmd += " " + mp4_paths[0] + " " + mp4_paths[1];
   cerr << "$ " << cmd << endl;
 
   /* dump SSIM index to the output file */
   auto args = split(cmd, " ");
   string ssim_result = run(ssim_path, args, {}, true, true, true);
+  ssim_result = split(ssim_result, " ")[1];
   write_to_file(output_path, ssim_result);
 
   return EXIT_SUCCESS;
