@@ -12,6 +12,12 @@ addons:
     - libogg-dev
     - libmpeg2-4-dev
 
+before_install:
+  # download a static-built ffmpeg from the official website
+  - wget https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-64bit-static.tar.xz
+  - tar -xf ffmpeg-release-64bit-static.tar.xz
+  - sudo cp ffmpeg-3.4.1-64bit-static/ffmpeg /usr/bin/
+
 install:
   # upgrade gcc
   - sudo apt-get update -q
@@ -19,7 +25,7 @@ install:
   - sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-7 99
   # verify installed versions
   - g++ -v
-  - ffmpeg
+  - ffmpeg -version
 
 script:
   - ./autogen.sh
