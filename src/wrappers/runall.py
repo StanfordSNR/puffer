@@ -22,6 +22,7 @@ VIDEO_ENCODER_PATH = path.join(FILE_DIR, "video-encoder.sh")
 AUDIO_ENCODER_PATH = path.join(FILE_DIR, "audio-encoder.sh")
 VIDEO_FRAGMENT_PATH = path.join(FILE_DIR, "video-fragment.sh")
 AUDIO_FRAGMENT_PATH = path.join(FILE_DIR, "audio-fragment.sh")
+SSIM_CALCULATOR_PATH = path.join(FILE_DIR, "ssim-calculator.sh")
 
 # TODO: build dir can be different from src dir,
 # so the paths below can be wrong
@@ -233,7 +234,6 @@ def run_video_frag(video_formats, output_folder):
         # run frag to output the final segment
         # this is also the final output folder basename
         _, encoded_output, final_output = get_video_path(output_folder, fmt)
-        encoded_output = final_output + "-mp4"
         notifier_command = combine_args(encoded_output, final_output,
                                         VIDEO_FRAGMENT_PATH)
         proc = run_notifier(notifier_command)
@@ -296,6 +296,18 @@ def run_time(video_formats, output_folder):
     # run monitor to update the time
     proc = run_monitor(monitor_command)
     pid_list[proc.pid] = "monitor: time"
+
+
+def run_ssim_calculator(video_formats, output_folder):
+    ''' generate SSIM for each video format '''
+    for fmt in video_formats:
+        video_canonical, encoded_output, _ = get_video_path(output_folder, fmt)
+        ssim_output = encoded_output + "-ssim"
+        make_sure_dir_exists(ssim_output)
+        notifier_command = combine_args(encoded_output, ssim_output,
+                                        SSIM_CALCULATOR_PATH, video_canonical)
+        proc = run_notifier(notifier_command)
+        pid_list[proc.pid] = "notifier: ssim_calculator"
 
 
 def generate_killall(pid_list):
@@ -363,6 +375,7 @@ def main():
     run_video_frag(video_formats, output_folder)
     run_audio_encoder(audio_formats, output_folder)
     run_audio_frag(audio_formats, output_folder, args.use_timecode)
+    run_ssim_calculator(video_formats, output_folder)
     run_time(video_formats, output_folder)
     run_decoder(args.input, output_folder,
                 args.video_pid, args.audio_pid, args.port)
