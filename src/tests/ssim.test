@@ -13,18 +13,19 @@ DAALA=$(pwd)/../../third_party/daala_tools
 D_SSIM=dump_ssim
 D_FSSIM=dump_fastssim
 SSIM=$(pwd)/../ssim/ssim
-FILE1=$TEST_VECTOR/"ssim/frame1.y4m"
-FILE2=$TEST_VECTOR/"ssim/frame2.y4m"
+FILE1=$TEST_VECTOR/"ssim/1080p.mp4"
+FILE2=$TEST_VECTOR/"ssim/720p.mp4"
+SOL1=$TEST_VECTOR/"ssim/sol.ssim"
+SOL2=$TEST_VECTOR/"ssim/fast-sol.ssim"
 OUTPUT1=$test_tmpdir/"out_ssim1"
 OUTPUT2=$test_tmpdir/"out_ssim2"
 
 # run the ssim test
 $SSIM $FILE1 $FILE2 $OUTPUT1
 result1=$(tail -n 1 $OUTPUT1)
+truth1=$(tail -n 1 $SOL1)
 
 # run the daala tools
-truth1=$($DAALA/$D_SSIM $FILE1 $FILE2 | tail -n 1)
-
 if [ "$result1" != "$truth1" ]
 then
     exit 1
@@ -33,7 +34,7 @@ fi
 # test fast ssim
 $SSIM -x $FILE1 $FILE2 $OUTPUT2
 result2=$(tail -n 1 $OUTPUT2)
-truth2=$($DAALA/$D_FSSIM $FILE1 $FILE2 | tail -n 1)
+truth2=$(tail -n 1 $SOL2)
 
 if [ "$result2" != "$truth2" ]
 then
