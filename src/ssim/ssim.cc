@@ -5,14 +5,13 @@
 #include <string>
 #include <utility>
 #include <tuple>
-#include <cstdlib>
 
 #include "path.hh"
 #include "system_runner.hh"
 #include "tokenize.hh"
 #include "file_descriptor.hh"
+#include "temp_file.hh"
 #include "exception.hh"
-#include "filesystem.hh"
 #include "mp4_info.hh"
 #include "mp4_parser.hh"
 
@@ -50,45 +49,44 @@ string get_ssim_path(const bool fast_ssim)
   return ssim_path;
 }
 
-uint16_t get_width(const string & video_path)
+tuple<uint16_t, uint16_t> get_width_height(const string & video_path)
 {
   auto parser = make_shared<MP4Parser>(video_path);
   parser->parse();
   auto info = MP4Info(parser);
-
-  uint16_t width;
-  tie(width, ignore) = info.get_width_height();
-
-  return width;
+  return info.get_width_height();
 }
 
 void convert_to_y4m(const vector<string> & mp4_paths,
-                    vector<string> & y4m_paths)
+                    vector<TempFile> & y4m_paths)
 {
-  uint16_t max_width = 0;
+  uint16_t max_width = 0, max_height = 0;
   for (const auto & mp4_path : mp4_paths) {
     if (split_filename(mp4_path).second != "mp4") {
       throw runtime_error("video " + mp4_path + " should be an MP4 file");
     }
 
-    uint16_t width = get_width(mp4_path);
+    uint16_t width, height;
+    tie(width, height) = get_width_height(mp4_path);
+
     if (width > max_width) {
       max_width = width;
+      max_height = height;
     }
   }
 
   for (const auto & mp4_path : mp4_paths) {
-    char y4m_path[] = "/tmp/XXXXXX.y4m";
-    CheckSystemCall("mkstemps", mkstemps(y4m_path, 4));
+    TempFile y4m_path("/tmp/y4m");
 
     string cmd = "ffmpeg -y -i " + mp4_path + " -f yuv4mpegpipe -vf "
-                 "scale=" + to_string(max_width) + ":-1 " + y4m_path;
+                 "scale=" + to_string(max_width) + ":" + to_string(max_height)
+                 + " " + y4m_path.name();
     cerr << "$ " << cmd << endl;
 
     auto args = split(cmd, " ");
     run("ffmpeg", args, {}, true, true);
 
-    y4m_paths.emplace_back(y4m_path);
+    y4m_paths.emplace_back(move(y4m_path));
   }
 }
 
@@ -147,7 +145,7 @@ int main(int argc, char * argv[])
   string output_path = argv[optind + 2];
 
   /* convert MP4 to Y4M videos */
-  vector<string> y4m_paths;
+  vector<TempFile> y4m_paths;
   convert_to_y4m(mp4_paths, y4m_paths);
 
   /* construct command to run dump_ssim or dump_fastssim */
@@ -163,7 +161,7 @@ int main(int argc, char * argv[])
       cmd += " -l " + frame_limit;
     }
   }
-  cmd += " " + y4m_paths[0] + " " + y4m_paths[1];
+  cmd += " " + y4m_paths[0].name() + " " + y4m_paths[1].name();
   cerr << "$ " << cmd << endl;
 
   /* dump SSIM index to the output file */
@@ -171,13 +169,6 @@ int main(int argc, char * argv[])
   string ssim_result = run(ssim_path, args, {}, true, true, true);
   ssim_result = split(ssim_result, " ")[1];
   write_to_file(output_path, ssim_result);
-
-  error_code ec;
-  for (const auto & y4m_path : y4m_paths) {
-    if (not fs::remove(y4m_path, ec) or ec) {
-      cerr << "Warning: file " << y4m_path << " cannot be removed" << endl;
-    }
-  }
 
   return EXIT_SUCCESS;
 }
