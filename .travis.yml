@@ -19,6 +19,7 @@ install:
   - sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-7 99
   # verify installed versions
   - g++ -v
+  - ffmpeg
 
 script:
   - ./autogen.sh
