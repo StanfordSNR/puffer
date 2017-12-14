@@ -17,6 +17,7 @@ before_install:
   - wget https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-64bit-static.tar.xz
   - tar -xf ffmpeg-release-64bit-static.tar.xz
   - sudo cp ffmpeg-3.4.1-64bit-static/ffmpeg /usr/bin/
+  - sudo cp ffmpeg-3.4.1-64bit-static/ffprobe /usr/bin/
 
 install:
   # upgrade gcc

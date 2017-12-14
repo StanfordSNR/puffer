@@ -4,25 +4,20 @@
 #include <memory>
 #include <string>
 #include <utility>
-#include <tuple>
 
 #include "path.hh"
 #include "system_runner.hh"
 #include "tokenize.hh"
 #include "file_descriptor.hh"
-#include "temp_file.hh"
 #include "exception.hh"
-#include "mp4_info.hh"
-#include "mp4_parser.hh"
 
 using namespace std;
-using namespace MP4;
 
 void print_usage(const string & program_name)
 {
   cerr <<
   "Usage: " << program_name << " [options] <video1> <video2> <output>\n\n"
-  "<video1>, <video2>       MP4 video files\n"
+  "<video1>, <video2>       Y4M video files\n"
   "<output>                 output text file containing SSIM index\n\n"
   "Options:\n"
   "--fast-ssim              compute fast SSIM instead\n"
@@ -47,47 +42,6 @@ string get_ssim_path(const bool fast_ssim)
   }
 
   return ssim_path;
-}
-
-tuple<uint16_t, uint16_t> get_width_height(const string & video_path)
-{
-  auto parser = make_shared<MP4Parser>(video_path);
-  parser->parse();
-  auto info = MP4Info(parser);
-  return info.get_width_height();
-}
-
-void convert_to_y4m(const vector<string> & mp4_paths,
-                    vector<TempFile> & y4m_paths)
-{
-  uint16_t max_width = 0, max_height = 0;
-  for (const auto & mp4_path : mp4_paths) {
-    if (split_filename(mp4_path).second != "mp4") {
-      throw runtime_error("video " + mp4_path + " should be an MP4 file");
-    }
-
-    uint16_t width, height;
-    tie(width, height) = get_width_height(mp4_path);
-
-    if (width > max_width) {
-      max_width = width;
-      max_height = height;
-    }
-  }
-
-  for (const auto & mp4_path : mp4_paths) {
-    TempFile y4m_path("/tmp/y4m");
-
-    string cmd = "ffmpeg -y -i " + mp4_path + " -f yuv4mpegpipe -vf "
-                 "scale=" + to_string(max_width) + ":" + to_string(max_height)
-                 + " " + y4m_path.name();
-    cerr << "$ " << cmd << endl;
-
-    auto args = split(cmd, " ");
-    run("ffmpeg", args, {}, true, true);
-
-    y4m_paths.emplace_back(move(y4m_path));
-  }
 }
 
 void write_to_file(const string & output_path, const string & result)
@@ -141,12 +95,8 @@ int main(int argc, char * argv[])
     return EXIT_FAILURE;
   }
 
-  vector<string> mp4_paths = {argv[optind], argv[optind + 1]};
+  vector<string> y4m_paths = {argv[optind], argv[optind + 1]};
   string output_path = argv[optind + 2];
-
-  /* convert MP4 to Y4M videos */
-  vector<TempFile> y4m_paths;
-  convert_to_y4m(mp4_paths, y4m_paths);
 
   /* construct command to run dump_ssim or dump_fastssim */
   string ssim_path = get_ssim_path(fast_ssim);
@@ -161,7 +111,7 @@ int main(int argc, char * argv[])
       cmd += " -l " + frame_limit;
     }
   }
-  cmd += " " + y4m_paths[0].name() + " " + y4m_paths[1].name();
+  cmd += " " + y4m_paths[0] + " " + y4m_paths[1];
   cerr << "$ " << cmd << endl;
 
   /* dump SSIM index to the output file */
