@@ -36,78 +36,83 @@ inline T * notnull( const string & context, T * const x )
   return x ? x : throw runtime_error( context + ": returned null pointer" );
 }
 
-struct FieldBuffer
+struct Raster
 {
-  unsigned int luma_width, field_luma_height;
+  unsigned int width, height;
   unique_ptr<uint8_t[]> Y, Cb, Cr;
 
-  FieldBuffer( const unsigned int s_luma_width,
-               const unsigned int s_field_luma_height )
-    : luma_width( s_luma_width ),
-      field_luma_height( s_field_luma_height ),
-      Y(  make_unique<uint8_t[]>(  field_luma_height    *  luma_width ) ),
-      Cb( make_unique<uint8_t[]>( (field_luma_height/2) * (luma_width/2) ) ),
-      Cr( make_unique<uint8_t[]>( (field_luma_height/2) * (luma_width/2) ) )
+  Raster( const unsigned int s_width,
+               const unsigned int s_height )
+    : width( s_width ),
+      height( s_height ),
+      Y(  make_unique<uint8_t[]>(  height    *  width ) ),
+      Cb( make_unique<uint8_t[]>( (height/2) * (width/2) ) ),
+      Cr( make_unique<uint8_t[]>( (height/2) * (width/2) ) )
   {
-    if ( (field_luma_height % 2 != 0)
-         or (luma_width % 4 != 0) ) {
-      throw runtime_error( "width or height is not multiple of 4" );
+    if ( (height % 2 != 0)
+         or (width % 2 != 0) ) {
+      throw runtime_error( "width or height is not multiple of 2" );
     }
   }
+};
 
-  void read( const bool top_field,
-             const unsigned int physical_luma_width,
-             const mpeg2_fbuf_t * display_raster )
+struct FieldBuffer : public Raster
+{
+  using Raster::Raster;
+
+  void read_from_frame( const bool top_field,
+                        const unsigned int physical_luma_width,
+                        const mpeg2_fbuf_t * display_raster )
   {
-    if ( physical_luma_width < luma_width ) {
+    if ( physical_luma_width < width ) {
       throw runtime_error( "invalid physical_luma_width" );
     }
 
     /* copy Y */
     for ( unsigned int source_row = (top_field ? 0 : 1), dest_row = 0;
-          dest_row < field_luma_height;
+          dest_row < height;
           source_row += 2, dest_row += 1 ) {
-      memcpy( Y.get() + dest_row * luma_width,
+      memcpy( Y.get() + dest_row * width,
               display_raster->buf[ 0 ] + source_row * physical_luma_width,
-              luma_width );
+              width );
     }
 
     /* copy Cb */
     for ( unsigned int source_row = (top_field ? 0 : 1), dest_row = 0;
-          dest_row < field_luma_height/2;
+          dest_row < height/2;
           source_row += 2, dest_row += 1 ) {
-      memcpy( Cb.get() + dest_row * luma_width/2,
+      memcpy( Cb.get() + dest_row * width/2,
               display_raster->buf[ 1 ] + source_row * physical_luma_width/2,
-              luma_width/2 );
+              width/2 );
     }
 
     /* copy Cr */
     for ( unsigned int source_row = (top_field ? 0 : 1), dest_row = 0;
-          dest_row < field_luma_height/2;
+          dest_row < height/2;
           source_row += 2, dest_row += 1 ) {
-      memcpy( Cr.get() + dest_row * luma_width/2,
+      memcpy( Cr.get() + dest_row * width/2,
               display_raster->buf[ 2 ] + source_row * physical_luma_width/2,
-              luma_width/2 );
+              width/2 );
     }
   }
 };
 
-class BufferPool;
+class FieldBufferPool;
 
-class BufferDeleter
+class FieldBufferDeleter
 {
 private:
-  BufferPool * buffer_pool_ = nullptr;
+  FieldBufferPool * buffer_pool_ = nullptr;
 
 public:
   void operator()( FieldBuffer * buffer ) const;
 
-  void set_buffer_pool( BufferPool * pool );
+  void set_buffer_pool( FieldBufferPool * pool );
 };
 
-typedef unique_ptr<FieldBuffer, BufferDeleter> FieldBufferHandle;
+typedef unique_ptr<FieldBuffer, FieldBufferDeleter> FieldBufferHandle;
 
-class BufferPool
+class FieldBufferPool
 {
 private:
   queue<FieldBufferHandle> unused_buffers_ {};
@@ -121,8 +126,8 @@ public:
     if ( unused_buffers_.empty() ) {
       ret.reset( new FieldBuffer( luma_width, field_luma_height ) );
     } else {
-      if ( (unused_buffers_.front()->luma_width != luma_width)
-           or (unused_buffers_.front()->field_luma_height != field_luma_height) ) {
+      if ( (unused_buffers_.front()->width != luma_width)
+           or (unused_buffers_.front()->height != field_luma_height) ) {
         throw runtime_error( "buffer size has changed" );
       }
 
@@ -144,7 +149,7 @@ public:
   }
 };
 
-void BufferDeleter::operator()( FieldBuffer * buffer ) const
+void FieldBufferDeleter::operator()( FieldBuffer * buffer ) const
 {
   if ( buffer_pool_ ) {
     buffer_pool_->free_buffer( buffer );
@@ -153,7 +158,7 @@ void BufferDeleter::operator()( FieldBuffer * buffer ) const
   }
 }
 
-void BufferDeleter::set_buffer_pool( BufferPool * pool )
+void FieldBufferDeleter::set_buffer_pool( FieldBufferPool * pool )
 {
   if ( buffer_pool_ ) {
     throw runtime_error( "buffer_pool already set" );
@@ -162,9 +167,9 @@ void BufferDeleter::set_buffer_pool( BufferPool * pool )
   buffer_pool_ = pool;
 }
 
-BufferPool & global_buffer_pool()
+FieldBufferPool & global_buffer_pool()
 {
-  static BufferPool pool;
+  static FieldBufferPool pool;
   return pool;
 }
 
@@ -184,7 +189,7 @@ struct VideoField
       top_field( top_field ),
       field_contents( global_buffer_pool().make_buffer( luma_width, frame_luma_height / 2 ) )
   {
-    field_contents->read( top_field, physical_luma_width, display_raster );
+    field_contents->read_from_frame( top_field, physical_luma_width, display_raster );
   }
 };
 
