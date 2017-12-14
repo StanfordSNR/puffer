@@ -42,7 +42,7 @@ struct Raster
   unique_ptr<uint8_t[]> Y, Cb, Cr;
 
   Raster( const unsigned int s_width,
-               const unsigned int s_height )
+          const unsigned int s_height )
     : width( s_width ),
       height( s_height ),
       Y(  make_unique<uint8_t[]>(  height    *  width ) ),
@@ -177,7 +177,7 @@ struct VideoField
 {
   uint64_t presentation_time_stamp;
   bool top_field;
-  FieldBufferHandle field_contents;
+  FieldBufferHandle contents;
 
   VideoField( const uint64_t presentation_time_stamp,
               const bool top_field,
@@ -187,9 +187,9 @@ struct VideoField
               const mpeg2_fbuf_t * display_raster )
     : presentation_time_stamp( presentation_time_stamp ),
       top_field( top_field ),
-      field_contents( global_buffer_pool().make_buffer( luma_width, frame_luma_height / 2 ) )
+      contents( global_buffer_pool().make_buffer( luma_width, frame_luma_height / 2 ) )
   {
-    field_contents->read_from_frame( top_field, physical_luma_width, display_raster );
+    contents->read_from_frame( top_field, physical_luma_width, display_raster );
   }
 };
 
@@ -513,6 +513,8 @@ private:
                       display_height_,
                       physical_luma_width(),
                       display_raster );
+
+      next_field_is_top = !next_field_is_top;
     }
   }
 
@@ -649,20 +651,74 @@ class YUV4MPEGPipeOutput
 private:
   FileDescriptor output_ { STDOUT_FILENO };
   bool next_field_is_top_ { true };
+  Raster pending_frame;
+
+  void write_frame()
+  {
+    /* write out y4m */
+    output_.write( "FRAME\n" );
+
+    /* Y */
+    output_.write( string_view { reinterpret_cast<char *>( pending_frame.Y.get() ), pending_frame.width * pending_frame.height } );
+
+    /* Cb */
+    output_.write( string_view { reinterpret_cast<char *>( pending_frame.Cb.get() ), (pending_frame.width/2) * (pending_frame.height/2) } );
+
+    /* Cr */
+    output_.write( string_view { reinterpret_cast<char *>( pending_frame.Cr.get() ), (pending_frame.width/2) * (pending_frame.height/2) } );
+  }
 
 public:
   YUV4MPEGPipeOutput( const VideoParameters & params )
+    : pending_frame( params.width, params.height )
   {
     output_.write( "YUV4MPEG2 W" + to_string( params.width )
                    + " H" + to_string( params.height ) + " " + params.y4m_description
                    + " A1:1 C420mpeg2\n" );
   }
 
-  void write( queue<VideoField> & fields )
+  void write( const VideoField & field )
   {
-    if ( fields.size() < 2 ) {
+    if ( field.top_field != next_field_is_top_ ) {
+      cerr << "skipping field with wrong parity\n";
       return;
-    } 
+    }
+
+    /* copy field to proper lines of pending frame */
+
+    /* copy Y */
+    for ( unsigned int source_row = 0, dest_row = (next_field_is_top_ ? 0 : 1);
+          source_row < field.contents->height;
+          source_row += 1, dest_row += 2 ) {
+      memcpy( pending_frame.Y.get() + dest_row * pending_frame.width,
+              field.contents->Y.get() + source_row * pending_frame.width,
+              pending_frame.width );
+    }
+
+    /* copy Cb */
+    for ( unsigned int source_row = 0, dest_row = (next_field_is_top_ ? 0 : 1);
+          source_row < field.contents->height/2;
+          source_row += 1, dest_row += 2 ) {
+      memcpy( pending_frame.Cb.get() + dest_row * pending_frame.width/2,
+              field.contents->Cb.get() + source_row * pending_frame.width/2,
+              pending_frame.width/2 );
+    }
+
+    /* copy Cr */
+    for ( unsigned int source_row = 0, dest_row = (next_field_is_top_ ? 0 : 1);
+          source_row < field.contents->height/2;
+          source_row += 1, dest_row += 2 ) {
+      memcpy( pending_frame.Cr.get() + dest_row * pending_frame.width/2,
+              field.contents->Cr.get() + source_row * pending_frame.width/2,
+              pending_frame.width/2 );
+    }
+
+    next_field_is_top_ = !next_field_is_top_;
+
+    if ( next_field_is_top_ ) {
+      /* print out frame */
+      write_frame();
+    }
   }
 };
 
@@ -709,7 +765,10 @@ int main( int argc, char *argv[] )
       video_PES_packets.clear();
 
       /* output fields? */
-      y4m_output.write( decoded_fields );
+      while ( not decoded_fields.empty() ) {
+        y4m_output.write( decoded_fields.front() );
+        decoded_fields.pop();
+      }
     }
   } catch ( const exception & e ) {
     print_exception( argv[ 0 ], e );
