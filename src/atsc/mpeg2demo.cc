@@ -8,6 +8,7 @@
 #include <vector>
 #include <cstring>
 #include <array>
+#include <queue>
 
 #ifdef HAVE_STRING_VIEW
 #include <string_view>
@@ -35,30 +36,31 @@ inline T * notnull( const string & context, T * const x )
   return x ? x : throw runtime_error( context + ": returned null pointer" );
 }
 
-struct VideoField
+struct FieldBuffer
 {
-  uint64_t presentation_time_stamp;
-  bool top_field;
   unsigned int luma_width, field_luma_height;
   unique_ptr<uint8_t[]> Y, Cb, Cr;
 
-  VideoField( const uint64_t presentation_time_stamp,
-              const bool top_field,
-              const unsigned int luma_width,
-              const unsigned int frame_luma_height,
-              const unsigned int physical_luma_width,
-              const mpeg2_fbuf_t * display_raster )
-    : presentation_time_stamp( presentation_time_stamp ),
-      top_field( top_field ),
-      luma_width( luma_width ),
-      field_luma_height( frame_luma_height / 2 ),
+  FieldBuffer( const unsigned int s_luma_width,
+               const unsigned int s_field_luma_height )
+    : luma_width( s_luma_width ),
+      field_luma_height( s_field_luma_height ),
       Y(  make_unique<uint8_t[]>(  field_luma_height    *  luma_width ) ),
       Cb( make_unique<uint8_t[]>( (field_luma_height/2) * (luma_width/2) ) ),
       Cr( make_unique<uint8_t[]>( (field_luma_height/2) * (luma_width/2) ) )
   {
-    if ( frame_luma_height % 4 != 0
-         or luma_width % 4 != 0 ) {
+    if ( (field_luma_height % 2 != 0)
+         or (luma_width % 4 != 0) ) {
       throw runtime_error( "width or height is not multiple of 4" );
+    }
+  }
+
+  void read( const bool top_field,
+             const unsigned int physical_luma_width,
+             const mpeg2_fbuf_t * display_raster )
+  {
+    if ( physical_luma_width < luma_width ) {
+      throw runtime_error( "invalid physical_luma_width" );
     }
 
     /* copy Y */
@@ -87,6 +89,102 @@ struct VideoField
               display_raster->buf[ 2 ] + source_row * physical_luma_width/2,
               luma_width/2 );
     }
+  }
+};
+
+class BufferPool;
+
+class BufferDeleter
+{
+private:
+  BufferPool * buffer_pool_ = nullptr;
+
+public:
+  void operator()( FieldBuffer * buffer ) const;
+
+  void set_buffer_pool( BufferPool * pool );
+};
+
+typedef unique_ptr<FieldBuffer, BufferDeleter> FieldBufferHandle;
+
+class BufferPool
+{
+private:
+  queue<FieldBufferHandle> unused_buffers_ {};
+
+public:
+  FieldBufferHandle make_buffer( const unsigned int luma_width,
+                                 const unsigned int field_luma_height )
+  {
+    FieldBufferHandle ret;
+
+    if ( unused_buffers_.empty() ) {
+      ret.reset( new FieldBuffer( luma_width, field_luma_height ) );
+    } else {
+      if ( (unused_buffers_.front()->luma_width != luma_width)
+           or (unused_buffers_.front()->field_luma_height != field_luma_height) ) {
+        throw runtime_error( "buffer size has changed" );
+      }
+
+      ret = move( unused_buffers_.front() );
+      unused_buffers_.pop();
+    }
+
+    ret.get_deleter().set_buffer_pool( this );
+    return ret;
+  }
+
+  void free_buffer( FieldBuffer * buffer )
+  {
+    if ( not buffer ) {
+      throw runtime_error( "attempt to free null buffer" );
+    }
+
+    unused_buffers_.emplace( buffer );
+  }
+};
+
+void BufferDeleter::operator()( FieldBuffer * buffer ) const
+{
+  if ( buffer_pool_ ) {
+    buffer_pool_->free_buffer( buffer );
+  } else {
+    delete buffer;
+  }
+}
+
+void BufferDeleter::set_buffer_pool( BufferPool * pool )
+{
+  if ( buffer_pool_ ) {
+    throw runtime_error( "buffer_pool already set" );
+  }
+
+  buffer_pool_ = pool;
+}
+
+BufferPool & global_buffer_pool()
+{
+  static BufferPool pool;
+  return pool;
+}
+
+struct VideoField
+{
+  uint64_t presentation_time_stamp;
+  bool top_field;
+  FieldBufferHandle field_contents;
+
+  VideoField( const uint64_t presentation_time_stamp,
+              const bool top_field,
+              const unsigned int luma_width,
+              const unsigned int frame_luma_height,
+              const unsigned int physical_luma_width,
+              const mpeg2_fbuf_t * display_raster )
+    : presentation_time_stamp( presentation_time_stamp ),
+      top_field( top_field ),
+      field_contents( global_buffer_pool().make_buffer( luma_width, frame_luma_height / 2 ) )
+  {
+    field_contents->read( top_field, physical_luma_width, display_raster );
   }
 };
 
@@ -582,10 +680,9 @@ int main( int argc, char *argv[] )
       video_PES_packets.clear();
 
       /* output fields? */
-      if ( not decoded_fields.empty() ) {
-        //        cerr << decoded_fields.size() << " fields\n";
+      if ( decoded_fields.size() >= 10 ) {
+        decoded_fields.clear();
       }
-      decoded_fields.clear();
     }
   } catch ( const exception & e ) {
     print_exception( argv[ 0 ], e );
