@@ -370,6 +370,34 @@ struct PESPacketHeader
   }
 };
 
+struct VideoParameters
+{
+  unsigned int width {};
+  unsigned int height {};
+  unsigned int frame_interval {};
+  string y4m_description {};
+  bool progressive {};
+
+  VideoParameters( const string & format )
+  {
+    if ( format == "1080i30" ) {
+      width = 1920;
+      height = 1080;
+      frame_interval = 900900;
+      y4m_description = "F30000:1001 It";
+      progressive = false;
+    } else if ( format == "720p60" ) {
+      width = 1280;
+      height = 720;
+      frame_interval = 450450;
+      y4m_description = "F60000:1001 Ip";
+      progressive = true;
+    } else {
+      throw runtime_error( "unsupported format: " + format );
+    }
+  }
+};
+
 class MPEG2VideoDecoder
 {
 private:
@@ -457,7 +485,7 @@ private:
 
   void output_picture( const mpeg2_picture_t * pic,
                        const mpeg2_fbuf_t * display_raster,
-                       vector<VideoField> & output )
+                       queue<VideoField> & output )
   {
     if ( not (pic->flags & PIC_FLAG_TAGS) ) {
       throw runtime_error( "picture without timestamp" );
@@ -474,34 +502,31 @@ private:
 
     /* output each field */
     for ( unsigned int field = 0; field < pic->nb_fields; field++ ) {
-      output.emplace_back( presentation_time_stamp,
-                           next_field_is_top,
-                           display_width_,
-                           display_height_,
-                           physical_luma_width(),
-                           display_raster );
+      output.emplace( presentation_time_stamp,
+                      next_field_is_top,
+                      display_width_,
+                      display_height_,
+                      physical_luma_width(),
+                      display_raster );
     }
   }
 
 public:
-  MPEG2VideoDecoder( const unsigned int expected_display_width,
-                     const unsigned int expected_display_height,
-                     const unsigned int expected_frame_interval,
-                     const bool progressive_sequence )
+  MPEG2VideoDecoder( const VideoParameters & params )
     : decoder_( notnull( "mpeg2_init", mpeg2_init() ) ),
-      display_width_( expected_display_width ),
-      display_height_( expected_display_height ),
-      frame_interval_( expected_frame_interval ),
-      progressive_sequence_( progressive_sequence )
+      display_width_( params.width ),
+      display_height_( params.height ),
+      frame_interval_( params.frame_interval ),
+      progressive_sequence_( params.progressive )
   {
-    if ( (expected_display_width % 4 != 0)
-         or (expected_display_height % 4 != 0) ) {
+    if ( (display_width_ % 4 != 0)
+         or (display_height_ % 4 != 0) ) {
       throw runtime_error( "width or height is not multiple of 4" );
     }
   }
 
   void decode_frame( TimestampedPESPacket & PES_packet, /* mutable because mpeg2_buffer args are not const */
-                     vector<VideoField> & output )
+                     queue<VideoField> & output )
   {
     mpeg2_tag_picture( decoder_.get(),
                        PES_packet.presentation_time_stamp >> 32,
@@ -614,28 +639,25 @@ public:
   }
 };
 
-struct VideoParameters
+class YUV4MPEGPipeOutput
 {
-  unsigned int width {};
-  unsigned int height {};
-  unsigned int frame_interval {};
-  bool progressive {};
+private:
+  FileDescriptor output_ { STDOUT_FILENO };
+  bool next_field_is_top_ { true };
 
-  VideoParameters( const string & format )
+public:
+  YUV4MPEGPipeOutput( const VideoParameters & params )
   {
-    if ( format == "1080i30" ) {
-      width = 1920;
-      height = 1080;
-      frame_interval = 900900;
-      progressive = false;
-    } else if ( format == "720p60" ) {
-      width = 1280;
-      height = 720;
-      frame_interval = 450450;
-      progressive = true;
-    } else {
-      throw runtime_error( "unsupported format: " + format );
-    }
+    output_.write( "YUV4MPEG2 W" + to_string( params.width )
+                   + " H" + to_string( params.height ) + " " + params.y4m_description
+                   + " A1:1 C420mpeg2\n" );
+  }
+
+  void write( queue<VideoField> & fields )
+  {
+    if ( fields.size() < 2 ) {
+      return;
+    } 
   }
 };
 
@@ -656,8 +678,10 @@ int main( int argc, char *argv[] )
   TSParser parser { pid };
   vector<TimestampedPESPacket> video_PES_packets; /* output of TSParser */
 
-  MPEG2VideoDecoder video_decoder { params.width, params.height, params.frame_interval, params.progressive };
-  vector<VideoField> decoded_fields; /* output of MPEG2VideoDecoder */
+  MPEG2VideoDecoder video_decoder { params };
+  queue<VideoField> decoded_fields; /* output of MPEG2VideoDecoder */
+
+  YUV4MPEGPipeOutput y4m_output { params };
 
   try {
     while ( true ) {
@@ -680,9 +704,7 @@ int main( int argc, char *argv[] )
       video_PES_packets.clear();
 
       /* output fields? */
-      if ( decoded_fields.size() >= 10 ) {
-        decoded_fields.clear();
-      }
+      y4m_output.write( decoded_fields );
     }
   } catch ( const exception & e ) {
     print_exception( argv[ 0 ], e );
