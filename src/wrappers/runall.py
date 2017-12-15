@@ -154,8 +154,8 @@ def combine_args(*args):
 
 def get_media_raw_path(output_folder):
     ''' get audio/video raw folder names '''
-    audio_raw_output = path.join(output_folder, "audio_raw")
-    video_raw_output = path.join(output_folder, "video_raw")
+    audio_raw_output = path.join(output_folder, "audio-raw")
+    video_raw_output = path.join(output_folder, "video-raw")
     make_sure_dir_exists(audio_raw_output, video_raw_output)
     return audio_raw_output, video_raw_output
 
@@ -164,7 +164,7 @@ def get_video_path(output_folder, fmt=None):
     ''' get video folder names, such as canonical, encoded, and final path
         names. if fmt is not given, only video_canonical is returned
     '''
-    video_canonical = path.join(output_folder, "video_canonical")
+    video_canonical = path.join(output_folder, "video-canonical")
     make_sure_dir_exists(video_canonical)
     if fmt is None:
         return video_canonical
