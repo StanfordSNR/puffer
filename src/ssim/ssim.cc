@@ -21,6 +21,7 @@ void print_usage(const string & program_name)
   "<output>                 output text file containing SSIM index\n\n"
   "Options:\n"
   "--fast-ssim              compute fast SSIM instead\n"
+  "-n, --step <n>           compute SSIM on one frame of every <n> frames\n"
   "-p, --parallel <npar>    run <npar> parallel workers\n"
   "                         (ignored when --fast-ssim is used)\n"
   "-l, --limit <lim>        stop after <lim> frames\n"
@@ -59,17 +60,18 @@ int main(int argc, char * argv[])
   }
 
   bool fast_ssim = false;
-  string parallel_cnt, frame_limit;
+  string step, parallel_cnt, frame_limit;
 
   const option cmd_line_opts[] = {
     {"fast-ssim", no_argument,       nullptr, 'x'},
+    {"step",      required_argument, nullptr, 'n'},
     {"parallel",  required_argument, nullptr, 'p'},
     {"limit",     required_argument, nullptr, 'l'},
     { nullptr,    0,                 nullptr,  0 }
   };
 
   while (true) {
-    const int opt = getopt_long(argc, argv, "xp:l:", cmd_line_opts, nullptr);
+    const int opt = getopt_long(argc, argv, "xn:p:l:", cmd_line_opts, nullptr);
     if (opt == -1) {
       break;
     }
@@ -77,6 +79,9 @@ int main(int argc, char * argv[])
     switch (opt) {
     case 'x':
       fast_ssim = true;
+      break;
+    case 'n':
+      step = optarg;
       break;
     case 'p':
       parallel_cnt = optarg;
@@ -103,6 +108,10 @@ int main(int argc, char * argv[])
 
   string cmd = ssim_path + " -s";
   if (not fast_ssim) {
+    if (step.size()) {
+      cmd += " -n " + step;
+    }
+
     if (parallel_cnt.size()) {
       cmd += " -p " + parallel_cnt;
     }
