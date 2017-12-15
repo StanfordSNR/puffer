@@ -13,10 +13,10 @@ DAALA=$(pwd)/../../third_party/daala_tools
 D_SSIM=dump_ssim
 D_FSSIM=dump_fastssim
 SSIM=$(pwd)/../ssim/ssim
-FILE1=$TEST_VECTOR/"ssim/1080p.mp4"
-FILE2=$TEST_VECTOR/"ssim/720p.mp4"
+FILE1=$TEST_VECTOR/"ssim/480p-to-720p.y4m"
+FILE2=$TEST_VECTOR/"ssim/canonical-720p.y4m"
 SOL1=$TEST_VECTOR/"ssim/sol.ssim"
-SOL2=$TEST_VECTOR/"ssim/fast-sol.ssim"
+SOL2=$TEST_VECTOR/"ssim/sol-n2.ssim"
 OUTPUT1=$test_tmpdir/"out_ssim1"
 OUTPUT2=$test_tmpdir/"out_ssim2"
 
@@ -31,8 +31,8 @@ then
     exit 1
 fi
 
-# test fast ssim
-$SSIM -x $FILE1 $FILE2 $OUTPUT2
+# test step size
+$SSIM -n 2 $FILE1 $FILE2 $OUTPUT2
 result2=$(tail -n 1 $OUTPUT2)
 truth2=$(tail -n 1 $SOL2)
 
