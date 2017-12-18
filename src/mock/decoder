@@ -41,7 +41,7 @@ def main():
     make_sure_path_exists(audio_path)
 
     # don't need port number as we're faking a connection
-    temp_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), "tmp")
+    temp_dir = "/dev/shm/mock-decoder-tmp"
     shutil.rmtree(temp_dir, ignore_errors=True)
     make_sure_path_exists(temp_dir)
 

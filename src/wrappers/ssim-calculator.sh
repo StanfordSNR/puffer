@@ -25,12 +25,14 @@ width=${width_with_prefix#${width_prefix}}
 height=${height_with_prefix#${height_prefix}}
 
 # convert src_path to Y4M with the same resolution
-src_y4m=$(mktemp /tmp/tmp.XXXXXX.y4m)
+tmp_folder=/dev/shm/ssim-calculator-tmp
+mkdir -p $tmp_folder
+src_y4m=$(mktemp $tmp_folder/XXXXXX.y4m)
 ffmpeg -nostdin -hide_banner -loglevel panic -y -i $src_path \
   -f yuv4mpegpipe -vf scale=$width:$height $src_y4m
 
 # calculate SSIM
-tmp_file=$(mktemp /tmp/tmp.XXXXXX.ssim)
+tmp_file=$(mktemp /tmp/XXXXXX.ssim)
 ssim_path=$curr_dir/../ssim/ssim
 $ssim_path $src_y4m $canonical_y4m $tmp_file -n 10 -p 8
 mv $tmp_file $dst_dir/$src_fname_prefix.ssim
