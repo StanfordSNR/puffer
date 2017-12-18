@@ -8,6 +8,7 @@ import os
 from os import path
 import sys
 import errno
+import shutil
 import argparse
 import subprocess
 from collections import namedtuple
@@ -100,6 +101,29 @@ def check_res(res):
     return width, height
 
 
+def parse_video_formats(arg_vf):
+    video_formats = []
+    for res, *crfs in arg_vf:
+        if not crfs:
+            sys.exit("no crf found for res: " + res)
+        width, height = check_res(res)
+        for crf in crfs:
+            if not crf.isdigit():
+                sys.exit("crf must be an integer. got " + crf)
+            video_formats.append(VideoConfig(width, height, crf))
+    return video_formats
+
+
+def parse_audio_formats(arg_af):
+    audio_formats = []
+    for bitrate in arg_af:
+        if not bitrate.isdigit():
+            if bitrate[-1] != "k" or not bitrate[:-1].isdigit():
+                sys.exit("audio bitrate must be an integer. got " + bitrate)
+        audio_formats.append(bitrate)
+    return audio_formats
+
+
 def make_sure_dir_exists(*args):
     ''' check if given folders exist. if not, this function will create them
     '''
@@ -109,6 +133,12 @@ def make_sure_dir_exists(*args):
         except OSError as exception:
             if exception.errno != errno.EEXIST:
                 raise
+
+
+def get_shm_output_folder(output_folder):
+    shm_output_folder = path.join("/dev/shm", path.basename(output_folder))
+    make_sure_dir_exists(shm_output_folder)
+    return shm_output_folder
 
 
 def run_process(command_str):
@@ -154,8 +184,9 @@ def combine_args(*args):
 
 def get_media_raw_path(output_folder):
     ''' get audio/video raw folder names '''
-    audio_raw_output = path.join(output_folder, "audio-raw")
-    video_raw_output = path.join(output_folder, "video-raw")
+    shm_output_folder = get_shm_output_folder(output_folder)
+    audio_raw_output = path.join(shm_output_folder, "audio-raw")
+    video_raw_output = path.join(shm_output_folder, "video-raw")
     make_sure_dir_exists(audio_raw_output, video_raw_output)
     return audio_raw_output, video_raw_output
 
@@ -164,7 +195,8 @@ def get_video_path(output_folder, fmt=None):
     ''' get video folder names, such as canonical, encoded, and final path
         names. if fmt is not given, only video_canonical is returned
     '''
-    video_canonical = path.join(output_folder, "video-canonical")
+    shm_output_folder = get_shm_output_folder(output_folder)
+    video_canonical = path.join(shm_output_folder, "video-canonical")
     make_sure_dir_exists(video_canonical)
     if fmt is None:
         return video_canonical
@@ -339,29 +371,6 @@ def generate_isrunning(pid_list):
     logger.info("isrunning.sh generated")
 
 
-def parse_video_formats(arg_vf):
-    video_formats = []
-    for res, *crfs in arg_vf:
-        if not crfs:
-            sys.exit("no crf found for res: " + res)
-        width, height = check_res(res)
-        for crf in crfs:
-            if not crf.isdigit():
-                sys.exit("crf must be an integer. got " + crf)
-            video_formats.append(VideoConfig(width, height, crf))
-    return video_formats
-
-
-def parse_audio_formats(arg_af):
-    audio_formats = []
-    for bitrate in arg_af:
-        if not bitrate.isdigit():
-            if bitrate[-1] != "k" or not bitrate[:-1].isdigit():
-                sys.exit("audio bitrate must be an integer. got " + bitrate)
-        audio_formats.append(bitrate)
-    return audio_formats
-
-
 def main():
     ''' main logic '''
     args = parse_arguments()
@@ -369,6 +378,15 @@ def main():
 
     video_formats = parse_video_formats(args.video_formats)
     audio_formats = parse_audio_formats(args.audio_formats)
+
+    # remove output_folder and recreate it
+    shutil.rmtree(output_folder, ignore_errors=True)
+    make_sure_dir_exists(output_folder)
+
+    # remove /dev/shm/<basename of output_folder> and recreate it
+    shm_output_folder = get_shm_output_folder(output_folder)
+    shutil.rmtree(shm_output_folder, ignore_errors=True)
+    make_sure_dir_exists(shm_output_folder)
 
     run_canonicalizer(output_folder)
     run_video_encoder(video_formats, output_folder)

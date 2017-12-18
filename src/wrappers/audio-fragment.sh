@@ -5,7 +5,7 @@ src_path=$1
 src_fname=$(basename $src_path)
 src_fname_prefix=${src_fname%.*}
 dst_dir=$2
-tmp_file=`mktemp /tmp/tmp.XXXXXX.chk`
+tmp_file=`mktemp /tmp/XXXXXX.chk`
 webm_frag=$curr_dir/../webm/webm_fragment
 
 # optional argument for timecode file
