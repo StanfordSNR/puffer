@@ -141,13 +141,21 @@ void AVC1::parse_data(MP4File & mp4, const uint64_t data_size)
   uint64_t init_offset = mp4.curr_offset();
 
   VisualSampleEntry::parse_visual_sample_entry(mp4);
-
   /* avcc is parsed along with avc1 */
-  avcc_size_ = mp4.read_uint32();
-  string type = mp4.read(4);
+
+  string type = "";
+  for (int i = 0; i < 2; i++) {
+    avcc_size_ = mp4.read_uint32();
+    type = mp4.read(4);
+    if (type != "avcC") {
+      mp4.read(avcc_size_ - 8); /* we've read 8 bytes already */
+    } else {
+      break;
+    }
+  }
 
   if (type != "avcC") {
-    throw runtime_error("AVCC does not follow AVC1 immediately");
+    throw runtime_error("avcC box not found");
   }
 
   configuration_version_ = mp4.read_uint8();

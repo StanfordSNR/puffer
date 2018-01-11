@@ -20,6 +20,20 @@ void StscBox::print_box(const unsigned int indent)
 
   string indent_str = string(indent + 2, ' ') + "| ";
   cout << indent_str << "entry count " << entry_count() << endl;
+
+  if (entry_count() == 0) {
+    return;
+  }
+
+  cout << indent_str << "[#] first chunk, samples per chunk" << endl;
+  for (uint32_t i = 0; i < entry_count() and i < 5; ++i) {
+    cout << indent_str << "[" << i << "] " << entries_[i].first_chunk
+         << ", " << entries_[i].samples_per_chunk << endl;
+  }
+
+  if (entry_count() > 5) {
+    cout << indent_str << "..." << endl;
+  }
 }
 
 void StscBox::parse_data(MP4File & mp4, const uint64_t data_size)
