@@ -8,18 +8,37 @@ const port_num = Number(process.argv[2]);
 const express = require('express');
 const http = require('http');
 const WebSocket = require('ws');
+const fs = require('fs');
+const path = require('path');
 
 const app = express();
-app.use(express.static(__dirname + '/static'));
+app.use(express.static(path.join(__dirname, '/static')));
 const server = http.createServer(app);
 
-const wss = new WebSocket.Server({server});
-wss.on('connection', function(ws, req) {
-  ws.on('message', function(message) {
-    console.log('Received: %s', message);
+const ws_server = new WebSocket.Server({server});
+ws_server.on('connection', function(ws, req) {
+  ws.binaryType = 'arraybuffer';
+
+  // send init segment
+  fs.readFile(path.join(__dirname, '/static/init.mp4'), function(err, data) {
+    if (err) {
+      console.log(err);
+    } else {
+      ws.send(data);
+    }
   });
 
-  ws.send('Hello from server');
+  // send media segments
+  for (var i = 0; i <= 19; i++) {
+    fs.readFile(path.join(__dirname, '/static', String(i * 180180) + '.m4s'),
+      function(err, data) {
+        if (err) {
+          console.log(err);
+        } else {
+          ws.send(data);
+        }
+      });
+  }
 });
 
 app.get('/', function(req, res) {
