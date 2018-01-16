@@ -36,4 +36,4 @@ script:
 notifications:
   email: false
   webhooks:
-    - https://snr.zulipchat.com/api/v1/external/travis?api_key=3GNy11c5XW50JIfv6Ap07h5ZHMQN4Rb5&stream=tv-notification&topic=build-status
+    - https://snr.zulipchat.com/api/v1/external/travis?api_key=AtzK5F9kaHRKDQKNbD4ujZCTQTm91B5j&stream=tv-notification&topic=build-status
