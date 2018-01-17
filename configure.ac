@@ -39,6 +39,7 @@ AC_CONFIG_FILES([
     third_party/Makefile
     src/Makefile
     src/util/Makefile
+    src/net/Makefile
     src/notifier/Makefile
     src/atsc/Makefile
     src/forwarder/Makefile
