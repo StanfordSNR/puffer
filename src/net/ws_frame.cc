@@ -27,21 +27,19 @@ string put_field(const uint64_t n)
                 sizeof(network_order));
 }
 
-WebSocketFrame::WebSocketFrame(const bool fin, const OpCode opcode,
-                               const string & payload)
+WSFrame::WSFrame(const bool fin, const OpCode opcode, const string & payload)
   : fin_(fin), opcode_(opcode), payload_(payload)
 {}
 
-WebSocketFrame::WebSocketFrame(const bool fin, const OpCode opcode,
-                               const string & payload,
-                               const uint32_t masking_key)
+WSFrame::WSFrame(const bool fin, const OpCode opcode, const string & payload,
+                 const uint32_t masking_key)
   : fin_(fin), opcode_(opcode), masking_key_(true, masking_key),
     payload_(payload)
 {}
 
-WebSocketFrame::WebSocketFrame(const Chunk & chunk)
+WSFrame::WSFrame(const Chunk & chunk)
   : fin_(chunk(0, 1).bits(7, 1)),
-    opcode_(static_cast<WebSocketFrame::OpCode>(chunk(4, 4).octet()))
+    opcode_(static_cast<WSFrame::OpCode>(chunk(4, 4).octet()))
 {
   bool masked = chunk(1, 1).bits(7, 1);
   uint64_t payload_length = chunk(1, 1).bits(0, 7);
@@ -81,7 +79,7 @@ WebSocketFrame::WebSocketFrame(const Chunk & chunk)
   }
 }
 
-string WebSocketFrame::to_string() const
+string WSFrame::to_string() const
 {
   string output;
   uint8_t temp_byte;
