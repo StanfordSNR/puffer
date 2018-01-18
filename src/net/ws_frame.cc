@@ -27,6 +27,59 @@ string put_field(const uint64_t n)
                 sizeof(network_order));
 }
 
+WebSocketFrame::WebSocketFrame(const bool fin, const OpCode opcode,
+                               const string & payload)
+  : fin_(fin), opcode_(opcode), payload_(payload)
+{}
+
+WebSocketFrame::WebSocketFrame(const bool fin, const OpCode opcode,
+                               const string & payload,
+                               const uint32_t masking_key)
+  : fin_(fin), opcode_(opcode), masking_key_(true, masking_key),
+    payload_(payload)
+{}
+
+WebSocketFrame::WebSocketFrame(const Chunk & chunk)
+  : fin_(chunk(0, 1).bits(7, 1)),
+    opcode_(static_cast<WebSocketFrame::OpCode>(chunk(4, 4).octet()))
+{
+  bool masked = chunk(1, 1).bits(7, 1);
+  uint64_t payload_length = chunk(1, 1).bits(0, 7);
+  size_t next_idx = 2;
+
+  switch (payload_length) {
+  case 126:
+    payload_length = chunk(2, 2).le16();
+    next_idx = 4;
+    break;
+
+  case 127:
+    payload_length = chunk(2, 8).le64();
+    next_idx = 10;
+    break;
+
+  default:
+    break;
+  }
+
+  if (masked) {
+    const string mk = chunk(next_idx, 4).to_string();
+    masking_key_.reset(chunk(next_idx, 4).le32());
+    next_idx += 4;
+
+    const uint8_t * payload_buffer = chunk(next_idx).buffer();
+    payload_.reserve(payload_length);
+
+    for (size_t i = 0; i < payload_length; i++) {
+      payload_.push_back(payload_buffer[i] ^ mk[i % 4]);
+    }
+
+    assert(payload_.length() == payload_length);
+  }
+  else {
+    payload_ = chunk(next_idx).to_string();
+  }
+}
 
 string WebSocketFrame::to_string() const
 {

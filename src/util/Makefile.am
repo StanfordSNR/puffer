@@ -19,4 +19,5 @@ libutil_a_SOURCES = \
 	timeit.hh timeit.cc \
 	tokenize.hh tokenize.cc \
 	util.hh util.cc \
-	filesystem.hh
+	filesystem.hh \
+	chunk.hh
