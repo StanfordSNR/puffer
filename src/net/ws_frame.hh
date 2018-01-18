@@ -4,6 +4,8 @@
 #define WS_FRAME_HH
 
 #include <string>
+
+#include "chunk.hh"
 #include "optional.hh"
 
 class WebSocketFrame
@@ -22,6 +24,14 @@ private:
   std::string payload_ {};
 
 public:
+  WebSocketFrame(const bool fin, const OpCode opcode,
+                 const std::string & payload);
+
+  WebSocketFrame(const bool fin, const OpCode opcode,
+                 const std::string & payload, const uint32_t masking_key);
+
+  WebSocketFrame(const Chunk & chunk);
+
   void set_fin(const bool fin) { fin_ = fin; }
   void set_opcode(const OpCode opcode) { opcode_ = opcode; }
   void set_masking(const uint32_t masking_key) { masking_key_.reset(masking_key); }
