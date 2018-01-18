@@ -35,34 +35,43 @@ string WebSocketFrame::to_string() const
 
   /* first byte */
   temp_byte = (fin_ << 8) + static_cast<uint8_t>(opcode_);
-  output.append(1, temp_byte);
+  output.push_back(temp_byte);
 
   /* second byte */
   temp_byte = (masking_key_.initialized() << 8);
 
   if (payload_.length() <= 125u) {
     temp_byte += static_cast<uint8_t>(payload_.length());
-    output.append(1, temp_byte);
+    output.push_back(temp_byte);
   }
   else if (payload_.length() < (1u << 16)) {
     temp_byte += static_cast<uint8_t>(126);
-    output.append(1, temp_byte);
+    output.push_back(temp_byte);
     output += put_field(static_cast<uint16_t>(payload_.length()));
   }
   else if (payload_.length() <= (1ull << 63) ){
     temp_byte += static_cast<uint8_t>(127);
-    output.append(1, temp_byte);
+    output.push_back(temp_byte);
     output += put_field(static_cast<uint64_t>(payload_.length()));
   }
   else {
     throw runtime_error("payload size > maximum allowed");
   }
 
-  if ( masking_key_.initialized() ) {
-    output += put_field(*masking_key_);
-  }
+  if (masking_key_.initialized()) {
+    string mk = put_field(*masking_key_);
+    output += mk;
 
-  output += payload_;
+    string masked_payload;
+    masked_payload.reserve(payload_.length());
+
+    for (size_t i = 0; i < payload_.length(); i++) {
+      masked_payload.push_back(payload_[i] ^ mk[i % 4]);
+    }
+  }
+  else {
+    output += payload_;
+  }
 
   return output;
 }
