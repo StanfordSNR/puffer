@@ -17,29 +17,39 @@ public:
     Ping = 0x9, Pong = 0xA
   };
 
+  class Header
+  {
+  private:
+    bool fin_ {false};
+    OpCode opcode_ {OpCode::Text};
+    uint64_t payload_length_ {0};
+    Optional<uint32_t> masking_key_ {false};
+
+  public:
+    Header(const Chunk & chunk);
+    Header(const bool fin, const OpCode opcode, const uint64_t payload_length);
+    Header(const bool fin, const OpCode opcode, const uint64_t payload_length,
+           const uint32_t masking_key);
+
+    bool fin() const { return fin_; }
+    OpCode opcode() const { return opcode_; }
+    uint64_t payload_length() const { return payload_length_; }
+    Optional<uint32_t> masking_key() const { return masking_key_; }
+
+    uint32_t header_length() const;
+  };
+
 private:
-  bool fin_ {false};
-  OpCode opcode_ {OpCode::Binary};
-  Optional<uint32_t> masking_key_ {false};
+  Header header_;
   std::string payload_ {};
 
 public:
+  WSFrame(const Chunk & chunk);
   WSFrame(const bool fin, const OpCode opcode, const std::string & payload);
-
   WSFrame(const bool fin, const OpCode opcode, const std::string & payload,
           const uint32_t masking_key);
 
-  WSFrame(const Chunk & chunk);
-
-  void set_fin(const bool fin) { fin_ = fin; }
-  void set_opcode(const OpCode opcode) { opcode_ = opcode; }
-  void set_masking(const uint32_t masking_key) { masking_key_.reset(masking_key); }
-  void set_payload(const std::string & payload) { payload_ = payload; }
-
-  bool fin() const { return fin_; }
-  OpCode opcode() const { return opcode_; }
-  uint64_t payload_length() const { return payload_.length(); }
-  bool masked() const { return masking_key_.initialized(); }
+  const Header & header() const { return header_; }
   const std::string & payload() const { return payload_; }
 
   /* serialize a frame */

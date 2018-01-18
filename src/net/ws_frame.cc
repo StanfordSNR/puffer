@@ -27,32 +27,22 @@ string put_field(const uint64_t n)
                 sizeof(network_order));
 }
 
-WSFrame::WSFrame(const bool fin, const OpCode opcode, const string & payload)
-  : fin_(fin), opcode_(opcode), payload_(payload)
-{}
-
-WSFrame::WSFrame(const bool fin, const OpCode opcode, const string & payload,
-                 const uint32_t masking_key)
-  : fin_(fin), opcode_(opcode), masking_key_(true, masking_key),
-    payload_(payload)
-{}
-
-WSFrame::WSFrame(const Chunk & chunk)
+WSFrame::Header::Header(const Chunk & chunk)
   : fin_(chunk(0, 1).bits(7, 1)),
     opcode_(static_cast<WSFrame::OpCode>(chunk(4, 4).octet()))
 {
   bool masked = chunk(1, 1).bits(7, 1);
-  uint64_t payload_length = chunk(1, 1).bits(0, 7);
+  payload_length_ = chunk(1, 1).bits(0, 7);
   size_t next_idx = 2;
 
-  switch (payload_length) {
+  switch (payload_length_) {
   case 126:
-    payload_length = chunk(2, 2).le16();
+    payload_length_ = chunk(2, 2).le16();
     next_idx = 4;
     break;
 
   case 127:
-    payload_length = chunk(2, 8).le64();
+    payload_length_ = chunk(2, 8).le64();
     next_idx = 10;
     break;
 
@@ -61,21 +51,52 @@ WSFrame::WSFrame(const Chunk & chunk)
   }
 
   if (masked) {
-    const string mk = chunk(next_idx, 4).to_string();
     masking_key_.reset(chunk(next_idx, 4).le32());
-    next_idx += 4;
-
-    const uint8_t * payload_buffer = chunk(next_idx).buffer();
-    payload_.reserve(payload_length);
-
-    for (size_t i = 0; i < payload_length; i++) {
-      payload_.push_back(payload_buffer[i] ^ mk[i % 4]);
-    }
-
-    assert(payload_.length() == payload_length);
   }
-  else {
-    payload_ = chunk(next_idx).to_string();
+}
+
+WSFrame::Header::Header(const bool fin, const OpCode opcode,
+                        const uint64_t payload_length)
+  : fin_(fin), opcode_(opcode), payload_length_(payload_length)
+{}
+
+WSFrame::Header::Header(const bool fin, const OpCode opcode,
+                        const uint64_t payload_length,
+                        const uint32_t masking_key)
+  : fin_(fin), opcode_(opcode), payload_length_(payload_length),
+    masking_key_(true, masking_key)
+{}
+
+uint32_t WSFrame::Header::header_length() const
+{
+  return 2 + ((payload_length_ < 126) ? 0
+                                      : ((payload_length_ < (1 << 16)) ? 2 : 8))
+           + (masking_key_.initialized() ? 4 : 0);
+}
+
+WSFrame::WSFrame(const bool fin, const OpCode opcode, const string & payload)
+  : header_(fin, opcode, payload.length()), payload_(payload)
+{}
+
+WSFrame::WSFrame(const bool fin, const OpCode opcode, const string & payload,
+                 const uint32_t masking_key)
+  : header_(fin, opcode, masking_key, payload.length()), payload_(payload)
+{}
+
+WSFrame::WSFrame(const Chunk & chunk)
+  : header_(chunk),
+    payload_(chunk(header_.header_length()).to_string())
+{
+  if (payload_.length() != header_.payload_length()) {
+    throw out_of_range( "payload size doesn't match the size in the header" );
+  }
+
+  if (header_.masking_key().initialized()) {
+    const string mk = put_field(*header_.masking_key());
+
+    for (size_t i = 0; i < payload_.length(); i++) {
+      payload_[i] ^= mk[i % 4];
+    }
   }
 }
 
@@ -85,11 +106,11 @@ string WSFrame::to_string() const
   uint8_t temp_byte;
 
   /* first byte */
-  temp_byte = (fin_ << 8) + static_cast<uint8_t>(opcode_);
+  temp_byte = (header_.fin() << 8) + static_cast<uint8_t>(header_.opcode());
   output.push_back(temp_byte);
 
   /* second byte */
-  temp_byte = (masking_key_.initialized() << 8);
+  temp_byte = (header_.masking_key().initialized() << 8);
 
   if (payload_.length() <= 125u) {
     temp_byte += static_cast<uint8_t>(payload_.length());
@@ -109,8 +130,8 @@ string WSFrame::to_string() const
     throw runtime_error("payload size > maximum allowed");
   }
 
-  if (masking_key_.initialized()) {
-    string mk = put_field(*masking_key_);
+  if (header_.masking_key().initialized()) {
+    string mk = put_field(*header_.masking_key());
     output += mk;
 
     string masked_payload;
