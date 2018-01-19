@@ -28,20 +28,33 @@ string put_field(const uint64_t n)
 }
 
 WSFrame::Header::Header(const Chunk & chunk)
-  : fin_(chunk(0, 1).bits(7, 1)),
-    opcode_(static_cast<WSFrame::OpCode>(chunk(4, 4).octet()))
 {
+  if (chunk.size() < 2) {
+    throw out_of_range("incomplete header");
+  }
+
+  fin_ = chunk(0 , 1).bits(7, 1);
+  opcode_ = static_cast<WSFrame::OpCode>(chunk(0, 1).bits(0, 4));
+
   bool masked = chunk(1, 1).bits(7, 1);
   payload_length_ = chunk(1, 1).bits(0, 7);
   size_t next_idx = 2;
 
   switch (payload_length_) {
   case 126:
+    if (chunk.size() < 4) {
+      throw out_of_range("incomplete header");
+    }
+
     payload_length_ = chunk(2, 2).le16();
     next_idx = 4;
     break;
 
   case 127:
+    if (chunk.size() < 10) {
+      throw out_of_range("incomplete header");
+    }
+
     payload_length_ = chunk(2, 8).le64();
     next_idx = 10;
     break;
@@ -51,6 +64,10 @@ WSFrame::Header::Header(const Chunk & chunk)
   }
 
   if (masked) {
+    if (chunk.size() < (next_idx + 4)) {
+      throw out_of_range("incomplete header: missing masking key");
+    }
+
     masking_key_.reset(chunk(next_idx, 4).le32());
   }
 }
@@ -88,7 +105,7 @@ WSFrame::WSFrame(const Chunk & chunk)
     payload_(chunk(header_.header_length()).to_string())
 {
   if (payload_.length() != header_.payload_length()) {
-    throw out_of_range( "payload size doesn't match the size in the header" );
+    throw out_of_range("payload size doesn't match the size in the header");
   }
 
   if (header_.masking_key().initialized()) {
@@ -121,7 +138,7 @@ string WSFrame::to_string() const
     output.push_back(temp_byte);
     output += put_field(static_cast<uint16_t>(payload_.length()));
   }
-  else if (payload_.length() <= (1ull << 63) ){
+  else if (payload_.length() <= (1ull << 63)){
     temp_byte += static_cast<uint8_t>(127);
     output.push_back(temp_byte);
     output += put_field(static_cast<uint64_t>(payload_.length()));
