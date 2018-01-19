@@ -84,6 +84,36 @@ WSFrame::Header::Header(const bool fin, const OpCode opcode,
     masking_key_(true, masking_key)
 {}
 
+uint64_t WSFrame::minimum_expected_length( const Chunk & chunk )
+{
+  if ( chunk.size() < 2 ) {
+    /* this is the minimum size of a frame */
+    return 2;
+  }
+
+  uint64_t payload_length = chunk(1, 1).bits(0, 7);
+  bool masked = chunk(1, 1).bits(7, 1);
+
+  switch (payload_length) {
+  case 126:
+    if (chunk.size() < 4) {
+      return 4;
+    }
+
+    return 4 + chunk(2, 2).le16() + (masked ? 4 : 0);
+
+  case 127:
+    if (chunk.size() < 10) {
+      return 10;
+    }
+
+    return 10 + chunk(2, 8).le64() + (masked ? 4 : 0);
+
+  default:
+    return 2 + payload_length + (masked ? 4 : 0);
+  }
+}
+
 uint32_t WSFrame::Header::header_length() const
 {
   return 2 + ((payload_length_ < 126) ? 0

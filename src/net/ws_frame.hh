@@ -54,6 +54,8 @@ public:
 
   /* serialize a frame */
   std::string to_string() const;
+
+  static uint64_t minimum_expected_length( const Chunk & chunk );
 };
 
 #endif /* WS_FRAME_HH */
