@@ -14,4 +14,5 @@ libnet_a_SOURCES = address.cc address.hh body_parser.hh \
                    secure_socket.cc secure_socket.hh socket.cc socket.hh \
                    strict_conversions.hh strict_conversions.cc \
                    ws_frame.hh ws_frame.cc \
-                   ws_message.hh
+                   ws_message.hh ws_message.cc \
+                   ws_message_parser.hh ws_message_parser.cc
