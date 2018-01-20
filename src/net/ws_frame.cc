@@ -84,7 +84,7 @@ WSFrame::Header::Header(const bool fin, const OpCode opcode,
     masking_key_(true, masking_key)
 {}
 
-uint64_t WSFrame::minimum_expected_length( const Chunk & chunk )
+uint64_t WSFrame::expected_length( const Chunk & chunk )
 {
   if ( chunk.size() < 2 ) {
     /* this is the minimum size of a frame */
@@ -97,6 +97,7 @@ uint64_t WSFrame::minimum_expected_length( const Chunk & chunk )
   switch (payload_length) {
   case 126:
     if (chunk.size() < 4) {
+      /* we need at least 4 bytes to determine the size of this frame */
       return 4;
     }
 
@@ -104,6 +105,7 @@ uint64_t WSFrame::minimum_expected_length( const Chunk & chunk )
 
   case 127:
     if (chunk.size() < 10) {
+      /* we need at least 10 bytes to determine the size of this frame */
       return 10;
     }
 

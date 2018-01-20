@@ -5,6 +5,7 @@
 
 #include <string>
 #include <vector>
+#include <list>
 
 #include "ws_frame.hh"
 
@@ -17,11 +18,13 @@ public:
   };
 
 private:
-  Type type_;
-  std::string payload_;
+  Type type_ {Type::Text};
+  std::string payload_ {};
 
 public:
-  WSMessage(const Type type, std::string payload);
+  WSMessage(const WSFrame & frame);
+  WSMessage(std::list<WSFrame> & frames);
+  WSMessage(const Type type, const std::string & payload);
 
   Type type() const { return type_; }
   const std::string & payload() const { return payload_; }
