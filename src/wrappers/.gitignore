@@ -1,3 +1,5 @@
 killall.sh
+killall-*.sh
 test
 isrunning.sh
+isrunning-*.sh

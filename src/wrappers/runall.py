@@ -11,6 +11,7 @@ import errno
 import shutil
 import argparse
 import subprocess
+import time
 from collections import namedtuple
 import logging
 
@@ -81,6 +82,9 @@ def parse_arguments():
                         help="TCP port number", type=int, dest="port")
     parser.add_argument("--timecode", action="store_true", dest="use_timecode",
                         help="use timecode file during audio fragmentation")
+    parser.add_argument("--unique-id", action='store', dest='unique_id', 
+                        default='{}'.format(int(time.time())),
+                        help="unique id for namespacing paths and files")
     return parser.parse_args()
 
 
@@ -135,8 +139,8 @@ def make_sure_dir_exists(*args):
                 raise
 
 
-def get_shm_output_folder(output_folder):
-    shm_output_folder = path.join("/dev/shm", path.basename(output_folder))
+def get_shm_output_folder(unique_id):
+    shm_output_folder = path.join("/dev/shm", unique_id)
     make_sure_dir_exists(shm_output_folder)
     return shm_output_folder
 
@@ -182,20 +186,20 @@ def combine_args(*args):
     return " ".join(args)
 
 
-def get_media_raw_path(output_folder):
+def get_media_raw_path(unique_id):
     ''' get audio/video raw folder names '''
-    shm_output_folder = get_shm_output_folder(output_folder)
+    shm_output_folder = get_shm_output_folder(unique_id)
     audio_raw_output = path.join(shm_output_folder, "audio-raw")
     video_raw_output = path.join(shm_output_folder, "video-raw")
     make_sure_dir_exists(audio_raw_output, video_raw_output)
     return audio_raw_output, video_raw_output
 
 
-def get_video_path(output_folder, fmt=None):
+def get_video_path(output_folder, unique_id, fmt=None):
     ''' get video folder names, such as canonical, encoded, and final path
         names. if fmt is not given, only video_canonical is returned
     '''
-    shm_output_folder = get_shm_output_folder(output_folder)
+    shm_output_folder = get_shm_output_folder(unique_id)
     video_canonical = path.join(shm_output_folder, "video-canonical")
     make_sure_dir_exists(video_canonical)
     if fmt is None:
@@ -216,10 +220,11 @@ def get_audio_path(output_folder, bitrate):
     return encoded_output, final_output
 
 
-def run_decoder(input_media, output_folder, video_pid, audio_pid, port_number):
+def run_decoder(input_media, output_folder, video_pid, audio_pid, port_number,
+                unique_id):
     ''' run the decoder program. currently a mock file is required '''
     # decoder
-    audio_raw_output, video_raw_output = get_media_raw_path(output_folder)
+    audio_raw_output, video_raw_output = get_media_raw_path(unique_id)
     # this is only for mock interface
     decoder_command = combine_args(
         "-i", input_media, "-v", video_raw_output, "-a", audio_raw_output)
@@ -236,23 +241,24 @@ def run_decoder(input_media, output_folder, video_pid, audio_pid, port_number):
     pid_list[proc.pid] = "decoder"
 
 
-def run_canonicalizer(output_folder):
+def run_canonicalizer(output_folder, unique_id):
     ''' run the canonicalizer '''
-    _, video_raw_output = get_media_raw_path(output_folder)
+    _, video_raw_output = get_media_raw_path(unique_id)
     # video canonicalizer
-    video_canonical = get_video_path(output_folder)
+    video_canonical = get_video_path(output_folder, unique_id)
     notifier_command = combine_args(video_raw_output, video_canonical,
                                     CANONICALIZER_PATH)
     proc = run_notifier(notifier_command)
     pid_list[proc.pid] = "notifier: cannoicalizer"
 
 
-def run_video_encoder(video_formats, output_folder):
+def run_video_encoder(video_formats, output_folder, unique_id):
     ''' run video_encoder.sh for each video format '''
     for fmt in video_formats:
         # this is also the final output folder basename
         res = fmt.width + "x" + fmt.height
-        video_canonical, encoded_output, _ = get_video_path(output_folder, fmt)
+        video_canonical, encoded_output, _ = get_video_path(output_folder, 
+                                                            unique_id, fmt)
         notifier_command = combine_args(video_canonical, encoded_output,
                                         VIDEO_ENCODER_PATH, res, fmt.crf)
         # run notifier to encode
@@ -260,12 +266,13 @@ def run_video_encoder(video_formats, output_folder):
         pid_list[proc.pid] = "notifier: video_encoder"
 
 
-def run_video_frag(video_formats, output_folder):
+def run_video_frag(video_formats, output_folder, unique_id):
     ''' frag video segments as well as generat the init segment '''
     for fmt in video_formats:
         # run frag to output the final segment
         # this is also the final output folder basename
-        _, encoded_output, final_output = get_video_path(output_folder, fmt)
+        _, encoded_output, final_output = get_video_path(output_folder,
+                                                         unique_id, fmt)
         notifier_command = combine_args(encoded_output, final_output,
                                         VIDEO_FRAGMENT_PATH)
         proc = run_notifier(notifier_command)
@@ -279,9 +286,9 @@ def run_video_frag(video_formats, output_folder):
         run_monitor(monitor_command)
 
 
-def run_audio_encoder(audio_formats, output_folder):
+def run_audio_encoder(audio_formats, output_folder, unique_id):
     ''' encode the audio segments into webm format '''
-    audio_raw_output, _ = get_media_raw_path(output_folder)
+    audio_raw_output, _ = get_media_raw_path(unique_id)
     for bitrate in audio_formats:
         encoded_output, _ = get_audio_path(output_folder, bitrate)
         notifier_command = combine_args(audio_raw_output, encoded_output,
@@ -330,10 +337,11 @@ def run_time(video_formats, output_folder):
     pid_list[proc.pid] = "monitor: time"
 
 
-def run_ssim_calculator(video_formats, output_folder):
+def run_ssim_calculator(video_formats, output_folder, unique_id):
     ''' generate SSIM for each video format '''
     for fmt in video_formats:
-        video_canonical, encoded_output, _ = get_video_path(output_folder, fmt)
+        video_canonical, encoded_output, _ = get_video_path(output_folder, 
+                                                            unique_id, fmt)
         ssim_output = encoded_output + "-ssim"
         make_sure_dir_exists(ssim_output)
         notifier_command = combine_args(encoded_output, ssim_output,
@@ -342,21 +350,23 @@ def run_ssim_calculator(video_formats, output_folder):
         pid_list[proc.pid] = "notifier: ssim_calculator"
 
 
-def generate_killall(pid_list):
+def generate_killall(pid_list, unique_id):
+    killall_file = "killall-{}.sh".format(unique_id)
     if pid_list:
-        with open("killall.sh", "w+") as file_sh:
+        with open(killall_file, "w+") as file_sh:
             file_sh.write("#!/bin/sh\n\n")
             for pid in pid_list:
                 file_sh.write("kill {} # {} \n".format(pid, pid_list[pid]))
             file_sh.write("killall monitor")  # kill run once monitor, if any
-        os.chmod("killall.sh", 0o744)
-        logger.info("killall.sh generated")
+        os.chmod(killall_file, 0o744)
+        logger.info("%s generated", killall_file)
 
 
-def generate_isrunning(pid_list):
+def generate_isrunning(pid_list, unique_id):
     if not pid_list:
         return
-    with open("isrunning.sh", "w+") as file_sh:
+    isrunning_file = "isrunning-{}.sh".format(unique_id)
+    with open(isrunning_file, "w+") as file_sh:
         file_sh.write("#!/bin/sh\n\n")
         file_sh.write("RED='\033[0;31m'\nNC='\033[0m'\n")
         for pid in pid_list:
@@ -366,14 +376,15 @@ def generate_isrunning(pid_list):
                       "${{RED}}WARN: $DATE [{0}]: {1} is not running${{NC}}"\
                       "\nfi\n".format(pid, pid_list[pid], date)
             file_sh.write(command)
-        os.chmod("isrunning.sh", 0o744)
+        os.chmod(isrunning_file, 0o744)
 
-    logger.info("isrunning.sh generated")
+    logger.info("%s generated", isrunning_file)
 
 
 def main():
     ''' main logic '''
     args = parse_arguments()
+    unique_id = args.unique_id
     output_folder = args.output
 
     video_formats = parse_video_formats(args.video_formats)
@@ -384,24 +395,24 @@ def main():
     make_sure_dir_exists(output_folder)
 
     # remove /dev/shm/<basename of output_folder> and recreate it
-    shm_output_folder = get_shm_output_folder(output_folder)
+    shm_output_folder = get_shm_output_folder(unique_id)
     shutil.rmtree(shm_output_folder, ignore_errors=True)
     make_sure_dir_exists(shm_output_folder)
 
-    run_canonicalizer(output_folder)
-    run_video_encoder(video_formats, output_folder)
-    run_video_frag(video_formats, output_folder)
-    run_audio_encoder(audio_formats, output_folder)
+    run_canonicalizer(output_folder, unique_id)
+    run_video_encoder(video_formats, output_folder, unique_id)
+    run_video_frag(video_formats, output_folder, unique_id)
+    run_audio_encoder(audio_formats, output_folder, unique_id)
     run_audio_frag(audio_formats, output_folder, args.use_timecode)
-    run_ssim_calculator(video_formats, output_folder)
+    run_ssim_calculator(video_formats, output_folder, unique_id)
     run_time(video_formats, output_folder)
     run_decoder(args.input, output_folder,
-                args.video_pid, args.audio_pid, args.port)
+                args.video_pid, args.audio_pid, args.port, unique_id)
 
     # create killall list to shutdown the entire pipeline
-    generate_killall(pid_list)
+    generate_killall(pid_list, unique_id)
     # create is_running to check if any process stops running
-    generate_isrunning(pid_list)
+    generate_isrunning(pid_list, unique_id)
 
 
 if __name__ == "__main__":
