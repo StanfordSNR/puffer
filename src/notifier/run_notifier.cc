@@ -1,6 +1,7 @@
 #include <sys/inotify.h>
 #include <cassert>
 #include <iostream>
+#include <list>
 #include <vector>
 #include <string>
 #include <stdexcept>
@@ -8,6 +9,7 @@
 #include <unordered_set>
 
 #include "filesystem.hh"
+#include "child_process.hh"
 #include "system_runner.hh"
 #include "tokenize.hh"
 #include "exception.hh"
@@ -46,22 +48,44 @@ vector<string> get_file_listing(const string & dst_dir)
   return result;
 }
 
-void run_program(const string & program,
-                 const string & src_file,
-                 const string & dst_dir,
-                 const vector<string> & prog_args)
+class AsyncTask
 {
-  vector<string> args{program, src_file, dst_dir};
-  args.insert(args.end(), prog_args.begin(), prog_args.end());
-  cerr << "$ " << command_str(args, {}) << endl;
+private:
+  ChildProcess child_process_;
+  string src_file_;
+  string dst_dir_;
+public:
+  AsyncTask( ChildProcess & original,
+             const string & src_file,
+             const string & dst_dir )
+    : child_process_(move(original)),
+      src_file_(src_file), 
+      dst_dir_(dst_dir) {};
 
-  run(program, args, {}, true, true);
+  AsyncTask( AsyncTask && other )
+    : child_process_( move(other.child_process_) ), 
+      src_file_( other.src_file_ ), 
+      dst_dir_( other.dst_dir_ ) {};
+  AsyncTask & operator=( AsyncTask && other ) = delete;
 
+  AsyncTask( const AsyncTask & other ) = delete;
+  AsyncTask & operator=( const AsyncTask & other ) = delete;
+
+  bool done();
+
+  void check_output();
+};
+
+bool AsyncTask::done() {
+  return child_process_.terminated();
+}
+
+void AsyncTask::check_output() {
   /* check if program wrote to dst_dir correctly */
-  string src_filename = fs::path(src_file).filename().string();
+  string src_filename = fs::path(src_file_).filename().string();
   string src_filename_prefix = split_filename(src_filename).first;
 
-  vector<string> dst_filenames = get_file_listing(dst_dir);
+  vector<string> dst_filenames = get_file_listing(dst_dir_);
 
   bool success = false;
   for (const string & dst_filename : dst_filenames) {
@@ -76,10 +100,28 @@ void run_program(const string & program,
   }
 }
 
+ChildProcess run_program(const string & program,
+                         const string & src_file,
+                         const string & dst_dir,
+                         const vector<string> & prog_args)
+{
+  vector<string> args{program, src_file, dst_dir};
+  args.insert(args.end(), prog_args.begin(), prog_args.end());
+  cerr << "$ " << command_str(args, {}) << endl;
+
+  return ChildProcess( args[0], 
+    [=]() 
+    {
+      return ezexec( program, args, {}, true, true );
+    }
+  );
+}
+
 void process_existing_files(const string & program,
                             const string & src_dir,
                             const string & dst_dir,
-                            const vector<string> & prog_args)
+                            const vector<string> & prog_args,
+                            list<AsyncTask> & tasks)
 {
   /* create a set containing the basename of files in dst_dir */
   vector<string> dst_filenames = get_file_listing(dst_dir);
@@ -97,7 +139,20 @@ void process_existing_files(const string & program,
     /* process src_filename only if no file in dst_dir has the same prefix */
     if (dst_fileset.find(src_filename_prefix) == dst_fileset.end()) {
       string src_file = (fs::path(src_dir) / fs::path(src_filename)).string();
-      run_program(program, src_file, dst_dir, prog_args);
+      auto child_process = run_program(program, src_file, dst_dir, prog_args);
+
+      tasks.push_back(AsyncTask(child_process, src_file, dst_dir));
+    }
+  }
+}
+
+void remove_finished_tasks(list<AsyncTask> & tasks) {
+  for (auto it = tasks.begin(); it != tasks.end(); ) {
+    if (it->done()) {
+      it->check_output();
+      it = tasks.erase(it);
+    } else {
+      ++it;
     }
   }
 }
@@ -124,6 +179,8 @@ int main(int argc, char * argv[])
     prog_args.emplace_back(argv[i]);
   }
 
+  list<AsyncTask> tasks;
+
   Notifier notifier;
 
   notifier.add_watch(src_dir, IN_MOVED_TO,
@@ -145,15 +202,21 @@ int main(int argc, char * argv[])
       }
 
       string src_file = (fs::path(src_dir) / fs::path(event.name)).string();
-      run_program(program, src_file, dst_dir, prog_args);
+      auto child_process = run_program(program, src_file, dst_dir, prog_args);
+
+      /* add the task to the list of tasks waiting to complete */
+      tasks.push_back(AsyncTask(child_process, src_file, dst_dir));
     }
   );
 
   /* process pre-existing files in srcdir after Notifier starts watching
    * so that no new files will be missed */
-  process_existing_files(program, src_dir, dst_dir, prog_args);
+  process_existing_files(program, src_dir, dst_dir, prog_args, tasks);
 
-  notifier.loop();
+  while (true) {
+    notifier.poll(1000);
+    remove_finished_tasks(tasks);
+  }
 
   return EXIT_SUCCESS;
 }
