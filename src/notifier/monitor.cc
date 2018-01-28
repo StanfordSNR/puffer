@@ -135,7 +135,9 @@ int main(int argc, char * argv[])
     );
   }
 
-  notifier.loop();
+  while (true) {
+    notifier.poll(-1);
+  }
 
   return EXIT_SUCCESS;
 }

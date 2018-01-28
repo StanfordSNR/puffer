@@ -60,11 +60,9 @@ void Notifier::rm_watch(const int wd)
   }
 }
 
-void Notifier::loop()
+void Notifier::poll(const int timeout_ms)
 {
-  while (true) {
-    poller_.poll(-1);
-  }
+  poller_.poll(timeout_ms);
 }
 
 Result Notifier::handle_events()

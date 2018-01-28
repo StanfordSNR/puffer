@@ -32,8 +32,8 @@ public:
   /* remove a watch descriptor from the watch list */
   void rm_watch(const int wd);
 
-  /* loop forever; call the registered callback function if an event occurs */
-  void loop();
+  /* poll for timeout; call the registered callback function if an event occurs */
+  void poll(const int timeout_ms);
 
 private:
   /* inotify instance */

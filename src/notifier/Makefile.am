@@ -8,5 +8,7 @@ bin_PROGRAMS = run_notifier monitor
 run_notifier_SOURCES = run_notifier.cc $(COMMON_SOURCES)
 run_notifier_LDADD = ../util/libutil.a -lstdc++fs
 
+run_notifier_LDFLAGS = -pthread
+
 monitor_SOURCES = monitor.cc $(COMMON_SOURCES)
 monitor_LDADD = ../util/libutil.a -lstdc++fs
