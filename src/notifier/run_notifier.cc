@@ -77,10 +77,18 @@ public:
 };
 
 bool AsyncTask::done() {
+  if (child_process_.waitable()) {
+    child_process_.wait(true);
+  }
   return child_process_.terminated();
 }
 
 void AsyncTask::check_output() {
+  assert (child_process_.terminated());
+  if (child_process_.exit_status() != 0) {
+    child_process_.throw_exception();
+  }
+
   /* check if program wrote to dst_dir correctly */
   string src_filename = fs::path(src_file_).filename().string();
   string src_filename_prefix = split_filename(src_filename).first;
