@@ -10,6 +10,9 @@ dst_dir=$2
 canonical_dir=$3
 canonical_y4m=$canonical_dir/$src_fname_prefix.y4m
 
+# get temporary folder path
+tmp_folder=$4
+
 # get resolution of the canonical video
 width_prefix="streams_stream_0_width="
 height_prefix="streams_stream_0_height="
@@ -25,7 +28,6 @@ width=${width_with_prefix#${width_prefix}}
 height=${height_with_prefix#${height_prefix}}
 
 # convert src_path to Y4M with the same resolution
-tmp_folder=/dev/shm/ssim-calculator-tmp
 mkdir -p $tmp_folder
 src_y4m=$(mktemp $tmp_folder/XXXXXX.y4m)
 ffmpeg -nostdin -hide_banner -loglevel panic -y -i $src_path \
@@ -34,6 +36,6 @@ ffmpeg -nostdin -hide_banner -loglevel panic -y -i $src_path \
 # calculate SSIM
 tmp_file=$(mktemp /tmp/XXXXXX.ssim)
 ssim_path=$curr_dir/../ssim/ssim
-$ssim_path $src_y4m $canonical_y4m $tmp_file -n 10 -p 8
+$ssim_path $src_y4m $canonical_y4m $tmp_file -n 10
 mv $tmp_file $dst_dir/$src_fname_prefix.ssim
 rm -f $src_y4m

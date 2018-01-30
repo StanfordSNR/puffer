@@ -6,7 +6,7 @@ src_fname=$(basename $src_path)
 src_fname_prefix=${src_fname%.*}
 dst_dir=$2
 
-tmp_folder=/dev/shm/canonicalizer-tmp
+tmp_folder=$3
 mkdir -p $tmp_folder
 tmp_file=$(mktemp $tmp_folder/XXXXXX.y4m)
 
