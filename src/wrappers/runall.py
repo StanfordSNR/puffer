@@ -225,9 +225,13 @@ def run_decoder(input_media, output_folder, video_pid, audio_pid, port_number,
     ''' run the decoder program. currently a mock file is required '''
     # decoder
     audio_raw_output, video_raw_output = get_media_raw_path(unique_id)
+
+    shm_output_folder = get_shm_output_folder(unique_id)
+    mock_decoder_tmp_dir = path.join(shm_output_folder, 'mock-decoder-tmp')
     # this is only for mock interface
     decoder_command = combine_args(
-        "-i", input_media, "-v", video_raw_output, "-a", audio_raw_output)
+        "-i", input_media, "-v", video_raw_output, "-a", audio_raw_output,
+        "--tmp-dir", mock_decoder_tmp_dir)
 
     if video_pid is not None and audio_pid is not None:
         decoder_command = combine_args(
@@ -244,10 +248,12 @@ def run_decoder(input_media, output_folder, video_pid, audio_pid, port_number,
 def run_canonicalizer(output_folder, unique_id):
     ''' run the canonicalizer '''
     _, video_raw_output = get_media_raw_path(unique_id)
+    shm_output_folder = get_shm_output_folder(unique_id)
+    canonical_tmp_dir = path.join(shm_output_folder, 'canonicalizer-tmp')
     # video canonicalizer
     video_canonical = get_video_path(output_folder, unique_id)
     notifier_command = combine_args(video_raw_output, video_canonical,
-                                    CANONICALIZER_PATH)
+                                    CANONICALIZER_PATH, canonical_tmp_dir)
     proc = run_notifier(notifier_command)
     pid_list[proc.pid] = "notifier: cannoicalizer"
 
@@ -339,13 +345,16 @@ def run_time(video_formats, output_folder):
 
 def run_ssim_calculator(video_formats, output_folder, unique_id):
     ''' generate SSIM for each video format '''
+    shm_output_folder = get_shm_output_folder(unique_id)
+    ssim_tmp_dir = path.join(shm_output_folder, 'ssim-calculator-tmp')
     for fmt in video_formats:
         video_canonical, encoded_output, _ = get_video_path(output_folder, 
                                                             unique_id, fmt)
         ssim_output = encoded_output + "-ssim"
         make_sure_dir_exists(ssim_output)
         notifier_command = combine_args(encoded_output, ssim_output,
-                                        SSIM_CALCULATOR_PATH, video_canonical)
+                                        SSIM_CALCULATOR_PATH, video_canonical,
+                                        ssim_tmp_dir)
         proc = run_notifier(notifier_command)
         pid_list[proc.pid] = "notifier: ssim_calculator"
 

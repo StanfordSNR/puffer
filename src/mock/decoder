@@ -32,6 +32,8 @@ def main():
                         help="PID of audio in hex", dest="audio_pid")
     parser.add_argument("-p", "--port", action="store",
                         help="TCP port number", type=int, dest="port")
+    parser.add_argument("--tmp-dir", action="store", type=str,
+                        dest="tmp_dir")
     args = parser.parse_args()
 
     input_media = args.input
@@ -41,7 +43,7 @@ def main():
     make_sure_path_exists(audio_path)
 
     # don't need port number as we're faking a connection
-    temp_dir = "/dev/shm/mock-decoder-tmp"
+    temp_dir = args.tmp_dir
     shutil.rmtree(temp_dir, ignore_errors=True)
     make_sure_path_exists(temp_dir)
 
