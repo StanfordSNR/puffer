@@ -9,11 +9,11 @@
 using namespace std;
 using namespace PollerShortNames;
 
-Notifier::Notifier()
+Notifier::Notifier(Poller & poller)
   : inotify_fd_(CheckSystemCall("inotify_init", inotify_init())),
-    imap_(), poller_()
+    imap_()
 {
-  poller_.add_action(
+  poller.add_action(
     Poller::Action(inotify_fd_, Direction::In,
       [&]() {
         return handle_events();
@@ -58,11 +58,6 @@ void Notifier::rm_watch(const int wd)
     throw runtime_error(
       "rm_watch: trying to remove a nonexistent watch descriptor");
   }
-}
-
-void Notifier::poll(const int timeout_ms)
-{
-  poller_.poll(timeout_ms);
 }
 
 Result Notifier::handle_events()

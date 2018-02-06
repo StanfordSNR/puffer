@@ -12,6 +12,7 @@
 #include "system_runner.hh"
 #include "exception.hh"
 #include "notifier.hh"
+#include "poller.hh"
 
 using namespace std;
 
@@ -81,7 +82,8 @@ int main(int argc, char * argv[])
     return EXIT_FAILURE;
   }
 
-  Notifier notifier;
+  Poller poller;
+  Notifier notifier(poller);
 
   for (const auto & dir : monitored_dirs) {
     notifier.add_watch(dir, IN_MOVED_TO,
@@ -136,7 +138,7 @@ int main(int argc, char * argv[])
   }
 
   while (true) {
-    notifier.poll(-1);
+    poller.poll(-1);
   }
 
   return EXIT_SUCCESS;
