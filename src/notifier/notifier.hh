@@ -18,7 +18,7 @@ public:
   using callback_t = std::function<void(const inotify_event &,
                                         const std::string &)>;
 
-  Notifier();
+  Notifier(Poller & poller);
 
   /* add one or more paths to the watch list */
   int add_watch(const std::string & path,
@@ -32,17 +32,12 @@ public:
   /* remove a watch descriptor from the watch list */
   void rm_watch(const int wd);
 
-  /* poll for timeout; call the registered callback function if an event occurs */
-  void poll(const int timeout_ms);
-
 private:
   /* inotify instance */
   FileDescriptor inotify_fd_;
 
   /* map a watch descriptor to its associated pathname */
   std::unordered_map<int, std::tuple<std::string, uint32_t, callback_t>> imap_;
-
-  Poller poller_;
 
   Poller::Action::Result handle_events();
 };
