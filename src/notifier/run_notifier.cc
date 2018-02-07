@@ -229,7 +229,7 @@ Poller::Action::Result ParallelNotifier::handle_signal(const signalfd_siginfo & 
     for (auto it = child_processes_.begin(); it != child_processes_.end();) {
       ChildProcess & child = it->second;
 
-      if (!child.waitable()) {
+      if (not child.waitable()) {
         it++;
       } else {
         child.wait(true);
@@ -243,10 +243,11 @@ Poller::Action::Result ParallelNotifier::handle_signal(const signalfd_siginfo & 
           check_output(child);
 
           it = child_processes_.erase(it);
-        } else if (!child.running()) {
-          /* suspend parent too */
-          CheckSystemCall("raise", raise(SIGSTOP));
         } else {
+          if (not child.running()) {
+            /* suspend parent too */
+            CheckSystemCall("raise", raise(SIGSTOP));
+          }
           it++;
         }
       }
