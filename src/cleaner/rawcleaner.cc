@@ -19,21 +19,29 @@ void print_usage(const string & program_name)
   << endl;
 }
 
-void clean_raw_video_files(const string & video_dir, const string & output_dir) {
-  /* Obtain the video qualities */
+vector<string> list_ssim_dirs(const string & output_dir) {
   vector<string> ssim_dirs;
   basic_regex ssim_dir_regex("\\d+x\\d+-\\d+-mp4-ssim");
   for (const auto & entry : fs::directory_iterator(output_dir)) {
     string path = entry.path().string();
     string basename = path.substr(path.find_last_of("/") + 1);
     if (fs::is_directory(path) && regex_match(basename, ssim_dir_regex)) {
-      cout << "Expecting ssim in " << path << endl;
       ssim_dirs.push_back(path);
     }
   }
+  return ssim_dirs;
+}
+
+void clean_raw_video_files(const string & video_dir, const string & output_dir) {
+  /* Obtain the video qualities */
+  vector<string> ssim_dirs = list_ssim_dirs(output_dir);
   if (ssim_dirs.size() == 0) {
     cerr << "Error: no ssim directories found" << endl;
     abort();
+  } else {
+    for (string & dir : ssim_dirs) {
+      cout << "Expecting ssim in " << dir << endl;
+    }
   }
 
   /* List the raw video files */
@@ -67,21 +75,29 @@ void clean_raw_video_files(const string & video_dir, const string & output_dir) 
   }
 }
 
-void clean_raw_audio_files(const string & audio_dir, const string & output_dir) {
-  /* Obtain the audio qualities */
+vector<string> list_audio_output_dirs(const string & output_dir) {
   vector<string> audio_output_dirs;
   basic_regex audio_dir_regex("\\d+k");
   for (const auto & entry : fs::directory_iterator(output_dir)) {
     string path = entry.path().string();
     string basename = path.substr(path.find_last_of("/") + 1);
     if (fs::is_directory(path) && regex_match(basename, audio_dir_regex)) {
-      cout << "Expecting audio chunks in " << path << endl;
       audio_output_dirs.push_back(path);
     }
   }
+  return audio_output_dirs;
+}
+
+void clean_raw_audio_files(const string & audio_dir, const string & output_dir) {
+  /* Obtain the audio qualities */
+  vector<string> audio_output_dirs = list_audio_output_dirs(output_dir);
   if (audio_output_dirs.size() == 0) {
     cerr << "No audio output directories found" << endl;
     abort();
+  } else {
+    for (string & dir : audio_output_dirs) {
+      cout << "Expecting audio chunks in " << dir << endl;
+    }
   }
 
   /* List the raw audio files */
