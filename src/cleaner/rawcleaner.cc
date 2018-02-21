@@ -13,9 +13,10 @@ using namespace std;
 void print_usage(const string & program_name)
 {
   cerr <<
-  "Usage: " << program_name << " <shmdir> <output>\n\n"
-  "<shmdir>   directory containing raw videos and audio for a channel\n"
-  "<output>   directory containing downstream files"
+  "Usage: " << program_name << " <video> <audio> <output>\n\n"
+  "<video>      directory containing raw video\n"
+  "<audio>      directory containing raw audio\n"
+  "<output>     directory containing downstream files"
   << endl;
 }
 
@@ -133,29 +134,28 @@ void clean_raw_audio_files(const string & audio_dir, const string & output_dir) 
 
 int main(int argc, char * argv[])
 {
-  if (argc < 3) {
+  if (argc < 4) {
     print_usage("rawcleaner");
-    abort();
+    return EXIT_FAILURE;
   }
 
-  string shm_dir, output_dir;
-  shm_dir = argv[1];
-  output_dir = argv[2];
+  string video_dir, audio_dir, output_dir;
+  video_dir = argv[1];
+  audio_dir = argv[2];
+  output_dir = argv[3];
 
-  string raw_audio_dir = shm_dir + "/audio-raw";
-  if (!fs::exists(raw_audio_dir)) {
-    cerr << "Raw audio directory does not exist " << raw_audio_dir << endl;
-    abort();
+  if (!fs::exists(video_dir)) {
+    cerr << "Raw video directory does not exist " << video_dir << endl;
+    return EXIT_FAILURE;
   }
 
-  string raw_video_dir = shm_dir + "/video-raw";
-  if (!fs::exists(raw_video_dir)) {
-    cerr << "Raw video directory does not exist " << raw_video_dir << endl;
-    abort();
+  if (!fs::exists(audio_dir)) {
+    cerr << "Raw audio directory does not exist " << audio_dir << endl;
+    return EXIT_FAILURE;
   }
 
-  clean_raw_video_files(raw_video_dir, output_dir);
-  clean_raw_audio_files(raw_audio_dir, output_dir);
+  clean_raw_video_files(video_dir, output_dir);
+  clean_raw_audio_files(audio_dir, output_dir);
 
   return EXIT_SUCCESS;
 }
