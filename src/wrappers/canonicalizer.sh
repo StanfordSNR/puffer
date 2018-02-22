@@ -10,7 +10,7 @@ tmp_folder=$3
 mkdir -p $tmp_folder
 tmp_file=$(mktemp $tmp_folder/XXXXXX.y4m)
 
-ffmpeg -nostdin -hide_banner -loglevel panic -y -i $src_path -vf yadif \
+ffmpeg -nostdin -hide_banner -loglevel panic -y -i $src_path -vf bwdif \
   $tmp_file
 mv $tmp_file $dst_dir/$src_fname_prefix.y4m
 rm -f $src_path
