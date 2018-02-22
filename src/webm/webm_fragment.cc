@@ -23,6 +23,7 @@
 using namespace std;
 
 const uint32_t global_timescale = 90000;
+const uint32_t webm_default_timescale = 1000;
 
 void print_usage(const string & program_name)
 {
@@ -195,8 +196,9 @@ void create_media_segment(
     /* ... by converting the filename/timestamp (in global timescale)
      * into timescale WebM's default timescale (1000) */
     uint64_t global_timestamp = get_timestamp(input_webm);
-    float sc = global_timescale / 1000.0f;
-    abs_timecode = narrow_cast<uint64_t>(global_timestamp / sc);
+
+    double sec = static_cast<double>(global_timestamp) / global_timescale;
+    abs_timecode = narrow_round<uint64_t>(sec * webm_default_timescale);
   } else {
     /* ... from timecode file and save the timecode for the next segment */
     abs_timecode = get_timecode(timecode_file);

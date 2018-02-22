@@ -49,8 +49,8 @@ uint64_t scale_global_timestamp(const uint64_t global_timestamp,
                                 const uint32_t new_timescale)
 {
   /* scale the timestamp in global timescale to the new_timescale */
-  float sc = static_cast<float>(global_timescale) / new_timescale;
-  return narrow_cast<uint64_t>(global_timestamp / sc);
+  double sec = static_cast<double>(global_timestamp) / global_timescale;
+  return narrow_round<uint64_t>(sec * new_timescale);
 }
 
 void create_ftyp_box(MP4Parser & mp4_parser, MP4File & output_mp4)
@@ -284,7 +284,8 @@ void create_moof_box(MP4Parser & mp4_parser, MP4File & output_mp4,
   uint32_t duration = narrow_cast<uint32_t>(mdhd_box->duration());
 
   uint64_t mp4_ts = scale_global_timestamp(global_timestamp, timescale);
-  uint32_t sequence_number = narrow_cast<uint32_t>(mp4_ts / duration);
+  uint32_t sequence_number = narrow_round<uint32_t>(
+                               static_cast<double>(mp4_ts) / duration);
 
   auto mfhd_box = make_shared<MfhdBox>(
       "mfhd",         // type

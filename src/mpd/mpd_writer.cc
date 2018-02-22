@@ -87,7 +87,7 @@ void add_webm_audio(shared_ptr<AudioAdaptionSet> a_set, const fs::path & init,
   /* scale the timescale to global timescale */
   float scaling_factor = static_cast<float>(global_timescale) / timescale;
   timescale = global_timescale;
-  duration = narrow_cast<uint32_t>(duration * scaling_factor);
+  duration = narrow_round<uint32_t>(duration * scaling_factor);
 
   if (expected_duration) {
     duration = expected_duration;
@@ -136,7 +136,7 @@ void add_mp4_representation(
   /* scale the timescale to global timescale */
   float scaling_factor = static_cast<float>(global_timescale) / timescale;
   timescale = global_timescale;
-  duration = narrow_cast<uint32_t>(duration * scaling_factor);
+  duration = narrow_round<uint32_t>(duration * scaling_factor);
 
   if (expected_duration) {
     duration = expected_duration;
