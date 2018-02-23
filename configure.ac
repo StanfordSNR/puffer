@@ -49,6 +49,7 @@ AC_CONFIG_FILES([
     src/ssim/Makefile
     src/cleaner/Makefile
     src/time/Makefile
+    src/wrappers/Makefile
     src/tests/Makefile
 ])
 AC_OUTPUT
