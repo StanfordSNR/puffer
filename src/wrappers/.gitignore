@@ -3,3 +3,4 @@ killall-*.sh
 test
 isrunning.sh
 isrunning-*.sh
+run_all
