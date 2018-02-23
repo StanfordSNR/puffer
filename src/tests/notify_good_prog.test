@@ -38,7 +38,8 @@ def main():
 
     # run a notifier that will call the "good" program
     good_prog = path.join(abs_srcdir, 'notified_good_prog.sh')
-    cmd = [run_notifier, notifier_srcdir, notifier_dstdir, good_prog]
+    cmd = [run_notifier, notifier_srcdir, '--check', notifier_dstdir,
+           good_prog, notifier_dstdir]
     notifier_proc = Popen(cmd)
 
     # expect pre-existing files to be processed (copied)
