@@ -4,11 +4,27 @@
 
 using namespace std;
 
-int main()
+void print_usage(const string & program_name)
 {
-  YAML::Node config = YAML::LoadFile("config.yml");
+  cerr <<
+  "Usage: " << program_name << " <YAML configuration>"
+  << endl;
+}
 
-  const YAML::Node & ress = config["test"]["video"];
+int main(int argc, char * argv[])
+{
+  if (argc < 1) {
+    abort();
+  }
+
+  if (argc != 2) {
+    print_usage(argv[0]);
+    return EXIT_FAILURE;
+  }
+
+  YAML::Node config = YAML::LoadFile(argv[1]);
+
+  const YAML::Node & ress = config["video"];
   for (YAML::const_iterator res = ress.begin(); res != ress.end(); ++res) {
     cout << res->first.as<string>() << ": ";
 
@@ -19,6 +35,13 @@ int main()
 
     cout << endl;
   }
+
+  const YAML::Node & bitrates = config["audio"];
+  for (YAML::const_iterator bitrate = bitrates.begin();
+       bitrate != bitrates.end(); ++bitrate) {
+    cout << bitrate->as<string>() << " ";
+  }
+  cout << endl;
 
   return EXIT_SUCCESS;
 }
