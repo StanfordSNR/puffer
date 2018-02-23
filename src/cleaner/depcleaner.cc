@@ -13,9 +13,9 @@ using namespace std;
 void print_usage(const string & program_name)
 {
   cerr <<
-  "Usage: " << program_name << " <input_file> <remove_dir> <remove_ext> [depdir1 [depdir2 [depdir3] ...]]\n\n"
+  "Usage: " << program_name << " <input_file> <clean_dir> <remove_ext> [depdir1 [depdir2 [depdir3] ...]]\n\n"
   "<input_file>   input file from notifier\n"
-  "<remove_dir>   output dir from notifier\n"
+  "<clean_dir>    directory to clean\n"
   "<remove_ext>   extension of the file to remove if all downstream dependencies exist\n"
   "[depdir ... ]  directories containing dependent files"
   << endl;
@@ -33,13 +33,13 @@ int main(int argc, char * argv[])
     return EXIT_FAILURE;
   }
 
-  string input_file, remove_dir, remove_ext;
+  string input_file, clean_dir, remove_ext;
   input_file = argv[1];
-  remove_dir = argv[2];
+  clean_dir = argv[2];
   remove_ext = argv[3];
 
-  if (!fs::exists(remove_dir)) {
-    cerr << "Output directory does not exist " << remove_dir << endl;
+  if (!fs::exists(clean_dir)) {
+    cerr << "Cleaning directory does not exist " << clean_dir << endl;
     return EXIT_FAILURE;
   }
 
@@ -57,7 +57,7 @@ int main(int argc, char * argv[])
   string input_file_no_ext = split_filename(input_file_basename).first;
 
   /* all of the downstream files exist so we can remove the upstream files */
-  string file_to_remove = remove_dir + "/" + input_file_no_ext + "." + remove_ext;
+  string file_to_remove = clean_dir + "/" + input_file_no_ext + "." + remove_ext;
   error_code ec;
   if (not fs::remove(file_to_remove, ec) or ec) {
     cerr << "Warning: file " << file_to_remove << " cannot be removed" << endl;
