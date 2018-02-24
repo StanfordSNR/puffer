@@ -2,9 +2,6 @@
 
 import os
 from os import path
-import sys
-import time
-import datetime
 from test_helpers import check_call, check_output
 
 
@@ -19,6 +16,7 @@ def main():
 
     depcleaner_testdir = path.join(test_tmpdir, 'depcleaner_testdir')
 
+    check_call(['rm', '-rf', depcleaner_testdir])
     check_call(['mkdir', '-p', depcleaner_testdir])
 
     upstream_dir = path.join(depcleaner_testdir, 'upstream')
@@ -45,12 +43,12 @@ def main():
 
         if i == NUM_DEPENDNENT_DIRS - 1:
             # should delete upstream file
-            if os.path.isfile(upstream_file):
+            if path.isfile(upstream_file):
                 print('upstream file was not removed')
                 exit(1)
         else:
             # should not delete upstream file
-            if not os.path.isfile(upstream_file):
+            if not path.isfile(upstream_file):
                 print('upstream file was removed too early')
                 exit(1)
 
