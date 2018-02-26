@@ -108,7 +108,7 @@ ParallelNotifier::ParallelNotifier(const string & src_dir,
                                    const vector<string> & prog_args)
   : src_dir_(src_dir), dst_dir_opt_(dst_dir_opt),
     program_(program), prog_args_(prog_args),
-    signals_({ SIGCHLD, SIGCONT, SIGHUP, SIGTERM, SIGQUIT, SIGINT }),
+    signals_({ SIGCHLD, SIGABRT, SIGCONT, SIGHUP, SIGTERM, SIGQUIT, SIGINT }),
     signal_fd_(signals_),
     poller_(), notifier_(poller_),
     child_processes_(), src_files_()
@@ -141,8 +141,7 @@ ParallelNotifier::ParallelNotifier(const string & src_dir,
   poller_.add_action(
     Poller::Action{
       signal_fd_.fd(), Direction::In,
-      [&]() { return handle_signal(signal_fd_.read_signal()); },
-      [&]() { return child_processes_.size() > 0; }
+      [&]() { return handle_signal(signal_fd_.read_signal()); }
     }
   );
 }
@@ -178,7 +177,7 @@ void ParallelNotifier::process_existing_files()
 
 void ParallelNotifier::loop()
 {
-  while (true) {
+  for (;;) {
     poller_.poll(-1);
   }
 }
@@ -264,14 +263,17 @@ Poller::Action::Result ParallelNotifier::handle_signal(const signalfd_siginfo & 
 
     break;
 
+  case SIGABRT:
   case SIGHUP:
   case SIGTERM:
   case SIGQUIT:
   case SIGINT:
-    throw runtime_error( "interrupted by signal" );
+    throw runtime_error("ParallelNotifier: interrupted by signal " +
+                        to_string(sig.ssi_signo));
 
   default:
-    throw runtime_error( "unknown signal" );
+    throw runtime_error("ParallelNotifier: unknown signal " +
+                        to_string(sig.ssi_signo));
   }
 
   return ResultType::Continue;
