@@ -127,7 +127,7 @@ int main(int argc, char * argv[])
           args[braces_idx] = filepath;
         }
 
-        cerr << "$ " << command_str(args, {}) << endl;
+        cerr << "$ " + command_str(args, {}) + "\n";
         run(program, args, {}, true, true);
 
         if (quit_after_success) {

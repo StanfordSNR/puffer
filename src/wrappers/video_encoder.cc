@@ -91,7 +91,7 @@ int main(int argc, char * argv[])
     "ffmpeg", "-nostdin", "-hide_banner", "-loglevel", "panic", "-y",
     "-i", input_filepath, "-c:v", "libx264", "-s", resolution, "-crf", crf,
     "-preset", "veryfast", tmp_filepath };
-  cerr << "$ " + command_str(args, {}) << endl;
+  cerr << "$ " + command_str(args, {}) + "\n";
   run("ffmpeg", args, {}, true, true);
 
   /* move the output encoded video from tmp_dir to output_dir */
