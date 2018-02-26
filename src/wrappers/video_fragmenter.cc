@@ -81,7 +81,7 @@ int main(int argc, char * argv[])
   /* output init segment and media segment to tmp_dir first */
   vector<string> args = {
     mp4_fragment, "-i", init_tmp_path, "-m", media_tmp_path, input_filepath };
-  cerr << "$ " << command_str(args, {}) << endl;
+  cerr << "$ " + command_str(args, {}) << endl;
   run(mp4_fragment, args, {}, true, true);
 
   /* move the output fragmented videos from tmp_dir to output_dir */
