@@ -8,6 +8,12 @@
 #include <cassert>
 #include <csignal>
 
+#include <unordered_map>
+#include <vector>
+#include <string>
+#include "signalfd.hh"
+#include "poller.hh"
+
 /* object-oriented wrapper for handling Unix child processes */
 
 class ChildProcess
@@ -53,6 +59,32 @@ public:
 
     /* ... but not move assignment operator */
     ChildProcess & operator=( ChildProcess && other ) = delete;
+};
+
+/* class for managing child processes */
+class ProcessManager
+{
+public:
+  ProcessManager();
+
+  void run_as_child(const std::string & program,
+                    const std::vector<std::string> & prog_args,
+                    const std::vector<std::string> & env = {},
+                    const bool use_environ = true,
+                    const bool path_search = true);
+
+  /* wait for all child processes to exit normally */
+  void wait();
+
+private:
+  std::unordered_map<pid_t, ChildProcess> child_processes_;
+
+  Poller poller_;
+
+  SignalMask signals_;
+  SignalFD signal_fd_;
+
+  PollerShortNames::Result handle_signal(const signalfd_siginfo & sig);
 };
 
 #endif /* CHILD_PROCESS_HH */
