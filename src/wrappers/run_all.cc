@@ -75,7 +75,7 @@ void get_audio_formats(const YAML::Node & config)
   }
 }
 
-void run_canonicalizer(ProcessManager & proc_manager)
+void run_video_canonicalizer(ProcessManager & proc_manager)
 {
   /* prepare directories */
   string src_dir = output_path / "working/video-raw";
@@ -86,11 +86,60 @@ void run_canonicalizer(ProcessManager & proc_manager)
     fs::create_directories(dir);
   }
 
-  /* run_notifier calls canonicalizer */
-  string canonicalizer = wrappers_path / "canonicalizer";
+  /* run_notifier calls video_canonicalizer */
+  string video_canonicalizer = wrappers_path / "video_canonicalizer";
 
   vector<string> args {
-    run_notifier, src_dir, "--check", dst_dir, canonicalizer,
+    run_notifier, src_dir, "--check", dst_dir, video_canonicalizer,
+    dst_dir, "--tmp", tmp_dir };
+  proc_manager.run_as_child(run_notifier, args);
+}
+
+void run_video_encoder(ProcessManager & proc_manager,
+                       const tuple<string, string> & vformat)
+{
+  const auto & [res, crf] = vformat;
+
+  /* prepare directories */
+  string base = res + "-" + crf + "-" + "mp4";
+  string src_dir = output_path / "working/video-canonical";
+  string dst_dir = output_path / "working" / base;
+  string tmp_dir = output_path / "tmp" / base;
+
+  for (const auto & dir : {src_dir, dst_dir, tmp_dir}) {
+    fs::create_directories(dir);
+  }
+
+  /* run_notifier calls video_encoder */
+  string video_encoder = wrappers_path / "video_encoder";
+
+  vector<string> args {
+    run_notifier, src_dir, "--check", dst_dir, video_encoder,
+    dst_dir, "--tmp", tmp_dir, "-s", res, "--crf", crf };
+  proc_manager.run_as_child(run_notifier, args);
+}
+
+void run_video_fragmenter(ProcessManager & proc_manager,
+                          const tuple<string, string> & vformat)
+{
+  const auto & [res, crf] = vformat;
+
+  /* prepare directories */
+  string working_base = res + "-" + crf + "-" + "mp4";
+  string ready_base = res + "-" + crf;
+  string src_dir = output_path / "working" / working_base;
+  string dst_dir = output_path / "ready" / ready_base;
+  string tmp_dir = output_path / "tmp" / ready_base;
+
+  for (const auto & dir : {src_dir, dst_dir, tmp_dir}) {
+    fs::create_directories(dir);
+  }
+
+  /* run_notifier calls video_fragmenter */
+  string video_fragmenter = wrappers_path / "video_fragmenter";
+
+  vector<string> args {
+    run_notifier, src_dir, "--check", dst_dir, video_fragmenter,
     dst_dir, "--tmp", tmp_dir };
   proc_manager.run_as_child(run_notifier, args);
 }
@@ -125,8 +174,14 @@ int main(int argc, char * argv[])
 
   ProcessManager proc_manager;
 
-  /* run canonicalizer */
-  run_canonicalizer(proc_manager);
+  /* run video_canonicalizer */
+  run_video_canonicalizer(proc_manager);
+
+  /* run video encoders and video fragmenters */
+  for (const auto & vformat : vformats) {
+    run_video_encoder(proc_manager, vformat);
+    run_video_fragmenter(proc_manager, vformat);
+  }
 
   proc_manager.wait();
 
