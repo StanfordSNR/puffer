@@ -3,7 +3,6 @@
 #include <string>
 #include <vector>
 
-#include "exception.hh"
 #include "system_runner.hh"
 #include "filesystem.hh"
 
@@ -12,17 +11,15 @@ using namespace std;
 void print_usage(const string & program)
 {
   cerr <<
-  "Usage: " << program << " <input_path> <output_dir> --tmp <tmp_dir> "
+  "Usage: " << program << " <input_path> <output_dir> [--tmp <tmp_dir>] "
   "-s <resolution> --crf <CRF>\n"
-  "Encode <input_path> and output to a temporary directory first;\n"
-  "then move the output video to <output_dir>\n\n"
-  "<input_path>    path to input canonical video\n"
-  "<output_dir>    target directory to output encoded video\n\n"
+  "Encode the video <input_path> and output to <output_dir>\n\n"
+  "<input_path>    path of the input canonical video\n"
+  "<output_dir>    target directory to output the encoded video\n\n"
   "Options:\n"
-  "--tmp <tmp_dir>    [optional] replace the default directory suitable for\n"
-  "                   temporary files with <tmp_dir>\n"
-  "-s <resolution>    [required] resolution (e.g., 1280x720)\n"
-  "--crf <CRF>        [required] constant rate factor"
+  "--tmp <tmp_dir>    replace the default temporary directory with <tmp_dir>\n"
+  "-s <resolution>    resolution (e.g., 1280x720)\n"
+  "--crf <CRF>        constant rate factor"
   << endl;
 }
 
@@ -76,6 +73,12 @@ int main(int argc, char * argv[])
     tmp_dir = fs::temp_directory_path();
   }
 
+  if (resolution.empty() or crf.empty()) {
+    print_usage(argv[0]);
+    cerr << "Error: -s <resolution> and --crf <CRF> are both required" << endl;
+    return EXIT_FAILURE;
+  }
+
   string input_filepath = argv[optind];
   string output_dir = argv[optind + 1];
 
@@ -91,7 +94,7 @@ int main(int argc, char * argv[])
   cerr << command_str(args, {}) << endl;
   run("ffmpeg", args, {}, true, true);
 
-  /* move output encoded video from tmp_dir to output_dir */
+  /* move the output encoded video from tmp_dir to output_dir */
   fs::rename(tmp_filepath, output_filepath);
 
   return EXIT_SUCCESS;

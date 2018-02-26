@@ -3,7 +3,6 @@
 #include <string>
 #include <vector>
 
-#include "exception.hh"
 #include "system_runner.hh"
 #include "filesystem.hh"
 
@@ -12,14 +11,12 @@ using namespace std;
 void print_usage(const string & program)
 {
   cerr <<
-  "Usage: " << program << " <input_path> <output_dir> --tmp <tmp_dir>\n"
-  "Canonicalize <input_path> and output to a temporary directory first;\n"
-  "then move the output video to <output_dir>\n\n"
-  "<input_path>    path to input raw video\n"
-  "<output_dir>    target directory to output canonical video\n\n"
+  "Usage: " << program << " <input_path> <output_dir> [--tmp <tmp_dir>]\n"
+  "Canonicalize the video <input_path> and output to <output_dir>\n\n"
+  "<input_path>    path of the input raw video\n"
+  "<output_dir>    target directory to output the canonical video\n\n"
   "Options:\n"
-  "--tmp <tmp_dir>    [optional] replace the default directory suitable for\n"
-  "                   temporary files with <tmp_dir>"
+  "--tmp <tmp_dir>    replace the default temporary directory with <tmp_dir>"
   << endl;
 }
 
@@ -77,10 +74,10 @@ int main(int argc, char * argv[])
   cerr << command_str(args, {}) << endl;
   run("ffmpeg", args, {}, true, true);
 
-  /* move output canonical video from tmp_dir to output_dir */
+  /* move the output canonical video from tmp_dir to output_dir */
   fs::rename(tmp_filepath, output_filepath);
 
-  /* remove input raw video */
+  /* remove the input raw video */
   fs::remove(input_filepath);
 
   return EXIT_SUCCESS;
