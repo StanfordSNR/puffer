@@ -3,7 +3,6 @@
 #include <string>
 #include <vector>
 
-#include "exception.hh"
 #include "system_runner.hh"
 #include "filesystem.hh"
 #include "path.hh"  /* readlink */
@@ -13,14 +12,12 @@ using namespace std;
 void print_usage(const string & program)
 {
   cerr <<
-  "Usage: " << program << " <input_path> <output_dir> --tmp <tmp_dir>\n"
-  "Fragment <input_path> and output to a temporary directory first;\n"
-  "then move the output video to <output_dir>\n\n"
-  "<input_path>    path to input encoded video\n"
-  "<output_dir>    target directory to output fragmented video\n\n"
+  "Usage: " << program << " <input_path> <output_dir> [--tmp <tmp_dir>]\n"
+  "Fragment the video <input_path> and output to <output_dir>\n\n"
+  "<input_path>    path of the input encoded video\n"
+  "<output_dir>    target directory to output the fragmented video\n\n"
   "Options:\n"
-  "--tmp <tmp_dir>    [optional] replace the default directory suitable for\n"
-  "                   temporary files with <tmp_dir>"
+  "--tmp <tmp_dir>    replace the default temporary directory with <tmp_dir>"
   << endl;
 }
 
@@ -68,26 +65,28 @@ int main(int argc, char * argv[])
   string output_dir = argv[optind + 1];
 
   /* paths of init segment and media segment */
-  string output_filename = fs::path(input_filepath).stem().string() + ".m4s";
-  string tmp_filepath = fs::path(tmp_dir) / output_filename;
-  string output_filepath = fs::path(output_dir) / output_filename;
+  string media_name = fs::path(input_filepath).stem().string() + ".m4s";
+  string media_tmp_path = fs::path(tmp_dir) / media_name;
+  string media_output_path = fs::path(output_dir) / media_name;
 
-  string tmp_initpath = fs::path(tmp_dir) / "init.mp4";
-  string output_initpath = fs::path(output_dir) / "init.mp4";
+  string init_name = "init.mp4";
+  string init_tmp_path = fs::path(tmp_dir) / init_name;
+  string init_output_path = fs::path(output_dir) / init_name;
 
-  /* path of mp4_fragment */
+  /* path of the mp4_fragment program; use roost::readlink because
+   * fs::read_symlink("/proc/self/exe") throws an error for unknown reason */
   auto exe_dir = fs::path(roost::readlink("/proc/self/exe")).parent_path();
   string mp4_fragment = fs::canonical(exe_dir / "../mp4/mp4_fragment");
 
   /* output init segment and media segment to tmp_dir first */
   vector<string> args = {
-    mp4_fragment, "-i", tmp_initpath, "-m", tmp_filepath, input_filepath };
+    mp4_fragment, "-i", init_tmp_path, "-m", media_tmp_path, input_filepath };
   cerr << command_str(args, {}) << endl;
   run(mp4_fragment, args, {}, true, true);
 
-  /* move output fragmented videos from tmp_dir to output_dir */
-  fs::rename(tmp_filepath, output_filepath);
-  fs::rename(tmp_initpath, output_initpath);
+  /* move the output fragmented videos from tmp_dir to output_dir */
+  fs::rename(media_tmp_path, media_output_path);
+  fs::rename(init_tmp_path, init_output_path);
 
   return EXIT_SUCCESS;
 }
