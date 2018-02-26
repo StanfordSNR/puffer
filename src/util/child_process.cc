@@ -12,10 +12,12 @@
 #include <unistd.h>
 
 #include "child_process.hh"
+#include "system_runner.hh"
 #include "exception.hh"
 #include "signalfd.hh"
 
 using namespace std;
+using namespace PollerShortNames;
 
 template <typename T> void zero( T & x ) { memset( &x, 0, sizeof( x ) ); }
 
@@ -183,4 +185,99 @@ void ChildProcess::throw_exception( void ) const
                             ? string("died on signal ")
                             : string("exited with failure status "))
                          + to_string( exit_status() ) );
+}
+
+ProcessManager::ProcessManager()
+  : child_processes_(),
+    poller_(),
+    signals_({ SIGCHLD, SIGCONT, SIGHUP, SIGINT, SIGQUIT, SIGTERM }),
+    signal_fd_(signals_)
+{
+  /* use signal_fd_ to read signals */
+  signals_.set_as_mask();
+
+  /* poller listens on signal_fd_ for signals */
+  poller_.add_action(
+    Poller::Action(signal_fd_.fd(), Direction::In,
+      [&]() {
+        return handle_signal(signal_fd_.read_signal());
+      }
+    )
+  );
+}
+
+void ProcessManager::run_as_child(const string & program,
+                                  const vector<string> & prog_args,
+                                  const vector<string> & env,
+                                  const bool use_environ,
+                                  const bool path_search)
+{
+  auto child = ChildProcess(program,
+    [&]() {
+      return ezexec(program, prog_args, env, use_environ, path_search);
+    }
+  );
+
+  pid_t child_pid = child.pid();
+  child_processes_.emplace(make_pair(child_pid, move(child)));
+}
+
+void ProcessManager::wait()
+{
+  /* poll forever */
+  for (;;) {
+    poller_.poll(-1);
+  }
+}
+
+Result ProcessManager::handle_signal(const signalfd_siginfo & sig)
+{
+  switch (sig.ssi_signo) {
+  case SIGCHLD:
+    if (child_processes_.empty()) {
+      throw runtime_error("received SIGCHLD without any managed children");
+    }
+
+    for (auto it = child_processes_.begin(); it != child_processes_.end();) {
+      ChildProcess & child = it->second;
+
+      if (not child.waitable()) {
+        ++it;
+      } else {
+        child.wait(true);
+
+        if (child.terminated()) {
+          if (child.exit_status() != 0) {
+            child.throw_exception();
+          }
+
+          it = child_processes_.erase(it);
+        } else {
+          if (not child.running()) {
+            /* suspend the parent too */
+            CheckSystemCall("raise", raise(SIGSTOP));
+          }
+
+          ++it;
+        }
+      }
+    }
+
+    break;
+  case SIGCONT:
+    for (auto & child : child_processes_) {
+      child.second.resume();
+    }
+
+    break;
+  case SIGHUP:
+  case SIGINT:
+  case SIGQUIT:
+  case SIGTERM:
+    throw runtime_error("interrupted by signal " + to_string(sig.ssi_signo));
+  default:
+    throw runtime_error("unknown signal " + to_string(sig.ssi_signo));
+  }
+
+  return ResultType::Continue;
 }
