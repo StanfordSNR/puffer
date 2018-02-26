@@ -4,9 +4,9 @@ test
 isrunning.sh
 isrunning-*.sh
 run_all
-canonicalizer
+video_canonicalizer
 video_encoder
-video_fragment
+video_fragmenter
 audio_encoder
-audio_fragment
+audio_fragmenter
 ssim_calculator

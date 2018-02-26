@@ -274,9 +274,11 @@ Result ProcessManager::handle_signal(const signalfd_siginfo & sig)
   case SIGINT:
   case SIGQUIT:
   case SIGTERM:
-    throw runtime_error("interrupted by signal " + to_string(sig.ssi_signo));
+    throw runtime_error("ProcessManager: interrupted by signal " +
+                        to_string(sig.ssi_signo));
   default:
-    throw runtime_error("unknown signal " + to_string(sig.ssi_signo));
+    throw runtime_error("ProcessManager: unknown signal " +
+                        to_string(sig.ssi_signo));
   }
 
   return ResultType::Continue;
