@@ -58,7 +58,7 @@ ChildProcess run_program(const string & program,
 {
   vector<string> args{program, src_file};
   args.insert(args.end(), prog_args.begin(), prog_args.end());
-  cerr << "$ " + command_str(args, {}) << endl;
+  cerr << "$ " + command_str(args, {}) + "\n";
 
   return ChildProcess( args[0],
     [=]()

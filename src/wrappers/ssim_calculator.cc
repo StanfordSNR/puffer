@@ -149,7 +149,7 @@ int main(int argc, char * argv[])
   vector<string> ffmpeg_args {
     "ffmpeg", "-nostdin", "-hide_banner", "-loglevel", "panic", "-y",
     "-i", input_filepath, "-vf", "scale=" + scale, scaled_y4m };
-  cerr << "$ " + command_str(ffmpeg_args, {}) << endl;
+  cerr << "$ " + command_str(ffmpeg_args, {}) + "\n";
   run("ffmpeg", ffmpeg_args, {}, true, true);
 
   /* get the max step size that still makes sure 5 frames per second
@@ -159,7 +159,7 @@ int main(int argc, char * argv[])
   /* run ssim program */
   vector<string> ssim_args {
     ssim, scaled_y4m, canonical_path, tmp_filepath, "-n", step_size };
-  cerr << "$ " + command_str(ssim_args, {}) << endl;
+  cerr << "$ " + command_str(ssim_args, {}) + "\n";
   run(ssim, ssim_args, {}, true, true);
 
   /* move the output SSIM from tmp_dir to output_dir */

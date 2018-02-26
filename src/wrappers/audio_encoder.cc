@@ -85,7 +85,7 @@ int main(int argc, char * argv[])
     "ffmpeg", "-nostdin", "-hide_banner", "-loglevel", "panic", "-y",
     "-i", input_filepath, "-c:a", "libopus", "-b:a", bitrate,
     "-cluster_time_limit", "5000", tmp_filepath };
-  cerr << "$ " + command_str(args, {}) << endl;
+  cerr << "$ " + command_str(args, {}) + "\n";
   run("ffmpeg", args, {}, true, true);
 
   /* move the output encoded audio from tmp_dir to output_dir */
