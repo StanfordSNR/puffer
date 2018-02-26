@@ -1,8 +1,8 @@
 input:
-output:
+output: test_output/
 video:
-  720p: [23, 25]
-  480p: [23, 25]
+  1920x1080: [23, 25]
+  1280x720: [23, 25]
 audio:
   - 64k
   - 32k
