@@ -4,3 +4,4 @@ test
 isrunning.sh
 isrunning-*.sh
 run_all
+canonicalizer
