@@ -144,6 +144,51 @@ void run_video_fragmenter(ProcessManager & proc_manager,
   proc_manager.run_as_child(run_notifier, args);
 }
 
+void run_audio_encoder(ProcessManager & proc_manager,
+                       const string & bitrate)
+{
+  /* prepare directories */
+  string base = bitrate + "-" + "webm";
+  string src_dir = output_path / "working/audio-raw";
+  string dst_dir = output_path / "working" / base;
+  string tmp_dir = output_path / "tmp" / base;
+
+  for (const auto & dir : {src_dir, dst_dir, tmp_dir}) {
+    fs::create_directories(dir);
+  }
+
+  /* run_notifier calls audio_encoder */
+  string audio_encoder = wrappers_path / "audio_encoder";
+
+  vector<string> args {
+    run_notifier, src_dir, "--check", dst_dir, audio_encoder,
+    dst_dir, "--tmp", tmp_dir, "-b", bitrate };
+  proc_manager.run_as_child(run_notifier, args);
+}
+
+void run_audio_fragmenter(ProcessManager & proc_manager,
+                          const string & bitrate)
+{
+  /* prepare directories */
+  string working_base = bitrate + "-" + "webm";
+  string ready_base = bitrate;
+  string src_dir = output_path / "working" / working_base;
+  string dst_dir = output_path / "ready" / ready_base;
+  string tmp_dir = output_path / "tmp" / ready_base;
+
+  for (const auto & dir : {src_dir, dst_dir, tmp_dir}) {
+    fs::create_directories(dir);
+  }
+
+  /* run_notifier calls audio_fragmenter */
+  string audio_fragmenter = wrappers_path / "audio_fragmenter";
+
+  vector<string> args {
+    run_notifier, src_dir, "--check", dst_dir, audio_fragmenter,
+    dst_dir, "--tmp", tmp_dir };
+  proc_manager.run_as_child(run_notifier, args);
+}
+
 int main(int argc, char * argv[])
 {
   if (argc < 1) {
@@ -181,6 +226,12 @@ int main(int argc, char * argv[])
   for (const auto & vformat : vformats) {
     run_video_encoder(proc_manager, vformat);
     run_video_fragmenter(proc_manager, vformat);
+  }
+
+  /* run audio encoders and audio fragmenters */
+  for (const auto & aformat : aformats) {
+    run_audio_encoder(proc_manager, aformat);
+    run_audio_fragmenter(proc_manager, aformat);
   }
 
   proc_manager.wait();
