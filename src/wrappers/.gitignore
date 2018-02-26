@@ -7,3 +7,4 @@ run_all
 canonicalizer
 video_encoder
 video_fragment
+audio_encoder
