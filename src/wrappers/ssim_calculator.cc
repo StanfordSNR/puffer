@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <cassert>
+#include <cmath>
 #include <iostream>
 #include <string>
 #include <vector>
@@ -10,6 +11,7 @@
 
 #include "system_runner.hh"
 #include "filesystem.hh"
+#include "path.hh"  /* readlink */
 
 using namespace std;
 
@@ -27,8 +29,8 @@ void print_usage(const string & program)
   << endl;
 }
 
-/* parse the first line of y4m_path and get frame width and height */
-tuple<string, string> get_width_height(const string & y4m_path)
+/* parse the first line of y4m_path and get width, height and frame rate */
+tuple<int, int, float> parse_y4m_header(const string & y4m_path)
 {
   FILE *fp = fopen(y4m_path.c_str(), "r");
   if (fp == NULL) {
@@ -46,25 +48,33 @@ tuple<string, string> get_width_height(const string & y4m_path)
   string line(line_ptr);
   free(line_ptr);
 
-  /* use regex to find " W<integer>" and " H<integer>" */
+  /* find " W<integer>", " H<integer>", " F<numerator:denominator>" */
   smatch matches;
-  string width, height;
+  int width, height;
+  float frame_rate;
 
   if (regex_search(line, matches, regex(" W(\\d+)\\s"))) {
     assert(matches.size() == 2);
-    width = matches[1].str();
+    width = stol(matches[1].str());
   } else {
     throw runtime_error(y4m_path + " : no frame width found");
   }
 
   if (regex_search(line, matches, regex(" H(\\d+)\\s"))) {
     assert(matches.size() == 2);
-    height = matches[1].str();
+    height = stol(matches[1].str());
   } else {
     throw runtime_error(y4m_path + " : no frame height found");
   }
 
-  return {width, height};
+  if (regex_search(line, matches, regex(" F(\\d+):(\\d+)\\s"))) {
+    assert(matches.size() == 3);
+    frame_rate = 1.0f * stol(matches[1].str()) / stol(matches[2].str());
+  } else {
+    throw runtime_error(y4m_path + " : no frame rate found");
+  }
+
+  return {width, height, frame_rate};
 }
 
 int main(int argc, char * argv[])
@@ -118,16 +128,45 @@ int main(int argc, char * argv[])
     return EXIT_FAILURE;
   }
 
-  /* get width and height of the canonical video */
-  auto [width, height] = get_width_height(canonical_path);
-  cerr << width << " " << height << endl;
-
   string input_filepath = argv[optind];
   string output_dir = argv[optind + 1];
 
-  string output_filename = fs::path(input_filepath).stem().string() + ".ssim";
+  string input_filestem = fs::path(input_filepath).stem().string();
+  string output_filename = input_filestem + ".ssim";
   string tmp_filepath = fs::path(tmp_dir) / output_filename;
   string output_filepath = fs::path(output_dir) / output_filename;
+
+  /* path of the ssim program */
+  auto exe_dir = fs::path(roost::readlink("/proc/self/exe")).parent_path();
+  string ssim = fs::canonical(exe_dir / "../ssim/ssim");
+
+  /* get width, height and frame rate of the canonical video */
+  auto [width, height, frame_rate] = parse_y4m_header(canonical_path);
+
+  /* scale input_filepath to a Y4M with the same resolution */
+  string scaled_y4m = fs::path(tmp_dir) / (input_filestem + "-scaled.y4m");
+  string scale = to_string(width) + ":" + to_string(height);
+  vector<string> ffmpeg_args {
+    "ffmpeg", "-nostdin", "-hide_banner", "-loglevel", "panic", "-y",
+    "-i", input_filepath, "-vf", "scale=" + scale, scaled_y4m };
+  cerr << command_str(ffmpeg_args, {}) << endl;
+  run("ffmpeg", ffmpeg_args, {}, true, true);
+
+  /* get the max step size that still makes sure 5 frames per second
+   * are used for SSIM calculation */
+  string step_size = to_string(static_cast<int>(floor(frame_rate / 5.0f)));
+
+  /* run ssim program */
+  vector<string> ssim_args {
+    ssim, scaled_y4m, canonical_path, tmp_filepath, "-n", step_size };
+  cerr << command_str(ssim_args, {}) << endl;
+  run(ssim, ssim_args, {}, true, true);
+
+  /* move the output SSIM from tmp_dir to output_dir */
+  fs::rename(tmp_filepath, output_filepath);
+
+  /* remove scaled_y4m */
+  fs::remove(scaled_y4m);
 
   return EXIT_SUCCESS;
 }
