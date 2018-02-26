@@ -71,7 +71,7 @@ int main(int argc, char * argv[])
   vector<string> args {
     "ffmpeg", "-nostdin", "-hide_banner", "-loglevel", "panic", "-y",
     "-i", input_filepath, "-vf", "bwdif", tmp_filepath };
-  cerr << command_str(args, {}) << endl;
+  cerr << "$ " << command_str(args, {}) << endl;
   run("ffmpeg", args, {}, true, true);
 
   /* move the output canonical video from tmp_dir to output_dir */

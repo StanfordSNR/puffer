@@ -268,8 +268,8 @@ Result ProcessManager::handle_signal(const signalfd_siginfo & sig)
     for (auto & child : child_processes_) {
       child.second.resume();
     }
-
     break;
+  case SIGABRT:
   case SIGHUP:
   case SIGINT:
   case SIGQUIT:
