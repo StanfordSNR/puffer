@@ -5,3 +5,4 @@ isrunning.sh
 isrunning-*.sh
 run_all
 canonicalizer
+video_encoder
