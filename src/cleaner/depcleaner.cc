@@ -13,11 +13,11 @@ using namespace std;
 void print_usage(const string & program_name)
 {
   cerr <<
-  "Usage: " << program_name << " <input_file> <clean_dir> <remove_ext> [depdir1 [depdir2 [depdir3] ...]]\n\n"
+  "Usage: " << program_name << " <input_file> <clean_dir> <remove_ext> [depdir1 depext1 [depdir2 depext2 [...]]\n\n"
   "<input_file>   input file from notifier\n"
   "<clean_dir>    directory to clean\n"
   "<remove_ext>   extension of the file to remove if all downstream dependencies exist\n"
-  "[depdir ... ]  directories containing dependent files"
+  "[depdir depext ... ]  directories containing dependent files and their extensions"
   << endl;
 }
 
@@ -44,17 +44,18 @@ int main(int argc, char * argv[])
   }
 
   string input_file_basename = get_file_basename(input_file);
+  string input_file_no_ext = split_filename(input_file_basename).first;
 
-  for (int i = 4; i < argc; i++) {
+  for (int i = 4; i < argc; i += 2) {
     string dependent_dir = argv[i];
-    string dependent_file = string(dependent_dir) + "/" + input_file_basename;
+    string dependent_ext = argv[i + 1];
+    string dependent_file = string(dependent_dir) + "/" + input_file_no_ext +
+                            '.' + dependent_ext;
     if (!fs::exists(dependent_file)) {
       /* one of the dependent files does not exist yet so we do nothing */
       return EXIT_SUCCESS;
     }
   }
-
-  string input_file_no_ext = split_filename(input_file_basename).first;
 
   /* all of the downstream files exist so we can remove the upstream files */
   string file_to_remove = clean_dir + "/" + input_file_no_ext + "." + remove_ext;
