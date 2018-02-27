@@ -61,7 +61,7 @@ ChildProcess run_program(const string & program,
   cerr << "$ " + command_str(args, {}) + "\n";
 
   return ChildProcess( args[0],
-    [=]()
+    [&]()
     {
       return ezexec( program, args, {}, true, true );
     }
@@ -99,7 +99,7 @@ private:
 
   void check_output(const ChildProcess & child);
 
-  Poller::Action::Result handle_signal(const signalfd_siginfo &);
+  Result handle_signal(const signalfd_siginfo &);
 };
 
 ParallelNotifier::ParallelNotifier(const string & src_dir,
@@ -108,7 +108,7 @@ ParallelNotifier::ParallelNotifier(const string & src_dir,
                                    const vector<string> & prog_args)
   : src_dir_(src_dir), dst_dir_opt_(dst_dir_opt),
     program_(program), prog_args_(prog_args),
-    signals_({ SIGCHLD, SIGABRT, SIGCONT, SIGHUP, SIGTERM, SIGQUIT, SIGINT }),
+    signals_({ SIGCHLD, SIGABRT, SIGHUP, SIGINT, SIGQUIT, SIGTERM }),
     signal_fd_(signals_),
     poller_(), notifier_(poller_),
     child_processes_(), src_files_()
@@ -141,7 +141,9 @@ ParallelNotifier::ParallelNotifier(const string & src_dir,
   poller_.add_action(
     Poller::Action{
       signal_fd_.fd(), Direction::In,
-      [&]() { return handle_signal(signal_fd_.read_signal()); }
+      [&]() {
+        return handle_signal(signal_fd_.read_signal());
+      }
     }
   );
 }
@@ -218,15 +220,9 @@ void ParallelNotifier::check_output(const ChildProcess & child)
   }
 }
 
-Poller::Action::Result ParallelNotifier::handle_signal(const signalfd_siginfo & sig)
+Result ParallelNotifier::handle_signal(const signalfd_siginfo & sig)
 {
   switch (sig.ssi_signo) {
-  case SIGCONT:
-    for (auto & child : child_processes_) {
-      child.second.resume();
-    }
-    break;
-
   case SIGCHLD:
     if (child_processes_.empty()) {
       throw runtime_error("received SIGCHLD without any managed children");
@@ -253,8 +249,7 @@ Poller::Action::Result ParallelNotifier::handle_signal(const signalfd_siginfo & 
           it = child_processes_.erase(it);
         } else {
           if (not child.running()) {
-            /* suspend parent too */
-            CheckSystemCall("raise", raise(SIGSTOP));
+            child.throw_exception();
           }
           it++;
         }
@@ -265,9 +260,9 @@ Poller::Action::Result ParallelNotifier::handle_signal(const signalfd_siginfo & 
 
   case SIGABRT:
   case SIGHUP:
-  case SIGTERM:
-  case SIGQUIT:
   case SIGINT:
+  case SIGQUIT:
+  case SIGTERM:
     throw runtime_error("ParallelNotifier: interrupted by signal " +
                         to_string(sig.ssi_signo));
 

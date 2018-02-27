@@ -190,7 +190,7 @@ void ChildProcess::throw_exception( void ) const
 ProcessManager::ProcessManager()
   : child_processes_(),
     poller_(),
-    signals_({ SIGCHLD, SIGCONT, SIGHUP, SIGINT, SIGQUIT, SIGTERM }),
+    signals_({ SIGCHLD, SIGABRT, SIGHUP, SIGINT, SIGQUIT, SIGTERM }),
     signal_fd_(signals_)
 {
   /* use signal_fd_ to read signals */
@@ -254,8 +254,7 @@ Result ProcessManager::handle_signal(const signalfd_siginfo & sig)
           it = child_processes_.erase(it);
         } else {
           if (not child.running()) {
-            /* suspend the parent too */
-            CheckSystemCall("raise", raise(SIGSTOP));
+            child.throw_exception();
           }
 
           ++it;
@@ -263,11 +262,6 @@ Result ProcessManager::handle_signal(const signalfd_siginfo & sig)
       }
     }
 
-    break;
-  case SIGCONT:
-    for (auto & child : child_processes_) {
-      child.second.resume();
-    }
     break;
   case SIGABRT:
   case SIGHUP:
