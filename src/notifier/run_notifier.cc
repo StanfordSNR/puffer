@@ -238,7 +238,9 @@ Result ParallelNotifier::handle_signal(const signalfd_siginfo & sig)
 
         if (child.terminated()) {
           if (child.exit_status() != 0) {
-            child.throw_exception();
+            child_processes_.clear();
+            throw runtime_error("ParallelNotifier: PID " + to_string(it->first)
+                                + " exits abnormally");
           }
 
           /* Verify that the correct output has been written */
@@ -249,7 +251,9 @@ Result ParallelNotifier::handle_signal(const signalfd_siginfo & sig)
           it = child_processes_.erase(it);
         } else {
           if (not child.running()) {
-            child.throw_exception();
+            child_processes_.clear();
+            throw runtime_error("ParallelNotifier: PID " + to_string(it->first)
+                                + " is not running");
           }
           it++;
         }
@@ -263,10 +267,12 @@ Result ParallelNotifier::handle_signal(const signalfd_siginfo & sig)
   case SIGINT:
   case SIGQUIT:
   case SIGTERM:
+    child_processes_.clear();
     throw runtime_error("ParallelNotifier: interrupted by signal " +
                         to_string(sig.ssi_signo));
 
   default:
+    child_processes_.clear();
     throw runtime_error("ParallelNotifier: unknown signal " +
                         to_string(sig.ssi_signo));
   }
