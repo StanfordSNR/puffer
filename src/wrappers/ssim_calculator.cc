@@ -19,13 +19,13 @@ void print_usage(const string & program)
 {
   cerr <<
   "Usage: " << program << " <input_path> <output_dir> [--tmp <tmp_dir>] "
-  "--canonical <path>\n"
+  "--canonical <dir>\n"
   "Calculate SSIM between video <input_path> and canonical video <path>\n\n"
   "<input_path>    path of the input encoded video\n"
   "<output_dir>    target directory to output the SSIM\n\n"
   "Options:\n"
-  "--tmp <tmp_dir>       replace default temporary directory with <tmp_dir>\n"
-  "--canonical <path>    path of the canonical video in Y4M"
+  "--tmp <tmp_dir>      replace default temporary directory with <tmp_dir>\n"
+  "--canonical <dir>    directory of the canonical video in Y4M"
   << endl;
 }
 
@@ -85,12 +85,12 @@ int main(int argc, char * argv[])
   }
 
   string tmp_dir;
-  string canonical_path;
+  string canonical_dir;
 
   const option cmd_line_opts[] = {
-    {"tmp",            required_argument, nullptr, 't'},
-    {"canonical_path", required_argument, nullptr, 'c'},
-    { nullptr,         0,                 nullptr,  0 }
+    {"tmp",         required_argument, nullptr, 't'},
+    {"canonical",   required_argument, nullptr, 'c'},
+    { nullptr,      0,                 nullptr,  0 }
   };
 
   while (true) {
@@ -104,7 +104,7 @@ int main(int argc, char * argv[])
       tmp_dir = optarg;
       break;
     case 'c':
-      canonical_path = optarg;
+      canonical_dir = optarg;
       break;
     default:
       print_usage(argv[0]);
@@ -122,9 +122,9 @@ int main(int argc, char * argv[])
     tmp_dir = fs::temp_directory_path();
   }
 
-  if (canonical_path.empty()) {
+  if (canonical_dir.empty()) {
     print_usage(argv[0]);
-    cerr << "Error: --canonical <path> is required" << endl;
+    cerr << "Error: --canonical <dir> is required" << endl;
     return EXIT_FAILURE;
   }
 
@@ -141,10 +141,11 @@ int main(int argc, char * argv[])
   string ssim = fs::canonical(exe_dir / "../ssim/ssim");
 
   /* get width, height and frame rate of the canonical video */
+  string canonical_path = fs::path(canonical_dir) / (input_filestem + ".y4m");
   auto [width, height, frame_rate] = parse_y4m_header(canonical_path);
 
   /* scale input_filepath to a Y4M with the same resolution */
-  string scaled_y4m = fs::path(tmp_dir) / (input_filestem + "-scaled.y4m");
+  string scaled_y4m = fs::path(tmp_dir) / (input_filestem + ".y4m");
   string scale = to_string(width) + ":" + to_string(height);
   vector<string> ffmpeg_args {
     "ffmpeg", "-nostdin", "-hide_banner", "-loglevel", "panic", "-y",

@@ -144,6 +144,32 @@ void run_video_fragmenter(ProcessManager & proc_manager,
   proc_manager.run_as_child(run_notifier, args);
 }
 
+void run_ssim_calculator(ProcessManager & proc_manager,
+                         const tuple<string, string> & vformat)
+{
+  const auto & [res, crf] = vformat;
+
+  /* prepare directories */
+  string working_base = res + "-" + crf + "-" + "mp4";
+  string ready_base = res + "-" + crf + "-" + "ssim";
+  string src_dir = output_path / "working" / working_base;
+  string dst_dir = output_path / "ready" / ready_base;
+  string tmp_dir = output_path / "tmp" / ready_base;
+  string canonical_dir = output_path / "working/video-canonical";
+
+  for (const auto & dir : {src_dir, dst_dir, tmp_dir, canonical_dir}) {
+    fs::create_directories(dir);
+  }
+
+  /* run_notifier calls ssim_calculator */
+  string ssim_calculator = wrappers_path / "ssim_calculator";
+
+  vector<string> args {
+    run_notifier, src_dir, "--check", dst_dir, ssim_calculator,
+    dst_dir, "--tmp", tmp_dir, "--canonical", canonical_dir };
+  proc_manager.run_as_child(run_notifier, args);
+}
+
 void run_audio_encoder(ProcessManager & proc_manager,
                        const string & bitrate)
 {
@@ -222,14 +248,17 @@ int main(int argc, char * argv[])
   /* run video_canonicalizer */
   run_video_canonicalizer(proc_manager);
 
-  /* run video encoders and video fragmenters */
   for (const auto & vformat : vformats) {
+    /* run video encoder and video fragmenter */
     run_video_encoder(proc_manager, vformat);
     run_video_fragmenter(proc_manager, vformat);
+
+    /* run ssim_calculator */
+    run_ssim_calculator(proc_manager, vformat);
   }
 
-  /* run audio encoders and audio fragmenters */
   for (const auto & aformat : aformats) {
+    /* run audio encoder and audio fragmenter */
     run_audio_encoder(proc_manager, aformat);
     run_audio_fragmenter(proc_manager, aformat);
   }
