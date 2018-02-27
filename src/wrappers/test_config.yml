@@ -1,8 +1,9 @@
 input:
 output: test_output/
+overwrite_output: true
 video:
-  1920x1080: [23, 25]
-  1280x720: [23, 25]
+  1280x720: [23]
+  640x360: [25]
 audio:
   - 64k
   - 32k

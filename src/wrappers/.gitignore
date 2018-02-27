@@ -1,8 +1,3 @@
-killall.sh
-killall-*.sh
-test
-isrunning.sh
-isrunning-*.sh
 run_all
 video_canonicalizer
 video_encoder
