@@ -1,7 +1,7 @@
 all-local:
 	cp -dR --no-preserve=mode --preserve=timestamps --no-target-directory --update --reflink=auto $(abs_srcdir)/daala_tools.fork ./daala_tools && cd daala_tools && $(MAKE) $(AM_MAKEFLAGS)
-	mkdir -p ./libwebm && cd ./libwebm && cmake -DENABLE_WEBMTS:BOOL=OFF -DENABLE_WEBMINFO:BOOL=OFF $(abs_srcdir)/libwebm.fork && $(MAKE) $(AM_MAKEFLAGS)
-	mkdir -p ./yaml-cpp && cd ./yaml-cpp && cmake $(abs_srcdir)/yaml-cpp.upstream && $(MAKE) $(AM_MAKEFLAGS)
+	mkdir -p ./libwebm && cd ./libwebm && cmake -DENABLE_WEBMTS=OFF -DENABLE_WEBMINFO=OFF $(abs_srcdir)/libwebm.fork && $(MAKE) $(AM_MAKEFLAGS)
+	mkdir -p ./yaml-cpp && cd ./yaml-cpp && cmake -DYAML_CPP_BUILD_TESTS=OFF -DYAML_CPP_BUILD_TOOLS=OFF -DYAML_CPP_BUILD_CONTRIB=OFF $(abs_srcdir)/yaml-cpp.upstream && $(MAKE) $(AM_MAKEFLAGS)
 
 check-local:
 
