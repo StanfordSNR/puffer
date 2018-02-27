@@ -1,17 +1,13 @@
 #include <getopt.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <cassert>
 #include <cmath>
 #include <iostream>
 #include <string>
 #include <vector>
-#include <tuple>
-#include <regex>
 
 #include "system_runner.hh"
 #include "filesystem.hh"
 #include "path.hh"  /* readlink */
+#include "y4m.hh"
 
 using namespace std;
 
@@ -27,54 +23,6 @@ void print_usage(const string & program)
   "--tmp <tmp_dir>      replace default temporary directory with <tmp_dir>\n"
   "--canonical <dir>    directory of the canonical video in Y4M"
   << endl;
-}
-
-/* parse the first line of y4m_path and get width, height and frame rate */
-tuple<int, int, float> parse_y4m_header(const string & y4m_path)
-{
-  FILE *fp = fopen(y4m_path.c_str(), "r");
-  if (fp == NULL) {
-    throw runtime_error("fopen failed to open " + y4m_path);
-  }
-
-  /* only the first line is needed so getline() is more efficient */
-  char * line_ptr = NULL;
-  size_t len = 0;
-  if (getline(&line_ptr, &len, fp) == -1) {
-    free(line_ptr);
-    throw runtime_error("getline failed to read a line from " + y4m_path);
-  }
-
-  string line(line_ptr);
-  free(line_ptr);
-
-  /* find " W<integer>", " H<integer>", " F<numerator:denominator>" */
-  smatch matches;
-  int width, height;
-  float frame_rate;
-
-  if (regex_search(line, matches, regex(" W(\\d+)\\s"))) {
-    assert(matches.size() == 2);
-    width = stol(matches[1].str());
-  } else {
-    throw runtime_error(y4m_path + " : no frame width found");
-  }
-
-  if (regex_search(line, matches, regex(" H(\\d+)\\s"))) {
-    assert(matches.size() == 2);
-    height = stol(matches[1].str());
-  } else {
-    throw runtime_error(y4m_path + " : no frame height found");
-  }
-
-  if (regex_search(line, matches, regex(" F(\\d+):(\\d+)\\s"))) {
-    assert(matches.size() == 3);
-    frame_rate = 1.0f * stol(matches[1].str()) / stol(matches[2].str());
-  } else {
-    throw runtime_error(y4m_path + " : no frame rate found");
-  }
-
-  return {width, height, frame_rate};
 }
 
 int main(int argc, char * argv[])
@@ -142,7 +90,11 @@ int main(int argc, char * argv[])
 
   /* get width, height and frame rate of the canonical video */
   string canonical_path = fs::path(canonical_dir) / (input_filestem + ".y4m");
-  auto [width, height, frame_rate] = parse_y4m_header(canonical_path);
+
+  Y4MParser y4m_parser(canonical_path);
+  int width = y4m_parser.get_frame_width();
+  int height = y4m_parser.get_frame_height();
+  float frame_rate = y4m_parser.get_frame_rate_float();
 
   /* scale input_filepath to a Y4M with the same resolution */
   string scaled_y4m = fs::path(tmp_dir) / (input_filestem + ".y4m");
@@ -163,11 +115,11 @@ int main(int argc, char * argv[])
   cerr << "$ " + command_str(ssim_args, {}) + "\n";
   run(ssim, ssim_args, {}, true, true);
 
-  /* move the output SSIM from tmp_dir to output_dir */
-  fs::rename(tmp_filepath, output_filepath);
-
   /* remove scaled_y4m */
   fs::remove(scaled_y4m);
+
+  /* move the output SSIM from tmp_dir to output_dir */
+  fs::rename(tmp_filepath, output_filepath);
 
   return EXIT_SUCCESS;
 }

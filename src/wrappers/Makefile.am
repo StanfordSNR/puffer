@@ -9,7 +9,7 @@ run_all_SOURCES = run_all.cc
 run_all_LDADD = ../util/libutil.a \
 	../../third_party/yaml-cpp/libyaml-cpp.a -lstdc++fs
 
-video_canonicalizer_SOURCES = video_canonicalizer.cc
+video_canonicalizer_SOURCES = video_canonicalizer.cc y4m.hh y4m.cc
 video_canonicalizer_LDADD = ../util/libutil.a -lstdc++fs
 
 video_encoder_SOURCES = video_encoder.cc
@@ -24,5 +24,5 @@ audio_encoder_LDADD = ../util/libutil.a -lstdc++fs
 audio_fragmenter_SOURCES = audio_fragmenter.cc
 audio_fragmenter_LDADD = ../util/libutil.a -lstdc++fs
 
-ssim_calculator_SOURCES = ssim_calculator.cc
+ssim_calculator_SOURCES = ssim_calculator.cc y4m.hh y4m.cc
 ssim_calculator_LDADD = ../util/libutil.a -lstdc++fs

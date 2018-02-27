@@ -5,6 +5,7 @@
 
 #include "system_runner.hh"
 #include "filesystem.hh"
+#include "y4m.hh"
 
 using namespace std;
 
@@ -67,18 +68,30 @@ int main(int argc, char * argv[])
   string tmp_filepath = fs::path(tmp_dir) / output_filename;
   string output_filepath = fs::path(output_dir) / output_filename;
 
+  /* parse header of the input Y4M */
+  Y4MParser y4m_parser(input_filepath);
+
   /* canonicalize video and output to tmp_dir first */
   vector<string> args {
     "ffmpeg", "-nostdin", "-hide_banner", "-loglevel", "panic", "-y",
-    "-i", input_filepath, "-vf", "bwdif", tmp_filepath };
+    "-i", input_filepath };
+
+  /* deinterlace only if Y4M is interlaced */
+  if (y4m_parser.is_interlaced()) {
+    args.emplace_back("-vf");
+    args.emplace_back("bwdif");
+  }
+
+  args.emplace_back(tmp_filepath);
+
   cerr << "$ " + command_str(args, {}) + "\n";
   run("ffmpeg", args, {}, true, true);
 
-  /* move the output canonical video from tmp_dir to output_dir */
-  fs::rename(tmp_filepath, output_filepath);
-
   /* remove the input raw video */
   fs::remove(input_filepath);
+
+  /* move the output canonical video from tmp_dir to output_dir */
+  fs::rename(tmp_filepath, output_filepath);
 
   return EXIT_SUCCESS;
 }
