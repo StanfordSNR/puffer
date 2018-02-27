@@ -1,0 +1,63 @@
+#!/usr/bin/python3
+
+import os
+from os import path
+from test_helpers import check_call
+
+
+NUM_TEST_FILES = 100
+CLEAN_TIMEWINDOW_IN_FILES = 9
+FILE_TIMESCALE = 1000
+
+
+def main():
+    abs_srcdir = os.environ['abs_srcdir']
+
+    abs_builddir = os.environ['abs_builddir']
+    test_tmpdir = path.join(abs_builddir, 'test_tmpdir')
+
+    windowcleaner_testdir = path.join(test_tmpdir, 'windowcleaner_testdir')
+
+    check_call(['rm', '-rf', windowcleaner_testdir])
+    check_call(['mkdir', '-p', windowcleaner_testdir])
+
+    file_to_keep = path.join(windowcleaner_testdir, 'init.mp4')
+    check_call(['touch', file_to_keep])
+
+    for i in range(NUM_TEST_FILES):
+        file_to_clean = path.join(windowcleaner_testdir,
+                                  '{}.m4s'.format(i * FILE_TIMESCALE))
+        check_call(['touch', file_to_clean])
+
+    windowcleaner = path.abspath(
+        path.join(abs_builddir, os.pardir, 'cleaner', 'windowcleaner'))
+
+    for i in range(NUM_TEST_FILES):
+        trigger_file = path.join(windowcleaner_testdir,
+                                 '{}.m4s'.format(i * FILE_TIMESCALE))
+
+        cmd = [windowcleaner, trigger_file, 'm4s',
+               str(CLEAN_TIMEWINDOW_IN_FILES * FILE_TIMESCALE)]
+        check_call(cmd)
+
+        # check cleaning behavior
+        if not path.isfile(file_to_keep):
+            print(file_to_keep, 'was removed')
+            exit(1)
+        for j in range(NUM_TEST_FILES):
+            test_file = path.join(windowcleaner_testdir,
+                                  '{}.m4s'.format(j * FILE_TIMESCALE))
+            if i - j > CLEAN_TIMEWINDOW_IN_FILES:
+                if path.isfile(test_file):
+                    # file should be cleaned up
+                    print(test_file, 'was not removed')
+                    exit(1)
+            else:
+                if not path.isfile(test_file):
+                    # file should not be cleaned up yet
+                    print(test_file, 'was removed too early')
+                    exit(1)
+
+
+if __name__ == '__main__':
+    main()
