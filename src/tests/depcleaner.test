@@ -1,0 +1,57 @@
+#!/usr/bin/python3
+
+import os
+from os import path
+from test_helpers import check_call, check_output
+
+
+NUM_DEPENDNENT_DIRS = 20
+
+
+def main():
+    abs_srcdir = os.environ['abs_srcdir']
+
+    abs_builddir = os.environ['abs_builddir']
+    test_tmpdir = path.join(abs_builddir, 'test_tmpdir')
+
+    depcleaner_testdir = path.join(test_tmpdir, 'depcleaner_testdir')
+
+    check_call(['rm', '-rf', depcleaner_testdir])
+    check_call(['mkdir', '-p', depcleaner_testdir])
+
+    upstream_dir = path.join(depcleaner_testdir, 'upstream')
+    upstream_file = os.path.join(upstream_dir, 'TESTFILE.y4m')
+    check_call(['mkdir', '-p', upstream_dir])
+    check_call(['touch', upstream_file])
+
+    downstream_dirs = [
+        path.join(depcleaner_testdir, 'downstream-{}'.format(i)) for i in range(NUM_DEPENDNENT_DIRS)
+    ]
+    for downstream_dir in downstream_dirs:
+        check_call(['mkdir', '-p', downstream_dir])
+
+    depcleaner = path.abspath(
+        path.join(abs_builddir, os.pardir, 'cleaner', 'depcleaner'))
+
+    for i, downstream_dir in enumerate(downstream_dirs):
+        downstream_file = os.path.join(downstream_dir, 'TESTFILE.mp4')
+        check_call(['touch', downstream_file])
+
+        cmd = [depcleaner, downstream_file, upstream_dir, 'y4m']
+        cmd.extend(downstream_dirs)
+        print(check_output(cmd))
+
+        if i == NUM_DEPENDNENT_DIRS - 1:
+            # should delete upstream file
+            if path.isfile(upstream_file):
+                print('upstream file was not removed')
+                exit(1)
+        else:
+            # should not delete upstream file
+            if not path.isfile(upstream_file):
+                print('upstream file was removed too early')
+                exit(1)
+
+
+if __name__ == '__main__':
+    main()
