@@ -86,7 +86,7 @@ void run_video_canonicalizer(ProcessManager & proc_manager)
     fs::create_directories(dir);
   }
 
-  /* run_notifier calls video_canonicalizer */
+  /* run_notifier runs video_canonicalizer */
   string video_canonicalizer = wrappers_path / "video_canonicalizer";
 
   vector<string> args {
@@ -110,7 +110,7 @@ void run_video_encoder(ProcessManager & proc_manager,
     fs::create_directories(dir);
   }
 
-  /* run_notifier calls video_encoder */
+  /* run_notifier runs video_encoder */
   string video_encoder = wrappers_path / "video_encoder";
 
   vector<string> args {
@@ -135,7 +135,7 @@ void run_video_fragmenter(ProcessManager & proc_manager,
     fs::create_directories(dir);
   }
 
-  /* run_notifier calls video_fragmenter */
+  /* run_notifier runs video_fragmenter */
   string video_fragmenter = wrappers_path / "video_fragmenter";
 
   vector<string> args {
@@ -161,7 +161,7 @@ void run_ssim_calculator(ProcessManager & proc_manager,
     fs::create_directories(dir);
   }
 
-  /* run_notifier calls ssim_calculator */
+  /* run_notifier runs ssim_calculator */
   string ssim_calculator = wrappers_path / "ssim_calculator";
 
   vector<string> args {
@@ -183,7 +183,7 @@ void run_audio_encoder(ProcessManager & proc_manager,
     fs::create_directories(dir);
   }
 
-  /* run_notifier calls audio_encoder */
+  /* run_notifier runs audio_encoder */
   string audio_encoder = wrappers_path / "audio_encoder";
 
   vector<string> args {
@@ -206,13 +206,18 @@ void run_audio_fragmenter(ProcessManager & proc_manager,
     fs::create_directories(dir);
   }
 
-  /* run_notifier calls audio_fragmenter */
+  /* run_notifier runs audio_fragmenter */
   string audio_fragmenter = wrappers_path / "audio_fragmenter";
 
   vector<string> args {
     run_notifier, src_dir, "--check", dst_dir, audio_fragmenter,
     dst_dir, "--tmp", tmp_dir };
   proc_manager.run_as_child(run_notifier, args);
+}
+
+void run_decoder(ProcessManager &, const YAML::Node &)
+{
+  /* TODO */
 }
 
 int main(int argc, char * argv[])
@@ -232,11 +237,18 @@ int main(int argc, char * argv[])
   get_audio_formats(config);
 
   string output_dir = config["output"].as<string>();
-  /* create output_dir if it does not already exist */
+
   if (fs::exists(output_dir)) {
-    throw runtime_error(output_dir + " already exists");
+    /* clean up output_dir if overwrite_output is true */
+    if (config["overwrite_output"] and config["overwrite_output"].as<bool>()) {
+      fs::remove_all(output_dir);
+    } else {
+      throw runtime_error(output_dir + " already exists");
+    }
   }
+
   output_path = fs::path(output_dir);
+  fs::create_directory(output_path);
 
   /* get the path of wrappers directory and run_notifier */
   wrappers_path = fs::canonical(fs::path(
@@ -262,6 +274,9 @@ int main(int argc, char * argv[])
     run_audio_encoder(proc_manager, aformat);
     run_audio_fragmenter(proc_manager, aformat);
   }
+
+  /* run decoder at last since it will trigger the entire system */
+  run_decoder(proc_manager, config);
 
   proc_manager.wait();
 
