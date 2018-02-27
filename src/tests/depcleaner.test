@@ -33,12 +33,16 @@ def main():
     depcleaner = path.abspath(
         path.join(abs_builddir, os.pardir, 'cleaner', 'depcleaner'))
 
+    downstream_dir_args = []
+    for i, d in enumerate(downstream_dirs):
+        downstream_dir_args.extend([d, 'ext{}'.format(i)])
+
     for i, downstream_dir in enumerate(downstream_dirs):
-        downstream_file = os.path.join(downstream_dir, 'TESTFILE.mp4')
+        downstream_file = os.path.join(downstream_dir, 'TESTFILE.ext{}'.format(i))
         check_call(['touch', downstream_file])
 
         cmd = [depcleaner, downstream_file, upstream_dir, 'y4m']
-        cmd.extend(downstream_dirs)
+        cmd.extend(downstream_dir_args)
         print(check_output(cmd))
 
         if i == NUM_DEPENDNENT_DIRS - 1:
