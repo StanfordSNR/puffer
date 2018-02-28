@@ -25,12 +25,12 @@ def main():
 
     # run a notifier that will call the "bad" program
     bad_prog = path.join(abs_srcdir, 'notified_bad_prog.sh')
-    cmd = [run_notifier, notifier_srcdir, '--check', notifier_dstdir, bad_prog,
-           notifier_dstdir]
+    cmd = [run_notifier, notifier_srcdir, 'file', '--check', notifier_dstdir,
+           'file', bad_prog]
     notifier_proc = Popen(cmd)
 
     # create and move a tmp file; expect it not to be processed (copied)
-    tmp_filename = create_tmp_and_move_to(notifier_srcdir)
+    tmp_filename = create_tmp_and_move_to(notifier_srcdir, 'file')
 
     # the Notifier process should exit with error
     if notifier_proc:
