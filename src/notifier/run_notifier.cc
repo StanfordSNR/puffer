@@ -24,13 +24,15 @@ using namespace PollerShortNames;
 void print_usage(const string & program_name)
 {
   cerr <<
-  "Usage: " << program_name << " <src_dir> [--check <dst_dir>] <program> [prog args]\n\n"
-  "<src_dir>            source directory\n"
-  "[--check <dst_dir>]  check that an output file was created in the directory\n"
-  "<program>            program to run after a new file <src_filename>\n"
-  "                     is moved into <src_dir>. The program must take\n"
-  "                     at least one arg: <src_filename>.\n"
-  "[prog args]          other args to pass to the program"
+  "Usage: " << program_name << " <src_dir> <src_ext> [--check <dst_dir> <dst_ext>] <program> [prog args]\n\n"
+  "<src_dir>                      source directory\n"
+  "<src_ext>                      extension of files in source directory\n"
+  "[--check <dst_dir> <dst_ext>]  check that an output file was created in the directory\n"
+  "<program>                      program to run after a new file <src_filename>\n"
+  "                               is moved into <src_dir>. The program must take\n"
+  "                               at least twos arg: <src_filename> and <dst_filename>.\n"
+  "                               If not <dst_dir> is specified, then <dst_filename> will be /dev/null\n"
+  "[prog args]                    other args to pass to the program"
   << endl;
 }
 
@@ -54,9 +56,10 @@ vector<string> get_file_listing(const string & dst_dir)
 
 ChildProcess run_program(const string & program,
                          const string & src_file,
+                         const optional<string> & dst_file_opt,
                          const vector<string> & prog_args)
 {
-  vector<string> args{program, src_file};
+  vector<string> args{program, src_file, dst_file_opt.value_or("/dev/null")};
   args.insert(args.end(), prog_args.begin(), prog_args.end());
   cerr << "$ " + command_str(args, {}) + "\n";
 
@@ -72,7 +75,9 @@ class ParallelNotifier
 {
 public:
   ParallelNotifier(const string & src_dir,
+                   const string & src_ext,
                    const optional<string> & dst_dir_opt,
+                   const optional<string> & dst_ext_opt,
                    const string & program,
                    const vector<string> & prog_args);
 
@@ -82,7 +87,9 @@ public:
 
 private:
   string src_dir_;
+  string src_ext_;
   optional<string> dst_dir_opt_;
+  optional<string> dst_ext_opt_;
   string program_;
   vector<string> prog_args_;
 
@@ -93,25 +100,50 @@ private:
   Notifier notifier_;
 
   unordered_map<pid_t, ChildProcess> child_processes_;
-  unordered_map<pid_t, string> src_files_;
+  unordered_map<pid_t, string> src_file_prefixes_;
 
-  void add_child(ChildProcess & child, const string & src_file);
+  void add_child(ChildProcess & child, const string & src_file_prefix);
 
-  void check_output(const ChildProcess & child);
+  void check_and_move_output(const ChildProcess & child);
+
+  optional<string> get_dst_file(const string & src_file_prefix);
+
+  optional<string> get_tmp_dst_file(const string & src_file_prefix);
 
   Result handle_signal(const signalfd_siginfo &);
 };
 
+optional<string> ParallelNotifier::get_tmp_dst_file(const string & src_file_prefix) {
+  optional<string> tmp_dst_file;
+  if (dst_dir_opt_.has_value()) {
+    tmp_dst_file = (fs::path(dst_dir_opt_.value()) / fs::path(src_file_prefix + ".tmp")).string();
+  }
+  return tmp_dst_file;
+}
+
+optional<string> ParallelNotifier::get_dst_file(const string & src_file_prefix) {
+  optional<string> dst_file;
+  if (dst_dir_opt_.has_value()) {
+    assert( dst_ext_opt_.has_value() );
+    dst_file = (fs::path(dst_dir_opt_.value()) /
+                fs::path(src_file_prefix + "." + dst_ext_opt_.value())).string();
+  }
+  return dst_file;
+}
+
 ParallelNotifier::ParallelNotifier(const string & src_dir,
+                                   const string & src_ext,
                                    const optional<string> & dst_dir_opt,
+                                   const optional<string> & dst_ext_opt,
                                    const string & program,
                                    const vector<string> & prog_args)
-  : src_dir_(src_dir), dst_dir_opt_(dst_dir_opt),
+  : src_dir_(src_dir), src_ext_(src_ext),
+    dst_dir_opt_(dst_dir_opt), dst_ext_opt_(dst_ext_opt),
     program_(program), prog_args_(prog_args),
     signals_({ SIGCHLD, SIGABRT, SIGHUP, SIGINT, SIGQUIT, SIGTERM }),
     signal_fd_(signals_),
     poller_(), notifier_(poller_),
-    child_processes_(), src_files_()
+    child_processes_(), src_file_prefixes_()
 {
   notifier_.add_watch(src_dir_, IN_MOVED_TO,
     [&](const inotify_event & event, const string & path) {
@@ -131,9 +163,21 @@ ParallelNotifier::ParallelNotifier(const string & src_dir,
         throw runtime_error("returned event should contain a new filename");
       }
 
-      string src_file = (fs::path(src_dir_) / fs::path(event.name)).string();
-      auto child_process = run_program(program_, src_file, prog_args_);
-      add_child(child_process, src_file);
+      string src_basename = event.name;
+      auto src_split = split_filename(src_basename);
+      string src_file_prefix = src_split.first;
+
+      /* Ignore files that do not match source ext */
+      if (src_split.second != src_ext_) {
+        return;
+      }
+
+      string src_file = (fs::path(src_dir_) / fs::path(src_basename)).string();
+
+      optional<string> tmp_dst_file_opt = get_tmp_dst_file(src_file_prefix);
+      auto child_process = run_program(program_, src_file, tmp_dst_file_opt,
+                                       prog_args_);
+      add_child(child_process, src_file_prefix);
     }
   );
 
@@ -153,26 +197,33 @@ void ParallelNotifier::process_existing_files()
   unordered_set<string> dst_fileset;
 
   if (dst_dir_opt_.has_value()) {
+    assert( dst_ext_opt_.has_value() );
+
     /* create a set containing the basename of files in dst_dir */
     string dst_dir = dst_dir_opt_.value();
     vector<string> dst_filenames = get_file_listing(dst_dir);
     for (const string & dst_filename : dst_filenames) {
-      dst_fileset.insert(split_filename(dst_filename).first);
+      auto dst_split = split_filename(dst_filename);
+      if (dst_split.second == dst_ext_opt_.value()) {
+        dst_fileset.insert(dst_split.first);
+      }
     }
   }
 
-  vector<string> src_filenames = get_file_listing(src_dir_);
-
-  for (const string & src_filename : src_filenames) {
-    string src_filename_prefix = split_filename(src_filename).first;
-
-    /* Process src_filename only if no file in dst_dir has the same prefix.
-     * If no dst_dir is given, then dst_fileset is empty so all src files are
-     * processed */
-    if (dst_fileset.find(src_filename_prefix) == dst_fileset.end()) {
-      string src_file = (fs::path(src_dir_) / fs::path(src_filename)).string();
-      auto child_process = run_program(program_, src_file, prog_args_);
-      add_child(child_process, src_file);
+  for (const string & src_filename : get_file_listing(src_dir_)) {
+    auto src_split = split_filename(src_filename);
+    string src_file_prefix = src_split.first;
+    if (src_split.second == src_ext_) {
+      /* Process src_filename only if no file in dst_dir has the same prefix.
+       * If no dst_dir is given, then dst_fileset is empty so all src files are
+       * processed */
+      if (dst_fileset.find(src_file_prefix) == dst_fileset.end()) {
+        string src_file = (fs::path(src_dir_) / fs::path(src_filename)).string();
+        optional<string> tmp_dst_file_opt = get_tmp_dst_file(src_file_prefix);
+        auto child_process = run_program(program_, src_file, tmp_dst_file_opt,
+                                         prog_args_);
+        add_child(child_process, src_file_prefix);
+      }
     }
   }
 }
@@ -184,39 +235,31 @@ void ParallelNotifier::loop()
   }
 }
 
-void ParallelNotifier::add_child(ChildProcess & child, const string & src_file)
+void ParallelNotifier::add_child(ChildProcess & child,
+                                 const string & src_file_prefix)
 {
   pid_t child_pid = child.pid();
-  src_files_[child_pid] = src_file;
+  src_file_prefixes_[child_pid] = src_file_prefix;
   child_processes_.emplace(make_pair(child_pid, move(child)));
 }
 
-void ParallelNotifier::check_output(const ChildProcess & child)
+void ParallelNotifier::check_and_move_output(const ChildProcess & child)
 {
   assert( child.terminated() );
-  assert( dst_dir_opt_.has_value() );
 
-  string dst_dir = dst_dir_opt_.value();
   pid_t child_pid = child.pid();
-  string src_file = src_files_[child_pid];
-  src_files_.erase(child_pid);
+  string src_file_prefix = src_file_prefixes_[child_pid];
+  src_file_prefixes_.erase(child_pid);
 
-  /* check if program wrote to dst_dir correctly */
-  string src_filename = fs::path(src_file).filename().string();
-  string src_filename_prefix = split_filename(src_filename).first;
+  optional<string> tmp_dst_file_opt = get_tmp_dst_file(src_file_prefix);
+  if (tmp_dst_file_opt.has_value()) {
+    string dst_file = get_dst_file(src_file_prefix).value();
 
-  vector<string> dst_filenames = get_file_listing(dst_dir);
-
-  bool success = false;
-  for (const string & dst_filename : dst_filenames) {
-    if (src_filename_prefix == split_filename(dst_filename).first) {
-      success = true;
-      break;
+    /* Rename from the temporary file to final file */
+    fs::rename(tmp_dst_file_opt.value(), dst_file);
+    if (!fs::exists(dst_file)) {
+      throw runtime_error("program didn't write correct file to dst dir");
     }
-  }
-
-  if (not success) {
-    throw runtime_error("program didn't write correct file to dst dir");
   }
 }
 
@@ -244,9 +287,7 @@ Result ParallelNotifier::handle_signal(const signalfd_siginfo & sig)
           }
 
           /* Verify that the correct output has been written */
-          if (dst_dir_opt_.has_value()) {
-            check_output(child);
-          }
+          check_and_move_output(child);
 
           it = child_processes_.erase(it);
         } else {
@@ -286,21 +327,21 @@ int main(int argc, char * argv[])
     abort();
   }
 
-  if (argc < 3) {
+  if (argc < 4) {
     print_usage(argv[0]);
     return EXIT_FAILURE;
   }
 
   /* convert src & dst dir to absolute paths */
-  string src_dir = fs::canonical(argv[1]).string();
-  optional<string> dst_dir_opt;
+  int arg_idx = 1;
+  string src_dir = fs::canonical(argv[arg_idx++]).string();
+  string src_ext = argv[arg_idx++];
+  optional<string> dst_dir_opt, dst_ext_opt;
 
-  int arg_idx = 2;
   if (string(argv[arg_idx]) == "--check") {
-    dst_dir_opt = fs::canonical(argv[arg_idx + 1]).string();;
-    arg_idx += 2;
-  } else {
-    dst_dir_opt = {};
+    dst_dir_opt = fs::canonical(argv[arg_idx + 1]).string();
+    dst_ext_opt = argv[arg_idx + 2];
+    arg_idx += 3;
   }
 
   string program = argv[arg_idx++];
@@ -310,7 +351,8 @@ int main(int argc, char * argv[])
     prog_args.emplace_back(argv[i]);
   }
 
-  ParallelNotifier notifier(src_dir, dst_dir_opt, program, prog_args);
+  ParallelNotifier notifier(src_dir, src_ext, dst_dir_opt, dst_ext_opt,
+                            program, prog_args);
   notifier.process_existing_files();
   notifier.loop();
 
