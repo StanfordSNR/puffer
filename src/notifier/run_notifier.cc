@@ -30,8 +30,8 @@ void print_usage(const string & program_name)
   "[--check <dst_dir> <dst_ext>]  check that an output file was created in the directory\n"
   "<program>                      program to run after a new file <src_filename>\n"
   "                               is moved into <src_dir>. The program must take\n"
-  "                               at least twos arg: <src_filename> and <dst_filename>.\n"
-  "                               If not <dst_dir> is specified, then <dst_filename> will be /dev/null\n"
+  "                               at least one arg: <src_filename>. If --check is\n"
+  "                               must take a second arg: <dst_filename>\n"
   "[prog args]                    other args to pass to the program"
   << endl;
 }
@@ -59,7 +59,10 @@ ChildProcess run_program(const string & program,
                          const optional<string> & dst_file_opt,
                          const vector<string> & prog_args)
 {
-  vector<string> args{program, src_file, dst_file_opt.value_or("/dev/null")};
+  vector<string> args{program, src_file};
+  if (dst_file_opt.has_value()) {
+    args.push_back(dst_file_opt.value());
+  }
   args.insert(args.end(), prog_args.begin(), prog_args.end());
   cerr << "$ " + command_str(args, {}) + "\n";
 
