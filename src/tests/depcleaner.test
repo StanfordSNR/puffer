@@ -34,8 +34,8 @@ def main():
         path.join(abs_builddir, os.pardir, 'cleaner', 'depcleaner'))
 
     downstream_dir_args = []
-    for i, d in enumerate(downstream_dirs):
-        downstream_dir_args.extend([d, 'ext{}'.format(i)])
+    for i, downstream_dir in enumerate(downstream_dirs):
+        downstream_dir_args.extend([downstream_dir, 'ext{}'.format(i)])
 
     for i, downstream_dir in enumerate(downstream_dirs):
         downstream_file = os.path.join(downstream_dir, 'TESTFILE.ext{}'.format(i))
