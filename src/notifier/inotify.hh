@@ -1,5 +1,5 @@
-#ifndef NOTIFIER_HH
-#define NOTIFIER_HH
+#ifndef INOTIFY_HH
+#define INOTIFY_HH
 
 #include <cstdint>
 #include <vector>
@@ -11,20 +11,23 @@
 #include "file_descriptor.hh"
 #include "poller.hh"
 
-class Notifier
+/* wrapper class for inotify */
+class Inotify
 {
 public:
-  /* callback function type; args: inotify event and path */
+  /* callback function type
+   * parameter list: inotify event, the path that triggers the event */
   using callback_t = std::function<void(const inotify_event &,
                                         const std::string &)>;
 
-  Notifier(Poller & poller);
+  Inotify(Poller & poller);
 
-  /* add one or more paths to the watch list */
+  /* add a single path to the watch list */
   int add_watch(const std::string & path,
                 const uint32_t mask,
                 const callback_t & callback);
 
+  /* add multiple paths to the watch list */
   std::vector<int> add_watch(const std::vector<std::string> & paths,
                              const uint32_t mask,
                              const callback_t & callback);
@@ -36,10 +39,11 @@ private:
   /* inotify instance */
   FileDescriptor inotify_fd_;
 
-  /* map a watch descriptor to its associated pathname */
-  std::unordered_map<int, std::tuple<std::string, uint32_t, callback_t>> imap_;
+  /* map a watch descriptor to its associated <path, mask, callback> */
+  std::unordered_map<int, std::tuple<std::string, uint32_t, callback_t>> map_;
 
+  /* handles notified events and tells the poller to continue polling */
   Poller::Action::Result handle_events();
 };
 
-#endif /* NOTIFIER_HH */
+#endif /* INOTIFY_HH */

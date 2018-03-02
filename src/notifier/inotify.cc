@@ -1,17 +1,18 @@
+#include "inotify.hh"
+
 #include <sys/inotify.h>
 #include <limits.h>
 #include <unistd.h>
 #include <stdexcept>
 
 #include "exception.hh"
-#include "notifier.hh"
 
 using namespace std;
 using namespace PollerShortNames;
 
-Notifier::Notifier(Poller & poller)
+Inotify::Inotify(Poller & poller)
   : inotify_fd_(CheckSystemCall("inotify_init", inotify_init())),
-    imap_()
+    map_()
 {
   poller.add_action(
     Poller::Action(inotify_fd_, Direction::In,
@@ -22,7 +23,7 @@ Notifier::Notifier(Poller & poller)
   );
 }
 
-int Notifier::add_watch(const string & path,
+int Inotify::add_watch(const string & path,
                         const uint32_t mask,
                         const callback_t & callback)
 {
@@ -31,12 +32,12 @@ int Notifier::add_watch(const string & path,
              inotify_add_watch(inotify_fd_.fd_num(), path.c_str(), mask));
 
   /* insert a new key-value pair or update the current value */
-  imap_[wd] = make_tuple(path, mask, callback);
+  map_[wd] = make_tuple(path, mask, callback);
 
   return wd;
 }
 
-vector<int> Notifier::add_watch(const vector<string> & paths,
+vector<int> Inotify::add_watch(const vector<string> & paths,
                                 const uint32_t mask,
                                 const callback_t & callback)
 {
@@ -48,19 +49,19 @@ vector<int> Notifier::add_watch(const vector<string> & paths,
   return wd_list;
 }
 
-void Notifier::rm_watch(const int wd)
+void Inotify::rm_watch(const int wd)
 {
   CheckSystemCall("inotify_rm_watch",
                   inotify_rm_watch(inotify_fd_.fd_num(), wd));
 
-  auto erase_ret = imap_.erase(wd);
+  auto erase_ret = map_.erase(wd);
   if (erase_ret == 0) {
     throw runtime_error(
       "rm_watch: trying to remove a nonexistent watch descriptor");
   }
 }
 
-Result Notifier::handle_events()
+Result Inotify::handle_events()
 {
   /* explicitly ensure the buffer is sufficient to read at least one event */
   const int BUF_LEN = sizeof(inotify_event) + NAME_MAX + 1;
@@ -75,17 +76,13 @@ Result Notifier::handle_events()
   for (const char * ptr = buf; ptr < buf + event_buf.size(); ) {
     event = reinterpret_cast<const inotify_event *>(ptr);
 
-    auto imap_it = imap_.find(event->wd);
-    if (imap_it == imap_.end()) {
+    auto map_it = map_.find(event->wd);
+    if (map_it == map_.end()) {
       throw runtime_error(
         "inotify event returns a nonexistent watch descriptor");
     }
 
-    const auto & value_ref = imap_it->second;
-    /* use 'get' instead of 'tie' to avoid copy */
-    const string & path = get<0>(value_ref);
-    const uint32_t mask = get<1>(value_ref);
-    const callback_t & callback = get<2>(value_ref);
+    const auto & [path, mask, callback] = map_it->second;
 
     /* ignore events not interested in */
     if ((event->mask & mask) != 0) {
@@ -95,5 +92,5 @@ Result Notifier::handle_events()
     ptr += sizeof(inotify_event) + event->len;
   }
 
-  return {};  /* continue */
+  return ResultType::Continue;
 }
