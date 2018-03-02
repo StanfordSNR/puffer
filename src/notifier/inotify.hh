@@ -1,6 +1,7 @@
 #ifndef INOTIFY_HH
 #define INOTIFY_HH
 
+#include <sys/inotify.h>
 #include <cstdint>
 #include <vector>
 #include <string>

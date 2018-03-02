@@ -8,15 +8,15 @@
 
 int ezexec( const std::string & filename,
             const std::vector<std::string> & args,
-            const std::vector<std::string> & env,
-            const bool use_environ = false,
-            const bool path_search = false );
+            const std::vector<std::string> & env = {},
+            const bool use_environ = true,
+            const bool path_search = true );
 
 std::string run( const std::string & filename,
                  const std::vector<std::string> & args,
-                 const std::vector<std::string> & env,
-                 const bool use_environ = false,
-                 const bool path_search = false,
+                 const std::vector<std::string> & env = {},
+                 const bool use_environ = true,
+                 const bool path_search = true,
                  const bool read_stdout_until_eof = false,
                  const bool suppress_errors = false );
 

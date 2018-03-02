@@ -68,10 +68,7 @@ public:
   ProcessManager();
 
   void run_as_child(const std::string & program,
-                    const std::vector<std::string> & prog_args,
-                    const std::vector<std::string> & env = {},
-                    const bool use_environ = true,
-                    const bool path_search = true);
+                    const std::vector<std::string> & prog_args);
 
   /* wait for all child processes to exit normally */
   void wait();

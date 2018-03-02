@@ -82,7 +82,7 @@ int main(int argc, char * argv[])
   vector<string> args = {
     mp4_fragment, "-i", init_tmp_path, "-m", media_tmp_path, input_filepath };
   cerr << "$ " + command_str(args, {}) + "\n";
-  run(mp4_fragment, args, {}, true, true);
+  run(mp4_fragment, args);
 
   /* move the output fragmented videos from tmp_dir to output_dir */
   fs::rename(media_tmp_path, media_output_path);
