@@ -85,7 +85,7 @@ int main(int argc, char * argv[])
   args.emplace_back(tmp_filepath);
 
   cerr << "$ " + command_str(args, {}) + "\n";
-  run("ffmpeg", args, {}, true, true);
+  run("ffmpeg", args);
 
   /* remove the input raw video */
   fs::remove(input_filepath);

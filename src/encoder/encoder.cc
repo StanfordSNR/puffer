@@ -35,7 +35,7 @@ void decode_video(const string & input_ts, const string & video_y4m)
   cerr << "$ " << args_str << endl;
 
   vector<string> args = split(args_str, " ");
-  run("ffmpeg", args, {}, true, true);
+  run("ffmpeg", args);
 }
 
 void encode_audio(const string & input_ts, const string & audio_aac)
@@ -45,7 +45,7 @@ void encode_audio(const string & input_ts, const string & audio_aac)
   cerr << "$ " << args_str << endl;
 
   vector<string> args = split(args_str, " ");
-  run("ffmpeg", args, {}, true, true);
+  run("ffmpeg", args);
 }
 
 void encode_video(const string & video_y4m,
@@ -62,7 +62,7 @@ void encode_video(const string & video_y4m,
   cerr << "$ " << args_str << endl;
 
   vector<string> args = split(args_str, " ");
-  run("ffmpeg", args, {}, true, true);
+  run("ffmpeg", args);
 }
 
 int main(int argc, char * argv[])

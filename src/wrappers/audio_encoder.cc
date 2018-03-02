@@ -86,7 +86,7 @@ int main(int argc, char * argv[])
     "-i", input_filepath, "-c:a", "libopus", "-b:a", bitrate,
     "-cluster_time_limit", "5000", tmp_filepath };
   cerr << "$ " + command_str(args, {}) + "\n";
-  run("ffmpeg", args, {}, true, true);
+  run("ffmpeg", args);
 
   /* move the output encoded audio from tmp_dir to output_dir */
   fs::rename(tmp_filepath, output_filepath);

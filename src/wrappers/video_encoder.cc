@@ -92,7 +92,7 @@ int main(int argc, char * argv[])
     "-i", input_filepath, "-c:v", "libx264", "-s", resolution, "-crf", crf,
     "-preset", "veryfast", tmp_filepath };
   cerr << "$ " + command_str(args, {}) + "\n";
-  run("ffmpeg", args, {}, true, true);
+  run("ffmpeg", args);
 
   /* move the output encoded video from tmp_dir to output_dir */
   fs::rename(tmp_filepath, output_filepath);

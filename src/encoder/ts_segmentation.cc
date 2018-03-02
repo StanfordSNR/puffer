@@ -35,7 +35,7 @@ int main(int argc, char * argv[])
   cerr << "$ " << args_str << endl;
 
   vector<string> args = split(args_str, " ");
-  run("ffmpeg", args, {}, true, true);
+  run("ffmpeg", args);
 
   return EXIT_SUCCESS;
 }

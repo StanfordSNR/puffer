@@ -81,7 +81,7 @@ int main(int argc, char * argv[])
   vector<string> args = {
     webm_fragment, "-i", init_tmp_path, "-m", media_tmp_path, input_filepath };
   cerr << "$ " + command_str(args, {}) + "\n";
-  run(webm_fragment, args, {}, true, true);
+  run(webm_fragment, args);
 
   /* move the output fragmented audios from tmp_dir to output_dir */
   fs::rename(media_tmp_path, media_output_path);

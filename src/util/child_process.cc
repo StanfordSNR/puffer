@@ -207,19 +207,15 @@ ProcessManager::ProcessManager()
 }
 
 void ProcessManager::run_as_child(const string & program,
-                                  const vector<string> & prog_args,
-                                  const vector<string> & env,
-                                  const bool use_environ,
-                                  const bool path_search)
+                                  const vector<string> & prog_args)
 {
   auto child = ChildProcess(program,
     [&]() {
-      return ezexec(program, prog_args, env, use_environ, path_search);
+      return ezexec(program, prog_args);
     }
   );
 
-  pid_t child_pid = child.pid();
-  child_processes_.emplace(make_pair(child_pid, move(child)));
+  child_processes_.emplace(child.pid(), move(child));
 }
 
 void ProcessManager::wait()
@@ -248,7 +244,6 @@ Result ProcessManager::handle_signal(const signalfd_siginfo & sig)
 
         if (child.terminated()) {
           if (child.exit_status() != 0) {
-            child_processes_.clear();
             throw runtime_error("ProcessManager: PID " + to_string(it->first)
                                 + " exits abnormally");
           }
@@ -256,7 +251,6 @@ Result ProcessManager::handle_signal(const signalfd_siginfo & sig)
           it = child_processes_.erase(it);
         } else {
           if (not child.running()) {
-            child_processes_.clear();
             throw runtime_error("ProcessManager: PID " + to_string(it->first)
                                 + " is not running");
           }
@@ -272,11 +266,9 @@ Result ProcessManager::handle_signal(const signalfd_siginfo & sig)
   case SIGINT:
   case SIGQUIT:
   case SIGTERM:
-    child_processes_.clear();
     throw runtime_error("ProcessManager: interrupted by signal " +
                         to_string(sig.ssi_signo));
   default:
-    child_processes_.clear();
     throw runtime_error("ProcessManager: unknown signal " +
                         to_string(sig.ssi_signo));
   }
