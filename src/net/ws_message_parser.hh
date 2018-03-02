@@ -13,9 +13,9 @@
 class WSMessageParser
 {
 private:
-  std::string raw_buffer_;
-  std::list<WSFrame> frame_buffer_;
-  std::queue<WSMessage> complete_messages_;
+  std::string raw_buffer_ {};
+  std::list<WSFrame> frame_buffer_ {};
+  std::queue<WSMessage> complete_messages_ {};
 
 public:
   void parse( const std::string & buf );
