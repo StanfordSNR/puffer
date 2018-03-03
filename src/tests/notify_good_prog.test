@@ -2,11 +2,9 @@
 
 import os
 from os import path
-import sys
 import time
-import shutil
 from test_helpers import (check_call, Popen, create_tmp_and_move_to,
-                          timeout, touch, make_sure_path_exists)
+                          timeout, make_sure_path_exists)
 
 
 @timeout(1)
@@ -25,12 +23,11 @@ def check_file_nonexistence(file_to_check):
 
 
 def change_extension(p, ext):
-    return os.path.splitext(p)[0] + '.' + ext
+    return path.splitext(p)[0] + ext
 
 
 def main():
     abs_srcdir = os.environ['abs_srcdir']
-
     abs_builddir = os.environ['abs_builddir']
     test_tmpdir = path.join(abs_builddir, 'test_tmpdir')
 
@@ -40,31 +37,30 @@ def main():
     for directory in [notifier_srcdir, notifier_dstdir]:
         make_sure_path_exists(directory)
 
-    run_notifier = path.abspath(
-        path.join(abs_builddir, os.pardir, 'notifier', 'run_notifier'))
+    notifier = path.abspath(
+        path.join(abs_builddir, os.pardir, 'notifier', 'notifier'))
 
     # create pre-existing files before running notifier
-    existing_test_file = create_tmp_and_move_to(notifier_srcdir, 'ext1')
+    existing_test_file = create_tmp_and_move_to(notifier_srcdir, '.ext1')
 
     # run a notifier that will call the "good" program
     good_prog = path.join(abs_srcdir, 'notified_good_prog.sh')
-    cmd = [run_notifier, notifier_srcdir, 'ext1', '--check', notifier_dstdir,
-           'ext2', good_prog]
+    cmd = [notifier, notifier_srcdir, '.ext1', '--check',
+           notifier_dstdir, '.ext2', '--exec', good_prog]
     notifier_proc = Popen(cmd)
 
     # expect pre-existing files to be processed (moved)
-    expected_out_file = change_extension(existing_test_file, 'ext2')
-    print(expected_out_file)
+    expected_out_file = change_extension(existing_test_file, '.ext2')
     check_file_existence(path.join(notifier_dstdir, expected_out_file))
 
     # create and move a tmp file; expect it to be processed (moved)
-    tmp_filename = create_tmp_and_move_to(notifier_srcdir, 'ext1')
-    expected_out_file = change_extension(tmp_filename, 'ext2')
+    tmp_filename = create_tmp_and_move_to(notifier_srcdir, '.ext1')
+    expected_out_file = change_extension(tmp_filename, '.ext2')
     check_file_existence(path.join(notifier_dstdir, expected_out_file))
 
     # create and move a tmp file with the wrong extension; expect no output
-    tmp_filename = create_tmp_and_move_to(notifier_srcdir, 'ext3')
-    unexpected_out_file = change_extension(tmp_filename, 'ext2')
+    tmp_filename = create_tmp_and_move_to(notifier_srcdir, '.ext3')
+    unexpected_out_file = change_extension(tmp_filename, '.ext2')
     check_file_nonexistence(path.join(notifier_dstdir, unexpected_out_file))
 
     if notifier_proc:
