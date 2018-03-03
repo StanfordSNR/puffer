@@ -82,9 +82,9 @@ def timeout(seconds=10, error_message=os.strerror(errno.ETIME)):
     return decorator
 
 
-def create_tmp_and_move_to(directory, ext='file'):
+def create_tmp_and_move_to(directory, ext='.ext'):
     tmp_filepath = check_output(['mktemp']).decode('utf-8').strip()
-    tmp_filename = path.basename(tmp_filepath) + '.' + ext
+    tmp_filename = path.basename(tmp_filepath) + ext
 
     new_filepath = path.join(directory, tmp_filename)
     check_call(['mv', tmp_filepath, new_filepath])

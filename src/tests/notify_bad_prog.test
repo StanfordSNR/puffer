@@ -3,14 +3,12 @@
 import os
 from os import path
 import sys
-import shutil
 from test_helpers import (check_call, Popen, create_tmp_and_move_to,
                           make_sure_path_exists)
 
 
 def main():
     abs_srcdir = os.environ['abs_srcdir']
-
     abs_builddir = os.environ['abs_builddir']
     test_tmpdir = path.join(abs_builddir, 'test_tmpdir')
 
@@ -20,23 +18,23 @@ def main():
     for directory in [notifier_srcdir, notifier_dstdir]:
         make_sure_path_exists(directory)
 
-    run_notifier = path.abspath(
-        path.join(abs_builddir, os.pardir, 'notifier', 'run_notifier'))
+    notifier = path.abspath(
+        path.join(abs_builddir, os.pardir, 'notifier', 'notifier'))
 
     # run a notifier that will call the "bad" program
     bad_prog = path.join(abs_srcdir, 'notified_bad_prog.sh')
-    cmd = [run_notifier, notifier_srcdir, 'file', '--check', notifier_dstdir,
-           'file', bad_prog]
+    cmd = [notifier, notifier_srcdir, '.ext', '--check',
+           notifier_dstdir, '.ext', '--exec', bad_prog]
     notifier_proc = Popen(cmd)
 
     # create and move a tmp file; expect it not to be processed (copied)
-    tmp_filename = create_tmp_and_move_to(notifier_srcdir, 'file')
+    tmp_filename = create_tmp_and_move_to(notifier_srcdir, '.ext')
 
-    # the Notifier process should exit with error
+    # the notifier process should exit with error
     if notifier_proc:
         notifier_proc.communicate()
         if notifier_proc.returncode == 0:
-            sys.exit('the Notifier should exit with error')
+            sys.exit('the notifier should exit with error')
 
     tmp_filepath = path.join(notifier_dstdir, tmp_filename)
     if path.isfile(tmp_filepath):
