@@ -69,10 +69,10 @@ int main(int argc, char * argv[])
   size_t file_size = t_stat.st_size;
   time_t created_at = t_stat.st_ctime;
 
-  /* Generate SQL statements */
+  /* Generate SQL statements and log them to stdout */
   string sql = create_table_stmt(table_name) +
     insert_stmt(table_name, input_file, file_size, created_at);
-  cerr << "SQL: " << sql << endl;
+  cout << sql << endl;
 
   /* Insert the new record into the database. Failure is non-fatal. */
   try {

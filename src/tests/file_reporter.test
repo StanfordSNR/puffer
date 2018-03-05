@@ -1,0 +1,47 @@
+#!/usr/bin/python3
+
+import os
+from os import path
+import re
+from test_helpers import check_call, check_output
+
+
+EXPECTED_SQL_RE_STR = (
+    r'CREATE TABLE IF NOT EXISTS \w+ \('
+    r'timestamp varchar\(20\) NOT NULL,'
+    r'file_path varchar\(255\) NOT NULL,'
+    r'file_size integer NOT NULL,'
+    r'created_at timestamp NOT NULL\);'
+    r'INSERT INTO \w+ \(timestamp,file_path,file_size,created_at\) VALUES '
+    r"\('[\w.]+','[\w/.-]+',\d+,to_timestamp\(\d+\)\);")
+EXPECTED_SQL_RE = re.compile(EXPECTED_SQL_RE_STR)
+
+
+def main():
+    abs_builddir = os.environ['abs_builddir']
+    test_tmpdir = path.join(abs_builddir, 'test_tmpdir')
+
+    file_reporter_testdir = path.join(test_tmpdir, 'file_reporter_testdir')
+
+    check_call(['rm', '-rf', file_reporter_testdir])
+    check_call(['mkdir', '-p', file_reporter_testdir])
+
+    test_file = path.join(file_reporter_testdir, 'test.txt')
+    with open(test_file, 'w') as fp:
+        fp.write('hello world')
+
+    file_reporter = path.abspath(
+        path.join(abs_builddir, os.pardir, 'reporter', 'file_reporter'))
+
+    # The postgres db does not exist, but the command should not fail.
+    sql = check_output([file_reporter, test_file,
+                        'postgresql://user@localhost/db', 'mocktable'])
+
+    sql = str(sql.strip())
+    match = EXPECTED_SQL_RE.search(sql)
+    if not match:
+        print('SQL output did not match expected: Expected: "{}" Got: "{}"'.format(EXPECTED_SQL_RE_STR, sql))
+        exit(1)
+
+if __name__ == '__main__':
+    main()
