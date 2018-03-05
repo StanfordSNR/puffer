@@ -65,21 +65,27 @@ public:
 class ProcessManager
 {
 public:
+  using callback_t = std::function<void(const pid_t &)>;
+
   ProcessManager();
 
-  /* run the program as a child process */
-  void run_as_child(const std::string & program,
-                    const std::vector<std::string> & prog_args);
+  /* run the program as a child process
+   * call the callback function if the child exits with 0 */
+  pid_t run_as_child(const std::string & program,
+                     const std::vector<std::string> & prog_args,
+                     const callback_t & callback = {});
 
   /* wait for all child processes to exit normally */
   int wait();
 
   /* a helper function that calls run_as_child() and wait() */
   int run(const std::string & program,
-          const std::vector<std::string> & prog_args);
+          const std::vector<std::string> & prog_args,
+          const callback_t & callback = {});
 
 private:
   std::unordered_map<pid_t, ChildProcess> child_processes_;
+  std::unordered_map<pid_t, callback_t> callbacks_;
 
   Poller poller_;
 
