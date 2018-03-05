@@ -13,7 +13,8 @@ EXTRA_DIST = test_helpers.py notified_good_prog.sh notified_bad_prog.sh
 
 dist_check_SCRIPTS = fetch_vectors.test forwarder.test notify_good_prog.test \
 	notify_bad_prog.test cleaner.test ssim.test mpd.test time.test cleanup.test \
-	mp4.test depcleaner.test windowcleaner.test
+	mp4.test depcleaner.test windowcleaner.test file_reporter.test \
+	ssim_reporter.test
 
 TESTS = $(check_PROGRAMS) $(dist_check_SCRIPTS)
 

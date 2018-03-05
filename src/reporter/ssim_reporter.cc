@@ -33,7 +33,7 @@ inline string create_table_stmt(const string &table_name) {
   ostringstream ss;
   ss << "CREATE TABLE IF NOT EXISTS " << table_name << " ("
     << "timestamp varchar(20) NOT NULL,"
-    << "resolution varchar(20 NOT NULL,"
+    << "resolution varchar(20) NOT NULL,"
     << "crf integer NOT NULL,"
     << "ssim decimal NOT NULL,"
     << "created_at timestamp NOT NULL);";
@@ -47,7 +47,7 @@ inline string insert_stmt(const string &table_name, const string &input_file,
   string timestamp = split_filename(basename).first;
   ostringstream ss;
   ss << "INSERT INTO " << table_name
-    << " (timestamp,resolution,crf,ssim, created_at) VALUES ("
+    << " (timestamp,resolution,crf,ssim,created_at) VALUES ("
     << "'" << timestamp << "','" << resolution << "'," << crf
     << "," << ssim << ",to_timestamp(" << created_at << "));";
   return ss.str();
@@ -88,10 +88,10 @@ int main(int argc, char * argv[])
 
   double ssim = parse_ssim_file(input_file);
 
-  /* Generate SQL statements */
+  /* Generate SQL statements and log them to stdout */
   string sql = create_table_stmt(table_name) +
     insert_stmt(table_name, input_file, resolution, crf, ssim, creation_time);
-  cerr << "SQL: " << sql << endl;
+  cout << sql << endl;
 
   /* Insert the new record into the database. Failure is non-fatal. */
   try {
