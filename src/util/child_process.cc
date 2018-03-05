@@ -191,6 +191,7 @@ void ChildProcess::throw_exception( void ) const
 
 ProcessManager::ProcessManager()
   : child_processes_(),
+    callbacks_(),
     poller_(),
     signals_({ SIGCHLD, SIGABRT, SIGHUP, SIGINT, SIGQUIT, SIGTERM }),
     signal_fd_(signals_)
@@ -208,8 +209,9 @@ ProcessManager::ProcessManager()
   );
 }
 
-void ProcessManager::run_as_child(const string & program,
-                                  const vector<string> & prog_args)
+pid_t ProcessManager::run_as_child(const string & program,
+                                   const vector<string> & prog_args,
+                                   const callback_t & callback)
 {
   auto child = ChildProcess(program,
     [&]() {
@@ -217,7 +219,14 @@ void ProcessManager::run_as_child(const string & program,
     }
   );
 
-  child_processes_.emplace(child.pid(), move(child));
+  pid_t pid = child.pid();
+  child_processes_.emplace(pid, move(child));
+
+  if (callback) {
+    callbacks_.emplace(pid, callback);
+  }
+
+  return pid;
 }
 
 int ProcessManager::wait()
@@ -232,9 +241,10 @@ int ProcessManager::wait()
 }
 
 int ProcessManager::run(const string & program,
-                         const vector<string> & prog_args)
+                        const vector<string> & prog_args,
+                        const callback_t & callback)
 {
-  run_as_child(program, prog_args);
+  run_as_child(program, prog_args, callback);
   return wait();
 }
 
@@ -260,6 +270,12 @@ Result ProcessManager::handle_signal(const signalfd_siginfo & sig)
             cerr << "ProcessManager: PID " << it->first
                  << " exits abnormally" << endl;
             return {ResultType::Exit, EXIT_FAILURE};
+          }
+
+          /* call the corresponding callback function if it exists */
+          const auto & callback_it = callbacks_.find(it->first);
+          if (callback_it != callbacks_.end()) {
+            callback_it->second(it->first);
           }
 
           it = child_processes_.erase(it);
