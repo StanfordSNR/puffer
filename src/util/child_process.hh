@@ -61,17 +61,22 @@ public:
     ChildProcess & operator=( ChildProcess && other ) = delete;
 };
 
-/* class for managing child processes */
+/* class for managing child processes; this class handles signals properly */
 class ProcessManager
 {
 public:
   ProcessManager();
 
+  /* run the program as a child process */
   void run_as_child(const std::string & program,
                     const std::vector<std::string> & prog_args);
 
   /* wait for all child processes to exit normally */
-  void wait();
+  int wait();
+
+  /* a helper function that calls run_as_child() and wait() */
+  int run(const std::string & program,
+          const std::vector<std::string> & prog_args);
 
 private:
   std::unordered_map<pid_t, ChildProcess> child_processes_;

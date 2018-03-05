@@ -160,6 +160,8 @@ ChildProcess::~ChildProcess()
     } catch ( const exception & e ) {
         print_exception( name_.c_str(), e );
     }
+
+    cerr << "Process " << pid_ << " is terminated gracefully" << endl;
 }
 
 /* move constructor */
@@ -218,12 +220,22 @@ void ProcessManager::run_as_child(const string & program,
   child_processes_.emplace(child.pid(), move(child));
 }
 
-void ProcessManager::wait()
+int ProcessManager::wait()
 {
   /* poll forever */
   for (;;) {
-    poller_.poll(-1);
+    const Poller::Result & ret = poller_.poll(-1);
+    if (ret.result == Poller::Result::Type::Exit) {
+      return ret.exit_status;
+    }
   }
+}
+
+int ProcessManager::run(const string & program,
+                         const vector<string> & prog_args)
+{
+  run_as_child(program, prog_args);
+  return wait();
 }
 
 Result ProcessManager::handle_signal(const signalfd_siginfo & sig)
@@ -231,7 +243,8 @@ Result ProcessManager::handle_signal(const signalfd_siginfo & sig)
   switch (sig.ssi_signo) {
   case SIGCHLD:
     if (child_processes_.empty()) {
-      throw runtime_error("received SIGCHLD without any managed children");
+      cerr << "ProcessManager: received SIGCHLD without any children" << endl;
+      return {ResultType::Exit, EXIT_FAILURE};
     }
 
     for (auto it = child_processes_.begin(); it != child_processes_.end();) {
@@ -244,15 +257,17 @@ Result ProcessManager::handle_signal(const signalfd_siginfo & sig)
 
         if (child.terminated()) {
           if (child.exit_status() != 0) {
-            throw runtime_error("ProcessManager: PID " + to_string(it->first)
-                                + " exits abnormally");
+            cerr << "ProcessManager: PID " << it->first
+                 << " exits abnormally" << endl;
+            return {ResultType::Exit, EXIT_FAILURE};
           }
 
           it = child_processes_.erase(it);
         } else {
           if (not child.running()) {
-            throw runtime_error("ProcessManager: PID " + to_string(it->first)
-                                + " is not running");
+            cerr << "ProcessManager: PID " << it->first
+                 << " is not running" << endl;
+            return {ResultType::Exit, EXIT_FAILURE};
           }
 
           ++it;
@@ -266,12 +281,12 @@ Result ProcessManager::handle_signal(const signalfd_siginfo & sig)
   case SIGINT:
   case SIGQUIT:
   case SIGTERM:
-    throw runtime_error("ProcessManager: interrupted by signal " +
-                        to_string(sig.ssi_signo));
+    cerr << "ProcessManager: interrupted by signal " << sig.ssi_signo << endl;
+    return {ResultType::Exit, EXIT_FAILURE};
   default:
-    throw runtime_error("ProcessManager: unknown signal " +
-                        to_string(sig.ssi_signo));
+    cerr << "ProcessManager: unknown signal " << sig.ssi_signo << endl;
+    return {ResultType::Exit, EXIT_FAILURE};
   }
 
-  return ResultType::Continue;
+  return {ResultType::Continue, EXIT_SUCCESS};
 }
