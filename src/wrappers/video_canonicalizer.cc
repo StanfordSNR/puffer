@@ -1,9 +1,8 @@
-#include <getopt.h>
 #include <iostream>
 #include <string>
 #include <vector>
 
-#include "system_runner.hh"
+#include "child_process.hh"
 #include "filesystem.hh"
 #include "y4m.hh"
 
@@ -12,12 +11,10 @@ using namespace std;
 void print_usage(const string & program)
 {
   cerr <<
-  "Usage: " << program << " <input_path> <output_dir> [--tmp <tmp_dir>]\n"
-  "Canonicalize the video <input_path> and output to <output_dir>\n\n"
-  "<input_path>    path of the input raw video\n"
-  "<output_dir>    target directory to output the canonical video\n\n"
-  "Options:\n"
-  "--tmp <tmp_dir>    replace the default temporary directory with <tmp_dir>"
+  "Usage: " << program << " <input_path> <output_path>\n"
+  "Canonicalize the video <input_path> and output to <output_path>\n\n"
+  "<input_path>     path of the input raw video\n"
+  "<output_path>    path to output the canonical video"
   << endl;
 }
 
@@ -28,53 +25,21 @@ int main(int argc, char * argv[])
     abort();
   }
 
-  string tmp_dir;
-
-  const option cmd_line_opts[] = {
-    {"tmp",    required_argument, nullptr, 't'},
-    { nullptr, 0,                 nullptr,  0 }
-  };
-
-  while (true) {
-    const int opt = getopt_long(argc, argv, "t:", cmd_line_opts, nullptr);
-    if (opt == -1) {
-      break;
-    }
-
-    switch (opt) {
-    case 't':
-      tmp_dir = optarg;
-      break;
-    default:
-      print_usage(argv[0]);
-      return EXIT_FAILURE;
-    }
-  }
-
-  if (optind != argc - 2) {
+  if (argc != 3) {
     print_usage(argv[0]);
     return EXIT_FAILURE;
   }
 
-  /* if <tmp_dir> is not specified, use temp_directory_path() */
-  if (tmp_dir.empty()) {
-    tmp_dir = fs::temp_directory_path();
-  }
-
-  string input_filepath = argv[optind];
-  string output_dir = argv[optind + 1];
-
-  string output_filename = fs::path(input_filepath).stem().string() + ".y4m";
-  string tmp_filepath = fs::path(tmp_dir) / output_filename;
-  string output_filepath = fs::path(output_dir) / output_filename;
+  string input_path = argv[1];
+  string output_path= argv[2];
 
   /* parse header of the input Y4M */
-  Y4MParser y4m_parser(input_filepath);
+  Y4MParser y4m_parser(input_path);
 
-  /* canonicalize video and output to tmp_dir first */
+  /* canonicalize video */
   vector<string> args {
     "ffmpeg", "-nostdin", "-hide_banner", "-loglevel", "panic", "-y",
-    "-i", input_filepath };
+    "-i", input_path };
 
   /* deinterlace only if Y4M is interlaced */
   if (y4m_parser.is_interlaced()) {
@@ -82,16 +47,13 @@ int main(int argc, char * argv[])
     args.emplace_back("bwdif");
   }
 
-  args.emplace_back(tmp_filepath);
+  args.emplace_back(output_path);
 
-  cerr << "$ " + command_str(args, {}) + "\n";
-  run("ffmpeg", args);
+  ProcessManager proc_manager;
+  int ret_code = proc_manager.run("ffmpeg", args);
 
   /* remove the input raw video */
-  fs::remove(input_filepath);
+  fs::remove(input_path);
 
-  /* move the output canonical video from tmp_dir to output_dir */
-  fs::rename(tmp_filepath, output_filepath);
-
-  return EXIT_SUCCESS;
+  return ret_code;
 }
