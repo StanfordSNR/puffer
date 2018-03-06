@@ -160,8 +160,6 @@ ChildProcess::~ChildProcess()
     } catch ( const exception & e ) {
         print_exception( name_.c_str(), e );
     }
-
-    cerr << "Process " << pid_ << " is terminated gracefully" << endl;
 }
 
 /* move constructor */
@@ -213,6 +211,8 @@ pid_t ProcessManager::run_as_child(const string & program,
                                    const vector<string> & prog_args,
                                    const callback_t & callback)
 {
+  cerr << "[ProcessManager] " + command_str(prog_args) + "\n";
+
   auto child = ChildProcess(program,
     [&]() {
       return ezexec(program, prog_args);
@@ -231,8 +231,20 @@ pid_t ProcessManager::run_as_child(const string & program,
 
 int ProcessManager::wait()
 {
-  /* poll forever */
+  while (not child_processes_.empty()) {
+    const Poller::Result & ret = poller_.poll(-1);
+    if (ret.result == Poller::Result::Type::Exit) {
+      return ret.exit_status;
+    }
+  }
+
+  return EXIT_SUCCESS;
+}
+
+int ProcessManager::loop()
+{
   for (;;) {
+    /* continue polling unless some error occurs */
     const Poller::Result & ret = poller_.poll(-1);
     if (ret.result == Poller::Result::Type::Exit) {
       return ret.exit_status;

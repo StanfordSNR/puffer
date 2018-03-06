@@ -75,13 +75,20 @@ public:
                      const std::vector<std::string> & prog_args,
                      const callback_t & callback = {});
 
-  /* wait for all child processes to exit normally */
+  /* return when all the child processes exit */
   int wait();
+
+  /* loop forever even if all the child processes exit and return only on error
+   * especially helpful when the exposed poller also polls on other events */
+  int loop();
 
   /* a helper function that calls run_as_child() and wait() */
   int run(const std::string & program,
           const std::vector<std::string> & prog_args,
           const callback_t & callback = {});
+
+  /* expose the poller */
+  Poller & poller() { return poller_; }
 
 private:
   std::unordered_map<pid_t, ChildProcess> child_processes_;
