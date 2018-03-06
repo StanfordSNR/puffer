@@ -180,7 +180,7 @@ int main(int argc, char * argv[])
 
   /* parse arguments */
   int arg_idx = 1;
-  string src_dir = fs::canonical(argv[arg_idx++]).string();
+  string src_dir = argv[arg_idx++];
   string src_ext = argv[arg_idx++];
 
   optional<string> dst_dir_opt, dst_ext_opt;
@@ -196,10 +196,10 @@ int main(int argc, char * argv[])
     string opt_arg = string(argv[arg_idx++]);
 
     if (opt_arg == "--check") {
-      dst_dir_opt = fs::canonical(argv[arg_idx++]).string();
+      dst_dir_opt = argv[arg_idx++];
       dst_ext_opt = argv[arg_idx++];
     } else if (opt_arg == "--tmp") {
-      tmp_dir_opt = fs::canonical(argv[arg_idx++]).string();
+      tmp_dir_opt = argv[arg_idx++];
     } else if (opt_arg == "--exec") {
       break;
     }

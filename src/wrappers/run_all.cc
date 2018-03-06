@@ -23,6 +23,8 @@ static vector<string> aformats;
 static vector<tuple<string, string>> working_dir_ext;
 static vector<tuple<string, string>> ready_dir_ext;
 
+static const int clean_time_window = 5400000;
+
 void print_usage(const string & program_name)
 {
   cerr <<
@@ -253,11 +255,24 @@ void run_depcleaner(ProcessManager & proc_manager)
     args.emplace_back(ext);
   }
 
-  /* run notifier for each directory in ready/ */
+  /* run notifier to start depcleaner for each directory in ready/ */
   for (const auto & item : ready_dir_ext) {
     const auto & [dir, ext] = item;
     vector<string> notifier_args { notifier, dir, ext, "--exec" };
     notifier_args.insert(notifier_args.end(), args.begin(), args.end());
+    proc_manager.run_as_child(notifier, notifier_args);
+  }
+}
+
+void run_windowcleaner(ProcessManager & proc_manager)
+{
+  string windowcleaner = clean_path / "windowcleaner";
+
+  /* run notifier to start windowcleaner for each directory in ready/ */
+  for (const auto & item : ready_dir_ext) {
+    const auto & [dir, ext] = item;
+    vector<string> notifier_args { notifier, dir, ext, "--exec", windowcleaner,
+                                   ext, to_string(clean_time_window) };
     proc_manager.run_as_child(notifier, notifier_args);
   }
 }
@@ -321,6 +336,9 @@ int main(int argc, char * argv[])
 
   /* run depcleaner to clean up files in working/ */
   run_depcleaner(proc_manager);
+
+  /* run windowcleaner to clean up files in ready/ */
+  run_windowcleaner(proc_manager);
 
   return proc_manager.wait();
 }
