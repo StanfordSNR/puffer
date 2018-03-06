@@ -263,10 +263,12 @@ int ProcessManager::run(const string & program,
 Result ProcessManager::handle_signal(const signalfd_siginfo & sig)
 {
   switch (sig.ssi_signo) {
+  /* if an exception is thrown from the child, throw another exception
+   * to notify ProcessManager's parent process if there is */
   case SIGCHLD:
     if (child_processes_.empty()) {
-      cerr << "ProcessManager: received SIGCHLD without any children" << endl;
-      return {ResultType::Exit, EXIT_FAILURE};
+      throw runtime_error("ProcessManager: received SIGCHLD without "
+                          "any children");
     }
 
     for (auto it = child_processes_.begin(); it != child_processes_.end();) {
@@ -279,9 +281,9 @@ Result ProcessManager::handle_signal(const signalfd_siginfo & sig)
 
         if (child.terminated()) {
           if (child.exit_status() != 0) {
-            cerr << "ProcessManager: PID " << it->first
-                 << " exits abnormally" << endl;
-            return {ResultType::Exit, EXIT_FAILURE};
+            child_processes_.clear();
+            throw runtime_error("ProcessManager: PID " + to_string(it->first) +
+                                " exits abnormally");
           }
 
           /* call the corresponding callback function if it exists */
@@ -293,9 +295,9 @@ Result ProcessManager::handle_signal(const signalfd_siginfo & sig)
           it = child_processes_.erase(it);
         } else {
           if (not child.running()) {
-            cerr << "ProcessManager: PID " << it->first
-                 << " is not running" << endl;
-            return {ResultType::Exit, EXIT_FAILURE};
+            child_processes_.clear();
+            throw runtime_error("ProcessManager: PID " + to_string(it->first) +
+                                " is not running");
           }
 
           ++it;
@@ -304,17 +306,20 @@ Result ProcessManager::handle_signal(const signalfd_siginfo & sig)
     }
 
     break;
+  /* handle other exceptions by destroying children and return failure */
   case SIGABRT:
   case SIGHUP:
   case SIGINT:
   case SIGQUIT:
   case SIGTERM:
     cerr << "ProcessManager: interrupted by signal " << sig.ssi_signo << endl;
+    child_processes_.clear();
     return {ResultType::Exit, EXIT_FAILURE};
   default:
     cerr << "ProcessManager: unknown signal " << sig.ssi_signo << endl;
+    child_processes_.clear();
     return {ResultType::Exit, EXIT_FAILURE};
   }
 
-  return {ResultType::Continue, EXIT_SUCCESS};
+  return {};  /* success and continue: {ResultType::Continue, EXIT_SUCCESS}; */
 }

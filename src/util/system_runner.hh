@@ -21,7 +21,7 @@ std::string run( const std::string & filename,
                  const bool suppress_errors = false );
 
 std::string command_str( const std::vector<std::string> & command,
-                         const std::vector<std::string> & environment );
+                         const std::vector<std::string> & env = {});
 
 std::string command_str( const int argc, char * argv[] );
 
