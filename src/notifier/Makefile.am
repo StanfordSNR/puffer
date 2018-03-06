@@ -1,4 +1,4 @@
-AM_CPPFLAGS = $(CXX17_FLAGS) -I$(srcdir)/../util
+AM_CPPFLAGS = $(CXX17_FLAGS) -I$(srcdir)/../util -I$(srcdir)/../net
 AM_CXXFLAGS = $(PICKY_CXXFLAGS)
 
 bin_PROGRAMS = notifier

@@ -10,6 +10,84 @@
 using namespace std;
 using namespace PollerShortNames;
 
+Poller::Action::Action( NBSecureSocket & s_socket,
+                        const PollDirection & s_direction,
+                        const CallbackType & s_callback,
+                        const std::function<bool(void)> & s_when_interested )
+  : fd( s_socket ), direction( s_direction ), callback(), when_interested(),
+    active( true )
+{
+  if ( direction == In )
+  {
+    callback =
+      [s_callback, &s_socket] ()
+      {
+        Result retval;
+
+        if ( not s_socket.connected() ) {
+          /* we're not connected yet, so let's continue */
+          s_socket.continue_SSL_connect();
+        }
+        else if ( s_socket.state() == NBSecureSocket::State::needs_ssl_write_to_write or
+                ( s_socket.state() == NBSecureSocket::State::ready ) ) {
+          if ( not s_socket.something_to_write() ) {
+            retval = s_callback();
+          }
+
+          s_socket.continue_SSL_write();
+        }
+        else if ( s_socket.state() == NBSecureSocket::State::needs_ssl_write_to_read ) {
+          s_socket.continue_SSL_read();
+        }
+
+        return retval;
+      };
+
+    when_interested =
+      [s_when_interested, &s_socket]()
+      {
+        return ( s_socket.state() == NBSecureSocket::State::needs_connect ) or
+               ( s_socket.state() == NBSecureSocket::State::needs_ssl_write_to_connect ) or
+               ( s_socket.state() == NBSecureSocket::State::needs_ssl_write_to_write ) or
+               ( s_socket.state() == NBSecureSocket::State::needs_ssl_write_to_read ) or
+               ( s_socket.state() == NBSecureSocket::State::ready and s_when_interested() );
+      };
+
+  }
+  else /* direction == Out */ {
+    callback =
+      [s_callback, &s_socket] ()
+      {
+        if ( not s_socket.connected() ) {
+          s_socket.continue_SSL_connect();
+        }
+        else if ( s_socket.state() == NBSecureSocket::State::needs_ssl_read_to_write ) {
+          s_socket.continue_SSL_write();
+        }
+        else if ( s_socket.state() == NBSecureSocket::State::needs_ssl_read_to_read or
+                  s_socket.state() == NBSecureSocket::State::ready ) {
+          s_socket.continue_SSL_read();
+        }
+
+        if ( s_socket.something_to_read() ) {
+          return s_callback();
+        }
+
+        return Result {};
+      };
+
+    when_interested =
+      [s_when_interested, &s_socket]()
+      {
+        return ( s_socket.state() == NBSecureSocket::State::needs_connect ) or
+               ( s_socket.state() == NBSecureSocket::State::needs_ssl_read_to_connect ) or
+               ( s_socket.state() == NBSecureSocket::State::needs_ssl_read_to_write ) or
+               ( s_socket.state() == NBSecureSocket::State::needs_ssl_read_to_read ) or
+               ( s_socket.state() == NBSecureSocket::State::ready and s_when_interested() );
+      };
+  }
+}
+
 void Poller::add_action( Poller::Action action )
 {
   actions_.push_back( action );

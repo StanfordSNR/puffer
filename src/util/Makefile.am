@@ -1,4 +1,4 @@
-AM_CPPFLAGS = $(CXX17_FLAGS)
+AM_CPPFLAGS = -I$(srcdir)/../net $(CXX17_FLAGS)
 AM_CXXFLAGS = $(PICKY_CXXFLAGS)
 
 noinst_LIBRARIES = libutil.a

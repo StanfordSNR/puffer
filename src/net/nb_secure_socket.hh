@@ -8,9 +8,9 @@
 
 #include "secure_socket.hh"
 
-class NBSecureSocket
+class NBSecureSocket : public SecureSocket
 {
-private:
+public:
   enum class State {needs_connect,
                     needs_ssl_read_to_connect,
                     needs_ssl_write_to_connect,
@@ -21,35 +21,35 @@ private:
                     ready,
                     closed};
 
-  SecureSocket socket_;
+private:
   State state_ {State::needs_connect};
 
   std::queue<std::string> write_buffer_ {};
   std::string read_buffer_ {};
 
-  bool ready() const { return state_ == State::ready; }
+public:
+  NBSecureSocket(SecureSocket && sock)
+    : SecureSocket(std::move(sock))
+  {}
 
+  void continue_SSL_connect();
+  void continue_SSL_write();
+  void continue_SSL_read();
+
+  std::string ezread();
+  void ezwrite(const std::string & message) { write_buffer_.push(message); };
+
+  bool something_to_write() { return (write_buffer_.size() > 0); }
+  bool something_to_read() { return (read_buffer_.size() > 0); }
+
+  State state() const  { return state_; }
+  bool ready() const { return state_ == State::ready; }
   bool connected() const
   {
     return (state_ != State::needs_connect) and
            (state_ != State::needs_ssl_read_to_connect) and
            (state_ != State::needs_ssl_write_to_connect);
   }
-
-  void continue_SSL_connect();
-  void continue_SSL_write();
-  void continue_SSL_read();
-
-public:
-  NBSecureSocket(SecureSocket && sock)
-    : socket_(std::move(sock))
-  {}
-
-  bool readable() const;
-  bool writable() const;
-
-  std::string read();
-  void write(const std::string & message);
 };
 
 #endif /* CONNECTION_HH */
