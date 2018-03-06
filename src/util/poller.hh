@@ -11,6 +11,7 @@
 #include <poll.h>
 
 #include "file_descriptor.hh"
+#include "nb_secure_socket.hh"
 
 class Poller
 {
@@ -39,6 +40,11 @@ public:
         const std::function<bool(void)> & s_when_interested = [] () { return true; } )
       : fd( s_fd ), direction( s_direction ), callback( s_callback ),
        when_interested( s_when_interested ), active( true ) {}
+
+    Action( NBSecureSocket & s_socket,
+            const PollDirection & s_direction,
+            const CallbackType & s_callback,
+            const std::function<bool(void)> & s_when_interested = [] () { return true; } );
 
     unsigned int service_count( void ) const;
   };

@@ -9,7 +9,7 @@ using namespace std;
 void NBSecureSocket::continue_SSL_connect()
 {
   if (state_ == State::needs_connect) {
-    socket_.verify_no_errors();
+    verify_no_errors();
     /* TCP successfully connected, so start SSL session */
     state_ = State::needs_ssl_write_to_connect;
   }
@@ -17,7 +17,7 @@ void NBSecureSocket::continue_SSL_connect()
   if (state_ == State::needs_ssl_write_to_connect or
       state_ == State::needs_ssl_read_to_connect) {
     try {
-      socket_.connect();
+      connect();
     }
     catch (const ssl_error & s) {
       /* is it a WANT_READ or WANT_WRITE? */
@@ -47,8 +47,12 @@ void NBSecureSocket::continue_SSL_connect()
 
 void NBSecureSocket::continue_SSL_write()
 {
+  if (not something_to_write()) {
+    return;
+  }
+
   try {
-    socket_.write(write_buffer_.front(), state_ == State::needs_ssl_read_to_write);
+    SecureSocket::write(write_buffer_.front(), state_ == State::needs_ssl_read_to_write);
   }
   catch (ssl_error & s) {
     switch (s.error_code()) {
@@ -74,7 +78,7 @@ void NBSecureSocket::continue_SSL_write()
 void NBSecureSocket::continue_SSL_read()
 {
   try {
-    read_buffer_ += socket_.read(state_ == State::needs_ssl_write_to_read);
+    read_buffer_ += SecureSocket::read(state_ == State::needs_ssl_write_to_read);
   }
   catch (ssl_error & s) {
     switch (s.error_code()) {

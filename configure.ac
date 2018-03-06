@@ -30,6 +30,8 @@ AC_CHECK_HEADERS([experimental/filesystem])
 CPPFLAGS="$save_CPPFLAGS"
 AC_LANG_POP(C++)
 
+PKG_CHECK_MODULES([SSL],[libssl libcrypto])
+
 # Checks for typedefs, structures, and compiler characteristics.
 
 # Checks for library functions.
