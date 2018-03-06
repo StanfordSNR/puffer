@@ -15,9 +15,13 @@ using namespace std;
 static string notifier;
 static fs::path output_path;
 static fs::path wrappers_path;
+static fs::path clean_path;
 
 static vector<tuple<string, string>> vformats;
 static vector<string> aformats;
+
+static vector<tuple<string, string>> working_dir_ext;
+static vector<tuple<string, string>> ready_dir_ext;
 
 void print_usage(const string & program_name)
 {
@@ -86,6 +90,8 @@ void run_video_canonicalizer(ProcessManager & proc_manager)
     fs::create_directories(dir);
   }
 
+  working_dir_ext.emplace_back(dst_dir, ".y4m");
+
   /* notifier runs video_canonicalizer */
   string video_canonicalizer = wrappers_path / "video_canonicalizer";
 
@@ -109,6 +115,8 @@ void run_video_encoder(ProcessManager & proc_manager,
   for (const auto & dir : {src_dir, dst_dir, tmp_dir}) {
     fs::create_directories(dir);
   }
+
+  working_dir_ext.emplace_back(dst_dir, ".mp4");
 
   /* notifier runs video_encoder */
   string video_encoder = wrappers_path / "video_encoder";
@@ -134,6 +142,8 @@ void run_video_fragmenter(ProcessManager & proc_manager,
   for (const auto & dir : {src_dir, dst_dir, tmp_dir}) {
     fs::create_directories(dir);
   }
+
+  ready_dir_ext.emplace_back(dst_dir, ".m4s");
 
   /* notifier runs video_fragmenter */
   string video_fragmenter = wrappers_path / "video_fragmenter";
@@ -162,6 +172,8 @@ void run_ssim_calculator(ProcessManager & proc_manager,
     fs::create_directories(dir);
   }
 
+  ready_dir_ext.emplace_back(dst_dir, ".ssim");
+
   /* notifier runs ssim_calculator */
   string ssim_calculator = wrappers_path / "ssim_calculator";
 
@@ -183,6 +195,9 @@ void run_audio_encoder(ProcessManager & proc_manager,
   for (const auto & dir : {src_dir, dst_dir, tmp_dir}) {
     fs::create_directories(dir);
   }
+
+  working_dir_ext.emplace_back(src_dir, ".wav");
+  working_dir_ext.emplace_back(dst_dir, ".webm");
 
   /* notifier runs audio_encoder */
   string audio_encoder = wrappers_path / "audio_encoder";
@@ -207,6 +222,8 @@ void run_audio_fragmenter(ProcessManager & proc_manager,
     fs::create_directories(dir);
   }
 
+  ready_dir_ext.emplace_back(dst_dir, ".chk");
+
   /* notifier runs audio_fragmenter */
   string audio_fragmenter = wrappers_path / "audio_fragmenter";
   string dst_init_path = fs::path(dst_dir) / "init.webm";
@@ -215,6 +232,34 @@ void run_audio_fragmenter(ProcessManager & proc_manager,
     notifier, src_dir, ".webm", "--check", dst_dir, ".chk", "--tmp", tmp_dir,
     "--exec", audio_fragmenter, "-i", dst_init_path };
   proc_manager.run_as_child(notifier, args);
+}
+
+void run_depcleaner(ProcessManager & proc_manager)
+{
+  string depcleaner = clean_path / "depcleaner";
+  vector<string> args = {depcleaner};
+
+  args.emplace_back("--clean");
+  for (const auto & item : working_dir_ext) {
+    const auto & [dir, ext] = item;
+    args.emplace_back(dir);
+    args.emplace_back(ext);
+  }
+
+  args.emplace_back("--depend");
+  for (const auto & item : ready_dir_ext) {
+    const auto & [dir, ext] = item;
+    args.emplace_back(dir);
+    args.emplace_back(ext);
+  }
+
+  /* run notifier for each directory in ready/ */
+  for (const auto & item : ready_dir_ext) {
+    const auto & [dir, ext] = item;
+    vector<string> notifier_args { notifier, dir, ext, "--exec" };
+    notifier_args.insert(notifier_args.end(), args.begin(), args.end());
+    proc_manager.run_as_child(notifier, notifier_args);
+  }
 }
 
 int main(int argc, char * argv[])
@@ -251,6 +296,7 @@ int main(int argc, char * argv[])
   /* get the path of wrappers directory and notifier */
   wrappers_path = fs::canonical(fs::path(
                       roost::readlink("/proc/self/exe")).parent_path());
+  clean_path = fs::canonical(wrappers_path / "../cleaner");
   notifier = fs::canonical(wrappers_path / "../notifier/notifier");
 
   ProcessManager proc_manager;
@@ -273,5 +319,8 @@ int main(int argc, char * argv[])
     run_audio_fragmenter(proc_manager, aformat);
   }
 
-  return proc_manager.loop();
+  /* run depcleaner to clean up files in working/ */
+  run_depcleaner(proc_manager);
+
+  return proc_manager.wait();
 }
