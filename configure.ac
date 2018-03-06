@@ -42,7 +42,6 @@ AC_CONFIG_FILES([
     src/notifier/Makefile
     src/atsc/Makefile
     src/forwarder/Makefile
-    src/encoder/Makefile
     src/mp4/Makefile
     src/webm/Makefile
     src/mpd/Makefile
