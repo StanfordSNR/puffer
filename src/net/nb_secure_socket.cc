@@ -99,3 +99,10 @@ void NBSecureSocket::continue_SSL_read()
 
   state_ = State::ready;
 }
+
+string NBSecureSocket::ezread()
+{
+  string buffer {move(read_buffer_)};
+  read_buffer_ = string {};
+  return buffer;
+}
