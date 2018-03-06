@@ -24,7 +24,7 @@ public:
 
   void process_existing_files();
 
-  void loop();
+  int loop();
 
 private:
   std::string src_dir_, src_ext_;
@@ -36,13 +36,9 @@ private:
   std::string program_;
   std::vector<std::string> prog_args_;
 
-  SignalMask signals_;
-  SignalFD signal_fd_;
-
-  Poller poller_;
+  ProcessManager process_manager_;
   Inotify inotify_;
 
-  std::unordered_map<pid_t, ChildProcess> child_processes_;
   std::unordered_map<pid_t, std::string> prefixes_;
 
   /* helper functions */
@@ -51,8 +47,6 @@ private:
   inline std::string get_tmp_path(const std::string & prefix);
 
   void run_as_child(const std::string & prefix);
-
-  PollerShortNames::Result handle_signal(const signalfd_siginfo & sig);
 };
 
 #endif /* NOTIFIER_HH */
