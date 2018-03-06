@@ -39,9 +39,8 @@ Notifier::Notifier(const string & src_dir,
   : src_dir_(src_dir), src_ext_(src_ext),
     check_mode_(false), dst_dir_(), dst_ext_(),
     tmp_dir_(), program_(program), prog_args_(prog_args),
-    signals_({ SIGCHLD, SIGABRT, SIGHUP, SIGINT, SIGQUIT, SIGTERM }),
-    signal_fd_(signals_), poller_(), inotify_(poller_),
-    child_processes_(), prefixes_()
+    process_manager_(), inotify_(process_manager_.poller()),
+    prefixes_()
 {
   /* check mode */
   if (dst_dir_opt.has_value() and dst_ext_opt.has_value()) {
@@ -71,10 +70,7 @@ Notifier::Notifier(const string & src_dir,
       }
 
       assert(src_dir_ == path);
-
-      if (event.len == 0) {
-        throw runtime_error("returned event should contain a new filename");
-      }
+      assert(event.len != 0);
 
       string filename = event.name;
 
@@ -84,17 +80,6 @@ Notifier::Notifier(const string & src_dir,
       }
 
       run_as_child(fs::path(filename).stem());
-    }
-  );
-
-  /* listen on signals from the current process and child processes */
-  signals_.set_as_mask();
-  poller_.add_action(
-    Poller::Action{
-      signal_fd_.fd(), Direction::In,
-      [&]() {
-        return handle_signal(signal_fd_.read_signal());
-      }
     }
   );
 }
@@ -125,79 +110,27 @@ void Notifier::run_as_child(const string & prefix)
   }
 
   args.insert(args.end(), prog_args_.begin(), prog_args_.end());
-  cerr << "$ " + command_str(args, {}) + "\n";
 
   /* run program_ as a child */
-  auto child = ChildProcess(program_,
-    [&]() {
-      return ezexec(program_, args);
-    }
-  );
+  if (check_mode_) {
+    pid_t pid = process_manager_.run_as_child(program_, args,
+      [&](const pid_t & pid) {
+        /* verify that the correct output has been written */
+        assert(check_mode_);
 
-  pid_t child_pid = child.pid();
-  prefixes_.emplace(child_pid, prefix);
-  child_processes_.emplace(child_pid, move(child));
-}
+        string prefix = prefixes_[pid];
 
-Result Notifier::handle_signal(const signalfd_siginfo & sig)
-{
-  switch (sig.ssi_signo) {
-  case SIGCHLD:
-    if (child_processes_.empty()) {
-      throw runtime_error("received SIGCHLD without any managed children");
-    }
+        /* throw an exception if get_tmp_path(prefix) does not exist */
+        fs::rename(get_tmp_path(prefix), get_dst_path(prefix));
 
-    for (auto it = child_processes_.begin(); it != child_processes_.end();) {
-      ChildProcess & child = it->second;
-
-      if (not child.waitable()) {
-        it++;
-      } else {
-        child.wait(true);
-
-        if (child.terminated()) {
-          if (child.exit_status() != 0) {
-            throw runtime_error("Notifier: PID " + to_string(it->first)
-                                + " exits abnormally");
-          }
-
-          /* verify that the correct output has been written */
-          pid_t child_pid = child.pid();
-          string prefix = prefixes_[child_pid];
-
-          if (check_mode_) {
-            /* throw an exception if get_tmp_path(prefix) does not exist */
-            fs::rename(get_tmp_path(prefix), get_dst_path(prefix));
-          }
-
-          prefixes_.erase(child_pid);
-          it = child_processes_.erase(it);
-        } else {
-          if (not child.running()) {
-            throw runtime_error("Notifier: PID " + to_string(it->first)
-                                + " is not running");
-          }
-          it++;
-        }
+        prefixes_.erase(pid);
       }
-    }
+    );
 
-    break;
-
-  case SIGABRT:
-  case SIGHUP:
-  case SIGINT:
-  case SIGQUIT:
-  case SIGTERM:
-    throw runtime_error("Notifier: interrupted by signal " +
-                        to_string(sig.ssi_signo));
-
-  default:
-    throw runtime_error("Notifier: unknown signal " +
-                        to_string(sig.ssi_signo));
+    prefixes_.emplace(pid, prefix);
+  } else {
+    process_manager_.run_as_child(program_, args);
   }
-
-  return ResultType::Continue;
 }
 
 void Notifier::process_existing_files()
@@ -229,12 +162,9 @@ void Notifier::process_existing_files()
   }
 }
 
-void Notifier::loop()
+int Notifier::loop()
 {
-  /* poll forever */
-  for (;;) {
-    poller_.poll(-1);
-  }
+  return process_manager_.loop();
 }
 
 int main(int argc, char * argv[])
@@ -286,7 +216,5 @@ int main(int argc, char * argv[])
   Notifier notifier(src_dir, src_ext, dst_dir_opt, dst_ext_opt,
                     tmp_dir_opt, program, prog_args);
   notifier.process_existing_files();
-  notifier.loop();
-
-  return EXIT_SUCCESS;
+  return notifier.loop();
 }
