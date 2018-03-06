@@ -33,15 +33,15 @@ def main():
     depcleaner = path.abspath(
         path.join(abs_builddir, os.pardir, 'cleaner', 'depcleaner'))
 
-    downstream_dir_args = []
+    downstream_dir_args = ['--depend']
     for i, downstream_dir in enumerate(downstream_dirs):
-        downstream_dir_args.extend([downstream_dir, 'ext{}'.format(i)])
+        downstream_dir_args.extend([downstream_dir, '.ext{}'.format(i)])
 
     for i, downstream_dir in enumerate(downstream_dirs):
         downstream_file = os.path.join(downstream_dir, 'TESTFILE.ext{}'.format(i))
         check_call(['touch', downstream_file])
 
-        cmd = [depcleaner, downstream_file, upstream_dir, 'y4m']
+        cmd = [depcleaner, downstream_file, '--clean', upstream_dir, '.y4m']
         cmd.extend(downstream_dir_args)
         print(check_output(cmd))
 
