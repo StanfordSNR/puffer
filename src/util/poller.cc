@@ -17,8 +17,7 @@ Poller::Action::Action( NBSecureSocket & s_socket,
   : fd( s_socket ), direction( s_direction ), callback(), when_interested(),
     active( true )
 {
-  if ( direction == In )
-  {
+  if ( direction == Out ) { /* write */
     callback =
       [s_callback, &s_socket] ()
       {
@@ -54,7 +53,7 @@ Poller::Action::Action( NBSecureSocket & s_socket,
       };
 
   }
-  else /* direction == Out */ {
+  else /* direction == In */ { /* read */
     callback =
       [s_callback, &s_socket] ()
       {
