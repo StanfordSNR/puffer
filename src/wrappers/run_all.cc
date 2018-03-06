@@ -12,7 +12,7 @@
 
 using namespace std;
 
-static string run_notifier;
+static string notifier;
 static fs::path output_path;
 static fs::path wrappers_path;
 
@@ -86,13 +86,13 @@ void run_video_canonicalizer(ProcessManager & proc_manager)
     fs::create_directories(dir);
   }
 
-  /* run_notifier runs video_canonicalizer */
+  /* notifier runs video_canonicalizer */
   string video_canonicalizer = wrappers_path / "video_canonicalizer";
 
   vector<string> args {
-    run_notifier, src_dir, "--check", dst_dir, video_canonicalizer,
-    dst_dir, "--tmp", tmp_dir };
-  proc_manager.run_as_child(run_notifier, args);
+    notifier, src_dir, ".y4m", "--check", dst_dir, ".y4m", "--tmp", tmp_dir,
+    "--exec", video_canonicalizer };
+  proc_manager.run_as_child(notifier, args);
 }
 
 void run_video_encoder(ProcessManager & proc_manager,
@@ -110,13 +110,13 @@ void run_video_encoder(ProcessManager & proc_manager,
     fs::create_directories(dir);
   }
 
-  /* run_notifier runs video_encoder */
+  /* notifier runs video_encoder */
   string video_encoder = wrappers_path / "video_encoder";
 
   vector<string> args {
-    run_notifier, src_dir, "--check", dst_dir, video_encoder,
-    dst_dir, "--tmp", tmp_dir, "-s", res, "--crf", crf };
-  proc_manager.run_as_child(run_notifier, args);
+    notifier, src_dir, ".y4m", "--check", dst_dir, ".mp4", "--tmp", tmp_dir,
+    "--exec", video_encoder, "-s", res, "--crf", crf };
+  proc_manager.run_as_child(notifier, args);
 }
 
 void run_video_fragmenter(ProcessManager & proc_manager,
@@ -135,13 +135,13 @@ void run_video_fragmenter(ProcessManager & proc_manager,
     fs::create_directories(dir);
   }
 
-  /* run_notifier runs video_fragmenter */
+  /* notifier runs video_fragmenter */
   string video_fragmenter = wrappers_path / "video_fragmenter";
 
   vector<string> args {
-    run_notifier, src_dir, "--check", dst_dir, video_fragmenter,
-    dst_dir, "--tmp", tmp_dir };
-  proc_manager.run_as_child(run_notifier, args);
+    notifier, src_dir, ".mp4", "--check", dst_dir, ".m4s", "--tmp", tmp_dir,
+    "--exec", video_fragmenter };
+  proc_manager.run_as_child(notifier, args);
 }
 
 void run_ssim_calculator(ProcessManager & proc_manager,
@@ -161,13 +161,13 @@ void run_ssim_calculator(ProcessManager & proc_manager,
     fs::create_directories(dir);
   }
 
-  /* run_notifier runs ssim_calculator */
+  /* notifier runs ssim_calculator */
   string ssim_calculator = wrappers_path / "ssim_calculator";
 
   vector<string> args {
-    run_notifier, src_dir, "--check", dst_dir, ssim_calculator,
-    dst_dir, "--tmp", tmp_dir, "--canonical", canonical_dir };
-  proc_manager.run_as_child(run_notifier, args);
+    notifier, src_dir, ".mp4", "--check", dst_dir, ".ssim", "--tmp", tmp_dir,
+    "--exec", ssim_calculator, "--canonical", canonical_dir };
+  proc_manager.run_as_child(notifier, args);
 }
 
 void run_audio_encoder(ProcessManager & proc_manager,
@@ -183,13 +183,13 @@ void run_audio_encoder(ProcessManager & proc_manager,
     fs::create_directories(dir);
   }
 
-  /* run_notifier runs audio_encoder */
+  /* notifier runs audio_encoder */
   string audio_encoder = wrappers_path / "audio_encoder";
 
   vector<string> args {
-    run_notifier, src_dir, "--check", dst_dir, audio_encoder,
-    dst_dir, "--tmp", tmp_dir, "-b", bitrate };
-  proc_manager.run_as_child(run_notifier, args);
+    notifier, src_dir, ".wav", "--check", dst_dir, ".webm", "--tmp", tmp_dir,
+    "--exec", audio_encoder, "-b", bitrate };
+  proc_manager.run_as_child(notifier, args);
 }
 
 void run_audio_fragmenter(ProcessManager & proc_manager,
@@ -206,18 +206,13 @@ void run_audio_fragmenter(ProcessManager & proc_manager,
     fs::create_directories(dir);
   }
 
-  /* run_notifier runs audio_fragmenter */
+  /* notifier runs audio_fragmenter */
   string audio_fragmenter = wrappers_path / "audio_fragmenter";
 
   vector<string> args {
-    run_notifier, src_dir, "--check", dst_dir, audio_fragmenter,
-    dst_dir, "--tmp", tmp_dir };
-  proc_manager.run_as_child(run_notifier, args);
-}
-
-void run_decoder(ProcessManager &, const YAML::Node &)
-{
-  /* TODO */
+    notifier, src_dir, ".webm", "--check", dst_dir, ".chk", "--tmp", tmp_dir,
+    "--exec", audio_fragmenter };
+  proc_manager.run_as_child(notifier, args);
 }
 
 int main(int argc, char * argv[])
@@ -243,17 +238,18 @@ int main(int argc, char * argv[])
     if (config["overwrite_output"] and config["overwrite_output"].as<bool>()) {
       fs::remove_all(output_dir);
     } else {
-      throw runtime_error(output_dir + " already exists");
+      cerr << output_dir + " already exists" << endl;
+      return EXIT_FAILURE;
     }
   }
 
   output_path = fs::path(output_dir);
   fs::create_directory(output_path);
 
-  /* get the path of wrappers directory and run_notifier */
+  /* get the path of wrappers directory and notifier */
   wrappers_path = fs::canonical(fs::path(
                       roost::readlink("/proc/self/exe")).parent_path());
-  run_notifier = fs::canonical(wrappers_path / "../notifier/run_notifier");
+  notifier = fs::canonical(wrappers_path / "../notifier/notifier");
 
   ProcessManager proc_manager;
 
@@ -275,10 +271,5 @@ int main(int argc, char * argv[])
     run_audio_fragmenter(proc_manager, aformat);
   }
 
-  /* run decoder at last since it will trigger the entire system */
-  run_decoder(proc_manager, config);
-
-  proc_manager.wait();
-
-  return EXIT_SUCCESS;
+  return proc_manager.loop();
 }
