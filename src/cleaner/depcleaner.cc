@@ -1,67 +1,91 @@
-#include <sys/stat.h>
 #include <iostream>
 #include <string>
 #include <vector>
-#include <system_error>
+#include <tuple>
 
 #include "filesystem.hh"
-#include "tokenize.hh"
-#include "exception.hh"
 
 using namespace std;
 
 void print_usage(const string & program_name)
 {
   cerr <<
-  "Usage: " << program_name << " <input_file> <clean_dir> <remove_ext> [depdir1 depext1 [depdir2 depext2 [...]]\n\n"
+  "Usage: " << program_name << " <input_file> "
+  "--clean <clean_dir> <clean_ext> [<clean_dir> <clean_ext> ...]\n"
+  "       --depend <dep_dir> <dep_ext> [<dep_dir> <dep_ext>]\n"
   "<input_file>   input file from notifier\n"
-  "<clean_dir>    directory to clean\n"
-  "<remove_ext>   extension of the file to remove if all downstream dependencies exist\n"
-  "[depdir depext ... ]  directories containing dependent files and their extensions"
+  "--clean <clean_dir> <clean_ext>  directories and file extensions to clean\n"
+  "--depend <dep_dir> <dep_ext>     directories containing dependent files\n"
+  "                                 and extensions"
   << endl;
-}
-
-string get_file_basename(const string & path) {
-  vector<string> parts = split(path, "/");
-  return parts[parts.size() - 1];
 }
 
 int main(int argc, char * argv[])
 {
-  if (argc < 5) {
-    print_usage("depcleaner");
+  if (argc < 1) {
+    abort();
+  }
+
+  if (argc < 8) {
+    print_usage(argv[0]);
     return EXIT_FAILURE;
   }
 
-  string input_file, clean_dir, remove_ext;
-  input_file = argv[1];
-  clean_dir = argv[2];
-  remove_ext = argv[3];
+  /* parse arguments */
+  string input_file = argv[1];
+  vector<tuple<string, string>> clean_files;
+  vector<tuple<string, string>> depend_files;
 
-  if (!fs::exists(clean_dir)) {
-    cerr << "Cleaning directory does not exist " << clean_dir << endl;
+  int clean_pos = 0, depend_pos = 0;
+  for (int i = 2; i < argc; i++) {
+    if (string(argv[i]) == "--clean") {
+      clean_pos = i;
+    } else if (string(argv[i]) == "--depend") {
+      depend_pos = i;
+    }
+  }
+
+  if (clean_pos == 0 or depend_pos == 0) {
+    print_usage(argv[0]);
     return EXIT_FAILURE;
   }
 
-  string input_file_basename = get_file_basename(input_file);
-  string input_file_no_ext = split_filename(input_file_basename).first;
+  int clean_end = 0, depend_end = 0;
+  if (clean_pos < depend_pos) {
+    clean_end = depend_pos;
+    depend_end = argc;
+  } else {
+    depend_end = clean_pos;
+    clean_end = argc;
+  }
 
-  for (int i = 4; i < argc; i += 2) {
-    string dependent_dir = argv[i];
-    string dependent_ext = argv[i + 1];
-    string dependent_file = string(dependent_dir) + "/" + input_file_no_ext +
-                            '.' + dependent_ext;
-    if (!fs::exists(dependent_file)) {
-      /* one of the dependent files does not exist yet so we do nothing */
+  for (int i = clean_pos + 1; i < clean_end; i += 2) {
+    clean_files.emplace_back(argv[i], argv[i + 1]);
+  }
+
+  for (int i = depend_pos + 1; i < depend_end; i += 2) {
+    depend_files.emplace_back(argv[i], argv[i + 1]);
+  }
+
+  /* check if all dependent files exist */
+  string input_filestem = fs::path(input_file).stem();
+  for (const auto & depend_file : depend_files) {
+    const auto & [dep_dir, dep_ext] = depend_file;
+
+    string dep_filepath = fs::path(dep_dir) / (input_filestem + dep_ext);
+    if (not fs::exists(dep_filepath)) {
       return EXIT_SUCCESS;
     }
   }
 
   /* all of the downstream files exist so we can remove the upstream files */
-  string file_to_remove = clean_dir + "/" + input_file_no_ext + "." + remove_ext;
   error_code ec;
-  if (not fs::remove(file_to_remove, ec) or ec) {
-    cerr << "Warning: file " << file_to_remove << " cannot be removed" << endl;
+  for (const auto & clean_file : clean_files) {
+    const auto & [clean_dir, clean_ext] = clean_file;
+
+    string clean_filepath = fs::path(clean_dir) / (input_filestem + clean_ext);
+    /* remove the file to clean and suppress exceptions */
+    fs::remove(clean_filepath, ec);
   }
 
   return EXIT_SUCCESS;
