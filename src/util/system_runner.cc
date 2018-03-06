@@ -125,11 +125,11 @@ string run( const string & filename, const vector<string> & args,
 }
 
 string command_str( const vector<string> & command,
-                    const vector<string> & environment )
+                    const vector<string> & env )
 {
   ostringstream oss;
 
-  for ( const auto & e : environment ) { oss << e << " "; }
+  for ( const auto & e : env ) { oss << e << " "; }
   for ( const auto & c : command ) { oss << c << " "; }
 
   return oss.str();
