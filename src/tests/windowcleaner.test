@@ -36,7 +36,7 @@ def main():
         trigger_file = path.join(windowcleaner_testdir,
                                  '{}.m4s'.format(i * FILE_TIMESCALE))
 
-        cmd = [windowcleaner, trigger_file, 'm4s',
+        cmd = [windowcleaner, trigger_file, '.m4s',
                str(CLEAN_TIMEWINDOW_IN_FILES * FILE_TIMESCALE)]
         check_call(cmd)
 
