@@ -312,11 +312,13 @@ Result ProcessManager::handle_signal(const signalfd_siginfo & sig)
   case SIGINT:
   case SIGQUIT:
   case SIGTERM:
-    cerr << "ProcessManager: interrupted by signal " << sig.ssi_signo << endl;
+    cerr << "ProcessManager: interrupted by signal " +
+            to_string(sig.ssi_signo) + "\n";
     child_processes_.clear();
     return {ResultType::Exit, EXIT_FAILURE};
   default:
-    cerr << "ProcessManager: unknown signal " << sig.ssi_signo << endl;
+    cerr << "ProcessManager: unknown signal " +
+            to_string(sig.ssi_signo) + "\n";
     child_processes_.clear();
     return {ResultType::Exit, EXIT_FAILURE};
   }

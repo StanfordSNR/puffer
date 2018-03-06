@@ -137,10 +137,11 @@ void run_video_fragmenter(ProcessManager & proc_manager,
 
   /* notifier runs video_fragmenter */
   string video_fragmenter = wrappers_path / "video_fragmenter";
+  string dst_init_path = fs::path(dst_dir) / "init.mp4";
 
   vector<string> args {
     notifier, src_dir, ".mp4", "--check", dst_dir, ".m4s", "--tmp", tmp_dir,
-    "--exec", video_fragmenter };
+    "--exec", video_fragmenter, "-i", dst_init_path };
   proc_manager.run_as_child(notifier, args);
 }
 
@@ -208,10 +209,11 @@ void run_audio_fragmenter(ProcessManager & proc_manager,
 
   /* notifier runs audio_fragmenter */
   string audio_fragmenter = wrappers_path / "audio_fragmenter";
+  string dst_init_path = fs::path(dst_dir) / "init.webm";
 
   vector<string> args {
     notifier, src_dir, ".webm", "--check", dst_dir, ".chk", "--tmp", tmp_dir,
-    "--exec", audio_fragmenter };
+    "--exec", audio_fragmenter, "-i", dst_init_path };
   proc_manager.run_as_child(notifier, args);
 }
 
