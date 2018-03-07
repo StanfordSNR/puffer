@@ -75,7 +75,7 @@ WSServer::WSServer(const Address & listener_addr)
               conn.ws_handshake_parser.pop();
               conn.state = Connection::State::Connecting;
 
-              cerr << "connection request received" << endl;
+              open_handler_(conn_id);
             }
           }
           else if (conn.state == Connection::State::Connected) {

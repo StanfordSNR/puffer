@@ -17,8 +17,15 @@ int main()
     ws_server.set_message_handler(
       [](const uint64_t connection_id, const WSMessage & message)
       {
-        cerr << "Message[" << connection_id << "]: "
+        cerr << "Message (from=" << connection_id << "): "
              << message.payload() << endl;
+      }
+    );
+
+    ws_server.set_open_handler(
+      [](const uint64_t connection_id)
+      {
+        cerr << "Connected (id=" << connection_id << ")." << endl;
       }
     );
 
