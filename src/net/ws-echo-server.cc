@@ -14,7 +14,7 @@ int main()
     uint16_t port = 9333;
 
     WSServer ws_server {{ip,port}};
-    ws_server.set_message_handler(
+    ws_server.set_message_callback(
       [](const uint64_t connection_id, const WSMessage & message)
       {
         cerr << "Message (from=" << connection_id << "): "
@@ -22,7 +22,7 @@ int main()
       }
     );
 
-    ws_server.set_open_handler(
+    ws_server.set_open_callback(
       [](const uint64_t connection_id)
       {
         cerr << "Connected (id=" << connection_id << ")." << endl;

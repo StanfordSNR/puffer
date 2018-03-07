@@ -75,7 +75,7 @@ WSServer::WSServer(const Address & listener_addr)
               conn.ws_handshake_parser.pop();
               conn.state = Connection::State::Connecting;
 
-              open_handler_(conn_id);
+              open_callback_(conn_id);
             }
           }
           else if (conn.state == Connection::State::Connected) {
@@ -84,7 +84,7 @@ WSServer::WSServer(const Address & listener_addr)
             if (not conn.ws_message_parser.empty()) {
               WSMessage message = conn.ws_message_parser.front();
               conn.ws_message_parser.pop();
-              message_handler_(conn_id, message);
+              message_callback_(conn_id, message);
             }
           }
           else {
