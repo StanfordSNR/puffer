@@ -62,7 +62,7 @@ public:
   void set_message_callback(MessageCallback func) { message_callback_ = func; }
   void set_open_callback(OpenCallback func) { open_callback_ = func; }
 
-  void send_frame(const uint64_t connection_id, const WSFrame & frame);
+  void queue_frame(const uint64_t connection_id, const WSFrame & frame);
 };
 
 #endif /* WSSERVER_HH */
