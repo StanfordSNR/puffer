@@ -4,6 +4,7 @@
 #define WSSERVER_HH
 
 #include <map>
+#include <set>
 #include <functional>
 
 #include "socket.hh"
@@ -56,6 +57,8 @@ private:
   MessageCallback message_callback_ {};
   OpenCallback open_callback_ {};
   CloseCallback close_callback_ {};
+
+  std::set<uint64_t> closed_connections_ {};
 
 public:
   WSServer(const Address & listener_addr);

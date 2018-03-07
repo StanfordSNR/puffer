@@ -125,6 +125,7 @@ WSServer::WSServer(const Address & listener_addr)
 
                 /* we don't want to poll on this socket anymore */
                 close_callback_(conn_id);
+                closed_connections_.insert(conn_id);
                 return ResultType::CancelAll;
 
               default:
@@ -166,6 +167,7 @@ WSServer::WSServer(const Address & listener_addr)
           if (conn.state == Connection::State::Closed and
               not conn.data_to_send()) {
             close_callback_(conn_id);
+            closed_connections_.insert(conn_id);
             return ResultType::CancelAll;
           }
 
@@ -220,5 +222,14 @@ void WSServer::close_connection(const uint64_t connection_id)
 
 Poller::Result WSServer::loop_once()
 {
-  return poller_.poll(-1);
+  auto result = poller_.poll(-1);
+
+  /* let's garbage collect the closed connections */
+  for (const uint64_t conn_id : closed_connections_) {
+    connections_.erase(conn_id);
+  }
+
+  closed_connections_.clear();
+
+  return result;
 }
