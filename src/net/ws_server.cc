@@ -44,6 +44,7 @@ HTTPResponse create_handshake_response(const HTTPRequest & request)
 WSServer::WSServer(const Address & listener_addr)
   : listener_socket_()
 {
+  listener_socket_.set_blocking( false );
   listener_socket_.bind(listener_addr);
   listener_socket_.listen();
 
