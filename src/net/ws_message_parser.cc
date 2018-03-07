@@ -46,7 +46,7 @@ void WSMessageParser::parse( const string & buf )
 
     /* we don't put control frames into the frame buffer, we directly create
     the message from those and push them into the output queue */
-    complete_messages_.emplace(frame);
+    complete_messages_.emplace(list<WSFrame>{frame});
     fin = false;
     break;
   }

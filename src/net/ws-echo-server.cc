@@ -2,17 +2,24 @@
 
 #include <iostream>
 
+#include "exception.hh"
 #include "ws_server.hh"
 
 using namespace std;
 
 int main()
 {
-  string ip = "0.0.0.0";
-  uint16_t port = 9333;
+  try {
+    string ip = "0.0.0.0";
+    uint16_t port = 9333;
 
-  WSServer ws_server {{ip,port}};
-  ws_server.serve_forever();
+    WSServer ws_server {{ip,port}};
+    ws_server.serve_forever();
+  }
+  catch (const exception & ex) {
+    print_exception("ws-echo-server", ex);
+    return EXIT_FAILURE;
+  }
 
-  return 0;
+  return EXIT_SUCCESS;
 }

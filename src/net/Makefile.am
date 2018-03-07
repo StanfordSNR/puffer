@@ -22,4 +22,4 @@ libnet_a_SOURCES = address.cc address.hh body_parser.hh \
 bin_PROGRAMS = ws-echo-server
 
 ws_echo_server_SOURCES = ws-echo-server.cc
-ws_echo_server_LDADD = libnet.a ../util/libutil.a libnet.a $(SSL_LIBS)
+ws_echo_server_LDADD = libnet.a ../util/libutil.a libnet.a $(SSL_LIBS) $(CRYPTO_LIBS)

@@ -31,6 +31,7 @@ CPPFLAGS="$save_CPPFLAGS"
 AC_LANG_POP(C++)
 
 PKG_CHECK_MODULES([SSL],[libssl libcrypto])
+PKG_CHECK_MODULES([CRYPTO],[libcrypto++])
 
 # Checks for typedefs, structures, and compiler characteristics.
 
