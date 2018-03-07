@@ -66,6 +66,7 @@ public:
   void set_close_callback(CloseCallback func) { close_callback_ = func; }
 
   void queue_frame(const uint64_t connection_id, const WSFrame & frame);
+  void close_connection(const uint64_t connection_id);
 };
 
 #endif /* WSSERVER_HH */

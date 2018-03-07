@@ -154,7 +154,30 @@ void WSServer::queue_frame(const uint64_t connection_id, const WSFrame & frame)
     throw runtime_error("invalid connection id: " + to_string(connection_id));
   }
 
-  connections_.at(connection_id).send_buffer += frame.to_string();
+  Connection & conn = connections_.at(connection_id);
+
+  if (conn.state != Connection::State::Connected) {
+    throw runtime_error("not connected, cannot send the frame");
+  }
+
+  conn.send_buffer += frame.to_string();
+}
+
+void WSServer::close_connection(const uint64_t connection_id)
+{
+  if (connections_.count(connection_id) == 0) {
+    throw runtime_error("invalid connection id: " + to_string(connection_id));
+  }
+
+  Connection & conn = connections_.at(connection_id);
+
+  if (conn.state != Connection::State::Connected) {
+    throw runtime_error("not connected, cannot close the connection");
+  }
+
+  WSFrame close_frame { true, WSFrame::OpCode::Close, "" };
+  queue_frame(connection_id, close_frame);
+  conn.state = Connection::State::Closing;
 }
 
 Poller::Result WSServer::loop_once()
