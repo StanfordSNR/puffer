@@ -107,18 +107,33 @@ WSServer::WSServer(const Address & listener_addr)
             conn.socket.write(create_handshake_response(conn.handshake_request).str());
             conn.state = Connection::State::Connected;
           }
+          else if (conn.state == Connection::State::Connected and conn.data_to_send()) {
+            string::const_iterator last_write = conn.socket.write(conn.send_buffer.begin(), conn.send_buffer.end());
+            conn.send_buffer.erase(conn.send_buffer.begin(), last_write);
+          }
 
           return ResultType::Continue;
         },
         [&conn] () -> bool
         {
-          return (conn.state == Connection::State::Connecting);
+          return (conn.state == Connection::State::Connecting) or
+                 (conn.state == Connection::State::Connected and
+                  conn.data_to_send());
         }
       ));
 
       return ResultType::Continue;
     }
   ));
+}
+
+void WSServer::send_frame(const uint64_t connection_id, const WSFrame & frame)
+{
+  if (connections_.count(connection_id) == 0) {
+    throw runtime_error("invalid connection id: " + to_string(connection_id));
+  }
+
+  connections_.at(connection_id).send_buffer += frame.to_string();
 }
 
 Poller::Result WSServer::loop_once()
