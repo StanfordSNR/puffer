@@ -6,6 +6,7 @@
 
 #include "poller.hh"
 #include "exception.hh"
+#include "nb_secure_socket.hh"
 
 using namespace std;
 using namespace PollerShortNames;
