@@ -82,7 +82,29 @@ WSServer::WSServer(const Address & listener_addr)
             if (not conn.ws_message_parser.empty()) {
               WSMessage message = conn.ws_message_parser.front();
               conn.ws_message_parser.pop();
-              message_callback_(conn_id, message);
+
+              switch (message.type()) {
+              case WSMessage::Type::Text:
+              case WSMessage::Type::Binary:
+                message_callback_(conn_id, message);
+                break;
+
+              case WSMessage::Type::Close:
+                break;
+
+              case WSMessage::Type::Ping:
+              {
+                WSFrame pong { true, WSFrame::OpCode::Pong, "" };
+                queue_frame(conn_id, pong);
+                break;
+              }
+
+              case WSMessage::Type::Pong:
+                break;
+
+              default:
+                throw runtime_error("unhandled message type");
+              }
             }
           }
           else {
@@ -126,7 +148,7 @@ WSServer::WSServer(const Address & listener_addr)
   ));
 }
 
-void WSServer::send_frame(const uint64_t connection_id, const WSFrame & frame)
+void WSServer::queue_frame(const uint64_t connection_id, const WSFrame & frame)
 {
   if (connections_.count(connection_id) == 0) {
     throw runtime_error("invalid connection id: " + to_string(connection_id));

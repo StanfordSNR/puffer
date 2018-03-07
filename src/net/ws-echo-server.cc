@@ -23,7 +23,7 @@ int main()
         if (message.type() == WSMessage::Type::Text or
             message.type() == WSMessage::Type::Binary) {
           WSFrame echo_frame {true, message.type(), message.payload()};
-          ws_server.send_frame(connection_id, echo_frame);
+          ws_server.queue_frame(connection_id, echo_frame);
         }
       }
     );
