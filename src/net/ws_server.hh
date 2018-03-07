@@ -16,8 +16,8 @@
 class WSServer
 {
 public:
-  typedef std::function<void(const uint64_t, const WSMessage &)> MessageHandler;
-  typedef std::function<void(const uint64_t)> OpenHandler;
+  typedef std::function<void(const uint64_t, const WSMessage &)> MessageCallback;
+  typedef std::function<void(const uint64_t)> OpenCallback;
 
 private:
   uint64_t last_connection_id_ {0};
@@ -46,15 +46,15 @@ private:
   std::map<uint64_t, Connection> connections_ {};
   Poller poller_ {};
 
-  MessageHandler message_handler_ {};
-  OpenHandler open_handler_ {};
+  MessageCallback message_callback_ {};
+  OpenCallback open_callback_ {};
 
 public:
   WSServer(const Address & listener_addr);
   Poller::Result loop_once();
 
-  void set_message_handler(MessageHandler func) { message_handler_ = func; }
-  void set_open_handler(OpenHandler func) { open_handler_ = func; }
+  void set_message_callback(MessageCallback func) { message_callback_ = func; }
+  void set_open_callback(OpenCallback func) { open_callback_ = func; }
 };
 
 #endif /* WSSERVER_HH */
