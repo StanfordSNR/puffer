@@ -81,7 +81,7 @@ int main(int argc, char * argv[])
   float frame_rate = y4m_parser.get_frame_rate_float();
 
   /* scale the input video to a Y4M with the same resolution */
-  string scaled_y4m = fs::path(input_path).parent_path() / y4m_filename;
+  string scaled_y4m = fs::path(output_path).parent_path() / y4m_filename;
   string scale = to_string(width) + ":" + to_string(height);
   vector<string> ffmpeg_args {
     "ffmpeg", "-nostdin", "-hide_banner", "-loglevel", "panic", "-y",

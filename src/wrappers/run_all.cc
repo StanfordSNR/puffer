@@ -12,16 +12,12 @@
 
 using namespace std;
 
-static string notifier;
 static fs::path output_path;
-static fs::path wrappers_path;
-static fs::path clean_path;
+static fs::path src_path;
+static string notifier;
 
-static vector<tuple<string, string>> vformats;
-static vector<string> aformats;
-
-static vector<tuple<string, string>> working_dir_ext;
-static vector<tuple<string, string>> ready_dir_ext;
+static vector<tuple<string, string>> vwork, awork;
+static vector<tuple<string, string>> vready, aready;
 
 static const int clean_time_window = 5400000;
 
@@ -36,10 +32,6 @@ void print_usage(const string & program_name)
 YAML::Node load_yaml(const string & yaml_path)
 {
   YAML::Node config = YAML::LoadFile(yaml_path);
-
-  if (not config["input"]) {
-    throw runtime_error("invalid YAML: input is not present");
-  }
 
   if (not config["output"]) {
     throw runtime_error("invalid YAML: output is not present");
@@ -57,7 +49,8 @@ YAML::Node load_yaml(const string & yaml_path)
 }
 
 /* get video formats (resolution, CRF) from YAML configuration */
-void get_video_formats(const YAML::Node & config)
+void get_video_formats(const YAML::Node & config,
+                       vector<tuple<string, string>> & vformats)
 {
   const YAML::Node & res_map = config["video"];
   for (const auto & res_node : res_map) {
@@ -72,7 +65,7 @@ void get_video_formats(const YAML::Node & config)
 }
 
 /* get audio formats (bitrate) from YAML configuration */
-void get_audio_formats(const YAML::Node & config)
+void get_audio_formats(const YAML::Node & config, vector<string> & aformats)
 {
   const YAML::Node & bitrate_list = config["audio"];
   for (const auto & bitrate_node : bitrate_list) {
@@ -92,10 +85,10 @@ void run_video_canonicalizer(ProcessManager & proc_manager)
     fs::create_directories(dir);
   }
 
-  working_dir_ext.emplace_back(dst_dir, ".y4m");
+  vwork.emplace_back(dst_dir, ".y4m");
 
   /* notifier runs video_canonicalizer */
-  string video_canonicalizer = wrappers_path / "video_canonicalizer";
+  string video_canonicalizer = src_path / "wrappers/video_canonicalizer";
 
   vector<string> args {
     notifier, src_dir, ".y4m", "--check", dst_dir, ".y4m", "--tmp", tmp_dir,
@@ -118,10 +111,10 @@ void run_video_encoder(ProcessManager & proc_manager,
     fs::create_directories(dir);
   }
 
-  working_dir_ext.emplace_back(dst_dir, ".mp4");
+  vwork.emplace_back(dst_dir, ".mp4");
 
   /* notifier runs video_encoder */
-  string video_encoder = wrappers_path / "video_encoder";
+  string video_encoder = src_path / "wrappers/video_encoder";
 
   vector<string> args {
     notifier, src_dir, ".y4m", "--check", dst_dir, ".mp4", "--tmp", tmp_dir,
@@ -145,10 +138,10 @@ void run_video_fragmenter(ProcessManager & proc_manager,
     fs::create_directories(dir);
   }
 
-  ready_dir_ext.emplace_back(dst_dir, ".m4s");
+  vready.emplace_back(dst_dir, ".m4s");
 
   /* notifier runs video_fragmenter */
-  string video_fragmenter = wrappers_path / "video_fragmenter";
+  string video_fragmenter = src_path / "wrappers/video_fragmenter";
   string dst_init_path = fs::path(dst_dir) / "init.mp4";
 
   vector<string> args {
@@ -174,10 +167,10 @@ void run_ssim_calculator(ProcessManager & proc_manager,
     fs::create_directories(dir);
   }
 
-  ready_dir_ext.emplace_back(dst_dir, ".ssim");
+  vready.emplace_back(dst_dir, ".ssim");
 
   /* notifier runs ssim_calculator */
-  string ssim_calculator = wrappers_path / "ssim_calculator";
+  string ssim_calculator = src_path / "wrappers/ssim_calculator";
 
   vector<string> args {
     notifier, src_dir, ".mp4", "--check", dst_dir, ".ssim", "--tmp", tmp_dir,
@@ -198,11 +191,11 @@ void run_audio_encoder(ProcessManager & proc_manager,
     fs::create_directories(dir);
   }
 
-  working_dir_ext.emplace_back(src_dir, ".wav");
-  working_dir_ext.emplace_back(dst_dir, ".webm");
+  awork.emplace_back(src_dir, ".wav");
+  awork.emplace_back(dst_dir, ".webm");
 
   /* notifier runs audio_encoder */
-  string audio_encoder = wrappers_path / "audio_encoder";
+  string audio_encoder = src_path / "wrappers/audio_encoder";
 
   vector<string> args {
     notifier, src_dir, ".wav", "--check", dst_dir, ".webm", "--tmp", tmp_dir,
@@ -224,10 +217,10 @@ void run_audio_fragmenter(ProcessManager & proc_manager,
     fs::create_directories(dir);
   }
 
-  ready_dir_ext.emplace_back(dst_dir, ".chk");
+  aready.emplace_back(dst_dir, ".chk");
 
   /* notifier runs audio_fragmenter */
-  string audio_fragmenter = wrappers_path / "audio_fragmenter";
+  string audio_fragmenter = src_path / "wrappers/audio_fragmenter";
   string dst_init_path = fs::path(dst_dir) / "init.webm";
 
   vector<string> args {
@@ -236,27 +229,29 @@ void run_audio_fragmenter(ProcessManager & proc_manager,
   proc_manager.run_as_child(notifier, args);
 }
 
-void run_depcleaner(ProcessManager & proc_manager)
+void run_depcleaner(ProcessManager & proc_manager,
+                    const vector<tuple<string, string>> & work,
+                    const vector<tuple<string, string>> & ready)
 {
-  string depcleaner = clean_path / "depcleaner";
+  string depcleaner = src_path / "cleaner/depcleaner";
   vector<string> args = {depcleaner};
 
   args.emplace_back("--clean");
-  for (const auto & item : working_dir_ext) {
+  for (const auto & item : work) {
     const auto & [dir, ext] = item;
     args.emplace_back(dir);
     args.emplace_back(ext);
   }
 
   args.emplace_back("--depend");
-  for (const auto & item : ready_dir_ext) {
+  for (const auto & item : ready) {
     const auto & [dir, ext] = item;
     args.emplace_back(dir);
     args.emplace_back(ext);
   }
 
   /* run notifier to start depcleaner for each directory in ready/ */
-  for (const auto & item : ready_dir_ext) {
+  for (const auto & item : ready) {
     const auto & [dir, ext] = item;
     vector<string> notifier_args { notifier, dir, ext, "--exec" };
     notifier_args.insert(notifier_args.end(), args.begin(), args.end());
@@ -264,12 +259,13 @@ void run_depcleaner(ProcessManager & proc_manager)
   }
 }
 
-void run_windowcleaner(ProcessManager & proc_manager)
+void run_windowcleaner(ProcessManager & proc_manager,
+                       const vector<tuple<string, string>> & ready)
 {
-  string windowcleaner = clean_path / "windowcleaner";
+  string windowcleaner = src_path / "cleaner/windowcleaner";
 
   /* run notifier to start windowcleaner for each directory in ready/ */
-  for (const auto & item : ready_dir_ext) {
+  for (const auto & item : ready) {
     const auto & [dir, ext] = item;
     vector<string> notifier_args { notifier, dir, ext, "--exec", windowcleaner,
                                    ext, to_string(clean_time_window) };
@@ -290,9 +286,14 @@ int main(int argc, char * argv[])
 
   /* load and validate YAML that contains arguments */
   YAML::Node config = load_yaml(argv[1]);
-  get_video_formats(config);
-  get_audio_formats(config);
 
+  vector<tuple<string, string>> vformats;
+  vector<string> aformats;
+
+  get_video_formats(config, vformats);
+  get_audio_formats(config, aformats);
+
+  /* create output directory */
   string output_dir = config["output"].as<string>();
 
   if (fs::exists(output_dir)) {
@@ -309,10 +310,9 @@ int main(int argc, char * argv[])
   fs::create_directory(output_path);
 
   /* get the path of wrappers directory and notifier */
-  wrappers_path = fs::canonical(fs::path(
-                      roost::readlink("/proc/self/exe")).parent_path());
-  clean_path = fs::canonical(wrappers_path / "../cleaner");
-  notifier = fs::canonical(wrappers_path / "../notifier/notifier");
+  src_path = fs::canonical(fs::path(
+             roost::readlink("/proc/self/exe")).parent_path().parent_path());
+  notifier = src_path / "notifier/notifier";
 
   ProcessManager proc_manager;
 
@@ -334,11 +334,15 @@ int main(int argc, char * argv[])
     run_audio_fragmenter(proc_manager, aformat);
   }
 
+  /* vwork, awork, vready, aready should have been filled out now */
+
   /* run depcleaner to clean up files in working/ */
-  run_depcleaner(proc_manager);
+  run_depcleaner(proc_manager, vwork, vready);
+  run_depcleaner(proc_manager, awork, aready);
 
   /* run windowcleaner to clean up files in ready/ */
-  run_windowcleaner(proc_manager);
+  run_windowcleaner(proc_manager, vready);
+  run_windowcleaner(proc_manager, aready);
 
   return proc_manager.wait();
 }
