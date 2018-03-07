@@ -3,7 +3,7 @@
 #ifndef WSSERVER_HH
 #define WSSERVER_HH
 
-#include <vector>
+#include <map>
 #include <functional>
 
 #include "socket.hh"
@@ -32,20 +32,18 @@ private:
       Closed
     } state;
 
-    uint64_t id;
-
     TCPSocket socket;
 
     HTTPRequest handshake_request {};
     HTTPRequestParser ws_handshake_parser {};
     WSMessageParser ws_message_parser {};
 
-    Connection(const uint64_t id, TCPSocket && sock)
-      : state(State::NotConnected), id(id), socket(std::move(sock)) {}
+    Connection(TCPSocket && sock)
+      : state(State::NotConnected), socket(std::move(sock)) {}
   };
 
   TCPSocket listener_socket_;
-  std::vector<Connection> connections_ {};
+  std::map<uint64_t, Connection> connections_ {};
   Poller poller_ {};
   MessageHandlerFunction message_handler_ {};
 

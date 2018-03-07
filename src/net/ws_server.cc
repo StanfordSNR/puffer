@@ -57,12 +57,13 @@ WSServer::WSServer(const Address & listener_addr)
       /* let's make the socket non-blocking */
       client.set_blocking(false);
 
-      connections_.emplace_back(last_connection_id_++, std::move(client));
-      Connection & conn = connections_.back();
+      const uint64_t conn_id = last_connection_id_++;
+      connections_.emplace(make_pair(conn_id, std::move(client)));
+      Connection & conn = connections_.at(conn_id);
 
       /* add the actions for this connection */
       poller_.add_action(Poller::Action(conn.socket, Direction::In,
-        [this, &conn] () -> ResultType
+        [this, &conn, conn_id] () -> ResultType
         {
           string data = conn.socket.read();
 
@@ -83,7 +84,7 @@ WSServer::WSServer(const Address & listener_addr)
             if (not conn.ws_message_parser.empty()) {
               WSMessage message = conn.ws_message_parser.front();
               conn.ws_message_parser.pop();
-              message_handler_(conn.id, message);
+              message_handler_(conn_id, message);
             }
           }
           else {
