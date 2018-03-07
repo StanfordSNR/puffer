@@ -14,6 +14,13 @@ int main()
     uint16_t port = 9333;
 
     WSServer ws_server {{ip,port}};
+    ws_server.set_message_handler(
+      [](const uint64_t connection_id, const WSMessage & message)
+      {
+        cerr << "Message[" << connection_id << "]: "
+             << message.payload() << endl;
+      }
+    );
     ws_server.serve_forever();
   }
   catch (const exception & ex) {
