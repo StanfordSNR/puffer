@@ -2,6 +2,7 @@
 
 #include "ws_frame.hh"
 
+#include <iostream>
 #include <endian.h>
 
 using namespace std;
@@ -155,11 +156,11 @@ string WSFrame::to_string() const
   uint8_t temp_byte;
 
   /* first byte */
-  temp_byte = (header_.fin() << 8) + static_cast<uint8_t>(header_.opcode());
+  temp_byte = (header_.fin() << 7) + static_cast<uint8_t>(header_.opcode());
   output.push_back(temp_byte);
 
   /* second byte */
-  temp_byte = (header_.masking_key().initialized() << 8);
+  temp_byte = (header_.masking_key().initialized() << 7);
 
   if (payload_.length() <= 125u) {
     temp_byte += static_cast<uint8_t>(payload_.length());
