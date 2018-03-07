@@ -12,7 +12,8 @@
 #include <poll.h>
 
 #include "file_descriptor.hh"
-#include "nb_secure_socket.hh"
+
+class NBSecureSocket;
 
 class Poller
 {
