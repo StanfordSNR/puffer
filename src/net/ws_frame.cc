@@ -129,7 +129,7 @@ WSFrame::WSFrame(const bool fin, const OpCode opcode, const string & payload)
 
 WSFrame::WSFrame(const bool fin, const OpCode opcode, const string & payload,
                  const uint32_t masking_key)
-  : header_(fin, opcode, masking_key, payload.length()), payload_(payload)
+  : header_(fin, opcode, payload.length(), masking_key), payload_(payload)
 {}
 
 WSFrame::WSFrame(const Chunk & chunk)
