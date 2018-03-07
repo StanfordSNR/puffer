@@ -74,8 +74,6 @@ WSServer::WSServer(const Address & listener_addr)
               conn.handshake_request = conn.ws_handshake_parser.front();
               conn.ws_handshake_parser.pop();
               conn.state = Connection::State::Connecting;
-
-              open_callback_(conn_id);
             }
           }
           else if (conn.state == Connection::State::Connected) {
@@ -100,12 +98,13 @@ WSServer::WSServer(const Address & listener_addr)
       ));
 
       poller_.add_action(Poller::Action(conn.socket, Direction::Out,
-        [&conn] () -> ResultType
+        [this, &conn, conn_id] () -> ResultType
         {
           if (conn.state == Connection::State::Connecting) {
             /* okay, we should prepare the handshake response now */
             conn.socket.write(create_handshake_response(conn.handshake_request).str());
             conn.state = Connection::State::Connected;
+            open_callback_(conn_id);
           }
           else if (conn.state == Connection::State::Connected and conn.data_to_send()) {
             string::const_iterator last_write = conn.socket.write(conn.send_buffer.begin(), conn.send_buffer.end());
