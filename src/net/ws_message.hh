@@ -12,10 +12,7 @@
 class WSMessage
 {
 public:
-  enum class Type
-  {
-    Text, Binary, Close, Ping, Pong
-  };
+  using Type = WSFrame::OpCode;
 
 private:
   Type type_ {Type::Text};
@@ -24,7 +21,6 @@ private:
 public:
   WSMessage(const WSFrame & frame);
   WSMessage(const std::list<WSFrame> & frames);
-  WSMessage(const Type type, const std::string & payload);
 
   Type type() const { return type_; }
   const std::string & payload() const { return payload_; }
