@@ -3,6 +3,9 @@
 #ifndef WSSERVER_HH
 #define WSSERVER_HH
 
+#include <vector>
+#include <functional>
+
 #include "socket.hh"
 #include "poller.hh"
 #include "address.hh"
@@ -12,6 +15,10 @@
 /* this implementation is not thread-safe. */
 class WSServer
 {
+public:
+  typedef std::function<void(const uint64_t connection_id,
+                             const WSMessage &)> MessageHandlerFunction;
+
 private:
   uint64_t last_connection_id_ {0};
 
@@ -40,10 +47,13 @@ private:
   TCPSocket listener_socket_;
   std::vector<Connection> connections_ {};
   Poller poller_ {};
+  MessageHandlerFunction message_handler_ {};
 
 public:
   WSServer(const Address & listener_addr);
   void serve_forever();
+
+  void set_message_handler(MessageHandlerFunction func) { message_handler_ = func; }
 };
 
 #endif /* WSSERVER_HH */

@@ -56,7 +56,7 @@ WSServer::WSServer(const Address & listener_addr)
 
       /* add the actions for this connection */
       poller_.add_action(Poller::Action(conn.socket, Direction::In,
-        [&conn] () -> ResultType
+        [this, &conn] () -> ResultType
         {
           string data = conn.socket.read();
 
@@ -77,7 +77,7 @@ WSServer::WSServer(const Address & listener_addr)
             if (not conn.ws_message_parser.empty()) {
               WSMessage message = conn.ws_message_parser.front();
               conn.ws_message_parser.pop();
-              cerr << "received message: " << message.payload() << endl;
+              message_handler_(conn.id, message);
             }
           }
           else {
