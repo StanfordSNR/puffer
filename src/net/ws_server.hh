@@ -18,6 +18,7 @@ class WSServer
 public:
   typedef std::function<void(const uint64_t, const WSMessage &)> MessageCallback;
   typedef std::function<void(const uint64_t)> OpenCallback;
+  typedef OpenCallback CloseCallback;
 
 private:
   uint64_t last_connection_id_ {0};
@@ -54,6 +55,7 @@ private:
 
   MessageCallback message_callback_ {};
   OpenCallback open_callback_ {};
+  CloseCallback close_callback_ {};
 
 public:
   WSServer(const Address & listener_addr);
@@ -61,6 +63,7 @@ public:
 
   void set_message_callback(MessageCallback func) { message_callback_ = func; }
   void set_open_callback(OpenCallback func) { open_callback_ = func; }
+  void set_close_callback(CloseCallback func) { close_callback_ = func; }
 
   void queue_frame(const uint64_t connection_id, const WSFrame & frame);
 };

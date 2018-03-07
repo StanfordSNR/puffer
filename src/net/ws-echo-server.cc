@@ -35,6 +35,13 @@ int main()
       }
     );
 
+    ws_server.set_close_callback(
+      [](const uint64_t connection_id)
+      {
+        cerr << "Connection closed (id=" << connection_id << ")" << endl;
+      }
+    );
+
     while(ws_server.loop_once().result == Poller::Result::Type::Success);
   }
   catch (const exception & ex) {
