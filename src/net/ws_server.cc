@@ -44,15 +44,20 @@ HTTPResponse create_handshake_response(const HTTPRequest & request)
 WSServer::WSServer(const Address & listener_addr)
   : listener_socket_()
 {
-  listener_socket_.set_blocking( false );
+  listener_socket_.set_blocking(false);
   listener_socket_.bind(listener_addr);
   listener_socket_.listen();
 
   poller_.add_action(Poller::Action(listener_socket_, Direction::In,
     [this] () -> ResultType
     {
-      /* incoming connection. let's create a connection object */
-      connections_.emplace_back(last_connection_id_++, listener_socket_.accept());
+      /* incoming connection */
+      TCPSocket client = listener_socket_.accept();
+
+      /* let's make the socket non-blocking */
+      client.set_blocking(false);
+
+      connections_.emplace_back(last_connection_id_++, std::move(client));
       Connection & conn = connections_.back();
 
       /* add the actions for this connection */
@@ -115,7 +120,7 @@ WSServer::WSServer(const Address & listener_addr)
   ));
 }
 
-void WSServer::serve_forever()
+Poller::Result WSServer::loop_once()
 {
-  while (poller_.poll(-1).result == Poller::Result::Type::Success);
+  return poller_.poll(-1);
 }

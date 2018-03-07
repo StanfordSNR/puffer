@@ -21,7 +21,8 @@ int main()
              << message.payload() << endl;
       }
     );
-    ws_server.serve_forever();
+
+    while(ws_server.loop_once().result == Poller::Result::Type::Success);
   }
   catch (const exception & ex) {
     print_exception("ws-echo-server", ex);

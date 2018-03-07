@@ -51,7 +51,7 @@ private:
 
 public:
   WSServer(const Address & listener_addr);
-  void serve_forever();
+  Poller::Result loop_once();
 
   void set_message_handler(MessageHandlerFunction func) { message_handler_ = func; }
 };
