@@ -90,7 +90,12 @@ WSServer::WSServer(const Address & listener_addr)
                 break;
 
               case WSMessage::Type::Close:
+              {
+                WSFrame close { true, WSFrame::OpCode::Close, message.payload() };
+                queue_frame(conn_id, close);
+                conn.state = Connection::State::Closed;
                 break;
+              }
 
               case WSMessage::Type::Ping:
               {
@@ -107,6 +112,27 @@ WSServer::WSServer(const Address & listener_addr)
               }
             }
           }
+          else if (conn.state == Connection::State::Closing) {
+            conn.ws_message_parser.parse(data);
+            if (not conn.ws_message_parser.empty()) {
+              WSMessage message = conn.ws_message_parser.front();
+              conn.ws_message_parser.pop();
+
+              switch (message.type()) {
+              case WSMessage::Type::Close:
+                conn.state = Connection::State::Closed;
+                conn.send_buffer.clear();
+
+                /* we don't want to poll on this socket anymore */
+                close_callback_(conn_id);
+                return ResultType::CancelAll;
+
+              default:
+                /* all the other message types are ignored */
+                break;
+              }
+            }
+          }
           else {
             throw runtime_error("unhandled data");
           }
@@ -115,7 +141,8 @@ WSServer::WSServer(const Address & listener_addr)
         },
         [&conn] () -> bool
         {
-          return (conn.state != Connection::State::Connecting);
+          return (conn.state != Connection::State::Connecting) and
+                 (conn.state != Connection::State::Closed);
         }
       ));
 
@@ -128,9 +155,18 @@ WSServer::WSServer(const Address & listener_addr)
             conn.state = Connection::State::Connected;
             open_callback_(conn_id);
           }
-          else if (conn.state == Connection::State::Connected and conn.data_to_send()) {
+          else if ((conn.state == Connection::State::Connected or
+                   conn.state == Connection::State::Closing or
+                   conn.state == Connection::State::Closed) and
+                   conn.data_to_send()) {
             string::const_iterator last_write = conn.socket.write(conn.send_buffer.begin(), conn.send_buffer.end());
             conn.send_buffer.erase(conn.send_buffer.begin(), last_write);
+          }
+
+          if (conn.state == Connection::State::Closed and
+              not conn.data_to_send()) {
+            close_callback_(conn_id);
+            return ResultType::CancelAll;
           }
 
           return ResultType::Continue;
@@ -138,8 +174,10 @@ WSServer::WSServer(const Address & listener_addr)
         [&conn] () -> bool
         {
           return (conn.state == Connection::State::Connecting) or
-                 (conn.state == Connection::State::Connected and
-                  conn.data_to_send());
+                 ((conn.state == Connection::State::Connected or
+                   conn.state == Connection::State::Closing or
+                   conn.state == Connection::State::Closed) and
+                   conn.data_to_send());
         }
       ));
 
