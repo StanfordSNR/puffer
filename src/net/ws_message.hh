@@ -23,7 +23,7 @@ private:
 
 public:
   WSMessage(const WSFrame & frame);
-  WSMessage(std::list<WSFrame> & frames);
+  WSMessage(const std::list<WSFrame> & frames);
   WSMessage(const Type type, const std::string & payload);
 
   Type type() const { return type_; }

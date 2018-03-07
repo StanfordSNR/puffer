@@ -6,8 +6,10 @@
 #include "socket.hh"
 #include "poller.hh"
 #include "address.hh"
+#include "http_request_parser.hh"
+#include "ws_message_parser.hh"
 
-/* this implementation is not thread-safe. */ 
+/* this implementation is not thread-safe. */
 class WSServer
 {
 private:
@@ -15,11 +17,24 @@ private:
 
   struct Connection
   {
+    enum class State {
+      NotConnected = 0,
+      Connecting,
+      Connected,
+      Closing,
+      Closed
+    } state;
+
     uint64_t id;
+
     TCPSocket socket;
 
+    HTTPRequest handshake_request {};
+    HTTPRequestParser ws_handshake_parser {};
+    WSMessageParser ws_message_parser {};
+
     Connection(const uint64_t id, TCPSocket && sock)
-      : id(id), socket(std::move(sock)) {}
+      : state(State::NotConnected), id(id), socket(std::move(sock)) {}
   };
 
   TCPSocket listener_socket_;
