@@ -15,10 +15,16 @@ int main()
 
     WSServer ws_server {{ip,port}};
     ws_server.set_message_callback(
-      [](const uint64_t connection_id, const WSMessage & message)
+      [&ws_server](const uint64_t connection_id, const WSMessage & message)
       {
         cerr << "Message (from=" << connection_id << "): "
              << message.payload() << endl;
+
+        if (message.type() == WSMessage::Type::Text or
+            message.type() == WSMessage::Type::Binary) {
+          WSFrame echo_frame {true, message.type(), message.payload()};
+          ws_server.send_frame(connection_id, echo_frame);
+        }
       }
     );
 
