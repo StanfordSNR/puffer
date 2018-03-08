@@ -13,7 +13,7 @@ int main()
     string ip = "0.0.0.0";
     uint16_t port = 9333;
 
-    WSServer ws_server {{ip,port}};
+    WebSocketServer ws_server {{ip,port}};
     ws_server.set_message_callback(
       [&ws_server](const uint64_t connection_id, const WSMessage & message)
       {

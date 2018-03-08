@@ -41,7 +41,8 @@ HTTPResponse create_handshake_response(const HTTPRequest & request)
   return response;
 }
 
-WSServer::WSServer(const Address & listener_addr)
+template<class SocketType>
+WSServer<SocketType>::WSServer(const Address & listener_addr)
   : listener_socket_()
 {
   listener_socket_.set_blocking(false);
@@ -52,7 +53,7 @@ WSServer::WSServer(const Address & listener_addr)
     [this] () -> ResultType
     {
       /* incoming connection */
-      TCPSocket client = listener_socket_.accept();
+      SocketType client = listener_socket_.accept();
 
       /* let's make the socket non-blocking */
       client.set_blocking(false);
@@ -188,7 +189,8 @@ WSServer::WSServer(const Address & listener_addr)
   ));
 }
 
-void WSServer::queue_frame(const uint64_t connection_id, const WSFrame & frame)
+template<class SocketType>
+void WSServer<SocketType>::queue_frame(const uint64_t connection_id, const WSFrame & frame)
 {
   if (connections_.count(connection_id) == 0) {
     throw runtime_error("invalid connection id: " + to_string(connection_id));
@@ -203,7 +205,8 @@ void WSServer::queue_frame(const uint64_t connection_id, const WSFrame & frame)
   conn.send_buffer += frame.to_string();
 }
 
-void WSServer::close_connection(const uint64_t connection_id)
+template<class SocketType>
+void WSServer<SocketType>::close_connection(const uint64_t connection_id)
 {
   if (connections_.count(connection_id) == 0) {
     throw runtime_error("invalid connection id: " + to_string(connection_id));
@@ -220,7 +223,8 @@ void WSServer::close_connection(const uint64_t connection_id)
   conn.state = Connection::State::Closing;
 }
 
-Poller::Result WSServer::loop_once()
+template<class SocketType>
+Poller::Result WSServer<SocketType>::loop_once()
 {
   auto result = poller_.poll(-1);
 
@@ -233,3 +237,5 @@ Poller::Result WSServer::loop_once()
 
   return result;
 }
+
+template class WSServer<TCPSocket>;
