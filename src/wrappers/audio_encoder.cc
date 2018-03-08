@@ -68,6 +68,7 @@ int main(int argc, char * argv[])
   vector<string> args {
     "ffmpeg", "-nostdin", "-hide_banner", "-loglevel", "panic", "-y",
     "-i", input_path, "-c:a", "libopus", "-b:a", bitrate,
+    "-af", "aformat=channel_layouts='7.1|5.1|stereo'",
     "-cluster_time_limit", "5000", output_path };
 
   ProcessManager proc_manager;
