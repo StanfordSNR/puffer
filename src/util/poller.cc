@@ -71,15 +71,7 @@ Poller::Result Poller::poll( const int timeout_ms )
         the event we asked for */
       const auto count_before = it_action->service_count();
 
-      const auto starting_time = chrono::system_clock::now();
       auto result = it_action->callback();
-      const auto ending_time = chrono::system_clock::now();
-
-      const int ms_for_callback = chrono::duration_cast<chrono::milliseconds>( ending_time - starting_time ).count();
-
-      if ( ms_for_callback > 10 ) {
-        cerr << "callback took " + to_string( ms_for_callback ) + " ms, blocking likely" << endl;
-      }
 
       switch ( result.result ) {
       case ResultType::Exit:
