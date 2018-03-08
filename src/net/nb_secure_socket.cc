@@ -47,12 +47,9 @@ void NBSecureSocket::continue_SSL_connect()
 
 void NBSecureSocket::continue_SSL_write()
 {
-  if (not something_to_write()) {
-    return;
-  }
-
   try {
-    SecureSocket::write(write_buffer_.front(), state_ == State::needs_ssl_read_to_write);
+    SecureSocket::write(write_buffer_.size() ? write_buffer_.front() : string(),
+                        state_ == State::needs_ssl_read_to_write);
   }
   catch (ssl_error & s) {
     switch (s.error_code()) {
