@@ -14,6 +14,7 @@
 #include "ws_message_parser.hh"
 
 /* this implementation is not thread-safe. */
+template<class SocketType>
 class WSServer
 {
 public:
@@ -34,7 +35,7 @@ private:
       Closed
     } state;
 
-    TCPSocket socket;
+    SocketType socket;
 
     /* incoming messages */
     HTTPRequest handshake_request {};
@@ -44,7 +45,7 @@ private:
     /* outgoing messages */
     std::string send_buffer {};
 
-    Connection(TCPSocket && sock)
+    Connection(SocketType && sock)
       : state(State::NotConnected), socket(std::move(sock)) {}
 
     bool data_to_send() const { return send_buffer.length() > 0; }
@@ -71,5 +72,8 @@ public:
   void queue_frame(const uint64_t connection_id, const WSFrame & frame);
   void close_connection(const uint64_t connection_id);
 };
+
+using WebSocketServer = WSServer<TCPSocket>;
+using WebSocketSecureServer = WSServer<NBSecureSocket>;
 
 #endif /* WSSERVER_HH */
