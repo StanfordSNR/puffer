@@ -211,8 +211,6 @@ pid_t ProcessManager::run_as_child(const string & program,
                                    const vector<string> & prog_args,
                                    const callback_t & callback)
 {
-  cerr << "[ProcessManager] " + command_str(prog_args) + "\n";
-
   auto child = ChildProcess(program,
     [&]() {
       return ezexec(program, prog_args);
@@ -225,6 +223,8 @@ pid_t ProcessManager::run_as_child(const string & program,
   if (callback) {
     callbacks_.emplace(pid, callback);
   }
+
+  cerr << "[" + to_string(pid) + "] " + command_str(prog_args) + "\n";
 
   return pid;
 }
