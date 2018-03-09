@@ -24,12 +24,18 @@ Poller::Action::Action( NBSecureSocket & s_socket,
       {
         Result retval;
 
-        if ( not s_socket.connected() ) {
+        if ( s_socket.mode() == NBSecureSocket::Mode::connect and not s_socket.connected() ) {
           /* we're not connected yet, so let's continue */
           s_socket.continue_SSL_connect();
         }
-        else if ( s_socket.state() == NBSecureSocket::State::needs_ssl_write_to_write or
-                ( s_socket.state() == NBSecureSocket::State::ready ) ) {
+        else if ( s_socket.mode() == NBSecureSocket::Mode::accept and not s_socket.accepted() ) {
+          /* we've not accepted yet, so let's continue */
+          s_socket.continue_SSL_accept();
+        }
+        else if ( s_socket.state() == NBSecureSocket::State::needs_ssl_write_to_write ) {
+          s_socket.continue_SSL_write();
+        }
+        else if ( s_socket.state() == NBSecureSocket::State::ready ) {
           if ( not s_socket.something_to_write() ) {
             retval = s_callback();
           }
@@ -38,6 +44,9 @@ Poller::Action::Action( NBSecureSocket & s_socket,
         }
         else if ( s_socket.state() == NBSecureSocket::State::needs_ssl_write_to_read ) {
           s_socket.continue_SSL_read();
+        }
+        else {
+          throw runtime_error( "unexpected state: " + to_string(static_cast<int>(s_socket.state())) );
         }
 
         return retval;
@@ -48,6 +57,7 @@ Poller::Action::Action( NBSecureSocket & s_socket,
       {
         return ( s_socket.state() == NBSecureSocket::State::needs_connect ) or
                ( s_socket.state() == NBSecureSocket::State::needs_ssl_write_to_connect ) or
+               ( s_socket.state() == NBSecureSocket::State::needs_ssl_write_to_accept ) or
                ( s_socket.state() == NBSecureSocket::State::needs_ssl_write_to_write ) or
                ( s_socket.state() == NBSecureSocket::State::needs_ssl_write_to_read ) or
                ( s_socket.state() == NBSecureSocket::State::ready and s_when_interested() );
@@ -58,8 +68,13 @@ Poller::Action::Action( NBSecureSocket & s_socket,
     callback =
       [s_callback, &s_socket] ()
       {
-        if ( not s_socket.connected() ) {
+        if ( s_socket.mode() == NBSecureSocket::Mode::connect and not s_socket.connected() ) {
+          /* we're not connected yet, so let's continue */
           s_socket.continue_SSL_connect();
+        }
+        else if ( s_socket.mode() == NBSecureSocket::Mode::accept and not s_socket.accepted() ) {
+          /* we've not accepted yet, so let's continue */
+          s_socket.continue_SSL_accept();
         }
         else if ( s_socket.state() == NBSecureSocket::State::needs_ssl_read_to_write ) {
           s_socket.continue_SSL_write();
@@ -67,6 +82,9 @@ Poller::Action::Action( NBSecureSocket & s_socket,
         else if ( s_socket.state() == NBSecureSocket::State::needs_ssl_read_to_read or
                   s_socket.state() == NBSecureSocket::State::ready ) {
           s_socket.continue_SSL_read();
+        }
+        else {
+          throw runtime_error( "unexpected state" );
         }
 
         if ( s_socket.something_to_read() ) {
@@ -80,7 +98,9 @@ Poller::Action::Action( NBSecureSocket & s_socket,
       [s_when_interested, &s_socket]()
       {
         return ( s_socket.state() == NBSecureSocket::State::needs_connect ) or
+               ( s_socket.state() == NBSecureSocket::State::needs_accept ) or
                ( s_socket.state() == NBSecureSocket::State::needs_ssl_read_to_connect ) or
+               ( s_socket.state() == NBSecureSocket::State::needs_ssl_read_to_accept ) or
                ( s_socket.state() == NBSecureSocket::State::needs_ssl_read_to_write ) or
                ( s_socket.state() == NBSecureSocket::State::needs_ssl_read_to_read ) or
                ( s_socket.state() == NBSecureSocket::State::ready and s_when_interested() );
