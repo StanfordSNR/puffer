@@ -4,4 +4,4 @@ AM_CXXFLAGS = $(PICKY_CXXFLAGS)
 bin_PROGRAMS = notifier
 
 notifier_SOURCES = notifier.hh notifier.cc inotify.hh inotify.cc
-notifier_LDADD = ../util/libutil.a -lstdc++fs
+notifier_LDADD = ../util/libutil.a ../net/libnet.a -lstdc++fs $(SSL_LIBS)

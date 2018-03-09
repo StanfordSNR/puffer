@@ -9,7 +9,7 @@ AM_CXXFLAGS = $(PICKY_CXXFLAGS)
 bin_PROGRAMS = file_reporter ssim_reporter
 
 file_reporter_SOURCES = file_reporter.cc
-file_reporter_LDADD = ../util/libutil.a -lstdc++fs -lpqxx -lpq
+file_reporter_LDADD = ../util/libutil.a ../net/libnet.a -lstdc++fs -lpqxx -lpq $(SSL_LIBS)
 
 ssim_reporter_SOURCES = ssim_reporter.cc
-ssim_reporter_LDADD = ../util/libutil.a -lstdc++fs -lpqxx -lpq
+ssim_reporter_LDADD = ../util/libutil.a ../net/libnet.a -lstdc++fs -lpqxx -lpq $(SSL_LIBS)
