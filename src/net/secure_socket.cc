@@ -177,3 +177,25 @@ int SecureSocket::get_error( const int return_value )
 {
     return SSL_get_error( ssl_.get(), return_value );
 }
+
+void SSLContext::use_certificate_file( const std::string & cert_file )
+{
+  ERR_clear_error();
+  const auto ret = SSL_CTX_use_certificate_file( ctx_.get(), cert_file.c_str(),
+                                                 SSL_FILETYPE_PEM );
+
+  if ( ret <= 0 ) {
+    throw ssl_error( "SSL_CTX_use_certificate_file" );
+  }
+}
+
+void SSLContext::use_private_key_file( const std::string & pkey_file )
+{
+  ERR_clear_error();
+  const auto ret = SSL_CTX_use_PrivateKey_file( ctx_.get(), pkey_file.c_str(),
+                                                SSL_FILETYPE_PEM );
+
+  if ( ret <= 0 ) {
+    throw ssl_error( "SSL_CTX_use_certificate_file" );
+  }
+}
