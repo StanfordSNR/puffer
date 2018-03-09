@@ -18,6 +18,8 @@ AC_PROG_RANLIB
 
 # Checks for libraries.
 PKG_CHECK_MODULES([libmpeg2],[libmpeg2])
+PKG_CHECK_MODULES([SSL],[libssl libcrypto])
+PKG_CHECK_MODULES([CRYPTO],[libcrypto++])
 
 # Checks for header files.
 AC_LANG_PUSH(C++)
@@ -29,9 +31,6 @@ AC_CHECK_HEADERS([filesystem])
 AC_CHECK_HEADERS([experimental/filesystem])
 CPPFLAGS="$save_CPPFLAGS"
 AC_LANG_POP(C++)
-
-PKG_CHECK_MODULES([SSL],[libssl libcrypto])
-PKG_CHECK_MODULES([CRYPTO],[libcrypto++])
 
 # Checks for typedefs, structures, and compiler characteristics.
 

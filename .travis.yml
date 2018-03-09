@@ -12,6 +12,8 @@ addons:
     - libogg-dev
     - libmpeg2-4-dev
     - libpqxx-dev
+    - libssl-dev
+    - libcrypto++-dev
 
 before_install:
   # download a static-built ffmpeg from the official website
