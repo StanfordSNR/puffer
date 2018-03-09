@@ -7,13 +7,30 @@
 
 using namespace std;
 
-int main()
+void usage( char * argv0 )
 {
+  cerr << argv0 << " PRIVATE-KEY CERT" << endl;
+}
+
+int main( int argc, char * argv[] )
+{
+  if (argc == 0) {
+    abort();
+  }
+
+  if (argc != 3) {
+    usage( argv[0] );
+    return EXIT_FAILURE;
+  }
+
   try {
     string ip = "0.0.0.0";
     uint16_t port = 9333;
 
-    WebSocketServer ws_server {{ip,port}};
+    WebSocketSecureServer ws_server {{ip,port}};
+    ws_server.ssl_context().use_private_key_file(argv[1]);
+    ws_server.ssl_context().use_certificate_file(argv[2]);
+
     ws_server.set_message_callback(
       [&ws_server](const uint64_t connection_id, const WSMessage & message)
       {
