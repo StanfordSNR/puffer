@@ -61,4 +61,7 @@ public:
     SSLContext();
 
     SecureSocket new_secure_socket( TCPSocket && sock );
+
+    void use_certificate_file( const std::string & cert_file );
+    void use_private_key_file( const std::string & pkey_file );
 };
