@@ -8,6 +8,7 @@
 #include <functional>
 
 #include "socket.hh"
+#include "nb_secure_socket.hh"
 #include "poller.hh"
 #include "address.hh"
 #include "http_request_parser.hh"
@@ -33,7 +34,7 @@ private:
       Connected,
       Closing,
       Closed
-    } state;
+    } state { State::NotConnected };
 
     SocketType socket;
 
@@ -45,11 +46,15 @@ private:
     /* outgoing messages */
     std::string send_buffer {};
 
-    Connection(SocketType && sock)
-      : state(State::NotConnected), socket(std::move(sock)) {}
+    Connection(TCPSocket && sock, SSLContext & ssl_context);
+
+    std::string read();
+    void write();
 
     bool data_to_send() const { return send_buffer.length() > 0; }
   };
+
+  SSLContext ssl_context_ {};
 
   TCPSocket listener_socket_;
   std::map<uint64_t, Connection> connections_ {};
@@ -64,6 +69,8 @@ private:
 public:
   WSServer(const Address & listener_addr);
   Poller::Result loop_once();
+
+  SSLContext & ssl_context() { return ssl_context_; }
 
   void set_message_callback(MessageCallback func) { message_callback_ = func; }
   void set_open_callback(OpenCallback func) { open_callback_ = func; }

@@ -23,11 +23,12 @@ HTTPResponse create_handshake_response(const HTTPRequest & request)
   string sec_version = request.get_header_value("Sec-WebSocket-Version");
   string sec_accept;
 
-  SHA1 sha1_function;
+  CryptoPP::SHA1 sha1_function;
 
   StringSource s( sec_key + WS_MAGIC_STRING, true,
                   new HashFilter( sha1_function,
-                                  new Base64Encoder( new StringSink( sec_accept ), false ) ) );
+                                  new Base64Encoder( new StringSink( sec_accept ),
+                                                     false ) ) );
 
 
   HTTPResponse response;
@@ -39,6 +40,44 @@ HTTPResponse create_handshake_response(const HTTPRequest & request)
   response.read_in_body("");
 
   return response;
+}
+
+template<>
+WSServer<TCPSocket>::Connection::Connection(TCPSocket && sock, SSLContext &)
+  : socket(move(sock))
+{}
+
+template<>
+WSServer<NBSecureSocket>::Connection::Connection(TCPSocket && sock,
+                                                 SSLContext & ssl_context)
+  : socket(move(ssl_context.new_secure_socket(move(sock))))
+{
+  socket.accept();
+}
+
+template<>
+string WSServer<TCPSocket>::Connection::read()
+{
+  return socket.read();
+}
+
+template<>
+string WSServer<NBSecureSocket>::Connection::read()
+{
+  return socket.ezread();
+}
+
+template<>
+void WSServer<TCPSocket>::Connection::write()
+{
+  send_buffer.erase(send_buffer.begin(), socket.write(send_buffer));
+}
+
+template<>
+void WSServer<NBSecureSocket>::Connection::write()
+{
+  socket.ezwrite(send_buffer);
+  send_buffer.clear();
 }
 
 template<class SocketType>
@@ -53,20 +92,22 @@ WSServer<SocketType>::WSServer(const Address & listener_addr)
     [this] () -> ResultType
     {
       /* incoming connection */
-      SocketType client = listener_socket_.accept();
+      TCPSocket client = listener_socket_.accept();
 
       /* let's make the socket non-blocking */
       client.set_blocking(false);
 
       const uint64_t conn_id = last_connection_id_++;
-      connections_.emplace(make_pair(conn_id, std::move(client)));
+      connections_.emplace(piecewise_construct,
+                           forward_as_tuple(conn_id),
+                           forward_as_tuple(move(client), ref(ssl_context_)));
       Connection & conn = connections_.at(conn_id);
 
       /* add the actions for this connection */
       poller_.add_action(Poller::Action(conn.socket, Direction::In,
         [this, &conn, conn_id] () -> ResultType
         {
-          string data = conn.socket.read();
+          const string data = conn.read();
 
           if (conn.state == Connection::State::NotConnected) {
             conn.ws_handshake_parser.parse(data);
@@ -153,16 +194,25 @@ WSServer<SocketType>::WSServer(const Address & listener_addr)
         {
           if (conn.state == Connection::State::Connecting) {
             /* okay, we should prepare the handshake response now */
-            conn.socket.write(create_handshake_response(conn.handshake_request).str());
-            conn.state = Connection::State::Connected;
-            open_callback_(conn_id);
+            if (conn.data_to_send()) {
+              conn.write();
+            }
+            else {
+              conn.send_buffer = create_handshake_response(conn.handshake_request).str();
+              conn.write();
+            }
+
+            /* if we've sent the whole handshake response */
+            if (not conn.data_to_send()) {
+              conn.state = Connection::State::Connected;
+              open_callback_(conn_id);
+            }
           }
           else if ((conn.state == Connection::State::Connected or
-                   conn.state == Connection::State::Closing or
-                   conn.state == Connection::State::Closed) and
+                    conn.state == Connection::State::Closing or
+                    conn.state == Connection::State::Closed) and
                    conn.data_to_send()) {
-            string::const_iterator last_write = conn.socket.write(conn.send_buffer.begin(), conn.send_buffer.end());
-            conn.send_buffer.erase(conn.send_buffer.begin(), last_write);
+            conn.write();
           }
 
           if (conn.state == Connection::State::Closed and
@@ -239,3 +289,4 @@ Poller::Result WSServer<SocketType>::loop_once()
 }
 
 template class WSServer<TCPSocket>;
+template class WSServer<NBSecureSocket>;

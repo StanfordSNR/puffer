@@ -11,9 +11,18 @@
 class NBSecureSocket : public SecureSocket
 {
 public:
-  enum class State {needs_connect,
+  enum class State {not_connected = 0,
+
+                    /* connect() */
+                    needs_connect,
                     needs_ssl_read_to_connect,
                     needs_ssl_write_to_connect,
+
+                    /* accept() */
+                    needs_accept,
+                    needs_ssl_read_to_accept,
+                    needs_ssl_write_to_accept,
+
                     needs_ssl_write_to_write,
                     needs_ssl_write_to_read,
                     needs_ssl_read_to_write,
@@ -21,8 +30,11 @@ public:
                     ready,
                     closed};
 
+  enum class Mode {not_set, connect, accept};
+
 private:
-  State state_ {State::needs_connect};
+  Mode mode_ {Mode::not_set};
+  State state_ {State::not_connected};
 
   std::queue<std::string> write_buffer_ {};
   std::string read_buffer_ {};
@@ -32,7 +44,11 @@ public:
     : SecureSocket(std::move(sock))
   {}
 
+  void connect();
+  void accept();
+
   void continue_SSL_connect();
+  void continue_SSL_accept();
   void continue_SSL_write();
   void continue_SSL_read();
 
@@ -43,12 +59,22 @@ public:
   bool something_to_read() { return (read_buffer_.size() > 0); }
 
   State state() const  { return state_; }
+  Mode mode() const { return mode_; }
+
   bool ready() const { return state_ == State::ready; }
+
   bool connected() const
   {
     return (state_ != State::needs_connect) and
            (state_ != State::needs_ssl_read_to_connect) and
            (state_ != State::needs_ssl_write_to_connect);
+  }
+
+  bool accepted() const
+  {
+    return (state_ != State::needs_accept) and
+           (state_ != State::needs_ssl_read_to_accept) and
+           (state_ != State::needs_ssl_write_to_accept);
   }
 };
 
