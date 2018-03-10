@@ -70,7 +70,7 @@ string WSServer<NBSecureSocket>::Connection::read()
 template<>
 void WSServer<TCPSocket>::Connection::write()
 {
-  send_buffer.erase(send_buffer.begin(), socket.write(send_buffer));
+  send_buffer.erase(send_buffer.cbegin(), socket.write(send_buffer));
 }
 
 template<>
