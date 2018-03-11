@@ -20,4 +20,5 @@ libutil_a_SOURCES = \
 	tokenize.hh tokenize.cc \
 	util.hh util.cc \
 	filesystem.hh \
-	chunk.hh
+	chunk.hh \
+	mmap.hh mmap.cc
