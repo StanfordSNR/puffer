@@ -273,6 +273,14 @@ void run_windowcleaner(ProcessManager & proc_manager,
   }
 }
 
+void run_media_server(ProcessManager & proc_manager, const string & yaml_path)
+{
+  string media_server = src_path / "media-server/ws_media_server";
+
+  vector<string> args { media_server, yaml_path };
+  proc_manager.run_as_child(media_server, args);
+}
+
 int main(int argc, char * argv[])
 {
   if (argc < 1) {
@@ -285,7 +293,8 @@ int main(int argc, char * argv[])
   }
 
   /* load and validate YAML that contains arguments */
-  YAML::Node config = load_yaml(argv[1]);
+  string yaml_path = argv[1];
+  YAML::Node config = load_yaml(yaml_path);
 
   vector<tuple<string, string>> vformats;
   vector<string> aformats;
@@ -343,6 +352,9 @@ int main(int argc, char * argv[])
   /* run windowcleaner to clean up files in ready/ */
   run_windowcleaner(proc_manager, vready);
   run_windowcleaner(proc_manager, aready);
+
+  /* run media server */
+  run_media_server(proc_manager, yaml_path);
 
   return proc_manager.wait();
 }
