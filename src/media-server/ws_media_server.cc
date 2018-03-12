@@ -12,10 +12,12 @@
 #include "file_descriptor.hh"
 #include "inotify.hh"
 #include "mmap.hh"
+#include "timerfd.hh"
 #include "ws_server.hh"
 #include "ws_client.hh"
 
 using namespace std;
+using namespace PollerShortNames;
 
 static fs::path output_path;
 
@@ -29,6 +31,8 @@ static map<uint64_t, map<tuple<string, string>, string>> vdata;
 static map<uint64_t, map<string, string>> adata;
 
 static map<uint64_t, WebSocketClient> clients;
+
+static Timerfd global_timer;
 
 static const int clean_time_window = 5400000;
 
@@ -175,6 +179,47 @@ void mmap_audio_files(Inotify & inotify)
   }
 }
 
+void start_global_timer(WebSocketServer & ws_server)
+{
+  Poller & poller = ws_server.poller();
+
+  poller.add_action(
+    Poller::Action(global_timer, Direction::In,
+      [&]() {
+        if (global_timer.expirations() > 0) {
+          /* iterate over all connections */
+          for (auto & client_item : clients) {
+            const uint64_t connection_id = client_item.first;
+            auto & client = client_item.second;
+
+            /* TODO: for debugging only */
+            if (client.playback_buf() < 10) {
+              uint64_t next_vts = client.next_vts();
+
+              const auto it = vdata.find(next_vts);
+              if (it == vdata.end()) {
+                continue;
+              }
+
+              /* pick the first video format for debugging */
+              const auto & data = it->second.begin()->second;
+              WSFrame frame {true, WSFrame::OpCode::Binary, data};
+              ws_server.queue_frame(connection_id, frame);
+
+              client.set_next_vts(next_vts + 180180);
+            }
+          }
+        }
+
+        return ResultType::Continue;
+      }
+    )
+  );
+
+  /* the timer fires every 10 ms */
+  global_timer.start(10, 10);
+}
+
 int main(int argc, char * argv[])
 {
   if (argc < 1) {
@@ -200,19 +245,18 @@ int main(int argc, char * argv[])
   WebSocketServer ws_server {{ip, port}};
 
   /* mmap new media files */
-  Poller & poller = ws_server.poller();
-  Inotify inotify(poller);
+  Inotify inotify(ws_server.poller());
   mmap_video_files(inotify);
   mmap_audio_files(inotify);
+
+  /* start the global timer */
+  start_global_timer(ws_server);
 
   ws_server.set_message_callback(
     [&ws_server](const uint64_t connection_id, const WSMessage & message)
     {
       cerr << "Message (from=" << connection_id << "): "
            << message.payload() << endl;
-
-      WSFrame echo_frame {true, message.type(), message.payload()};
-      ws_server.queue_frame(connection_id, echo_frame);
     }
   );
 
