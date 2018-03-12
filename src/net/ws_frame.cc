@@ -9,21 +9,21 @@ using namespace std;
 
 string put_field(const uint16_t n)
 {
-  const uint16_t network_order = htole16(n);
+  const uint16_t network_order = htobe16(n);
   return string(reinterpret_cast<const char *>(&network_order),
                 sizeof(network_order));
 }
 
 string put_field(const uint32_t n)
 {
-  const uint32_t network_order = htole32(n);
+  const uint32_t network_order = htobe32(n);
   return string(reinterpret_cast<const char *>(&network_order),
                 sizeof(network_order));
 }
 
 string put_field(const uint64_t n)
 {
-  const uint32_t network_order = htole64(n);
+  const uint64_t network_order = htobe64(n);
   return string(reinterpret_cast<const char *>(&network_order),
                 sizeof(network_order));
 }
@@ -47,7 +47,7 @@ WSFrame::Header::Header(const Chunk & chunk)
       throw out_of_range("incomplete header");
     }
 
-    payload_length_ = chunk(2, 2).le16();
+    payload_length_ = chunk(2, 2).be16();
     next_idx = 4;
     break;
 
@@ -56,7 +56,7 @@ WSFrame::Header::Header(const Chunk & chunk)
       throw out_of_range("incomplete header");
     }
 
-    payload_length_ = chunk(2, 8).le64();
+    payload_length_ = chunk(2, 8).be64();
     next_idx = 10;
     break;
 
@@ -69,7 +69,7 @@ WSFrame::Header::Header(const Chunk & chunk)
       throw out_of_range("incomplete header: missing masking key");
     }
 
-    masking_key_.reset(chunk(next_idx, 4).le32());
+    masking_key_.reset(chunk(next_idx, 4).be32());
   }
 }
 
@@ -102,7 +102,7 @@ uint64_t WSFrame::expected_length( const Chunk & chunk )
       return 4;
     }
 
-    return 4 + chunk(2, 2).le16() + (masked ? 4 : 0);
+    return 4 + chunk(2, 2).be16() + (masked ? 4 : 0);
 
   case 127:
     if (chunk.size() < 10) {
@@ -110,7 +110,7 @@ uint64_t WSFrame::expected_length( const Chunk & chunk )
       return 10;
     }
 
-    return 10 + chunk(2, 8).le64() + (masked ? 4 : 0);
+    return 10 + chunk(2, 8).be64() + (masked ? 4 : 0);
 
   default:
     return 2 + payload_length + (masked ? 4 : 0);
