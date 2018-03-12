@@ -30,6 +30,8 @@ static map<uint64_t, map<string, string>> adata;
 
 static map<uint64_t, WebSocketClient> clients;
 
+static const int clean_time_window = 5400000;
+
 void print_usage(const string & program_name)
 {
   cerr << program_name << " <YAML configuration>" << endl;
@@ -71,6 +73,32 @@ string mmap_file(const string & filepath)
   return {static_pointer_cast<char>(data).get(), size};
 }
 
+void munmap_files(const string & variable_name, const uint64_t ts)
+{
+  uint64_t obsolete = 0;
+  if (ts > clean_time_window) {
+    obsolete = ts - clean_time_window;
+  }
+
+  if (variable_name == "vdata") {
+    for (auto it = vdata.cbegin(); it != vdata.cend();) {
+      if (it->first < obsolete) {
+        it = vdata.erase(it);
+      } else {
+        break;
+      }
+    }
+  } else if (variable_name == "adata") {
+    for (auto it = adata.cbegin(); it != adata.cend();) {
+      if (it->first < obsolete) {
+        it = adata.erase(it);
+      } else {
+        break;
+      }
+    }
+  }
+}
+
 void mmap_video_files(Inotify & inotify)
 {
   for (const auto & vformat : vformats) {
@@ -96,10 +124,14 @@ void mmap_video_files(Inotify & inotify)
         string data = mmap_file(filepath);
 
         string filestem = fs::path(event.name).stem();
+        uint64_t ts = stoll(filestem);
+
+        munmap_files("vdata", ts);
+
         if (filestem == "init") {
           vinit.emplace(vformat, move(data));
         } else {
-          vdata[stoll(filestem)][vformat] = move(data);
+          vdata[ts][vformat] = move(data);
         }
       }
     );
@@ -129,10 +161,14 @@ void mmap_audio_files(Inotify & inotify)
         string data = mmap_file(filepath);
 
         string filestem = fs::path(event.name).stem();
+        uint64_t ts = stoll(filestem);
+
+        munmap_files("adata", ts);
+
         if (filestem == "init") {
           ainit.emplace(aformat, move(data));
         } else {
-          adata[stoll(filestem)][aformat] = move(data);
+          adata[ts][aformat] = move(data);
         }
       }
     );
