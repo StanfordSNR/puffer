@@ -70,6 +70,8 @@ public:
   WSServer(const Address & listener_addr);
   Poller::Result loop_once();
 
+  Poller & poller() { return poller_; }
+
   SSLContext & ssl_context() { return ssl_context_; }
 
   void set_message_callback(MessageCallback func) { message_callback_ = func; }
