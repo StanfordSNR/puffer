@@ -78,29 +78,50 @@ tuple<shared_ptr<void>, size_t> mmap_file(const string & filepath)
   return {data, size};
 }
 
-void munmap_files(const string & variable_name, const uint64_t ts)
+void munmap_video(const uint64_t ts)
 {
   uint64_t obsolete = 0;
   if (ts > clean_time_window) {
     obsolete = ts - clean_time_window;
   }
 
-  if (variable_name == "vdata") {
-    for (auto it = vdata.cbegin(); it != vdata.cend();) {
-      if (it->first < obsolete) {
-        it = vdata.erase(it);
-      } else {
-        break;
-      }
+ for (auto it = vdata.cbegin(); it != vdata.cend();) {
+   if (it->first < obsolete) {
+     it = vdata.erase(it);
+   } else {
+     break;
+   }
+ }
+}
+
+void munmap_audio(const uint64_t ts)
+{
+  uint64_t obsolete = 0;
+  if (ts > clean_time_window) {
+    obsolete = ts - clean_time_window;
+  }
+
+  for (auto it = adata.cbegin(); it != adata.cend();) {
+    if (it->first < obsolete) {
+      it = adata.erase(it);
+    } else {
+      break;
     }
-  } else if (variable_name == "adata") {
-    for (auto it = adata.cbegin(); it != adata.cend();) {
-      if (it->first < obsolete) {
-        it = adata.erase(it);
-      } else {
-        break;
-      }
-    }
+  }
+}
+
+static void do_mmap_video(const fs::path & filepath,
+                          const tuple<string, string> & vformat)
+{
+  auto data_size = mmap_file(filepath);
+  string filestem = filepath.stem();
+
+  if (filestem == "init") {
+    vinit.emplace(vformat, data_size);
+  } else {
+    uint64_t ts = stoll(filestem);
+    munmap_video(ts);
+    vdata[ts][vformat] = data_size;
   }
 }
 
@@ -125,21 +146,29 @@ void mmap_video_files(Inotify & inotify)
 
         assert(event.len != 0);
 
-        string filepath = fs::path(path) / event.name;
-        auto data_size = mmap_file(filepath);
-
-        string filestem = fs::path(event.name).stem();
-        uint64_t ts = stoll(filestem);
-
-        munmap_files("vdata", ts);
-
-        if (filestem == "init") {
-          vinit.emplace(vformat, data_size);
-        } else {
-          vdata[ts][vformat] = data_size;
-        }
+        fs::path filepath = fs::path(path) / event.name;
+        do_mmap_video(filepath, vformat);
       }
     );
+
+    /* process existing files */
+    for (const auto & file : fs::directory_iterator(video_dir)) {
+      do_mmap_video(file.path(), vformat);
+    }
+  }
+}
+
+static void do_mmap_audio(const fs::path & filepath, const string & aformat)
+{
+  auto data_size = mmap_file(filepath);
+  string filestem = filepath.stem();
+
+  if (filestem == "init") {
+    ainit.emplace(aformat, data_size);
+  } else {
+    uint64_t ts = stoll(filestem);
+    munmap_audio(ts);
+    adata[ts][aformat] = data_size;
   }
 }
 
@@ -162,21 +191,15 @@ void mmap_audio_files(Inotify & inotify)
 
         assert(event.len != 0);
 
-        string filepath = fs::path(path) / event.name;
-        auto data_size = mmap_file(filepath);
-
-        string filestem = fs::path(event.name).stem();
-        uint64_t ts = stoll(filestem);
-
-        munmap_files("adata", ts);
-
-        if (filestem == "init") {
-          ainit.emplace(aformat, data_size);
-        } else {
-          adata[ts][aformat] = data_size;
-        }
+        fs::path filepath = fs::path(path) / event.name;
+        do_mmap_audio(filepath, aformat);
       }
     );
+
+    /* process existing files */
+    for (const auto & file : fs::directory_iterator(audio_dir)) {
+      do_mmap_audio(file.path(), aformat);
+    }
   }
 }
 
@@ -256,7 +279,7 @@ int main(int argc, char * argv[])
   start_global_timer(ws_server);
 
   ws_server.set_message_callback(
-    [&ws_server](const uint64_t connection_id, const WSMessage & message)
+    [](const uint64_t connection_id, const WSMessage & message)
     {
       cerr << "Message (from=" << connection_id << "): "
            << message.payload() << endl;
