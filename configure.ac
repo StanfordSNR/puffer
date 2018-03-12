@@ -53,6 +53,7 @@ AC_CONFIG_FILES([
     src/time/Makefile
     src/reporter/Makefile
     src/wrappers/Makefile
+    src/media-server/Makefile
     src/tests/Makefile
 ])
 AC_OUTPUT
