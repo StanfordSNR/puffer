@@ -24,11 +24,12 @@ static fs::path output_path;
 static vector<tuple<string, string>> vformats;
 static vector<string> aformats;
 
-static map<tuple<string, string>, string> vinit;
-static map<string, string> ainit;
+static map<tuple<string, string>, tuple<shared_ptr<void>, size_t>> vinit;
+static map<string, tuple<shared_ptr<void>, size_t>> ainit;
 
-static map<uint64_t, map<tuple<string, string>, string>> vdata;
-static map<uint64_t, map<string, string>> adata;
+static map<uint64_t,
+           map<tuple<string, string>, tuple<shared_ptr<void>, size_t>>> vdata;
+static map<uint64_t, map<string, tuple<shared_ptr<void>, size_t>>> adata;
 
 static map<uint64_t, WebSocketClient> clients;
 
@@ -67,14 +68,14 @@ void get_audio_formats(const YAML::Node & config, vector<string> & aformats)
   }
 }
 
-string mmap_file(const string & filepath)
+tuple<shared_ptr<void>, size_t> mmap_file(const string & filepath)
 {
   FileDescriptor fd(CheckSystemCall("open (" + filepath + ")",
                     open(filepath.c_str(), O_RDONLY)));
   size_t size = fd.filesize();
   auto data = mmap_shared(nullptr, size, PROT_READ,
                           MAP_PRIVATE, fd.fd_num(), 0);
-  return {static_pointer_cast<char>(data).get(), size};
+  return {data, size};
 }
 
 void munmap_files(const string & variable_name, const uint64_t ts)
@@ -125,7 +126,7 @@ void mmap_video_files(Inotify & inotify)
         assert(event.len != 0);
 
         string filepath = fs::path(path) / event.name;
-        string data = mmap_file(filepath);
+        auto data_size = mmap_file(filepath);
 
         string filestem = fs::path(event.name).stem();
         uint64_t ts = stoll(filestem);
@@ -133,9 +134,9 @@ void mmap_video_files(Inotify & inotify)
         munmap_files("vdata", ts);
 
         if (filestem == "init") {
-          vinit.emplace(vformat, move(data));
+          vinit.emplace(vformat, data_size);
         } else {
-          vdata[ts][vformat] = move(data);
+          vdata[ts][vformat] = data_size;
         }
       }
     );
@@ -162,7 +163,7 @@ void mmap_audio_files(Inotify & inotify)
         assert(event.len != 0);
 
         string filepath = fs::path(path) / event.name;
-        string data = mmap_file(filepath);
+        auto data_size = mmap_file(filepath);
 
         string filestem = fs::path(event.name).stem();
         uint64_t ts = stoll(filestem);
@@ -170,9 +171,9 @@ void mmap_audio_files(Inotify & inotify)
         munmap_files("adata", ts);
 
         if (filestem == "init") {
-          ainit.emplace(aformat, move(data));
+          ainit.emplace(aformat, data_size);
         } else {
-          adata[ts][aformat] = move(data);
+          adata[ts][aformat] = data_size;
         }
       }
     );
@@ -202,8 +203,10 @@ void start_global_timer(WebSocketServer & ws_server)
               }
 
               /* pick the first video format for debugging */
-              const auto & data = it->second.begin()->second;
-              WSFrame frame {true, WSFrame::OpCode::Binary, data};
+              const auto & [data, size] = it->second.begin()->second;
+
+              WSFrame frame {true, WSFrame::OpCode::Binary,
+                             {static_pointer_cast<char>(data).get(), size}};
               ws_server.queue_frame(connection_id, frame);
 
               client.set_next_vts(next_vts + 180180);
