@@ -4,14 +4,16 @@
 #include <iostream>
 #include <string>
 #include <map>
+#include <unordered_map>
 #include <memory>
 
-#include "filesystem.hh"
 #include "yaml-cpp/yaml.h"
-#include "inotify.hh"
-#include "ws_server.hh"
-#include "mmap.hh"
+#include "filesystem.hh"
 #include "file_descriptor.hh"
+#include "inotify.hh"
+#include "mmap.hh"
+#include "ws_server.hh"
+#include "ws_client.hh"
 
 using namespace std;
 
@@ -20,8 +22,13 @@ static fs::path output_path;
 static vector<tuple<string, string>> vformats;
 static vector<string> aformats;
 
-static map<int64_t, map<tuple<string, string>, string>> vdata;
-static map<int64_t, map<string, string>> adata;
+static map<tuple<string, string>, string> vinit;
+static map<string, string> ainit;
+
+static map<uint64_t, map<tuple<string, string>, string>> vdata;
+static map<uint64_t, map<string, string>> adata;
+
+static map<uint64_t, WebSocketClient> clients;
 
 void print_usage(const string & program_name)
 {
@@ -87,11 +94,10 @@ void mmap_video_files(Inotify & inotify)
 
         string filepath = fs::path(path) / event.name;
         string data = mmap_file(filepath);
-        cout << data << endl;
 
         string filestem = fs::path(event.name).stem();
         if (filestem == "init") {
-          vdata[-1][vformat] = move(data);
+          vinit.emplace(vformat, move(data));
         } else {
           vdata[stoll(filestem)][vformat] = move(data);
         }
@@ -124,7 +130,7 @@ void mmap_audio_files(Inotify & inotify)
 
         string filestem = fs::path(event.name).stem();
         if (filestem == "init") {
-          adata[-1][aformat] = move(data);
+          ainit.emplace(aformat, move(data));
         } else {
           adata[stoll(filestem)][aformat] = move(data);
         }
@@ -178,6 +184,13 @@ int main(int argc, char * argv[])
     [](const uint64_t connection_id)
     {
       cerr << "Connected (id=" << connection_id << ")" << endl;
+
+      auto ret = clients.emplace(connection_id,
+                                 WebSocketClient(connection_id, 0, 0));
+      if (not ret.second) {
+        throw runtime_error("Connection ID " + to_string(connection_id) +
+                            " already exists");
+      }
     }
   );
 
@@ -185,6 +198,8 @@ int main(int argc, char * argv[])
     [](const uint64_t connection_id)
     {
       cerr << "Connection closed (id=" << connection_id << ")" << endl;
+
+      clients.erase(connection_id);
     }
   );
 
