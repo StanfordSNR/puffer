@@ -85,6 +85,7 @@ WSServer<SocketType>::WSServer(const Address & listener_addr)
   : listener_socket_()
 {
   listener_socket_.set_blocking(false);
+  listener_socket_.set_reuseaddr();
   listener_socket_.bind(listener_addr);
   listener_socket_.listen();
 

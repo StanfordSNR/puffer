@@ -1,7 +1,3 @@
-// create websocket
-const ws = new WebSocket('ws://localhost:8080');
-ws.binaryType = 'arraybuffer';
-
 var buffer;
 
 // media source
@@ -14,6 +10,10 @@ ms.addEventListener('sourceopen', function(e) {
   console.log('sourceopen: ' + ms.readyState);
 
   buffer = ms.addSourceBuffer('video/mp4; codecs="avc1.42E020"');
+
+  // create websocket
+  const ws = new WebSocket('ws://localhost:8080');
+  ws.binaryType = 'arraybuffer';
 
   ws.onmessage = function(e) {
     buffer.appendBuffer(new Uint8Array(e.data));
