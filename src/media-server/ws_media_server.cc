@@ -24,12 +24,12 @@ static fs::path output_path;
 static vector<tuple<string, string>> vformats;
 static vector<string> aformats;
 
-static map<tuple<string, string>, tuple<shared_ptr<void>, size_t>> vinit;
-static map<string, tuple<shared_ptr<void>, size_t>> ainit;
+static map<tuple<string, string>, tuple<shared_ptr<char>, size_t>> vinit;
+static map<string, tuple<shared_ptr<char>, size_t>> ainit;
 
 static map<uint64_t,
-           map<tuple<string, string>, tuple<shared_ptr<void>, size_t>>> vdata;
-static map<uint64_t, map<string, tuple<shared_ptr<void>, size_t>>> adata;
+           map<tuple<string, string>, tuple<shared_ptr<char>, size_t>>> vdata;
+static map<uint64_t, map<string, tuple<shared_ptr<char>, size_t>>> adata;
 
 static map<uint64_t, WebSocketClient> clients;
 
@@ -68,14 +68,14 @@ void get_audio_formats(const YAML::Node & config, vector<string> & aformats)
   }
 }
 
-tuple<shared_ptr<void>, size_t> mmap_file(const string & filepath)
+tuple<shared_ptr<char>, size_t> mmap_file(const string & filepath)
 {
   FileDescriptor fd(CheckSystemCall("open (" + filepath + ")",
                     open(filepath.c_str(), O_RDONLY)));
   size_t size = fd.filesize();
-  auto data = mmap_shared(nullptr, size, PROT_READ,
-                          MAP_PRIVATE, fd.fd_num(), 0);
-  return {data, size};
+  shared_ptr<void> data = mmap_shared(nullptr, size, PROT_READ,
+                                      MAP_PRIVATE, fd.fd_num(), 0);
+  return {static_pointer_cast<char>(data), size};
 }
 
 void munmap_video(const uint64_t ts)
@@ -205,9 +205,10 @@ void mmap_audio_files(Inotify & inotify)
 
 void start_global_timer(WebSocketServer & ws_server)
 {
-  Poller & poller = ws_server.poller();
+  /* the timer fires every 100 ms */
+  global_timer.start(100, 100);
 
-  poller.add_action(
+  ws_server.poller().add_action(
     Poller::Action(global_timer, Direction::In,
       [&]() {
         if (global_timer.expirations() > 0) {
@@ -220,6 +221,13 @@ void start_global_timer(WebSocketServer & ws_server)
             if (client.playback_buf() < 10) {
               uint64_t next_vts = client.next_vts();
 
+              /* send init segment */
+              if (next_vts == 0) {
+                const auto & [data, size] = vinit.begin()->second;
+                WSFrame frame {true, WSFrame::OpCode::Binary, {data.get(), size}};
+                ws_server.queue_frame(connection_id, frame);
+              }
+
               const auto it = vdata.find(next_vts);
               if (it == vdata.end()) {
                 continue;
@@ -228,11 +236,11 @@ void start_global_timer(WebSocketServer & ws_server)
               /* pick the first video format for debugging */
               const auto & [data, size] = it->second.begin()->second;
 
-              WSFrame frame {true, WSFrame::OpCode::Binary,
-                             {static_pointer_cast<char>(data).get(), size}};
+              WSFrame frame {true, WSFrame::OpCode::Binary, {data.get(), size}};
               ws_server.queue_frame(connection_id, frame);
 
               client.set_next_vts(next_vts + 180180);
+              client.set_playback_buf(client.playback_buf() + 2);
             }
           }
         }
@@ -241,9 +249,6 @@ void start_global_timer(WebSocketServer & ws_server)
       }
     )
   );
-
-  /* the timer fires every 10 ms */
-  global_timer.start(10, 10);
 }
 
 int main(int argc, char * argv[])
@@ -309,7 +314,10 @@ int main(int argc, char * argv[])
     }
   );
 
-  while (ws_server.loop_once().result == Poller::Result::Type::Success);
+  for (;;) {
+    /* TODO: why does this return Poller::Result::Type::Timeout or ::Exit? */
+    ws_server.loop_once();
+  }
 
   return EXIT_SUCCESS;
 }

@@ -104,6 +104,7 @@ tags
 *.pyc
 *.ts
 *.y4m
+*.wav
 *.webm
 *.chk
 
