@@ -65,7 +65,7 @@ ClientInfo parse_client_info_msg(const string & data)
     ret.next_audio_timestamp = obj["nextAudioTimestamp"];
     ret.player_width = obj["playerWidth"];
     ret.player_height = obj["playerHeight"];
-    
+
     int player_ready_state = obj["playerReadyState"];
     if (player_ready_state < 0 || player_ready_state > 4) {
       throw ParseExeception("Invalid player ready state");
