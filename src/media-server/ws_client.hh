@@ -14,6 +14,7 @@ public:
                   const uint64_t ats);
 
   /* accessors */
+  uint64_t connection_id() { return connection_id_; }
   std::optional<std::string> channel() { return channel_; }
   std::optional<uint64_t> next_vts() { return next_vts_; }
   std::optional<uint64_t> next_ats() { return next_ats_; }
