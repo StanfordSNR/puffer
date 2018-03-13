@@ -8,6 +8,7 @@
 #include <memory>
 
 #include "yaml-cpp/yaml.h"
+#include "client_message.h"
 #include "filesystem.hh"
 #include "file_descriptor.hh"
 #include "inotify.hh"
@@ -36,6 +37,8 @@ static map<uint64_t, WebSocketClient> clients;
 static Timerfd global_timer;
 
 static const int clean_time_window = 5400000;
+
+static const int VIDEO_TIMESCALE = 90000;
 
 void print_usage(const string & program_name)
 {
@@ -85,13 +88,13 @@ void munmap_video(const uint64_t ts)
     obsolete = ts - clean_time_window;
   }
 
- for (auto it = vdata.cbegin(); it != vdata.cend();) {
-   if (it->first < obsolete) {
-     it = vdata.erase(it);
-   } else {
-     break;
-   }
- }
+  for (auto it = vdata.cbegin(); it != vdata.cend();) {
+    if (it->first < obsolete) {
+      it = vdata.erase(it);
+    } else {
+      break;
+    }
+  }
 }
 
 void munmap_audio(const uint64_t ts)
@@ -203,6 +206,112 @@ void mmap_audio_files(Inotify & inotify)
   }
 }
 
+static void send_video_to_client(WebSocketServer & ws_server, 
+                                 WebSocketClient & client) 
+{
+  uint64_t next_vts = client.next_vts();
+
+  tuple<string, string> next_vq { "", "" }; // TODO: get this from somewhere
+
+  const auto vts_map = vdata.find(next_vts);
+  if (vts_map == vdata.end()) {
+    return;
+  }
+
+  const auto mmapped_video = vts_map.find(next_vq);
+  if (mmapped_video == vts_map.end()) {
+    return;
+  } 
+
+  const auto & [video_data, video_size] = mmapped_video;
+  const auto & [init_data, init_size] = vinit[next_vq];
+
+  /* Compute size of frame payload excluding header */
+  size_t payload_len = video_size;
+  if (next_vq != client.curr_vq()) {
+    payload_len += init_size;
+  }
+
+  /* Make the metadata at the start of a frame */
+  string metadata = make_video_msg(next_vq, next_vts, 180180, 0, 
+                                   payload_len);
+
+  /* Copy data into payload string */
+  string frame_payload(metadata.length() + payload_len);
+  memcpy(&frame_payload[0], &metadata[0], metadata.length());
+  int video_segment_begin;
+  if (next_vq != client.curr_vq()) {
+    memcpy(&frame_payload[metadata.length()], init_data.get(), init_size);
+    video_segment_begin = metadata.length() + init_size;
+  } else {
+    video_segment_begin = metadata.length();
+  }
+  memcpy(&frame_payload[video_segment_begin], video_data.get(), video_size);
+
+  // TODO: fragment this further
+  WSFrame frame {true, WSFrame::OpCode::Binary, frame_payload};
+  ws_server.queue_frame(client.connection_id(), frame);
+
+  // TODO: stop hardcoding these numbers
+  client.set_next_vts(next_vts + 180180);
+  client.set_next_vq(next_vq);
+}
+
+static void send_audio_to_client(WebSocketServer & ws_server,
+                                 WebSocketClient & client) 
+{
+  uint64_t next_ats = client.next_ats();
+
+  tuple<string, string> next_aq = ""; // TODO: get this from somewhere
+
+  const auto ats_map = adata.find(next_ats);
+  if (ats_map == adata.end()) {
+    return;
+  }
+
+  const auto mmapped_audio = ats_map.find(next_aq);
+  if (mmapped_audio == ats_map.end()) {
+    return;
+  } 
+
+  const auto & [audio_data, audio_size] = mmapped_audio;
+  const auto & [init_data, init_size] = ainit[next_aq];
+
+  /* Compute size of frame payload excluding header */
+  size_t payload_len = audio_size;
+  if (next_aq != client.curr_aq()) {
+    payload_len += init_size;
+  }
+
+  /* Make the metadata at the start of a frame */
+  string metadata = make_audio_msg(next_aq, next_ats, 48000, 0, 
+                                   payload_len);
+
+  /* Copy data into payload string */
+  string frame_payload(metadata.length() + payload_len);
+  memcpy(&frame_payload[0], &metadata[0], metadata.length());
+  int audio_segment_begin;
+  if (next_aq != client.curr_aq()) {
+    memcpy(&frame_payload[metadata.length()], init_data.get(), init_size);
+    audio_segment_begin = metadata.length() + init_size;
+  } else {
+    audio_segment_begin = metadata.length();
+  }
+  memcpy(&frame_payload[audio_segment_begin], audio_data.get(), audio_size);
+
+  WSFrame frame {true, WSFrame::OpCode::Binary, frame_payload};
+  ws_server.queue_frame(client.connection_id(), frame);
+
+  client.set_next_ats(next_vts + 48000);
+  client.set_curr_aq(next_aq);
+}
+
+static void serve_client(WebSocketServer & ws_server, WebSocketClient & client) 
+{
+  serve_video_to_client(ws_server, client);
+  serve_audio_to_client(ws_server, client);
+}
+
 void start_global_timer(WebSocketServer & ws_server)
 {
   /* the timer fires every 100 ms */
@@ -216,32 +325,7 @@ void start_global_timer(WebSocketServer & ws_server)
           for (auto & client_item : clients) {
             const uint64_t connection_id = client_item.first;
             auto & client = client_item.second;
-
-            /* TODO: for debugging only */
-            if (client.playback_buf() < 10) {
-              uint64_t next_vts = client.next_vts();
-
-              /* send init segment */
-              if (next_vts == 0) {
-                const auto & [data, size] = vinit.begin()->second;
-                WSFrame frame {true, WSFrame::OpCode::Binary, {data.get(), size}};
-                ws_server.queue_frame(connection_id, frame);
-              }
-
-              const auto it = vdata.find(next_vts);
-              if (it == vdata.end()) {
-                continue;
-              }
-
-              /* pick the first video format for debugging */
-              const auto & [data, size] = it->second.begin()->second;
-
-              WSFrame frame {true, WSFrame::OpCode::Binary, {data.get(), size}};
-              ws_server.queue_frame(connection_id, frame);
-
-              client.set_next_vts(next_vts + 180180);
-              client.set_playback_buf(client.playback_buf() + 2);
-            }
+            serve_client(ws_server, client);
           }
         }
 
@@ -271,7 +355,7 @@ int main(int argc, char * argv[])
   output_path = fs::path(output_dir);
 
   string ip = "0.0.0.0";
-  uint16_t port = 8080;
+  uint16_t port = 8080; // TODO read this from somewhere
 
   WebSocketServer ws_server {{ip, port}};
 
@@ -287,7 +371,46 @@ int main(int argc, char * argv[])
     [](const uint64_t connection_id, const WSMessage & message)
     {
       cerr << "Message (from=" << connection_id << "): "
-           << message.payload() << endl;
+           << message.payload() << endl; 
+
+      auto client = clients[connection_id];
+      try {
+        const auto data = unpack_client_msg(message.payload());
+        switch (data.first) {
+          case ClientMsg::Init: {
+            ClientInit init_msg = parse_client_init_msg(data.second);
+            
+            const string channel = init_msg.channel;
+            // TODO: if channel is invalid, kill the connection
+
+            // TODO: compute init ats, vts
+            client.initialize(channel, init_vts, init_ats);
+
+            string reply = make_server_init_msg(
+              channel, 
+              "video/mp4; codecs=\"avc1.42E020\"", // TODO: read these from somewhere
+              "audio/webm; codecs=\"opus\"",
+              VIDEO_TIMESCALE, 
+              0 /* start timestamp */);
+
+            /* Reinitialize video playback on the client */
+            WSFrame frame {true, WSFrame::OpCode::Binary, reply};
+            ws_server.queue_frame(connection_id, frame);
+            break;
+          }
+          case ClientMsg::Info: {
+            ClientInfo info_msg = parse_client_info_msg(data.second);
+            client.set_audio_playback_buf(info_msg.audio_buffer_len);
+            client.set_video_playback_buf(info_msg.video_buffer_len);
+            // TODO: read the other fields too
+            break;
+          }
+          default ClientMsg::Unknown:
+            break;
+        }
+      } catch (const ParseExeception & e) {
+        // TODO: close the client
+      }
     }
   );
 
@@ -296,8 +419,8 @@ int main(int argc, char * argv[])
     {
       cerr << "Connected (id=" << connection_id << ")" << endl;
 
-      auto ret = clients.emplace(connection_id,
-                                 WebSocketClient(connection_id, 0, 0));
+      // TODO: set the vts and ats to the newest
+      auto ret = clients.emplace(connection_id, WebSocketClient(connection_id));
       if (not ret.second) {
         throw runtime_error("Connection ID " + to_string(connection_id) +
                             " already exists");
