@@ -40,10 +40,9 @@ static unsigned int CLEAN_TIME_WINDOW;
 static unsigned int TIMESCALE;
 static unsigned int VIDEO_DURATION;
 static unsigned int AUDIO_DURATION;
-
-// TODO: bring these in from YAML too
-static string VIDEO_CODEC = "video/mp4; codecs=\"avc1.42E020\"";
-static string AUDIO_CODEC = "audio/webm; codecs=\"opus\"";
+static string VIDEO_CODEC;
+static string AUDIO_CODEC;
+static optional<uint64_t> INIT_VTS;
 
 void print_usage(const string & program_name)
 {
@@ -330,16 +329,19 @@ void start_global_timer(WebSocketServer & server)
   );
 }
 
-// TODO: make an option to start at 0 or a fixed vts
 uint64_t get_init_vts() {
-  /* Choose the first vts with all qualities available */
-  for (auto it = vdata.rbegin(); it != vdata.rend(); ++it) {
-    if (it->second.size() == vformats.size()) {
-      return it->first;
+  if (INIT_VTS.has_value()) {
+    return INIT_VTS.value(); /* The user configured a fixed VTS */
+  } else {
+    /* Choose the newest vts with all qualities available */
+    for (auto it = vdata.rbegin(); it != vdata.rend(); ++it) {
+      if (it->second.size() == vformats.size()) {
+        return it->first;
+      }
     }
+    cerr << "Encoder is in a bad state, no vts has all qualities available" << endl;
+    abort();
   }
-  cerr << "Encoder is in a bad state, no vts has all qualities available" << endl;
-  abort();
 }
 
 inline uint64_t get_init_ats(const uint64_t vts) {
@@ -351,9 +353,9 @@ void handle_client_init(WebSocketServer & server, WebSocketClient & client,
 {
   const string channel = message.channel;
   // TODO: if channel is invalid, kill the connection
-  // if (false) {
-  //   throw BadClientMessageException("Invalid channel");
-  // }
+  if (false) {
+    throw BadClientMessageException("Invalid channel");
+  }
 
   uint16_t init_vts = get_init_vts();
   uint16_t init_ats = get_init_ats(init_vts);
@@ -405,6 +407,12 @@ int main(int argc, char * argv[])
   TIMESCALE = config["timescale"].as<int>();
   VIDEO_DURATION = config["video_duration"].as<int>();
   AUDIO_DURATION = config["audio_duration"].as<int>();
+  VIDEO_CODEC = config["video_codec"].as<string>();
+  AUDIO_CODEC = config["audio_codec"].as<string>();
+
+  if (config["init_vts"]) {
+    INIT_VTS = config["init_vts"].as<int>();
+  }
 
   /* create a WebSocketServer instance */
   string ip = "0.0.0.0";
