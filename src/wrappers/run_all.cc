@@ -2,10 +2,8 @@
 #include <string>
 #include <vector>
 #include <tuple>
-#include <unordered_map>
 
 #include "filesystem.hh"
-#include "exception.hh"
 #include "path.hh"
 #include "child_process.hh"
 #include "yaml.hh"
@@ -16,10 +14,9 @@ static fs::path output_path;
 static fs::path src_path;
 static string notifier;
 
+/* tuple<directory, extension> */
 static vector<tuple<string, string>> vwork, awork;
 static vector<tuple<string, string>> vready, aready;
-
-static const int CLEAN_TIME_WIN = 5400000;
 
 void print_usage(const string & program_name)
 {
@@ -209,7 +206,8 @@ void run_depcleaner(ProcessManager & proc_manager,
 }
 
 void run_windowcleaner(ProcessManager & proc_manager,
-                       const vector<tuple<string, string>> & ready)
+                       const vector<tuple<string, string>> & ready,
+                       const int clean_time_window)
 {
   string windowcleaner = src_path / "cleaner/windowcleaner";
 
@@ -217,17 +215,9 @@ void run_windowcleaner(ProcessManager & proc_manager,
   for (const auto & item : ready) {
     const auto & [dir, ext] = item;
     vector<string> notifier_args { notifier, dir, ext, "--exec", windowcleaner,
-                                   ext, to_string(CLEAN_TIME_WIN) };
+                                   ext, to_string(clean_time_window) };
     proc_manager.run_as_child(notifier, notifier_args);
   }
-}
-
-void run_media_server(ProcessManager & proc_manager, const string & yaml_path)
-{
-  string media_server = src_path / "media-server/ws_media_server";
-
-  vector<string> args { media_server, yaml_path };
-  proc_manager.run_as_child(media_server, args);
 }
 
 int main(int argc, char * argv[])
@@ -241,10 +231,8 @@ int main(int argc, char * argv[])
     return EXIT_FAILURE;
   }
 
-  /* load and validate YAML that contains arguments */
-  string yaml_path = argv[1];
-  YAML::Node config = load_yaml(yaml_path);
-
+  /* load YAML configuration */
+  YAML::Node config = load_yaml(argv[1]);
   vector<VideoFormat> vformats = get_video_formats(config);
   vector<AudioFormat> aformats = get_audio_formats(config);
 
@@ -274,19 +262,19 @@ int main(int argc, char * argv[])
   /* run video_canonicalizer */
   run_video_canonicalizer(proc_manager);
 
-  for (const auto & vformat : vformats) {
+  for (const auto & vf : vformats) {
     /* run video encoder and video fragmenter */
-    run_video_encoder(proc_manager, vformat);
-    run_video_fragmenter(proc_manager, vformat);
+    run_video_encoder(proc_manager, vf);
+    run_video_fragmenter(proc_manager, vf);
 
     /* run ssim_calculator */
-    run_ssim_calculator(proc_manager, vformat);
+    run_ssim_calculator(proc_manager, vf);
   }
 
-  for (const auto & aformat : aformats) {
+  for (const auto & af : aformats) {
     /* run audio encoder and audio fragmenter */
-    run_audio_encoder(proc_manager, aformat);
-    run_audio_fragmenter(proc_manager, aformat);
+    run_audio_encoder(proc_manager, af);
+    run_audio_fragmenter(proc_manager, af);
   }
 
   /* vwork, awork, vready, aready should have been filled out now */
@@ -296,11 +284,9 @@ int main(int argc, char * argv[])
   run_depcleaner(proc_manager, awork, aready);
 
   /* run windowcleaner to clean up files in ready/ */
-  run_windowcleaner(proc_manager, vready);
-  run_windowcleaner(proc_manager, aready);
-
-  /* run media server */
-  run_media_server(proc_manager, yaml_path);
+  int clean_time_window = config["clean_time_window"].as<int>();
+  run_windowcleaner(proc_manager, vready, clean_time_window);
+  run_windowcleaner(proc_manager, aready, clean_time_window);
 
   return proc_manager.wait();
 }
