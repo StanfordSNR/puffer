@@ -7,7 +7,7 @@
 #include <unordered_map>
 #include <memory>
 
-#include "yaml-cpp/yaml.h"
+#include "yaml.hh"
 #include "client_message.h"
 #include "filesystem.hh"
 #include "file_descriptor.hh"
@@ -20,58 +20,33 @@
 using namespace std;
 using namespace PollerShortNames;
 
+using mmap_t = tuple<shared_ptr<char>, size_t>;
+
 static fs::path output_path;
 
-static vector<tuple<string, string>> vformats;
-static vector<string> aformats;
+static vector<VideoFormat> vformats;
+static vector<AudioFormat> aformats;
 
-static map<tuple<string, string>, tuple<shared_ptr<char>, size_t>> vinit;
-static map<string, tuple<shared_ptr<char>, size_t>> ainit;
-
-static map<uint64_t,
-           map<tuple<string, string>, tuple<shared_ptr<char>, size_t>>> vdata;
-static map<uint64_t, map<string, tuple<shared_ptr<char>, size_t>>> adata;
+static map<VideoFormat, mmap_t> vinit;
+static map<AudioFormat, mmap_t> ainit;
+static map<uint64_t, map<VideoFormat, mmap_t>> vdata;
+static map<uint64_t, map<AudioFormat, mmap_t>> adata;
 
 static map<uint64_t, WebSocketClient> clients;
 
 static Timerfd global_timer;
 
-static const int clean_time_window = 5400000;
-
-static const int VIDEO_TIMESCALE = 90000;
+static unsigned int CLEAN_TIME_WINDOW;
+static unsigned int TIMESCALE;
+static unsigned int VIDEO_DURATION;
+static unsigned int AUDIO_DURATION;
 
 void print_usage(const string & program_name)
 {
   cerr << program_name << " <YAML configuration>" << endl;
 }
 
-/* get video formats (resolution, CRF) from YAML configuration */
-void get_video_formats(const YAML::Node & config,
-                       vector<tuple<string, string>> & vformats)
-{
-  const YAML::Node & res_map = config["video"];
-  for (const auto & res_node : res_map) {
-    const string & res = res_node.first.as<string>();
-
-    const YAML::Node & crf_list = res_node.second;
-    for (const auto & crf_node : crf_list) {
-      const string & crf = crf_node.as<string>();
-      vformats.emplace_back(res, crf);
-    }
-  }
-}
-
-/* get audio formats (bitrate) from YAML configuration */
-void get_audio_formats(const YAML::Node & config, vector<string> & aformats)
-{
-  const YAML::Node & bitrate_list = config["audio"];
-  for (const auto & bitrate_node : bitrate_list) {
-    const string & bitrate = bitrate_node.as<string>();
-    aformats.emplace_back(bitrate);
-  }
-}
-
-tuple<shared_ptr<char>, size_t> mmap_file(const string & filepath)
+mmap_t mmap_file(const string & filepath)
 {
   FileDescriptor fd(CheckSystemCall("open (" + filepath + ")",
                     open(filepath.c_str(), O_RDONLY)));
@@ -84,8 +59,8 @@ tuple<shared_ptr<char>, size_t> mmap_file(const string & filepath)
 void munmap_video(const uint64_t ts)
 {
   uint64_t obsolete = 0;
-  if (ts > clean_time_window) {
-    obsolete = ts - clean_time_window;
+  if (ts > CLEAN_TIME_WINDOW) {
+    obsolete = ts - CLEAN_TIME_WINDOW;
   }
 
   for (auto it = vdata.cbegin(); it != vdata.cend();) {
@@ -100,8 +75,8 @@ void munmap_video(const uint64_t ts)
 void munmap_audio(const uint64_t ts)
 {
   uint64_t obsolete = 0;
-  if (ts > clean_time_window) {
-    obsolete = ts - clean_time_window;
+  if (ts > CLEAN_TIME_WINDOW) {
+    obsolete = ts - CLEAN_TIME_WINDOW;
   }
 
   for (auto it = adata.cbegin(); it != adata.cend();) {
@@ -113,27 +88,24 @@ void munmap_audio(const uint64_t ts)
   }
 }
 
-static void do_mmap_video(const fs::path & filepath,
-                          const tuple<string, string> & vformat)
+void do_mmap_video(const fs::path & filepath, const VideoFormat & vf)
 {
   auto data_size = mmap_file(filepath);
   string filestem = filepath.stem();
 
   if (filestem == "init") {
-    vinit.emplace(vformat, data_size);
+    vinit.emplace(vf, data_size);
   } else {
     uint64_t ts = stoll(filestem);
     munmap_video(ts);
-    vdata[ts][vformat] = data_size;
+    vdata[ts][vf] = data_size;
   }
 }
 
 void mmap_video_files(Inotify & inotify)
 {
-  for (const auto & vformat : vformats) {
-    const auto & [res, crf] = vformat;
-
-    string video_dir = output_path / "ready" / (res + "-" + crf);
+  for (const auto & vf : vformats) {
+    string video_dir = output_path / "ready" / vf.to_string();
 
     inotify.add_watch(video_dir, IN_MOVED_TO,
       [&](const inotify_event & event, const string & path) {
@@ -150,35 +122,35 @@ void mmap_video_files(Inotify & inotify)
         assert(event.len != 0);
 
         fs::path filepath = fs::path(path) / event.name;
-        do_mmap_video(filepath, vformat);
+        do_mmap_video(filepath, vf);
       }
     );
 
     /* process existing files */
     for (const auto & file : fs::directory_iterator(video_dir)) {
-      do_mmap_video(file.path(), vformat);
+      do_mmap_video(file.path(), vf);
     }
   }
 }
 
-static void do_mmap_audio(const fs::path & filepath, const string & aformat)
+void do_mmap_audio(const fs::path & filepath, const AudioFormat & af)
 {
   auto data_size = mmap_file(filepath);
   string filestem = filepath.stem();
 
   if (filestem == "init") {
-    ainit.emplace(aformat, data_size);
+    ainit.emplace(af, data_size);
   } else {
     uint64_t ts = stoll(filestem);
     munmap_audio(ts);
-    adata[ts][aformat] = data_size;
+    adata[ts][af] = data_size;
   }
 }
 
 void mmap_audio_files(Inotify & inotify)
 {
-  for (const auto & aformat : aformats) {
-    string audio_dir = output_path / "ready" / aformat;
+  for (const auto & af : aformats) {
+    string audio_dir = output_path / "ready" / af.to_string();
 
     inotify.add_watch(audio_dir, IN_MOVED_TO,
       [&](const inotify_event & event, const string & path) {
@@ -195,57 +167,57 @@ void mmap_audio_files(Inotify & inotify)
         assert(event.len != 0);
 
         fs::path filepath = fs::path(path) / event.name;
-        do_mmap_audio(filepath, aformat);
+        do_mmap_audio(filepath, af);
       }
     );
 
     /* process existing files */
     for (const auto & file : fs::directory_iterator(audio_dir)) {
-      do_mmap_audio(file.path(), aformat);
+      do_mmap_audio(file.path(), af);
     }
   }
 }
 
-static tuple<string, string> select_video_quality(WebSocketClient & client)
+const VideoFormat & select_video_quality(WebSocketClient & client)
 {
-  return vformats[0]; // TODO: choose the first one for now
+  return vformats[0]; /* TODO: choose the first one for now */
 }
 
-static string select_audio_quality(WebSocketClient & client) 
+const AudioFormat & select_audio_quality(WebSocketClient & client)
 {
-  return aformats[0];
+  return aformats[0]; /* TODO: choose the first one for now */
 }
 
-static void send_video_to_client(WebSocketServer & ws_server,
-                                 WebSocketClient & client)
+void serve_video_to_client(WebSocketServer & server, WebSocketClient & client)
 {
   uint64_t next_vts = client.next_vts();
-
-  tuple<string, string> next_vq = select_video_quality(client);
-
-  const auto vts_map = vdata.find(next_vts);
-  if (vts_map == vdata.end()) {
+  const auto vdata_it = vdata.find(next_vts);
+  if (vdata_it == vdata.end()) {
     return;
   }
 
-  const auto mmapped_video = vts_map.find(next_vq);
-  if (mmapped_video == vts_map.end()) {
+  const auto & vts_map = vdata_it->second;
+
+  const VideoFormat & next_vq = select_video_quality(client);
+  const auto vts_map_it = vts_map.find(next_vq);
+  if (vts_map_it == vts_map.end()) {
     return;
   }
 
-  const auto & [video_data, video_size] = mmapped_video;
-  const auto & [init_data, init_size] = vinit[next_vq];
+  const auto & [video_data, video_size] = vts_map_it->second;
+  const auto & [init_data, init_size] = vinit.at(next_vq);
 
   /* Compute size of frame payload excluding header */
-  const bool init_required = !client.curr_vq.has_value() || next_vq != client.curr_vq().value();
+  const bool init_required = (not client.curr_vq.has_value() or
+                              next_vq != client.curr_vq().value());
   size_t payload_len = video_size;
   if (init_required) {
     payload_len += init_size;
   }
 
   /* Make the metadata at the start of a frame */
-  string metadata = make_video_msg(next_vq, next_vts, 180180, 0,
-                                   payload_len);
+  string metadata = make_video_msg(next_vq, next_vts, VIDEO_DURATION,
+                                   0, payload_len);
 
   /* Copy data into payload string */
   string frame_payload(metadata.length() + payload_len);
@@ -261,43 +233,42 @@ static void send_video_to_client(WebSocketServer & ws_server,
 
   // TODO: fragment this further
   WSFrame frame {true, WSFrame::OpCode::Binary, frame_payload};
-  ws_server.queue_frame(client.connection_id(), frame);
+  server.queue_frame(client.connection_id(), frame);
 
-  // TODO: stop hardcoding these numbers
-  client.set_next_vts(next_vts + 180180);
-  client.set_next_vq(next_vq);
+  client.set_next_vts(next_vts + VIDEO_DURATION);
+  client.set_curr_vq(next_vq);
 }
 
-static void send_audio_to_client(WebSocketServer & ws_server,
-                                 WebSocketClient & client) 
+void serve_audio_to_client(WebSocketServer & server, WebSocketClient & client)
 {
   uint64_t next_ats = client.next_ats();
-
-  tuple<string, string> next_aq = select_audio_quality(client);
-
-  const auto ats_map = adata.find(next_ats);
-  if (ats_map == adata.end()) {
+  const auto adata_it = adata.find(next_ats);
+  if (adata_it == adata.end()) {
     return;
   }
 
-  const auto mmapped_audio = ats_map.find(next_aq);
-  if (mmapped_audio == ats_map.end()) {
+  const auto & ats_map = adata_it->second;
+
+  const AudioFormat & next_aq = select_audio_quality(client);
+  const auto ats_map_it = ats_map.find(next_aq);
+  if (ats_map_it == ats_map.end()) {
     return;
   }
 
-  const auto & [audio_data, audio_size] = mmapped_audio;
+  const auto & [audio_data, audio_size] = ats_map_it->second;
   const auto & [init_data, init_size] = ainit[next_aq];
 
   /* Compute size of frame payload excluding header */
-  const bool init_required = !client.curr_aq.has_value() || next_aq != client.curr_aq().value();
+  const bool init_required = (not client.curr_aq.has_value() or
+                              next_aq != client.curr_aq().value());
   size_t payload_len = audio_size;
   if (init_required) {
     payload_len += init_size;
   }
 
   /* Make the metadata at the start of a frame */
-  string metadata = make_audio_msg(next_aq, next_ats, 48000, 0, 
-                                   payload_len);
+  string metadata = make_audio_msg(next_aq, next_ats, AUDIO_DURATION,
+                                   0, payload_len);
 
   /* Copy data into payload string */
   string frame_payload(metadata.length() + payload_len);
@@ -312,32 +283,32 @@ static void send_audio_to_client(WebSocketServer & ws_server,
   memcpy(&frame_payload[audio_segment_begin], audio_data.get(), audio_size);
 
   WSFrame frame {true, WSFrame::OpCode::Binary, frame_payload};
-  ws_server.queue_frame(client.connection_id(), frame);
+  server.queue_frame(client.connection_id(), frame);
 
-  client.set_next_ats(next_vts + 48000);
+  client.set_next_ats(next_ats + AUDIO_DURATION);
   client.set_curr_aq(next_aq);
 }
 
-static void serve_client(WebSocketServer & ws_server, WebSocketClient & client) 
+void serve_client(WebSocketServer & server, WebSocketClient & client)
 {
-  serve_video_to_client(ws_server, client);
-  serve_audio_to_client(ws_server, client);
+  serve_video_to_client(server, client);
+  serve_audio_to_client(server, client);
 }
 
-void start_global_timer(WebSocketServer & ws_server)
+void start_global_timer(WebSocketServer & server)
 {
   /* the timer fires every 100 ms */
   global_timer.start(100, 100);
 
-  ws_server.poller().add_action(
+  server.poller().add_action(
     Poller::Action(global_timer, Direction::In,
       [&]() {
         if (global_timer.expirations() > 0) {
           /* iterate over all connections */
           for (auto & client_item : clients) {
             const uint64_t connection_id = client_item.first;
-            auto & client = client_item.second;
-            serve_client(ws_server, client);
+            WebSocketClient & client = client_item.second;
+            serve_client(server, client);
           }
         }
 
@@ -347,7 +318,7 @@ void start_global_timer(WebSocketServer & ws_server)
   );
 }
 
-void handle_client_init(WebSocketServer & ws_server, WebSocketClient & client,
+void handle_client_init(WebSocketServer & server, WebSocketClient & client,
                         const ClientInit & message)
 {
   const string channel = message.channel;
@@ -360,27 +331,27 @@ void handle_client_init(WebSocketServer & ws_server, WebSocketClient & client,
     channel,
     "video/mp4; codecs=\"avc1.42E020\"", // TODO: read these from somewhere
     "audio/webm; codecs=\"opus\"",
-    VIDEO_TIMESCALE,
+    TIMESCALE,
     client.init_vts);
 
   /* Reinitialize video playback on the client */
   WSFrame frame {true, WSFrame::OpCode::Binary, reply};
-  ws_server.queue_frame(client.connection_id(), frame);
+  server.queue_frame(client.connection_id(), frame);
 }
 
-void handle_client_info(WebSocketServer & ws_server, WebSocketClient & client,
+void handle_client_info(WebSocketServer & server, WebSocketClient & client,
                         const ClientInfo & message)
 {
   client.set_audio_playback_buf(message.audio_buffer_len);
   client.set_video_playback_buf(message.video_buffer_len);
 }
 
-void handle_client_open(WebSocketServer & ws_server, uint64_t & connection_id)
+void handle_client_open(WebSocketServer & server, const uint64_t connection_id)
 {
   /* Send the client the list of playable channels */
   string server_hello = make_server_hello_msg({""}); // TODO: get channels from somewhere
   WSFrame frame {true, WSFrame::OpCode::Binary, server_hello};
-  ws_server.queue_frame(connection_id, frame);
+  server.queue_frame(connection_id, frame);
 }
 
 int main(int argc, char * argv[])
@@ -394,61 +365,70 @@ int main(int argc, char * argv[])
     return EXIT_FAILURE;
   }
 
-  /* parse YAML configuration */
-  YAML::Node config = YAML::LoadFile(argv[1]);
-  get_video_formats(config, vformats);
-  get_audio_formats(config, aformats);
+  /* load YAML configuration */
+  YAML::Node config = load_yaml(argv[1]);
+  vector<VideoFormat> vformats = get_video_formats(config);
+  vector<AudioFormat> aformats = get_audio_formats(config);
 
   string output_dir = config["output"].as<string>();
   output_path = fs::path(output_dir);
 
-  string ip = "0.0.0.0";
-  uint16_t port = 8080; // TODO read this from somewhere
+  CLEAN_TIME_WINDOW = config["clean_time_window"].as<int>();
+  TIMESCALE = config["timescale"].as<int>();
+  VIDEO_DURATION = config["video_duration"].as<int>();
+  AUDIO_DURATION = config["audio_duration"].as<int>();
 
-  WebSocketServer ws_server {{ip, port}};
+  /* create a WebSocketServer instance */
+  string ip = "0.0.0.0";
+  uint16_t port = config["port"].as<int>();
+  WebSocketServer server {{ip, port}};
 
   /* mmap new media files */
-  Inotify inotify(ws_server.poller());
+  Inotify inotify(server.poller());
   mmap_video_files(inotify);
   mmap_audio_files(inotify);
 
   /* start the global timer */
-  start_global_timer(ws_server);
+  start_global_timer(server);
 
-  ws_server.set_message_callback(
+  server.set_message_callback(
     [](const uint64_t connection_id, const WSMessage & message)
     {
       cerr << "Message (from=" << connection_id << "): "
-           << message.payload() << endl; 
+           << message.payload() << endl;
 
-      auto client = clients[connection_id];
+      auto client = clients.at(connection_id);
+
+      /*
       try {
         const auto data = unpack_client_msg(message.payload());
         switch (data.first) {
           case ClientMsg::Init: {
             ClientInit client_init = parse_client_init_msg(data.second);
-            handle_client_init_msg(ws_server, client, client_init);
+            handle_client_init_msg(server, client, client_init);
             break;
           }
           case ClientMsg::Info: {
             ClientInfo client_info = parse_client_info_msg(data.second);
-            handle_client_info_msg(ws_server, client, client_info);
+            handle_client_info_msg(server, client, client_info);
             break;
           }
           default ClientMsg::Unknown:
             break;
         }
-      } catch (const ParseExeception & e) {
+      } catch (const ParseException & e) {
         // TODO: close the client
       }
+      */
     }
   );
 
-  ws_server.set_open_callback(
+  server.set_open_callback(
     [](const uint64_t connection_id)
     {
       cerr << "Connected (id=" << connection_id << ")" << endl;
-      handle_client_open(ws_server, connection_id);
+
+      handle_client_open(server, connection_id);
       auto ret = clients.emplace(connection_id, WebSocketClient(connection_id));
       if (not ret.second) {
         throw runtime_error("Connection ID " + to_string(connection_id) +
@@ -457,7 +437,7 @@ int main(int argc, char * argv[])
     }
   );
 
-  ws_server.set_close_callback(
+  server.set_close_callback(
     [](const uint64_t connection_id)
     {
       cerr << "Connection closed (id=" << connection_id << ")" << endl;
@@ -467,8 +447,8 @@ int main(int argc, char * argv[])
   );
 
   for (;;) {
-    /* TODO: why does this return Poller::Result::Type::Timeout or ::Exit? */
-    ws_server.loop_once();
+    /* TODO: returns Poller::Result::Type::Exit sometimes? */
+    server.loop_once();
   }
 
   return EXIT_SUCCESS;
