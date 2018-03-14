@@ -5,9 +5,9 @@ AM_CXXFLAGS = $(PICKY_CXXFLAGS)
 bin_PROGRAMS = run_all video_canonicalizer video_encoder video_fragmenter \
 	audio_encoder audio_fragmenter ssim_calculator
 
-run_all_SOURCES = run_all.cc
-run_all_LDADD = ../util/libutil.a ../net/libnet.a \
-	../../third_party/yaml-cpp/libyaml-cpp.a -lstdc++fs $(SSL_LIBS)
+run_all_SOURCES = run_all.cc yaml.hh yaml.cc
+run_all_LDADD = ../util/libutil.a ../net/libnet.a -lstdc++fs $(SSL_LIBS) \
+	../../third_party/yaml-cpp/libyaml-cpp.a
 
 video_canonicalizer_SOURCES = video_canonicalizer.cc y4m.hh y4m.cc
 video_canonicalizer_LDADD = ../util/libutil.a ../net/libnet.a -lstdc++fs $(SSL_LIBS)
