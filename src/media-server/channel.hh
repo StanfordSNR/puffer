@@ -1,0 +1,73 @@
+#ifndef CHANNEL_HH
+#define CHANNEL_HH
+
+#include <cstdint>
+#include <string>
+#include <map>
+#include <memory>
+
+#include "yaml.hh"
+#include "filesystem.hh"
+#include "inotify.hh"
+#include "mmap.hh"
+
+using mmap_t = std::tuple<std::shared_ptr<char>, size_t>;
+
+class Channel
+{
+public:
+  Channel(const std::string & name, YAML::Node config, Inotify & inotify);
+
+  fs::path output_path() const { return output_path_; }
+
+  const std::string & name() const { return name_; }
+
+  const std::vector<VideoFormat> & vformats() const { return vformats_; }
+  const std::vector<AudioFormat> & aformats() const { return aformats_; }
+
+  bool vready(const uint64_t ts) const { return vdata_.find(ts) != vdata_.end(); }
+  mmap_t & vinit(const VideoFormat & format);
+  mmap_t & vdata(const VideoFormat & format, const uint64_t ts);
+
+  bool aready(const uint64_t ts) const { return adata_.find(ts) != adata_.end(); }
+  mmap_t & ainit(const AudioFormat & format);
+  mmap_t & adata(const AudioFormat & format, const uint64_t ts);
+
+  unsigned int timescale() const { return timescale_; }
+  unsigned int vduration() const { return vduration_; }
+  unsigned int aduration() const { return aduration_; }
+
+  const std::string & vcodec() const { return vcodec_; }
+  const std::string & acodec() const { return acodec_; }
+
+  uint64_t init_vts() const;
+  uint64_t find_ats(const uint64_t vts) const;
+private:
+  std::string name_;
+
+  fs::path output_path_;
+  std::vector<VideoFormat> vformats_;
+  std::vector<AudioFormat> aformats_;
+  std::map<VideoFormat, mmap_t> vinit_;
+  std::map<AudioFormat, mmap_t> ainit_;
+  std::map<uint64_t, std::map<VideoFormat, mmap_t>> vdata_;
+  std::map<uint64_t, std::map<AudioFormat, mmap_t>> adata_;
+
+  unsigned int clean_time_window_;
+  unsigned int timescale_;
+  unsigned int vduration_;
+  unsigned int aduration_;
+  std::string vcodec_;
+  std::string acodec_;
+  std::optional<uint64_t> init_vts_;
+
+  void do_mmap_video(const fs::path & filepath, const VideoFormat & vf);
+  void munmap_video(const uint64_t ts);
+  void mmap_video_files(Inotify & inotify);
+
+  void do_mmap_audio(const fs::path & filepath, const AudioFormat & af);
+  void munmap_audio(const uint64_t ts);
+  void mmap_audio_files(Inotify & inotify);
+};
+
+#endif /* CHANNEL_HH */
