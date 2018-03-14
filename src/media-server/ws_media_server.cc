@@ -41,6 +41,10 @@ static unsigned int TIMESCALE;
 static unsigned int VIDEO_DURATION;
 static unsigned int AUDIO_DURATION;
 
+// TODO: bring these in from YAML too
+static string VIDEO_CODEC = "video/mp4; codecs=\"avc1.42E020\"";
+static string AUDIO_CODEC = "audio/webm; codecs=\"opus\"";
+
 void print_usage(const string & program_name)
 {
   cerr << program_name << " <YAML configuration>" << endl;
@@ -326,26 +330,38 @@ void start_global_timer(WebSocketServer & server)
   );
 }
 
+// TODO: make an option to start at 0 or a fixed vts
+uint64_t get_init_vts() {
+  /* Choose the first vts with all qualities available */
+  for (auto it = vdata.rbegin(); it != vdata.rend(); ++it) {
+    if (it->second.size() == vformats.size()) {
+      return it->first;
+    }
+  }
+  cerr << "Encoder is in a bad state, no vts has all qualities available" << endl;
+  abort();
+}
+
+inline uint64_t get_init_ats(const uint64_t vts) {
+  return (vts / AUDIO_DURATION) * AUDIO_DURATION;
+}
+
 void handle_client_init(WebSocketServer & server, WebSocketClient & client,
                         const ClientInitMessage & message)
 {
   const string channel = message.channel;
-  if (false) {  
-    // TODO: if channel is invalid, kill the connection
-    throw BadClientMessageException("Invalid channel");
-  }
+  // TODO: if channel is invalid, kill the connection
+  // if (false) {
+  //   throw BadClientMessageException("Invalid channel");
+  // }
 
-  uint16_t init_vts = 0;
-  uint16_t init_ats = 0;
+  uint16_t init_vts = get_init_vts();
+  uint16_t init_ats = get_init_ats(init_vts);
 
   client.init(channel, init_vts, init_ats);
 
-  string reply = make_server_init_msg(
-    channel,
-    "video/mp4; codecs=\"avc1.42E020\"", // TODO: read these from somewhere
-    "audio/webm; codecs=\"opus\"",
-    TIMESCALE,
-    client.next_vts().value());
+  string reply = make_server_init_msg(channel, VIDEO_CODEC, AUDIO_CODEC,
+                                      TIMESCALE, client.next_vts().value());
 
   /* Reinitialize video playback on the client */
   WSFrame frame {true, WSFrame::OpCode::Binary, reply};
