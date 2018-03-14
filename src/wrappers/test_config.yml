@@ -7,3 +7,7 @@ audio:
   - 64k
   - 32k
 clean_time_window: 540000
+timescale: 90000
+video_duration: 180180
+audio_duration: 432000
+port: 8080
