@@ -1,15 +1,18 @@
-output: test_output/
-video:
-  1280x720: [23]
-  854x480: [18]
-audio:
-  - 64k
-  - 32k
-clean_time_window: 540000
-timescale: 90000
-video_duration: 180180
-audio_duration: 432000
 port: 8080
-init_vts: 0
-video_codec: 'video/mp4; codecs="avc1.42E020"'
-audio_codec: 'audio/webm; codecs="opus"'
+channel:
+  - nbc
+nbc:
+  output: test_output/
+  video:
+    1280x720: [23]
+    854x480: [18]
+  audio:
+    - 64k
+    - 32k
+  clean_time_window: 540000
+  timescale: 90000
+  video_duration: 180180
+  audio_duration: 432000
+  init_vts: 0
+  video_codec: 'video/mp4; codecs="avc1.42E020"'
+  audio_codec: 'audio/webm; codecs="opus"'

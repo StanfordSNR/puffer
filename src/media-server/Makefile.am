@@ -7,8 +7,8 @@ AM_CXXFLAGS = $(PICKY_CXXFLAGS)
 bin_PROGRAMS = ws_media_server
 
 ws_media_server_SOURCES = \
-  ws_media_server.cc ws_client.hh ws_client.cc \
-  ../../third_party/json/json.hpp message.hh message.cc \
+  ws_media_server.cc ws_client.hh ws_client.cc channel.hh channel.cc \
+  message.hh message.cc ../../third_party/json.hpp \
 	../wrappers/yaml.hh ../wrappers/yaml.cc \
 	../notifier/inotify.hh ../notifier/inotify.cc
 ws_media_server_LDADD = ../net/libnet.a ../util/libutil.a ../net/libnet.a \
