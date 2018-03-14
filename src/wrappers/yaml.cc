@@ -20,6 +20,16 @@ bool VideoFormat::operator<(const VideoFormat & o) const
   return tie(width, height, crf) < tie(o.width, o.height, o.crf);
 }
 
+bool VideoFormat::operator==(const VideoFormat & o) const
+{
+  return height == o.height and width == o.width and crf == o.crf;
+}
+
+bool VideoFormat::operator!=(const VideoFormat & o) const
+{
+  return height != o.height or width != o.width or crf != o.crf;
+}
+
 string AudioFormat::to_string() const
 {
   return ::to_string(bitrate);
@@ -28,6 +38,16 @@ string AudioFormat::to_string() const
 bool AudioFormat::operator<(const AudioFormat & o) const
 {
   return bitrate < o.bitrate;
+}
+
+bool AudioFormat::operator==(const AudioFormat & o) const
+{
+  return bitrate == o.bitrate;
+}
+
+bool AudioFormat::operator!=(const AudioFormat & o) const
+{
+  return bitrate != o.bitrate;
 }
 
 YAML::Node load_yaml(const string & yaml_path)

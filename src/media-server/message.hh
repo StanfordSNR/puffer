@@ -1,11 +1,11 @@
-#ifndef CLIENT_MESSAGE_HH
-#define CLIENT_MESSAGE_HH
+#ifndef MESSAGE_HH
+#define MESSAGE_HH
 
 #include <string>
 #include <vector>
 #include <exception>
 
-struct ClientMsg {
+struct ClientMessage {
   typedef enum {
     Unknown,
     Init,
@@ -14,7 +14,7 @@ struct ClientMsg {
 };
 
 /* Sent by the client to start streaming */
-typedef struct ClientInit {
+typedef struct ClientInitMessage {
   std::string channel;
 
   int player_width;
@@ -22,7 +22,7 @@ typedef struct ClientInit {
 } ClientInit;
 
 /* Sent by the client when playing */
-typedef struct ClientInfo {
+typedef struct ClientInfoMessage {
 
   typedef enum {
     Unknown,
@@ -52,12 +52,12 @@ typedef struct ClientInfo {
   PlayerReadyState player_ready_state;
 } ClientInfo;
 
-class ParseExeception: public std::exception
+class BadClientMessageException: public std::exception
 {
 public:
-    explicit ParseExeception(const char* message): msg_(message) {}
-    explicit ParseExeception(const std::string& message): msg_(message) {}
-    virtual ~ParseExeception() throw () {}
+    explicit BadClientMessageException(const char* message): msg_(message) {}
+    explicit BadClientMessageException(const std::string& message): msg_(message) {}
+    virtual ~BadClientMessageException() throw () {}
     virtual const char* what() const throw () {
        return msg_.c_str();
     }
@@ -70,13 +70,13 @@ protected:
  */
 
 /* Returns a pair containing the message type and the json payload */
-std::pair<ClientMsg::Type, std::string> unpack_client_msg(const std::string & data);
+std::pair<ClientMessage::Type, std::string> unpack_client_msg(const std::string & data);
 
 /* Sent by the client on WS connect to request a channel */
-ClientInit parse_client_init_msg(const std::string & data);
+ClientInitMessage parse_client_init_msg(const std::string & data);
 
 /* Sent by the client to inform the server's decisions */
-ClientInfo parse_client_info_msg(const std::string & data);
+ClientInfoMessage parse_client_info_msg(const std::string & data);
 
 
 /* Server message format:
@@ -113,4 +113,4 @@ std::string make_video_msg(
   const unsigned int & byte_offset,
   const unsigned int & total_byte_length);
 
-#endif /* CLIENT_MESSAGE_HH */
+#endif /* MESSAGE_HH */

@@ -13,8 +13,7 @@ class WebSocketClient
 public:
   WebSocketClient(const uint64_t connection_id);
 
-  void initialize(const std::string & channel,
-                  const uint64_t vts, const uint64_t ats);
+  void init(const std::string & channel, const uint64_t vts, const uint64_t ats);
 
   /* accessors */
   uint64_t connection_id() { return connection_id_; }
@@ -42,16 +41,15 @@ public:
 private:
   uint64_t connection_id_;
 
+  /* Fields set in init */
   std::optional<std::string> channel_;
-
   std::optional<uint64_t> next_vts_;
   std::optional<uint64_t> next_ats_;
+  double video_playback_buf_;
+  double audio_playback_buf_;
 
   std::optional<VideoFormat> curr_vq_;
   std::optional<AudioFormat> curr_aq_;
-
-  double video_playback_buf_;
-  double audio_playback_buf_;
 };
 
 #endif /* WS_CLIENT_HH */
