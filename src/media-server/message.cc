@@ -1,4 +1,4 @@
-#include "client_message.h"
+#include "message.hh"
 
 #include <algorithm>
 #include <iostream>
@@ -9,53 +9,54 @@
 using namespace std;
 using json = nlohmann::json;
 
-pair<ClientMsg::Type, string> unpack_client_msg(const string & data) {
-  int split_idx = data.find_first_of(' ');
+pair<ClientMessage::Type, string> unpack_client_msg(const string & data) {
+  size_t split_idx = data.find_first_of(' ');
   if (split_idx == string::npos) {
-    throw ParseExeception("Invalid message from the client");
+    throw BadClientMessageException("Cannot get message type");
   }
   string type_str = data.substr(0, split_idx);
-  ClientMsg::Type type;
+  ClientMessage::Type type;
   if (type_str == "client-init") {
-    type = ClientMsg::Init;
+    type = ClientMessage::Init;
   } else if (type_str == "client-info") {
-    type = ClientMsg::Info;
+    type = ClientMessage::Info;
   } else {
-    type = ClientMsg::Unknown;
+    type = ClientMessage::Unknown;
   }
   return make_pair(type, data.substr(split_idx));
 }
 
-ClientInit parse_client_init_msg(const string & data) 
+ClientInitMessage parse_client_init_msg(const string & data) 
 {
-  ClientInit ret;
+  string channel;
+  int player_width, player_height;
   try {
     auto obj = json::parse(data);
-    ret.channel = obj["channel"];
-    ret.player_width = obj["playerWidth"];
-    ret.player_height = obj["playerHeight"];
+    channel = obj["channel"];
+    player_width = obj["playerWidth"];
+    player_height = obj["playerHeight"];
   } catch (const exception & e) {
-    throw ParseExeception(e.what());
+    throw BadClientMessageException(e.what());
   }
-  return ret;
+  return {channel, player_width, player_height};
 }
 
-ClientInfo parse_client_info_msg(const string & data) 
+ClientInfoMessage parse_client_info_msg(const string & data) 
 {
-  ClientInfo ret;
+  ClientInfoMessage ret;
   try {
     auto obj = json::parse(data);
     string event_str = obj["event"];
 
-    ClientInfo::PlayerEvent event;
+    ClientInfoMessage::PlayerEvent event;
     if (event_str == "timer") {
-      event = ClientInfo::Timer;
+      event = ClientInfoMessage::Timer;
     } else if (event_str == "rebuffer") {
-      event = ClientInfo::Rebuffer;
+      event = ClientInfoMessage::Rebuffer;
     } else if (event_str == "canplay") {
-      event = ClientInfo::CanPlay;
+      event = ClientInfoMessage::CanPlay;
     } else {
-      event = ClientInfo::Unknown;
+      event = ClientInfoMessage::Unknown;
     }
 
     ret.event = event;
@@ -68,14 +69,14 @@ ClientInfo parse_client_info_msg(const string & data)
 
     int player_ready_state = obj["playerReadyState"];
     if (player_ready_state < 0 || player_ready_state > 4) {
-      throw ParseExeception("Invalid player ready state");
+      throw BadClientMessageException("Invalid player ready state");
     }
-    ret.player_ready_state = static_cast<ClientInfo::PlayerReadyState>(player_ready_state);
+    ret.player_ready_state = static_cast<ClientInfoMessage::PlayerReadyState>(player_ready_state);
 
-  } catch (const ParseExeception & e) {
+  } catch (const BadClientMessageException & e) {
     throw e;
   } catch (const exception & e) {
-    throw ParseExeception(e.what());
+    throw BadClientMessageException(e.what());
   }
   return ret;
 }

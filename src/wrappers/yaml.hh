@@ -14,6 +14,8 @@ struct VideoFormat
 
   std::string to_string() const;
   bool operator<(const VideoFormat & o) const;
+  bool operator==(const VideoFormat & o) const;
+  bool operator!=(const VideoFormat & o) const;
 };
 
 struct AudioFormat
@@ -22,6 +24,8 @@ struct AudioFormat
 
   std::string to_string() const;
   bool operator<(const AudioFormat & o) const;
+  bool operator==(const AudioFormat & o) const;
+  bool operator!=(const AudioFormat & o) const;
 };
 
 /* load and validate the YAML file */
