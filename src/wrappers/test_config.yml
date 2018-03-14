@@ -2,7 +2,8 @@ output: test_output/
 overwrite_output: true
 video:
   1280x720: [23]
-  640x360: [25]
+  854x480: [18]
 audio:
   - 64k
   - 32k
+clean_time_window: 540000
