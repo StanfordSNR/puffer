@@ -32,7 +32,7 @@ bool VideoFormat::operator!=(const VideoFormat & o) const
 
 string AudioFormat::to_string() const
 {
-  return ::to_string(bitrate);
+  return ::to_string(bitrate) + "k";
 }
 
 bool AudioFormat::operator<(const AudioFormat & o) const

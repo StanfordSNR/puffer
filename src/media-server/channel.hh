@@ -25,11 +25,14 @@ public:
   const std::vector<VideoFormat> & vformats() const { return vformats_; }
   const std::vector<AudioFormat> & aformats() const { return aformats_; }
 
-  bool vready(const uint64_t ts) const { return vdata_.find(ts) != vdata_.end(); }
+  bool vready(const uint64_t ts) const;
   mmap_t & vinit(const VideoFormat & format);
   mmap_t & vdata(const VideoFormat & format, const uint64_t ts);
+  std::map<VideoFormat, mmap_t> & vdata(const uint64_t ts);
+  double vssim(const VideoFormat & format, const uint64_t ts);
+  std::map<VideoFormat, double> & vssim(const uint64_t ts);
 
-  bool aready(const uint64_t ts) const { return adata_.find(ts) != adata_.end(); }
+  bool aready(const uint64_t ts) const;
   mmap_t & ainit(const AudioFormat & format);
   mmap_t & adata(const AudioFormat & format, const uint64_t ts);
 
@@ -51,6 +54,7 @@ private:
   std::map<VideoFormat, mmap_t> vinit_;
   std::map<AudioFormat, mmap_t> ainit_;
   std::map<uint64_t, std::map<VideoFormat, mmap_t>> vdata_;
+  std::map<uint64_t, std::map<VideoFormat, double>> vssim_;
   std::map<uint64_t, std::map<AudioFormat, mmap_t>> adata_;
 
   unsigned int clean_time_window_;
@@ -68,6 +72,9 @@ private:
   void do_mmap_audio(const fs::path & filepath, const AudioFormat & af);
   void munmap_audio(const uint64_t ts);
   void mmap_audio_files(Inotify & inotify);
+
+  void do_read_ssim(const fs::path & filepath, const VideoFormat & vf);
+  void load_ssim_files(Inotify & inotify);
 };
 
 #endif /* CHANNEL_HH */

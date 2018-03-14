@@ -17,7 +17,7 @@
 using namespace std;
 using namespace PollerShortNames;
 
-static std::vector<string> channel_names;
+static vector<string> channel_names;
 static map<string, Channel> channels;
 static map<uint64_t, WebSocketClient> clients;
 

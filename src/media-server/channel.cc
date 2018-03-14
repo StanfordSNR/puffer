@@ -1,6 +1,8 @@
 #include "channel.hh"
 
 #include <fcntl.h>
+#include <fstream>
+#include <sstream>
 
 #include "file_descriptor.hh"
 #include "exception.hh"
@@ -12,7 +14,7 @@ Channel::Channel(const string & name, YAML::Node config, Inotify & inotify)
   output_path_(),
   vformats_(), aformats_(),
   vinit_(), ainit_(),
-  vdata_(), adata_(),
+  vdata_(), vssim_(), adata_(),
   clean_time_window_(),
   timescale_(),
   vduration_(), aduration_(),
@@ -35,6 +37,7 @@ Channel::Channel(const string & name, YAML::Node config, Inotify & inotify)
 
   mmap_video_files(inotify);
   mmap_audio_files(inotify);
+  load_ssim_files(inotify);
 }
 
 uint64_t Channel::init_vts() const
@@ -44,10 +47,12 @@ uint64_t Channel::init_vts() const
   } else {
     /* Choose the newest vts with all qualities available */
     for (auto it = vdata_.rbegin(); it != vdata_.rend(); ++it) {
-      if (it->second.size() == vformats_.size()) {
-        return it->first;
+      uint64_t ts = it->first;
+      if (vready(ts)) {
+        return ts;
       }
     }
+    /* TODO: this abort check may cause a race on startup */
     cerr << "Encoder is in a bad state, no vts has all qualities available" << endl;
     abort();
   }
@@ -58,6 +63,19 @@ uint64_t Channel::find_ats(const uint64_t vts) const
   return (vts / aduration_) * aduration_;
 }
 
+bool Channel::vready(const uint64_t ts) const
+{
+  auto it1 = vdata_.find(ts);
+  if (it1 == vdata_.end() or it1->second.size() != vformats_.size()) {
+    return false;
+  }
+  auto it2 = vssim_.find(ts);
+  if (it2 == vssim_.end() or it1->second.size() != vformats_.size()) {
+    return false;
+  }
+  return vinit_.size() == vformats_.size();
+}
+
 mmap_t & Channel::vinit(const VideoFormat & format)
 {
   return vinit_.at(format);
@@ -66,6 +84,28 @@ mmap_t & Channel::vinit(const VideoFormat & format)
 mmap_t & Channel::vdata(const VideoFormat & format, const uint64_t ts)
 {
   return vdata_.at(ts).at(format);
+}
+
+map<VideoFormat, mmap_t> & Channel::vdata(const uint64_t ts)
+{
+  return vdata_.at(ts);
+}
+
+double Channel::vssim(const VideoFormat & format, const uint64_t ts)
+{
+  return vssim_.at(ts).at(format);
+}
+
+map<VideoFormat, double> & Channel::vssim(const uint64_t ts)
+{
+  return vssim_.at(ts);
+}
+
+bool Channel::aready(const uint64_t ts) const
+{
+  auto it = adata_.find(ts);
+  return ainit_.size() == aformats_.size() and
+      it != adata_.end() and it->second.size() == aformats_.size();
 }
 
 mmap_t & Channel::ainit(const AudioFormat & format)
@@ -96,7 +136,9 @@ void Channel::munmap_video(const uint64_t ts)
   }
 
   for (auto it = vdata_.cbegin(); it != vdata_.cend();) {
-    if (it->first < obsolete) {
+    uint64_t ts = it->first;
+    if (ts < obsolete) {
+      vssim_.erase(ts);
       it = vdata_.erase(it);
     } else {
       break;
@@ -206,6 +248,48 @@ void Channel::mmap_audio_files(Inotify & inotify)
     /* process existing files */
     for (const auto & file : fs::directory_iterator(audio_dir)) {
       do_mmap_audio(file.path(), af);
+    }
+  }
+}
+
+void Channel::do_read_ssim(const fs::path & filepath, const VideoFormat & vf) {
+  string filestem = filepath.stem();
+  uint64_t ts = stoll(filestem);
+
+  std::ifstream ifs(filepath);
+  std::stringstream buffer;
+  buffer << ifs.rdbuf();
+
+  vssim_[ts][vf] = stod(buffer.str());
+}
+
+void Channel::load_ssim_files(Inotify & inotify)
+{
+  for (const auto & vf : vformats_) {
+    string ssim_dir = output_path_ / "ready" / (vf.to_string() + "-ssim");
+
+    inotify.add_watch(ssim_dir, IN_MOVED_TO,
+      [&](const inotify_event & event, const string & path) {
+        if (not (event.mask & IN_MOVED_TO)) {
+          /* only interested in event IN_MOVED_TO */
+          return;
+        }
+
+        if (event.mask & IN_ISDIR) {
+          /* ignore directories moved into source directory */
+          return;
+        }
+
+        assert(event.len != 0);
+
+        fs::path filepath = fs::path(path) / event.name;
+        do_read_ssim(filepath, vf);
+      }
+    );
+
+    /* process existing files */
+    for (const auto & file : fs::directory_iterator(ssim_dir)) {
+      do_read_ssim(file.path(), vf);
     }
   }
 }
