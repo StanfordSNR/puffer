@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <optional>
 #include <tuple>
+#include <string>
 
 #include "yaml.hh"
 
