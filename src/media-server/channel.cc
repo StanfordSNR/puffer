@@ -28,6 +28,8 @@ Channel::Channel(const string & name, YAML::Node config, Inotify & inotify)
   string output_dir = config["output"].as<string>();
   output_path_ = fs::path(output_dir);
 
+  cerr << "Channel " << name_ << " at " << output_path_;
+
   vcodec_ = config["video_codec"].as<string>();
   acodec_ = config["audio_codec"].as<string>();
 
@@ -37,6 +39,11 @@ Channel::Channel(const string & name, YAML::Node config, Inotify & inotify)
   timescale_ = config["timescale"].as<int>();
   vduration_ = config["video_duration"].as<int>();
   aduration_ = config["audio_duration"].as<int>();
+
+  if (config["init_vts"]) {
+    init_vts_ = config["init_vts"].as<int>();
+    assert(init_vts_.value() % vduration_ == 0);
+  }
 
   mmap_video_files(inotify);
   mmap_audio_files(inotify);
@@ -86,26 +93,31 @@ mmap_t & Channel::vinit(const VideoFormat & format)
 
 mmap_t & Channel::vdata(const VideoFormat & format, const uint64_t ts)
 {
+  assert(is_valid_vts(ts));
   return vdata_.at(ts).at(format);
 }
 
 map<VideoFormat, mmap_t> & Channel::vdata(const uint64_t ts)
 {
+  assert(is_valid_vts(ts));
   return vdata_.at(ts);
 }
 
 double Channel::vssim(const VideoFormat & format, const uint64_t ts)
 {
+  assert(is_valid_vts(ts));
   return vssim_.at(ts).at(format);
 }
 
 map<VideoFormat, double> & Channel::vssim(const uint64_t ts)
 {
+  assert(is_valid_vts(ts));
   return vssim_.at(ts);
 }
 
 bool Channel::aready(const uint64_t ts) const
 {
+  assert(is_valid_ats(ts));
   auto it = adata_.find(ts);
   return ainit_.size() == aformats_.size() and
       it != adata_.end() and it->second.size() == aformats_.size();
@@ -118,6 +130,7 @@ mmap_t & Channel::ainit(const AudioFormat & format)
 
 mmap_t & Channel::adata(const AudioFormat & format, const uint64_t ts)
 {
+  assert(is_valid_ats(ts));
   return adata_.at(ts).at(format);
 }
 
@@ -175,11 +188,15 @@ void Channel::do_mmap_video(const fs::path & filepath, const VideoFormat & vf)
   string filestem = filepath.stem();
 
   if (filestem == "init") {
+    cerr << "video init: " << filepath << endl;
     vinit_.emplace(vf, data_size);
   } else {
-    uint64_t ts = stoll(filestem);
-    munmap_video(ts);
-    vdata_[ts][vf] = data_size;
+    if (filepath.extension() == ".m4s") {
+      cerr << "video file: " << filepath << endl;
+      uint64_t ts = stoll(filestem);
+      munmap_video(ts);
+      vdata_[ts][vf] = data_size;
+    }
   }
 }
 
@@ -187,6 +204,7 @@ void Channel::mmap_video_files(Inotify & inotify)
 {
   for (const auto & vf : vformats_) {
     string video_dir = output_path_ / "ready" / vf.to_string();
+    cerr << "video dir: " << video_dir << endl;
 
     inotify.add_watch(video_dir, IN_MOVED_TO,
       [&](const inotify_event & event, const string & path) {
@@ -220,11 +238,15 @@ void Channel::do_mmap_audio(const fs::path & filepath, const AudioFormat & af)
   string filestem = filepath.stem();
 
   if (filestem == "init") {
+    cerr << "audio init: " << filepath << endl;
     ainit_.emplace(af, data_size);
   } else {
-    uint64_t ts = stoll(filestem);
-    munmap_audio(ts);
-    adata_[ts][af] = data_size;
+    if (filepath.extension() == ".chk") {
+      cerr << "audio chunk: " << filepath << endl;
+      uint64_t ts = stoll(filestem);
+      munmap_audio(ts);
+      adata_[ts][af] = data_size;
+    }
   }
 }
 
@@ -232,6 +254,7 @@ void Channel::mmap_audio_files(Inotify & inotify)
 {
   for (const auto & af : aformats_) {
     string audio_dir = output_path_ / "ready" / af.to_string();
+    cerr << "audio dir: " << audio_dir << endl;
 
     inotify.add_watch(audio_dir, IN_MOVED_TO,
       [&](const inotify_event & event, const string & path) {
@@ -260,20 +283,24 @@ void Channel::mmap_audio_files(Inotify & inotify)
 }
 
 void Channel::do_read_ssim(const fs::path & filepath, const VideoFormat & vf) {
-  string filestem = filepath.stem();
-  uint64_t ts = stoll(filestem);
+  if (filepath.extension() == ".ssim") {
+    cerr << "ssim file: " << filepath << endl;
+    string filestem = filepath.stem();
+    uint64_t ts = stoll(filestem);
 
-  std::ifstream ifs(filepath);
-  std::stringstream buffer;
-  buffer << ifs.rdbuf();
+    std::ifstream ifs(filepath);
+    std::stringstream buffer;
+    buffer << ifs.rdbuf();
 
-  vssim_[ts][vf] = stod(buffer.str());
+    vssim_[ts][vf] = stod(buffer.str());
+  }
 }
 
 void Channel::load_ssim_files(Inotify & inotify)
 {
   for (const auto & vf : vformats_) {
     string ssim_dir = output_path_ / "ready" / (vf.to_string() + "-ssim");
+    cerr << "ssim dir: " << ssim_dir << endl;
 
     inotify.add_watch(ssim_dir, IN_MOVED_TO,
       [&](const inotify_event & event, const string & path) {

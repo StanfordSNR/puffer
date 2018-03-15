@@ -137,9 +137,9 @@ function AVSource(video, audio, options) {
     partial_video_chunks.push(data);
 
     /* Last fragment received */
-    if (data.length + metadata.byteBffset == metadata.totalByteLength) {
+    if (data.byteLength + metadata.byteOffset == metadata.totalByteLength) {
       pending_video_chunks.push(concat_arraybuffers(partial_video_chunks));
-      partial_video_chunks = undefined;
+      partial_video_chunks = [];
       next_video_timestamp = metadata.timestamp + metadata.duration;
     }
   };
@@ -155,9 +155,9 @@ function AVSource(video, audio, options) {
     partial_audio_chunks.push(data);
 
     /* Last fragment received */
-    if (data.length + metadata.byteBffset == metadata.totalByteLength) {
+    if (data.byteLength + metadata.byteOffset == metadata.totalByteLength) {
       pending_audio_chunks.push(concat_arraybuffers(partial_audio_chunks));
-      partial_audio_chunks = undefined;
+      partial_audio_chunks = [];
       next_audio_timestamp = metadata.timestamp + metadata.duration;
     }
   };
@@ -225,7 +225,6 @@ function AVSource(video, audio, options) {
 function WebSocketClient(video, audio, channel_select) {
   var ws;
   var av_source;
-  var init_time = new Date();
 
   var that = this;
 
@@ -248,29 +247,32 @@ function WebSocketClient(video, audio, channel_select) {
       that.set_channel(message.metadata.channels[0]); // may be redundant
 
     } else if (message.metadata.type == 'server-init') {
-      console.log(message.metadata.type);
+      console.log(message.metadata.type, message.metadata);
       if (av_source) {
         av_source.close(); // Close any existing source
       }
       av_source = new AVSource(video, audio, message.metadata);
 
     } else if (message.metadata.type == 'audio') {
-      console.log('received', message.metadata.type, message.metadata.quality);
+      console.log('received', message.metadata.type, message.metadata.timestamp,
+                  message.metadata.quality);
       av_source.handleAudio(message.data, message.metadata);
 
     } else if (message.metadata.type == 'video') {
-      console.log('received', message.metadata.type, message.metadata.quality);
+      console.log('received', message.metadata.type, message.metadata.timestamp,
+                  message.metadata.quality);
       av_source.handleVideo(message.data, message.metadata);
     }
 
     if (av_source) {
       av_source.update();
     }
-  };
+  }
 
   function send_client_init(ws, channel) {
     if (ws && ws.readyState == WS_OPEN) {
       try {
+        // TODO: the player dimensions are not right
         var msg = {
           playerWidth: video.videoWidth,
           playerHeight: video.videoHeight

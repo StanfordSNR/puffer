@@ -34,20 +34,20 @@ void print_usage(const string & program_name)
 const VideoFormat select_video_quality(WebSocketClient & client)
 {
   // TODO: make a real choice
-  auto channel = channels.at(client.channel().value());
+  Channel & channel = channels.at(client.channel().value());
   return client.curr_vq().value_or(channel.vformats()[0]);
 }
 
 const AudioFormat select_audio_quality(WebSocketClient & client)
 {
   // TODO: make a real choice
-  auto channel = channels.at(client.channel().value());
+  Channel & channel = channels.at(client.channel().value());
   return client.curr_aq().value_or(channel.aformats()[0]);
 }
 
 void serve_video_to_client(WebSocketServer & server, WebSocketClient & client)
 {
-  auto channel = channels.at(client.channel().value());
+  Channel & channel = channels.at(client.channel().value());
 
   uint64_t next_vts = client.next_vts().value();
   if (not channel.vready(next_vts)) {
@@ -55,6 +55,9 @@ void serve_video_to_client(WebSocketServer & server, WebSocketClient & client)
   }
 
   const VideoFormat next_vq = select_video_quality(client);
+
+  cerr << "serving (id=" << client.connection_id() << ") video " << next_vts
+       << " " << next_vq << endl;
 
   const auto & [video_data, video_size] = channel.vdata(next_vq, next_vts);
   const auto & [init_data, init_size] = channel.vinit(next_vq);
@@ -95,13 +98,16 @@ void serve_video_to_client(WebSocketServer & server, WebSocketClient & client)
 
 void serve_audio_to_client(WebSocketServer & server, WebSocketClient & client)
 {
-  auto channel = channels.at(client.channel().value());
+  Channel & channel = channels.at(client.channel().value());
   uint64_t next_ats = client.next_ats().value();
   if (not channel.aready(next_ats)) {
     return;
   }
 
   const AudioFormat next_aq = select_audio_quality(client);
+
+  cerr << "serving (id=" << client.connection_id() << ") audio " << next_ats 
+       << " " << next_aq << endl;
 
   const auto & [audio_data, audio_size] = channel.adata(next_aq, next_ats);
   const auto & [init_data, init_size] = channel.ainit(next_aq);
@@ -156,7 +162,7 @@ inline unsigned int audio_in_flight(const Channel & channel,
 
 void serve_client(WebSocketServer & server, WebSocketClient & client)
 {
-  auto channel = channels.at(client.channel().value());
+  const Channel & channel = channels.at(client.channel().value());
   if (client.video_playback_buf() < max_buffer_len and
       video_in_flight(channel, client) < max_inflight_len) {
     serve_video_to_client(server, client);
@@ -194,7 +200,7 @@ void start_global_timer(WebSocketServer & server)
 void handle_client_init(WebSocketServer & server, WebSocketClient & client,
                         const ClientInitMessage & message)
 {
-  auto it = message.channel.has_value() ? 
+  auto it = message.channel.has_value() ?
     channels.find(message.channel.value()) : channels.begin();
   if (it == channels.end()) {
     throw BadClientMessageException("Requested channel not found");
@@ -205,6 +211,9 @@ void handle_client_init(WebSocketServer & server, WebSocketClient & client,
   uint16_t init_ats = channel.find_ats(init_vts);
 
   client.init(channel.name(), init_vts, init_ats);
+  assert(client.channel().has_value());
+  assert(client.next_vts().has_value());
+  assert(client.next_ats().has_value());
 
   string reply = make_server_init_msg(channel.name(), channel.vcodec(),
                                       channel.acodec(), channel.timescale(),
@@ -215,7 +224,8 @@ void handle_client_init(WebSocketServer & server, WebSocketClient & client,
   server.queue_frame(client.connection_id(), frame);
 }
 
-void handle_client_info(WebSocketClient & client, const ClientInfoMessage & message)
+void handle_client_info(WebSocketClient & client, 
+                        const ClientInfoMessage & message)
 {
   client.set_audio_playback_buf(message.audio_buffer_len);
   client.set_video_playback_buf(message.video_buffer_len);
@@ -242,7 +252,7 @@ int main(int argc, char * argv[])
     return EXIT_FAILURE;
   }
 
-  YAML::Node config = load_yaml(argv[1]);
+  YAML::Node config = load_yaml_unsafe(argv[1]);
 
   /* create a WebSocketServer instance */
   const string ip = "0.0.0.0";
@@ -261,6 +271,7 @@ int main(int argc, char * argv[])
   }
 
   max_buffer_len = config["max_buffer"] ? config["max_buffer"].as<int>() : 240;
+  max_inflight_len = config["max_inflight"] ? config["max_buffer"].as<int>() : 5;
 
   /* start the global timer */
   start_global_timer(server);
@@ -271,7 +282,7 @@ int main(int argc, char * argv[])
       cerr << "Message (from=" << connection_id << "): "
            << message.payload() << endl;
 
-      auto client = clients.at(connection_id);
+      WebSocketClient & client = clients.at(connection_id);
 
       try {
         const auto data = unpack_client_msg(message.payload());

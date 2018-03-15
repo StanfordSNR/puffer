@@ -30,9 +30,13 @@ bool VideoFormat::operator!=(const VideoFormat & o) const
   return height != o.height or width != o.width or crf != o.crf;
 }
 
+ostream &operator<<(ostream & os, const VideoFormat & o) {
+  return os << o.to_string();
+}
+
 string AudioFormat::to_string() const
 {
-  return ::to_string(bitrate) + "k";
+  return ::to_string(bitrate / 1000) + "k";
 }
 
 bool AudioFormat::operator<(const AudioFormat & o) const
@@ -48,6 +52,15 @@ bool AudioFormat::operator==(const AudioFormat & o) const
 bool AudioFormat::operator!=(const AudioFormat & o) const
 {
   return bitrate != o.bitrate;
+}
+
+ostream &operator<<(ostream & os, const AudioFormat & o) {
+  return os << o.to_string();
+}
+
+YAML::Node load_yaml_unsafe(const string & yaml_path)
+{
+  return YAML::LoadFile(yaml_path);
 }
 
 YAML::Node load_yaml(const string & yaml_path)
