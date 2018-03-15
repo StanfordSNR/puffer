@@ -57,7 +57,7 @@ private:
   std::map<uint64_t, std::map<VideoFormat, double>> vssim_;
   std::map<uint64_t, std::map<AudioFormat, mmap_t>> adata_;
 
-  unsigned int clean_time_window_;
+  std::optional<unsigned int> clean_time_window_;
   unsigned int timescale_;
   unsigned int vduration_;
   unsigned int aduration_;

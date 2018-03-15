@@ -2,18 +2,17 @@ port: 8081
 max_buffer: 30
 max_inflight: 5
 channel:
-  - nbc
-nbc:
-  output: test_output/
+  - tos
+tos:
+  output: tos/
   video:
-    1280x720: [23]
-    854x480: [18]
+    1280x720: [20, 28]
+    854x480: [20, 28]
   audio:
-    - 64k
-    - 32k
-  clean_time_window: 540000
+    - 128k
+  # clean_time_window: 540000
   timescale: 90000
-  video_duration: 180180
+  video_duration: 180000
   audio_duration: 432000
   init_vts: 0
   video_codec: 'video/mp4; codecs="avc1.42E020"'
