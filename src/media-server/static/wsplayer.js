@@ -1,6 +1,6 @@
 const WS_OPEN = 1;
 
-const SEND_INFO_INTERVAL = 1000; // 1s
+const SEND_INFO_INTERVAL = 2000; // 1s
 
 /* If the video offset causes the start of the first chunk
  * to go negative, the first video segment may get dropped,
@@ -238,37 +238,6 @@ function WebSocketClient(video, audio, channel_select) {
     }
   }
 
-  /* Handle a websocket message from the server */
-  function handle_msg(e) {
-    var message = parse_server_msg(e.data);
-    if (message.metadata.type == 'server-hello') {
-      console.log(message.metadata.type, message.metadata.channels);
-      update_channel_select(message.metadata.channels);
-      that.set_channel(message.metadata.channels[0]); // may be redundant
-
-    } else if (message.metadata.type == 'server-init') {
-      console.log(message.metadata.type, message.metadata);
-      if (av_source) {
-        av_source.close(); // Close any existing source
-      }
-      av_source = new AVSource(video, audio, message.metadata);
-
-    } else if (message.metadata.type == 'audio') {
-      console.log('received', message.metadata.type, message.metadata.timestamp,
-                  message.metadata.quality);
-      av_source.handleAudio(message.data, message.metadata);
-
-    } else if (message.metadata.type == 'video') {
-      console.log('received', message.metadata.type, message.metadata.timestamp,
-                  message.metadata.quality);
-      av_source.handleVideo(message.data, message.metadata);
-    }
-
-    if (av_source) {
-      av_source.update();
-    }
-  }
-
   function send_client_init(ws, channel) {
     if (ws && ws.readyState == WS_OPEN) {
       try {
@@ -308,6 +277,39 @@ function WebSocketClient(video, audio, channel_select) {
       } catch (e) {
         console.log('Failed to send client info', e);
       }
+    }
+  }
+
+  /* Handle a websocket message from the server */
+  function handle_msg(e) {
+    var message = parse_server_msg(e.data);
+    if (message.metadata.type == 'server-hello') {
+      console.log(message.metadata.type, message.metadata.channels);
+      update_channel_select(message.metadata.channels);
+      that.set_channel(message.metadata.channels[0]); // may be redundant
+
+    } else if (message.metadata.type == 'server-init') {
+      console.log(message.metadata.type, message.metadata);
+      if (av_source) {
+        av_source.close(); // Close any existing source
+      }
+      av_source = new AVSource(video, audio, message.metadata);
+
+    } else if (message.metadata.type == 'audio') {
+      console.log('received', message.metadata.type, message.metadata.timestamp,
+                  message.metadata.quality);
+      av_source.handleAudio(message.data, message.metadata);
+      send_client_info('audack');
+
+    } else if (message.metadata.type == 'video') {
+      console.log('received', message.metadata.type, message.metadata.timestamp,
+                  message.metadata.quality);
+      av_source.handleVideo(message.data, message.metadata);
+      send_client_info('vidack');
+    }
+
+    if (av_source) {
+      av_source.update();
     }
   }
 

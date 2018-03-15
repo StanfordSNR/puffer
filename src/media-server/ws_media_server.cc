@@ -106,7 +106,7 @@ void serve_audio_to_client(WebSocketServer & server, WebSocketClient & client)
 
   const AudioFormat next_aq = select_audio_quality(client);
 
-  cerr << "serving (id=" << client.connection_id() << ") audio " << next_ats 
+  cerr << "serving (id=" << client.connection_id() << ") audio " << next_ats
        << " " << next_aq << endl;
 
   const auto & [audio_data, audio_size] = channel.adata(next_aq, next_ats);
@@ -145,18 +145,18 @@ void serve_audio_to_client(WebSocketServer & server, WebSocketClient & client)
   client.set_curr_aq(next_aq);
 }
 
-inline unsigned int video_in_flight(const Channel & channel, 
+inline unsigned int video_in_flight(const Channel & channel,
                                     const WebSocketClient & client)
 {
   /* Return number of seconds of video in flight */
-  return (client.next_vts().value() - client.client_next_vts().value_or(0)) 
+  return (client.next_vts().value() - client.client_next_vts().value_or(0))
           / channel.timescale();
 }
 
 inline unsigned int audio_in_flight(const Channel & channel,
                                     const WebSocketClient & client)
 {
-  return (client.next_ats().value() - client.client_next_ats().value_or(0)) 
+  return (client.next_ats().value() - client.client_next_ats().value_or(0))
           / channel.timescale();
 }
 
@@ -224,7 +224,7 @@ void handle_client_init(WebSocketServer & server, WebSocketClient & client,
   server.queue_frame(client.connection_id(), frame);
 }
 
-void handle_client_info(WebSocketClient & client, 
+void handle_client_info(WebSocketClient & client,
                         const ClientInfoMessage & message)
 {
   client.set_audio_playback_buf(message.audio_buffer_len);
@@ -265,7 +265,7 @@ int main(int argc, char * argv[])
   for (YAML::const_iterator it= config["channel"].begin();
        it !=  config["channel"].end(); ++it) {
     const string channel_name = it->as<string>();
-    channels.emplace(channel_name, Channel(channel_name, config[channel_name], 
+    channels.emplace(channel_name, Channel(channel_name, config[channel_name],
                      inotify));
     channel_names.push_back(channel_name);
   }
