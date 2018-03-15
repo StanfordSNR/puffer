@@ -29,7 +29,9 @@ typedef struct ClientInfoMessage {
     Unknown,
     Timer,
     Rebuffer,
-    CanPlay
+    CanPlay,
+    AudioAck,
+    VideoAck
   } PlayerEvent;
 
   typedef enum {

@@ -58,6 +58,10 @@ ClientInfoMessage parse_client_info_msg(const string & data)
       event = ClientInfoMessage::Rebuffer;
     } else if (event_str == "canplay") {
       event = ClientInfoMessage::CanPlay;
+    } else if (event_str == "audack") {
+      event = ClientInfoMessage::AudioAck;
+    } else if (event_str == "vidack") {
+      event = ClientInfoMessage::VideoAck;
     } else {
       event = ClientInfoMessage::Unknown;
     }
