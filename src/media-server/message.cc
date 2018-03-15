@@ -88,7 +88,6 @@ ClientInfoMessage parse_client_info_msg(const string & data)
   return ret;
 }
 
-
 static inline string pack_json(const json & msg)
 {
   string msg_str = msg.dump();
