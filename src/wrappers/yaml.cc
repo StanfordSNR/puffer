@@ -22,15 +22,16 @@ bool VideoFormat::operator<(const VideoFormat & o) const
 
 bool VideoFormat::operator==(const VideoFormat & o) const
 {
-  return height == o.height and width == o.width and crf == o.crf;
+  return tie(width, height, crf) == tie(o.width, o.height, o.crf);
 }
 
 bool VideoFormat::operator!=(const VideoFormat & o) const
 {
-  return height != o.height or width != o.width or crf != o.crf;
+  return tie(width, height, crf) != tie(o.width, o.height, o.crf);
 }
 
-ostream &operator<<(ostream & os, const VideoFormat & o) {
+ostream &operator<<(ostream & os, const VideoFormat & o)
+{
   return os << o.to_string();
 }
 
@@ -54,7 +55,8 @@ bool AudioFormat::operator!=(const AudioFormat & o) const
   return bitrate != o.bitrate;
 }
 
-ostream &operator<<(ostream & os, const AudioFormat & o) {
+ostream &operator<<(ostream & os, const AudioFormat & o)
+{
   return os << o.to_string();
 }
 
@@ -121,7 +123,7 @@ vector<AudioFormat> get_audio_formats(const YAML::Node & config)
     if (pos != string::npos) {
       bitrate = stol(bitrate_str.substr(0, pos)) * 1000;
     } else {
-      bitrate = stol(bitrate_str);
+      throw runtime_error("audio bitrate must be <integer>k");
     }
 
     aformats.push_back({bitrate});
