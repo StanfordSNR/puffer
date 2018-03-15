@@ -1,4 +1,6 @@
-port: 8080
+port: 8081
+max_buffer: 30
+max_inflight: 5
 channel:
   - nbc
 nbc:

@@ -23,6 +23,9 @@ static map<uint64_t, WebSocketClient> clients;
 
 static Timerfd global_timer;
 
+static unsigned int max_buffer_len;
+static unsigned int max_inflight_len;
+
 void print_usage(const string & program_name)
 {
   cerr << program_name << " <YAML configuration>" << endl;
@@ -136,13 +139,32 @@ void serve_audio_to_client(WebSocketServer & server, WebSocketClient & client)
   client.set_curr_aq(next_aq);
 }
 
+inline unsigned int video_in_flight(const Channel & channel, 
+                                    const WebSocketClient & client)
+{
+  /* Return number of seconds of video in flight */
+  return (client.next_vts().value() - client.client_next_vts().value_or(0)) 
+          / channel.timescale();
+}
+
+inline unsigned int audio_in_flight(const Channel & channel,
+                                    const WebSocketClient & client)
+{
+  return (client.next_ats().value() - client.client_next_ats().value_or(0)) 
+          / channel.timescale();
+}
+
 void serve_client(WebSocketServer & server, WebSocketClient & client)
 {
-  assert (client.channel().has_value());
-  assert (client.next_vts().has_value());
-  assert (client.next_ats().has_value());
-  serve_video_to_client(server, client);
-  serve_audio_to_client(server, client);
+  auto channel = channels.at(client.channel().value());
+  if (client.video_playback_buf() < max_buffer_len and
+      video_in_flight(channel, client) < max_inflight_len) {
+    serve_video_to_client(server, client);
+  }
+  if (client.audio_playback_buf() < max_buffer_len and
+      audio_in_flight(channel, client) < max_inflight_len) {
+    serve_audio_to_client(server, client);
+  }
 }
 
 void start_global_timer(WebSocketServer & server)
@@ -196,6 +218,8 @@ void handle_client_info(WebSocketClient & client, const ClientInfoMessage & mess
 {
   client.set_audio_playback_buf(message.audio_buffer_len);
   client.set_video_playback_buf(message.video_buffer_len);
+  client.set_client_next_vts(message.next_video_timestamp);
+  client.set_client_next_ats(message.next_audio_timestamp);
 }
 
 void handle_client_open(WebSocketServer & server, const uint64_t connection_id)
@@ -227,13 +251,15 @@ int main(int argc, char * argv[])
   /* mmap new media files */
   Inotify inotify(server.poller());
 
-
   for (YAML::const_iterator it= config["channel"].begin();
        it !=  config["channel"].end(); ++it) {
     const string channel_name = it->as<string>();
-    channels.emplace(channel_name, Channel(channel_name, config[channel_name], inotify));
+    channels.emplace(channel_name, Channel(channel_name, config[channel_name], 
+                     inotify));
     channel_names.push_back(channel_name);
   }
+
+  max_buffer_len = config["max_buffer"] ? config["max_buffer"].as<int>() : 240;
 
   /* start the global timer */
   start_global_timer(server);
