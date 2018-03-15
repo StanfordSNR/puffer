@@ -1,6 +1,7 @@
 const WS_OPEN = 1;
 
-const SEND_INFO_INTERVAL = 2000; // 1s
+const SEND_INFO_INTERVAL = 2000;
+const UPDATE_AV_SOURCE_INTERVAL = 100;
 
 /* If the video offset causes the start of the first chunk
  * to go negative, the first video segment may get dropped,
@@ -8,15 +9,15 @@ const SEND_INFO_INTERVAL = 2000; // 1s
  * This ensures that videoOffset - adjustment > 0 */
 const VIDEO_OFFSET_ADJUSTMENT = 0.05;
 
-const DEBUG = false;
-
 const HTML_MEDIA_READY_STATES = [
-  'HAVE_NOTHING', 
-  'HAVE_METADATA', 
+  'HAVE_NOTHING',
+  'HAVE_METADATA',
   'HAVE_CURRENT_DATA',
   'HAVE_FUTURE_DATA',
   'HAVE_ENOUGH_DATA'
 ];
+
+const debug = false;
 
 /* Server messages are of the form: "short_metadata_len|metadata_json|data" */
 function parse_server_msg(data) {
@@ -58,7 +59,7 @@ function AVSource(video, audio, options) {
   var next_audio_timestamp = init_timestamp;
   var next_video_timestamp = init_timestamp;
 
-  /* Lists to store accepted segments that have not been added to the 
+  /* Lists to store accepted segments that have not been added to the
    * SourceBuffers yet because they may be in the updating state */
   var pending_video_chunks = [];
   var pending_audio_chunks = [];
@@ -138,7 +139,10 @@ function AVSource(video, audio, options) {
 
     /* Last fragment received */
     if (data.byteLength + metadata.byteOffset == metadata.totalByteLength) {
-      pending_video_chunks.push(concat_arraybuffers(partial_video_chunks));
+      pending_video_chunks.push({
+        ts: metadata.timestamp,
+        data: concat_arraybuffers(partial_video_chunks)
+      });
       partial_video_chunks = [];
       next_video_timestamp = metadata.timestamp + metadata.duration;
     }
@@ -156,7 +160,10 @@ function AVSource(video, audio, options) {
 
     /* Last fragment received */
     if (data.byteLength + metadata.byteOffset == metadata.totalByteLength) {
-      pending_audio_chunks.push(concat_arraybuffers(partial_audio_chunks));
+      pending_audio_chunks.push({
+        ts: metadata.timestamp,
+        data: concat_arraybuffers(partial_audio_chunks)
+      });
       partial_audio_chunks = [];
       next_audio_timestamp = metadata.timestamp + metadata.duration;
     }
@@ -213,11 +220,13 @@ function AVSource(video, audio, options) {
   this.update = function() {
     if (vbuf && !vbuf.updating
       && pending_video_chunks.length > 0) {
-      vbuf.appendBuffer(pending_video_chunks.shift());
+      var next_video = pending_video_chunks.shift();
+      vbuf.appendBuffer(next_video.data);
     }
     if (abuf && !abuf.updating
       && pending_audio_chunks.length > 0) {
-      abuf.appendBuffer(pending_audio_chunks.shift());
+      var next_audio = pending_audio_chunks.shift();
+      abuf.appendBuffer(next_audio.data);
     }
   };
 }
@@ -257,12 +266,12 @@ function WebSocketClient(video, audio, channel_select) {
   }
 
   function send_client_info(event) {
-    if (DEBUG && av_source && av_source.isOpen()) {
+    if (debug && av_source && av_source.isOpen()) {
       av_source.logBufferInfo();
     }
     if (ws && ws.readyState == WS_OPEN && av_source && av_source.isOpen()) {
       try {
-        ws.send(format_client_msg('client-info', 
+        ws.send(format_client_msg('client-info',
           {
             event: event,
             videoBufferLen: av_source.getVideoBufferLen(),
@@ -296,20 +305,22 @@ function WebSocketClient(video, audio, channel_select) {
       av_source = new AVSource(video, audio, message.metadata);
 
     } else if (message.metadata.type == 'audio') {
-      console.log('received', message.metadata.type, message.metadata.timestamp,
-                  message.metadata.quality);
+      if (debug) {
+        console.log('received', message.metadata.type, 
+                    message.metadata.timestamp,
+                    message.metadata.quality);
+      }
       av_source.handleAudio(message.data, message.metadata);
       send_client_info('audack');
 
     } else if (message.metadata.type == 'video') {
-      console.log('received', message.metadata.type, message.metadata.timestamp,
-                  message.metadata.quality);
+      if (debug) {
+        console.log('received', message.metadata.type, 
+                    message.metadata.timestamp,
+                    message.metadata.quality);
+      }
       av_source.handleVideo(message.data, message.metadata);
       send_client_info('vidack');
-    }
-
-    if (av_source) {
-      av_source.update();
     }
   }
 
@@ -359,6 +370,14 @@ function WebSocketClient(video, audio, channel_select) {
     setTimeout(timer_helper, SEND_INFO_INTERVAL);
   }
   timer_helper();
+
+  function update_helper() {
+    if (av_source) {
+      av_source.update();
+    }
+    setTimeout(update_helper, UPDATE_AV_SOURCE_INTERVAL);
+  }
+  update_helper();
 }
 
 window.onload = function() {
