@@ -298,12 +298,12 @@ int main(int argc, char * argv[])
       try {
         const auto data = unpack_client_msg(message.payload());
         switch (data.first) {
-          case ClientMessage::Init: {
+          case ClientMessageType::Init: {
             ClientInitMessage client_init = parse_client_init_msg(data.second);
             handle_client_init(server, client, client_init);
             break;
           }
-          case ClientMessage::Info: {
+          case ClientMessageType::Info: {
             ClientInfoMessage client_info = parse_client_info_msg(data.second);
             handle_client_info(client, client_info);
             break;

@@ -6,12 +6,10 @@
 #include <optional>
 #include <exception>
 
-struct ClientMessage {
-  typedef enum {
-    Unknown,
-    Init,
-    Info
-  } Type;
+enum class ClientMessageType {
+  Unknown,
+  Init,
+  Info
 };
 
 /* Sent by the client to start streaming */
@@ -25,22 +23,22 @@ typedef struct ClientInitMessage {
 /* Sent by the client when playing */
 typedef struct ClientInfoMessage {
 
-  typedef enum {
+  enum class PlayerEvent {
     Unknown,
     Timer,
     Rebuffer,
     CanPlay,
     AudioAck,
     VideoAck
-  } PlayerEvent;
+  };
 
-  typedef enum {
+  enum class PlayerReadyState : int {
     HaveNothing = 0,
     HaveMetadata = 1,
     HaveCurrentData = 2,
     HaveFutureData = 3,
     HaveEnoughData = 4
-  } PlayerReadyState;
+  };
 
   PlayerEvent event;
 
@@ -68,12 +66,12 @@ protected:
     std::string msg_;
 };
 
-/* Client message format: 
- *   "<message_type> <json_string>" 
+/* Client message format:
+ *   "<message_type> <json_string>"
  */
 
 /* Returns a pair containing the message type and the json payload */
-std::pair<ClientMessage::Type, std::string> unpack_client_msg(const std::string & data);
+std::pair<ClientMessageType, std::string> unpack_client_msg(const std::string & data);
 
 /* Sent by the client on WS connect to request a channel */
 ClientInitMessage parse_client_init_msg(const std::string & data);
@@ -94,7 +92,7 @@ std::string make_server_hello_msg(
 
 /* Message sent to reinitialize the client's sourcebuffer */
 std::string make_server_init_msg(
-  const std::string & channel, 
+  const std::string & channel,
   const std::string & video_codec,
   const std::string & audio_codec,
   const unsigned int & timescale,       /* video timescale */
