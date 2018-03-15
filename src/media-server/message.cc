@@ -9,11 +9,13 @@
 using namespace std;
 using json = nlohmann::json;
 
-pair<ClientMessageType, string> unpack_client_msg(const string & data) {
+pair<ClientMessageType, string> unpack_client_msg(const string & data)
+{
   size_t split_idx = data.find_first_of(' ');
   if (split_idx == string::npos) {
     throw BadClientMessageException("Cannot get message type");
   }
+
   string type_str = data.substr(0, split_idx);
   ClientMessageType type;
   if (type_str == "client-init") {
@@ -78,7 +80,8 @@ ClientInfoMessage parse_client_info_msg(const string & data)
     if (player_ready_state < 0 || player_ready_state > 4) {
       throw BadClientMessageException("Invalid player ready state");
     }
-    ret.player_ready_state = static_cast<ClientInfoMessage::PlayerReadyState>(player_ready_state);
+    ret.player_ready_state = static_cast<ClientInfoMessage::PlayerReadyState>
+                                        (player_ready_state);
 
   } catch (const BadClientMessageException & e) {
     throw e;
@@ -88,7 +91,7 @@ ClientInfoMessage parse_client_info_msg(const string & data)
   return ret;
 }
 
-static inline string pack_json(const json & msg)
+string pack_json(const json & msg)
 {
   string msg_str = msg.dump();
   uint16_t msg_len = msg_str.length();
@@ -112,10 +115,10 @@ string make_server_hello_msg(const vector<string> & channels)
 }
 
 string make_server_init_msg(const string & channel,
-                                  const string & video_codec,
-                                  const string & audio_codec,
-                                  const unsigned int & timescale,
-                                  const unsigned int & init_timestamp)
+                            const string & video_codec,
+                            const string & audio_codec,
+                            const unsigned int timescale,
+                            const unsigned int init_timestamp)
 {
   json msg = {
     {"type", "server-init"},
@@ -128,13 +131,13 @@ string make_server_init_msg(const string & channel,
   return pack_json(msg);
 }
 
-static inline string make_media_chunk_msg(
+string make_media_chunk_msg(
   const string & media_type,
   const string & quality,
-  const unsigned int & timestamp,
-  const unsigned int & duration,
-  const unsigned int & byte_offset,
-  const unsigned int & total_byte_length)
+  const unsigned int timestamp,
+  const unsigned int duration,
+  const unsigned int byte_offset,
+  const unsigned int total_byte_length)
 {
   json msg = {
     {"type", media_type},
@@ -149,10 +152,10 @@ static inline string make_media_chunk_msg(
 
 string make_audio_msg(
   const string & quality,
-  const unsigned int & timestamp,
-  const unsigned int & duration,
-  const unsigned int & byte_offset,
-  const unsigned int & total_byte_length)
+  const unsigned int timestamp,
+  const unsigned int duration,
+  const unsigned int byte_offset,
+  const unsigned int total_byte_length)
 {
   return make_media_chunk_msg("audio", quality, timestamp, duration,
                               byte_offset, total_byte_length);
@@ -160,10 +163,10 @@ string make_audio_msg(
 
 string make_video_msg(
   const string & quality,
-  const unsigned int & timestamp,
-  const unsigned int & duration,
-  const unsigned int & byte_offset,
-  const unsigned int & total_byte_length)
+  const unsigned int timestamp,
+  const unsigned int duration,
+  const unsigned int byte_offset,
+  const unsigned int total_byte_length)
 {
   return make_media_chunk_msg("video", quality, timestamp, duration,
                               byte_offset, total_byte_length);
