@@ -65,6 +65,9 @@ private:
   std::string acodec_;
   std::optional<uint64_t> init_vts_;
 
+  bool is_valid_vts(const uint64_t ts) const { return ts % vduration_ == 0; }
+  bool is_valid_ats(const uint64_t ts) const { return ts % aduration_ == 0; }
+
   void do_mmap_video(const fs::path & filepath, const VideoFormat & vf);
   void munmap_video(const uint64_t ts);
   void mmap_video_files(Inotify & inotify);

@@ -2,6 +2,7 @@
 #define YAML_HH
 
 #include <string>
+#include <iostream>
 #include "yaml-cpp/yaml.h"
 
 struct VideoFormat
@@ -18,6 +19,8 @@ struct VideoFormat
   bool operator!=(const VideoFormat & o) const;
 };
 
+std::ostream &operator<<(std::ostream & os, const VideoFormat & o);
+
 struct AudioFormat
 {
   int bitrate;
@@ -28,8 +31,11 @@ struct AudioFormat
   bool operator!=(const AudioFormat & o) const;
 };
 
+std::ostream &operator<<(std::ostream & os, const AudioFormat & o);
+
 /* load and validate the YAML file */
 YAML::Node load_yaml(const std::string & yaml_path);
+YAML::Node load_yaml_unsafe(const std::string & yaml_path);
 
 /* get video formats (resolution, CRF) from YAML configuration */
 std::vector<VideoFormat> get_video_formats(const YAML::Node & config);
