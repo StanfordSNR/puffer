@@ -1,8 +1,24 @@
 #include "ws_client.hh"
 
-WebSocketClient::WebSocketClient(const uint64_t connection_id,
-                                 const uint64_t next_vts,
-                                 const uint64_t next_ats)
-  : connection_id_(connection_id), next_vts_(next_vts), next_ats_(next_ats),
-    playback_buf_(0)
+using namespace std;
+
+WebSocketClient::WebSocketClient(const uint64_t connection_id)
+  : connection_id_(connection_id),
+    channel_(), next_vts_(), next_ats_(),
+    video_playback_buf_(), audio_playback_buf_(),
+    curr_vq_(), curr_aq_(),
+    client_next_vts_(), client_next_ats_()
 {}
+
+void WebSocketClient::init(const string & channel, const uint64_t vts, 
+                           const uint64_t ats)
+{
+  channel_ = channel;
+  next_vts_ = vts;
+  next_ats_ = ats;
+  video_playback_buf_ = 0;
+  audio_playback_buf_ = 0;
+
+  curr_vq_.reset();
+  curr_aq_.reset();
+}

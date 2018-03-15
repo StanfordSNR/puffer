@@ -2,13 +2,11 @@
 #include <string>
 #include <vector>
 #include <tuple>
-#include <unordered_map>
 
 #include "filesystem.hh"
-#include "exception.hh"
 #include "path.hh"
 #include "child_process.hh"
-#include "yaml-cpp/yaml.h"
+#include "yaml.hh"
 
 using namespace std;
 
@@ -16,62 +14,15 @@ static fs::path output_path;
 static fs::path src_path;
 static string notifier;
 
+/* tuple<directory, extension> */
 static vector<tuple<string, string>> vwork, awork;
 static vector<tuple<string, string>> vready, aready;
-
-static const int clean_time_window = 5400000;
 
 void print_usage(const string & program_name)
 {
   cerr <<
   "Usage: " << program_name << " <YAML configuration>"
   << endl;
-}
-
-/* load and validate the YAML file */
-YAML::Node load_yaml(const string & yaml_path)
-{
-  YAML::Node config = YAML::LoadFile(yaml_path);
-
-  if (not config["output"]) {
-    throw runtime_error("invalid YAML: output is not present");
-  }
-
-  if (not config["video"]) {
-    throw runtime_error("invalid YAML: video is not present");
-  }
-
-  if (not config["audio"]) {
-    throw runtime_error("invalid YAML: audio is not present");
-  }
-
-  return config;
-}
-
-/* get video formats (resolution, CRF) from YAML configuration */
-void get_video_formats(const YAML::Node & config,
-                       vector<tuple<string, string>> & vformats)
-{
-  const YAML::Node & res_map = config["video"];
-  for (const auto & res_node : res_map) {
-    const string & res = res_node.first.as<string>();
-
-    const YAML::Node & crf_list = res_node.second;
-    for (const auto & crf_node : crf_list) {
-      const string & crf = crf_node.as<string>();
-      vformats.emplace_back(res, crf);
-    }
-  }
-}
-
-/* get audio formats (bitrate) from YAML configuration */
-void get_audio_formats(const YAML::Node & config, vector<string> & aformats)
-{
-  const YAML::Node & bitrate_list = config["audio"];
-  for (const auto & bitrate_node : bitrate_list) {
-    const string & bitrate = bitrate_node.as<string>();
-    aformats.emplace_back(bitrate);
-  }
 }
 
 void run_video_canonicalizer(ProcessManager & proc_manager)
@@ -97,12 +48,10 @@ void run_video_canonicalizer(ProcessManager & proc_manager)
 }
 
 void run_video_encoder(ProcessManager & proc_manager,
-                       const tuple<string, string> & vformat)
+                       const VideoFormat & vf)
 {
-  const auto & [res, crf] = vformat;
-
   /* prepare directories */
-  string base = res + "-" + crf + "-" + "mp4";
+  string base = vf.to_string() + "-" + "mp4";
   string src_dir = output_path / "working/video-canonical";
   string dst_dir = output_path / "working" / base;
   string tmp_dir = output_path / "tmp" / base;
@@ -118,18 +67,17 @@ void run_video_encoder(ProcessManager & proc_manager,
 
   vector<string> args {
     notifier, src_dir, ".y4m", "--check", dst_dir, ".mp4", "--tmp", tmp_dir,
-    "--exec", video_encoder, "-s", res, "--crf", crf };
+    "--exec", video_encoder, "-s", vf.resolution(), "--crf", to_string(vf.crf)
+  };
   proc_manager.run_as_child(notifier, args);
 }
 
 void run_video_fragmenter(ProcessManager & proc_manager,
-                          const tuple<string, string> & vformat)
+                          const VideoFormat & vf)
 {
-  const auto & [res, crf] = vformat;
-
   /* prepare directories */
-  string working_base = res + "-" + crf + "-" + "mp4";
-  string ready_base = res + "-" + crf;
+  string working_base = vf.to_string() + "-" + "mp4";
+  string ready_base = vf.to_string();
   string src_dir = output_path / "working" / working_base;
   string dst_dir = output_path / "ready" / ready_base;
   string tmp_dir = output_path / "tmp" / ready_base;
@@ -151,13 +99,11 @@ void run_video_fragmenter(ProcessManager & proc_manager,
 }
 
 void run_ssim_calculator(ProcessManager & proc_manager,
-                         const tuple<string, string> & vformat)
+                         const VideoFormat & vf)
 {
-  const auto & [res, crf] = vformat;
-
   /* prepare directories */
-  string working_base = res + "-" + crf + "-" + "mp4";
-  string ready_base = res + "-" + crf + "-" + "ssim";
+  string working_base = vf.to_string() + "-" + "mp4";
+  string ready_base = vf.to_string() + "-" + "ssim";
   string src_dir = output_path / "working" / working_base;
   string dst_dir = output_path / "ready" / ready_base;
   string tmp_dir = output_path / "tmp" / ready_base;
@@ -179,10 +125,10 @@ void run_ssim_calculator(ProcessManager & proc_manager,
 }
 
 void run_audio_encoder(ProcessManager & proc_manager,
-                       const string & bitrate)
+                       const AudioFormat & af)
 {
   /* prepare directories */
-  string base = bitrate + "-" + "webm";
+  string base = af.to_string() + "-" + "webm";
   string src_dir = output_path / "working/audio-raw";
   string dst_dir = output_path / "working" / base;
   string tmp_dir = output_path / "tmp" / base;
@@ -199,16 +145,16 @@ void run_audio_encoder(ProcessManager & proc_manager,
 
   vector<string> args {
     notifier, src_dir, ".wav", "--check", dst_dir, ".webm", "--tmp", tmp_dir,
-    "--exec", audio_encoder, "-b", bitrate };
+    "--exec", audio_encoder, "-b", to_string(af.bitrate) };
   proc_manager.run_as_child(notifier, args);
 }
 
 void run_audio_fragmenter(ProcessManager & proc_manager,
-                          const string & bitrate)
+                          const AudioFormat & af)
 {
   /* prepare directories */
-  string working_base = bitrate + "-" + "webm";
-  string ready_base = bitrate;
+  string working_base = af.to_string() + "-" + "webm";
+  string ready_base = af.to_string();
   string src_dir = output_path / "working" / working_base;
   string dst_dir = output_path / "ready" / ready_base;
   string tmp_dir = output_path / "tmp" / ready_base;
@@ -260,7 +206,8 @@ void run_depcleaner(ProcessManager & proc_manager,
 }
 
 void run_windowcleaner(ProcessManager & proc_manager,
-                       const vector<tuple<string, string>> & ready)
+                       const vector<tuple<string, string>> & ready,
+                       const int clean_time_window)
 {
   string windowcleaner = src_path / "cleaner/windowcleaner";
 
@@ -271,14 +218,6 @@ void run_windowcleaner(ProcessManager & proc_manager,
                                    ext, to_string(clean_time_window) };
     proc_manager.run_as_child(notifier, notifier_args);
   }
-}
-
-void run_media_server(ProcessManager & proc_manager, const string & yaml_path)
-{
-  string media_server = src_path / "media-server/ws_media_server";
-
-  vector<string> args { media_server, yaml_path };
-  proc_manager.run_as_child(media_server, args);
 }
 
 int main(int argc, char * argv[])
@@ -292,15 +231,10 @@ int main(int argc, char * argv[])
     return EXIT_FAILURE;
   }
 
-  /* load and validate YAML that contains arguments */
-  string yaml_path = argv[1];
-  YAML::Node config = load_yaml(yaml_path);
-
-  vector<tuple<string, string>> vformats;
-  vector<string> aformats;
-
-  get_video_formats(config, vformats);
-  get_audio_formats(config, aformats);
+  /* load YAML configuration */
+  YAML::Node config = load_yaml(argv[1]);
+  vector<VideoFormat> vformats = get_video_formats(config);
+  vector<AudioFormat> aformats = get_audio_formats(config);
 
   /* create output directory */
   string output_dir = config["output"].as<string>();
@@ -328,19 +262,19 @@ int main(int argc, char * argv[])
   /* run video_canonicalizer */
   run_video_canonicalizer(proc_manager);
 
-  for (const auto & vformat : vformats) {
+  for (const auto & vf : vformats) {
     /* run video encoder and video fragmenter */
-    run_video_encoder(proc_manager, vformat);
-    run_video_fragmenter(proc_manager, vformat);
+    run_video_encoder(proc_manager, vf);
+    run_video_fragmenter(proc_manager, vf);
 
     /* run ssim_calculator */
-    run_ssim_calculator(proc_manager, vformat);
+    run_ssim_calculator(proc_manager, vf);
   }
 
-  for (const auto & aformat : aformats) {
+  for (const auto & af : aformats) {
     /* run audio encoder and audio fragmenter */
-    run_audio_encoder(proc_manager, aformat);
-    run_audio_fragmenter(proc_manager, aformat);
+    run_audio_encoder(proc_manager, af);
+    run_audio_fragmenter(proc_manager, af);
   }
 
   /* vwork, awork, vready, aready should have been filled out now */
@@ -350,11 +284,9 @@ int main(int argc, char * argv[])
   run_depcleaner(proc_manager, awork, aready);
 
   /* run windowcleaner to clean up files in ready/ */
-  run_windowcleaner(proc_manager, vready);
-  run_windowcleaner(proc_manager, aready);
-
-  /* run media server */
-  run_media_server(proc_manager, yaml_path);
+  int clean_time_window = config["clean_time_window"].as<int>();
+  run_windowcleaner(proc_manager, vready, clean_time_window);
+  run_windowcleaner(proc_manager, aready, clean_time_window);
 
   return proc_manager.wait();
 }
