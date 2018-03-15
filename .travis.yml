@@ -14,6 +14,7 @@ addons:
     - libpqxx-dev
     - libssl-dev
     - libcrypto++-dev
+    - libpng-dev
 
 before_install:
   # download a static-built ffmpeg from the official website
