@@ -10,8 +10,8 @@ WebSocketClient::WebSocketClient(const uint64_t connection_id)
     client_next_vts_(), client_next_ats_()
 {}
 
-void WebSocketClient::init(const string & channel, const uint64_t vts, 
-                           const uint64_t ats)
+void WebSocketClient::init(const string & channel,
+                           const uint64_t vts, const uint64_t ats)
 {
   channel_ = channel;
   next_vts_ = vts;

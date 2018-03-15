@@ -45,6 +45,7 @@ public:
 
   uint64_t init_vts() const;
   uint64_t find_ats(const uint64_t vts) const;
+
 private:
   std::string name_;
 

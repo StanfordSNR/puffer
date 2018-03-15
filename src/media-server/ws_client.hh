@@ -13,7 +13,8 @@ class WebSocketClient
 public:
   WebSocketClient(const uint64_t connection_id);
 
-  void init(const std::string & channel, const uint64_t vts, const uint64_t ats);
+  void init(const std::string & channel,
+            const uint64_t vts, const uint64_t ats);
 
   /* accessors */
   uint64_t connection_id() const { return connection_id_; }
@@ -38,7 +39,7 @@ public:
   void set_audio_playback_buf(const double buf) { audio_playback_buf_ = buf; }
   void set_video_playback_buf(const double buf) { video_playback_buf_ = buf; }
 
-  void set_curr_vq(const VideoFormat quality) { curr_vq_ = quality; }
+  void set_curr_vq(const VideoFormat & quality) { curr_vq_ = quality; }
   void set_curr_aq(const AudioFormat & quality) { curr_aq_ = quality; }
 
   void set_client_next_vts(const uint64_t vts) { client_next_vts_ = vts; }

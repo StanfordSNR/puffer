@@ -11,16 +11,16 @@
 using namespace std;
 
 Channel::Channel(const string & name, YAML::Node config, Inotify & inotify)
-: name_(name),
-  output_path_(),
-  vformats_(), aformats_(),
-  vinit_(), ainit_(),
-  vdata_(), vssim_(), adata_(),
-  clean_time_window_(),
-  timescale_(),
-  vduration_(), aduration_(),
-  vcodec_(), acodec_(),
-  init_vts_()
+  : name_(name),
+    output_path_(),
+    vformats_(), aformats_(),
+    vinit_(), ainit_(),
+    vdata_(), vssim_(), adata_(),
+    clean_time_window_(),
+    timescale_(),
+    vduration_(), aduration_(),
+    vcodec_(), acodec_(),
+    init_vts_()
 {
   vformats_ = get_video_formats(config);
   aformats_ = get_audio_formats(config);
