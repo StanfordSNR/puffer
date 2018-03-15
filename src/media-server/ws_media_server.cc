@@ -5,6 +5,7 @@
 #include <string>
 #include <map>
 #include <memory>
+#include <random>
 
 #include "yaml.hh"
 #include "inotify.hh"
@@ -31,18 +32,28 @@ void print_usage(const string & program_name)
   cerr << program_name << " <YAML configuration>" << endl;
 }
 
-const VideoFormat select_video_quality(WebSocketClient & client)
+inline int randint(const int a, const int b)
 {
-  // TODO: make a real choice
-  Channel & channel = channels.at(client.channel().value());
-  return client.curr_vq().value_or(channel.vformats()[0]);
+  assert(a < b);
+  int ret = a + rand() % (b - a);
+  assert(ret >= a and ret < b);
+  return ret;
 }
 
-const AudioFormat select_audio_quality(WebSocketClient & client)
+const VideoFormat & select_video_quality(WebSocketClient & client)
 {
   // TODO: make a real choice
   Channel & channel = channels.at(client.channel().value());
-  return client.curr_aq().value_or(channel.aformats()[0]);
+  // return client.curr_vq().value_or(channel.vformats()[0]);
+  return channel.vformats()[randint(0, channel.vformats().size())];
+}
+
+const AudioFormat & select_audio_quality(WebSocketClient & client)
+{
+  // TODO: make a real choice
+  Channel & channel = channels.at(client.channel().value());
+  // return client.curr_aq().value_or(channel.aformats()[0]);
+  return channel.aformats()[randint(0, channel.aformats().size())];
 }
 
 void serve_video_to_client(WebSocketServer & server, WebSocketClient & client)
@@ -54,7 +65,7 @@ void serve_video_to_client(WebSocketServer & server, WebSocketClient & client)
     return;
   }
 
-  const VideoFormat next_vq = select_video_quality(client);
+  const VideoFormat & next_vq = select_video_quality(client);
 
   cerr << "serving (id=" << client.connection_id() << ") video " << next_vts
        << " " << next_vq << endl;
@@ -104,7 +115,7 @@ void serve_audio_to_client(WebSocketServer & server, WebSocketClient & client)
     return;
   }
 
-  const AudioFormat next_aq = select_audio_quality(client);
+  const AudioFormat & next_aq = select_audio_quality(client);
 
   cerr << "serving (id=" << client.connection_id() << ") audio " << next_ats
        << " " << next_aq << endl;
