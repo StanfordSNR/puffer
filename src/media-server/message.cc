@@ -9,24 +9,24 @@
 using namespace std;
 using json = nlohmann::json;
 
-pair<ClientMessage::Type, string> unpack_client_msg(const string & data) {
+pair<ClientMessageType, string> unpack_client_msg(const string & data) {
   size_t split_idx = data.find_first_of(' ');
   if (split_idx == string::npos) {
     throw BadClientMessageException("Cannot get message type");
   }
   string type_str = data.substr(0, split_idx);
-  ClientMessage::Type type;
+  ClientMessageType type;
   if (type_str == "client-init") {
-    type = ClientMessage::Init;
+    type = ClientMessageType::Init;
   } else if (type_str == "client-info") {
-    type = ClientMessage::Info;
+    type = ClientMessageType::Info;
   } else {
-    type = ClientMessage::Unknown;
+    type = ClientMessageType::Unknown;
   }
   return make_pair(type, data.substr(split_idx));
 }
 
-ClientInitMessage parse_client_init_msg(const string & data) 
+ClientInitMessage parse_client_init_msg(const string & data)
 {
   optional<string> channel;
   int player_width, player_height;
@@ -44,7 +44,7 @@ ClientInitMessage parse_client_init_msg(const string & data)
   return {channel, player_width, player_height};
 }
 
-ClientInfoMessage parse_client_info_msg(const string & data) 
+ClientInfoMessage parse_client_info_msg(const string & data)
 {
   ClientInfoMessage ret;
   try {
@@ -53,17 +53,17 @@ ClientInfoMessage parse_client_info_msg(const string & data)
 
     ClientInfoMessage::PlayerEvent event;
     if (event_str == "timer") {
-      event = ClientInfoMessage::Timer;
+      event = ClientInfoMessage::PlayerEvent::Timer;
     } else if (event_str == "rebuffer") {
-      event = ClientInfoMessage::Rebuffer;
+      event = ClientInfoMessage::PlayerEvent::Rebuffer;
     } else if (event_str == "canplay") {
-      event = ClientInfoMessage::CanPlay;
+      event = ClientInfoMessage::PlayerEvent::CanPlay;
     } else if (event_str == "audack") {
-      event = ClientInfoMessage::AudioAck;
+      event = ClientInfoMessage::PlayerEvent::AudioAck;
     } else if (event_str == "vidack") {
-      event = ClientInfoMessage::VideoAck;
+      event = ClientInfoMessage::PlayerEvent::VideoAck;
     } else {
-      event = ClientInfoMessage::Unknown;
+      event = ClientInfoMessage::PlayerEvent::Unknown;
     }
 
     ret.event = event;
@@ -111,11 +111,11 @@ string make_server_hello_msg(const vector<string> & channels)
   return pack_json(msg);
 }
 
-string make_server_init_msg(const string & channel, 
+string make_server_init_msg(const string & channel,
                                   const string & video_codec,
                                   const string & audio_codec,
                                   const unsigned int & timescale,
-                                  const unsigned int & init_timestamp) 
+                                  const unsigned int & init_timestamp)
 {
   json msg = {
     {"type", "server-init"},
@@ -129,19 +129,19 @@ string make_server_init_msg(const string & channel,
 }
 
 static inline string make_media_chunk_msg(
-  const string & media_type,                                    
+  const string & media_type,
   const string & quality,
   const unsigned int & timestamp,
   const unsigned int & duration,
   const unsigned int & byte_offset,
-  const unsigned int & total_byte_length) 
+  const unsigned int & total_byte_length)
 {
   json msg = {
     {"type", media_type},
     {"quality", quality},
     {"timestamp", timestamp},
     {"duration", duration},
-    {"byteOffset", byte_offset}, 
+    {"byteOffset", byte_offset},
     {"totalByteLength", total_byte_length}
   };
   return pack_json(msg);
@@ -154,7 +154,7 @@ string make_audio_msg(
   const unsigned int & byte_offset,
   const unsigned int & total_byte_length)
 {
-  return make_media_chunk_msg("audio", quality, timestamp, duration, 
+  return make_media_chunk_msg("audio", quality, timestamp, duration,
                               byte_offset, total_byte_length);
 }
 
@@ -165,6 +165,6 @@ string make_video_msg(
   const unsigned int & byte_offset,
   const unsigned int & total_byte_length)
 {
-  return make_media_chunk_msg("video", quality, timestamp, duration, 
+  return make_media_chunk_msg("video", quality, timestamp, duration,
                               byte_offset, total_byte_length);
 }
