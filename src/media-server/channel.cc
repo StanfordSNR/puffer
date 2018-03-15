@@ -1,5 +1,6 @@
 #include "channel.hh"
 
+#include <limits.h>
 #include <fcntl.h>
 #include <fstream>
 #include <sstream>
@@ -30,7 +31,9 @@ Channel::Channel(const string & name, YAML::Node config, Inotify & inotify)
   vcodec_ = config["video_codec"].as<string>();
   acodec_ = config["audio_codec"].as<string>();
 
-  clean_time_window_ = config["clean_time_window"].as<int>();
+  if (config["clean_time_window"]) {
+    clean_time_window_ = config["clean_time_window"].as<int>();
+  }
   timescale_ = config["timescale"].as<int>();
   vduration_ = config["video_duration"].as<int>();
   aduration_ = config["audio_duration"].as<int>();
@@ -130,34 +133,38 @@ static mmap_t mmap_file(const string & filepath)
 
 void Channel::munmap_video(const uint64_t ts)
 {
-  uint64_t obsolete = 0;
-  if (ts > clean_time_window_) {
-    obsolete = ts - clean_time_window_;
-  }
+  if (clean_time_window_.has_value()) {
+    uint64_t obsolete = 0;
+    if (ts > clean_time_window_.value()) {
+      obsolete = ts - clean_time_window_.value();
+    }
 
-  for (auto it = vdata_.cbegin(); it != vdata_.cend();) {
-    uint64_t ts = it->first;
-    if (ts < obsolete) {
-      vssim_.erase(ts);
-      it = vdata_.erase(it);
-    } else {
-      break;
+    for (auto it = vdata_.cbegin(); it != vdata_.cend();) {
+      uint64_t ts = it->first;
+      if (ts < obsolete) {
+        vssim_.erase(ts);
+        it = vdata_.erase(it);
+      } else {
+        break;
+      }
     }
   }
 }
 
 void Channel::munmap_audio(const uint64_t ts)
 {
-  uint64_t obsolete = 0;
-  if (ts > clean_time_window_) {
-    obsolete = ts - clean_time_window_;
-  }
+  if (clean_time_window_.has_value()) {
+    uint64_t obsolete = 0;
+    if (ts > clean_time_window_.value()) {
+      obsolete = ts - clean_time_window_.value();
+    }
 
-  for (auto it = adata_.cbegin(); it != adata_.cend();) {
-    if (it->first < obsolete) {
-      it = adata_.erase(it);
-    } else {
-      break;
+    for (auto it = adata_.cbegin(); it != adata_.cend();) {
+      if (it->first < obsolete) {
+        it = adata_.erase(it);
+      } else {
+        break;
+      }
     }
   }
 }

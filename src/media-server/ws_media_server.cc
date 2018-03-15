@@ -194,11 +194,12 @@ void start_global_timer(WebSocketServer & server)
 void handle_client_init(WebSocketServer & server, WebSocketClient & client,
                         const ClientInitMessage & message)
 {
-  if (channels.find(message.channel) == channels.end()) {
+  auto it = message.channel.has_value() ? 
+    channels.find(message.channel.value()) : channels.begin();
+  if (it == channels.end()) {
     throw BadClientMessageException("Requested channel not found");
   }
-
-  auto channel = channels.at(message.channel);
+  auto & channel = it->second;
 
   uint16_t init_vts = channel.init_vts();
   uint16_t init_ats = channel.find_ats(init_vts);

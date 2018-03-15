@@ -3,6 +3,7 @@
 
 #include <string>
 #include <vector>
+#include <optional>
 #include <exception>
 
 struct ClientMessage {
@@ -15,7 +16,7 @@ struct ClientMessage {
 
 /* Sent by the client to start streaming */
 typedef struct ClientInitMessage {
-  std::string channel;
+  std::optional<std::string> channel;
 
   int player_width;
   int player_height;

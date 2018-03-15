@@ -28,13 +28,16 @@ pair<ClientMessage::Type, string> unpack_client_msg(const string & data) {
 
 ClientInitMessage parse_client_init_msg(const string & data) 
 {
-  string channel;
+  optional<string> channel;
   int player_width, player_height;
   try {
     auto obj = json::parse(data);
-    channel = obj["channel"];
-    player_width = obj["playerWidth"];
-    player_height = obj["playerHeight"];
+    auto it = obj.find("channel");
+    if (it != obj.end()) {
+      channel = *it;
+    }
+    player_width = obj.at("playerWidth");
+    player_height = obj.at("playerHeight");
   } catch (const exception & e) {
     throw BadClientMessageException(e.what());
   }
@@ -46,7 +49,7 @@ ClientInfoMessage parse_client_info_msg(const string & data)
   ClientInfoMessage ret;
   try {
     auto obj = json::parse(data);
-    string event_str = obj["event"];
+    string event_str = obj.at("event");
 
     ClientInfoMessage::PlayerEvent event;
     if (event_str == "timer") {
@@ -60,14 +63,14 @@ ClientInfoMessage parse_client_info_msg(const string & data)
     }
 
     ret.event = event;
-    ret.video_buffer_len = obj["videoBufferLen"];
-    ret.audio_buffer_len = obj["audioBufferLen"];
-    ret.next_video_timestamp = obj["nextVideoTimestamp"];
-    ret.next_audio_timestamp = obj["nextAudioTimestamp"];
-    ret.player_width = obj["playerWidth"];
-    ret.player_height = obj["playerHeight"];
+    ret.video_buffer_len = obj.at("videoBufferLen");
+    ret.audio_buffer_len = obj.at("audioBufferLen");
+    ret.next_video_timestamp = obj.at("nextVideoTimestamp");
+    ret.next_audio_timestamp = obj.at("nextAudioTimestamp");
+    ret.player_width = obj.at("playerWidth");
+    ret.player_height = obj.at("playerHeight");
 
-    int player_ready_state = obj["playerReadyState"];
+    int player_ready_state = obj.at("playerReadyState");
     if (player_ready_state < 0 || player_ready_state > 4) {
       throw BadClientMessageException("Invalid player ready state");
     }

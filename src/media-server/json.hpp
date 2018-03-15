@@ -3954,7 +3954,7 @@ class iter_impl
     @pre object != nullptr
     @post The iterator is initialized; i.e. `m_object != nullptr`.
     */
-    explicit iter_impl(pointer object) noexcept : m_object(object)
+    explicit iter_impl(pointer object) noexcept : m_object(object), m_it()
     {
         assert(m_object != nullptr);
 

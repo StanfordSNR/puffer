@@ -11,7 +11,10 @@ const VIDEO_OFFSET_ADJUSTMENT = 0.05;
 const DEBUG = false;
 
 const HTML_MEDIA_READY_STATES = [
-  'HAVE_NOTHING', 'HAVE_METADATA', 'HAVE_CURRENT_DATA', 'HAVE_FUTURE_DATA',
+  'HAVE_NOTHING', 
+  'HAVE_METADATA', 
+  'HAVE_CURRENT_DATA',
+  'HAVE_FUTURE_DATA',
   'HAVE_ENOUGH_DATA'
 ];
 
@@ -23,12 +26,12 @@ function parse_server_msg(data) {
         data.slice(2, 2 + header_len))),
     data: data.slice(2 + header_len)
   };
-};
+}
 
 /* Client messages are of the form: "message_type json_data" */
 function format_client_msg(msg_type, data) {
   return msg_type + ' ' + JSON.stringify(data);
-};
+}
 
 /* Concatenates an array of arraybuffers */
 function concat_arraybuffers(arr) {
@@ -39,7 +42,7 @@ function concat_arraybuffers(arr) {
     return i + x.length;
   })
   return tmp.buffer;
-};
+}
 
 function AVSource(video, audio, options) {
   /* SourceBuffers for audio and video */
@@ -217,7 +220,7 @@ function AVSource(video, audio, options) {
       abuf.appendBuffer(pending_audio_chunks.shift());
     }
   };
-};
+}
 
 function WebSocketClient(video, audio, channel_select) {
   var ws;
@@ -234,7 +237,7 @@ function WebSocketClient(video, audio, channel_select) {
       option.text = channels[i].toUpperCase();
       channel_select.appendChild(option);
     }
-  };
+  }
 
   /* Handle a websocket message from the server */
   function handle_msg(e) {
@@ -268,18 +271,19 @@ function WebSocketClient(video, audio, channel_select) {
   function send_client_init(ws, channel) {
     if (ws && ws.readyState == WS_OPEN) {
       try {
-        ws.send(format_client_msg('client-init', 
-          {
-            channel: channel,
-            playerWidth: video.videoWidth,
-            playerHeight: video.videoHeight
-          }
-        ));
+        var msg = {
+          playerWidth: video.videoWidth,
+          playerHeight: video.videoHeight
+        };
+        if (channel != null) {
+          msg.channel = channel;
+        }
+        ws.send(format_client_msg('client-init', msg));
       } catch (e) {
         console.log(e);
       }
     }
-  };
+  }
 
   function send_client_info(event) {
     if (DEBUG && av_source && av_source.isOpen()) {
@@ -303,16 +307,19 @@ function WebSocketClient(video, audio, channel_select) {
         console.log('Failed to send client info', e);
       }
     }
-  };
+  }
 
   this.connect = function() {
-    ws = new WebSocket('ws://' + location.host);
+    console.log('HTTP at', location.host);
+    var ws_host_and_port = location.host.split(':')[0] + ':8081';
+    console.log('WS at', ws_host_and_port);
+    ws = new WebSocket('ws://' + ws_host_and_port);
     ws.binaryType = 'arraybuffer';
     ws.onmessage = handle_msg;
 
     ws.onopen = function (e) {
       console.log('WebSocket open, sending client-hello');
-      send_client_init(ws, '');
+      send_client_init(ws, null);
     };
 
     ws.onclose = function (e) {
