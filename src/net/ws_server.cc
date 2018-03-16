@@ -70,13 +70,26 @@ string WSServer<NBSecureSocket>::Connection::read()
 template<>
 void WSServer<TCPSocket>::Connection::write()
 {
-  send_buffer.erase(0, socket.write(send_buffer) - send_buffer.cbegin());
+  while (not send_buffer.empty()) {
+    string & buffer = send_buffer.front();
+
+    auto it = socket.write(buffer);
+    if (it != buffer.cend()) {
+      buffer.erase(0, it - buffer.cbegin());
+      break;
+    } else {
+      send_buffer.pop_front();
+    }
+  }
 }
 
 template<>
 void WSServer<NBSecureSocket>::Connection::write()
 {
-  socket.ezwrite(send_buffer);
+  for (const auto & buffer : send_buffer) {
+    socket.ezwrite(buffer);
+  }
+
   send_buffer.clear();
 }
 
@@ -199,7 +212,8 @@ WSServer<SocketType>::WSServer(const Address & listener_addr)
               conn.write();
             }
             else {
-              conn.send_buffer = create_handshake_response(conn.handshake_request).str();
+              conn.send_buffer.emplace_back(
+                  create_handshake_response(conn.handshake_request).str());
               conn.write();
             }
 
@@ -253,7 +267,7 @@ void WSServer<SocketType>::queue_frame(const uint64_t connection_id, const WSFra
     throw runtime_error("not connected, cannot send the frame");
   }
 
-  conn.send_buffer += frame.to_string();
+  conn.send_buffer.emplace_back(frame.to_string());
 }
 
 template<class SocketType>
@@ -278,7 +292,12 @@ template<class SocketType>
 size_t WSServer<SocketType>::queue_size(const uint64_t connection_id)
 {
   Connection & conn = connections_.at(connection_id);
-  return conn.send_buffer.size();
+
+  size_t total_size = 0;
+  for (const auto & buffer : conn.send_buffer) {
+    total_size += buffer.size();
+  }
+  return total_size;
 }
 
 template<class SocketType>

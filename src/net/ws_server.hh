@@ -6,6 +6,7 @@
 #include <map>
 #include <set>
 #include <functional>
+#include <deque>
 
 #include "socket.hh"
 #include "nb_secure_socket.hh"
@@ -44,14 +45,14 @@ private:
     WSMessageParser ws_message_parser {};
 
     /* outgoing messages */
-    std::string send_buffer {};
+    std::deque<std::string> send_buffer {};
 
     Connection(TCPSocket && sock, SSLContext & ssl_context);
 
     std::string read();
     void write();
 
-    bool data_to_send() const { return send_buffer.length() > 0; }
+    bool data_to_send() const { return not send_buffer.empty(); }
   };
 
   SSLContext ssl_context_ {};
@@ -79,6 +80,7 @@ public:
   void set_close_callback(CloseCallback func) { close_callback_ = func; }
 
   void queue_frame(const uint64_t connection_id, const WSFrame & frame);
+
   void close_connection(const uint64_t connection_id);
   size_t queue_size(const uint64_t connection_id);
 };
