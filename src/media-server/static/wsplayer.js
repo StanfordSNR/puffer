@@ -3,12 +3,6 @@ const WS_OPEN = 1;
 const SEND_INFO_INTERVAL = 2000;
 const UPDATE_AV_SOURCE_INTERVAL = 100;
 
-/* If the video offset causes the start of the first chunk
- * to go negative, the first video segment may get dropped,
- * causing the video to not play.
- * This ensures that videoOffset - adjustment > 0 */
-const VIDEO_OFFSET_ADJUSTMENT = 0.05;
-
 const HTML_MEDIA_READY_STATES = [
   'HAVE_NOTHING',
   'HAVE_METADATA',
@@ -73,10 +67,9 @@ function AVSource(video, audio, options) {
   /* Initializes the video and audio source buffers, and sets the initial
    * offset */
   function init_source_buffers() {
-    var time_offset = init_timestamp / timescale + VIDEO_OFFSET_ADJUSTMENT;
+    video.currentTime = init_timestamp / timescale;
 
     vbuf = ms.addSourceBuffer(video_codec);
-    vbuf.timestampOffset = time_offset;
     vbuf.addEventListener('updateend', that.update);
     vbuf.addEventListener('error', function(e) {
       console.log('vbuf error:', e);
@@ -88,7 +81,6 @@ function AVSource(video, audio, options) {
     });
 
     abuf = ms.addSourceBuffer(audio_codec);
-    abuf.timestampOffset = time_offset;
     abuf.addEventListener('updateend', that.update);
     abuf.addEventListener('error', function(e) {
       console.log('abuf error:', e);
@@ -98,21 +90,21 @@ function AVSource(video, audio, options) {
       console.log('abuf abort:', e);
       that.close();
     });
-  };
+  }
 
   ms.addEventListener('sourceopen', function(e) {
-    console.log('sourceopen: ' + ms.readyState);
+    console.log('sourceopen: ' + ms.readyState, e);
     init_source_buffers();
   });
   ms.addEventListener('sourceended', function(e) {
-    console.log('sourceended: ' + ms.readyState);
+    console.log('sourceended: ' + ms.readyState, e);
   });
   ms.addEventListener('sourceclose', function(e) {
-    console.log('sourceclose: ' + ms.readyState);
+    console.log('sourceclose: ' + ms.readyState, e);
     that.close();
   });
   ms.addEventListener('error', function(e) {
-    console.log('media source error: ' + ms.readyState);
+    console.log('media source error: ' + ms.readyState, e);
     that.close();
   });
 
@@ -298,7 +290,7 @@ function WebSocketClient(video, audio, channel_select) {
             playerWidth: video.videoWidth,
             playerHeight: video.videoHeight,
             playerReadyState: video.readyState,
-            initId: av_source.getInitId(),
+            initId: av_source.getInitId()
           }
         ));
       } catch (e) {
@@ -343,7 +335,7 @@ function WebSocketClient(video, audio, channel_select) {
   }
 
   this.connect = function() {
-    console.log('HTTP at', location.host);
+    console.log('HT TP at', location.host);
     var ws_host_and_port = location.host.split(':')[0] + ':8081';
     console.log('WS at', ws_host_and_port);
     ws = new WebSocket('ws://' + ws_host_and_port);
