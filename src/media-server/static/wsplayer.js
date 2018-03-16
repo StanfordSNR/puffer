@@ -313,7 +313,7 @@ function WebSocketClient(video, audio, channel_select) {
 
     } else if (message.metadata.type == 'audio') {
       if (debug) {
-        console.log('received', message.metadata.type, 
+        console.log('received', message.metadata.type,
                     message.metadata.timestamp,
                     message.metadata.quality);
       }
@@ -322,7 +322,7 @@ function WebSocketClient(video, audio, channel_select) {
 
     } else if (message.metadata.type == 'video') {
       if (debug) {
-        console.log('received', message.metadata.type, 
+        console.log('received', message.metadata.type,
                     message.metadata.timestamp,
                     message.metadata.quality);
       }
