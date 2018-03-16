@@ -21,4 +21,7 @@ void WebSocketClient::init(const string & channel,
 
   curr_vq_.reset();
   curr_aq_.reset();
+
+  client_next_vts_ = vts;
+  client_next_ats_ = ats;
 }
