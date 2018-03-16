@@ -335,7 +335,7 @@ function WebSocketClient(video, audio, channel_select) {
   }
 
   this.connect = function() {
-    console.log('HT TP at', location.host);
+    console.log('HTTP at', location.host);
     var ws_host_and_port = location.host.split(':')[0] + ':8081';
     console.log('WS at', ws_host_and_port);
     ws = new WebSocket('ws://' + ws_host_and_port);
