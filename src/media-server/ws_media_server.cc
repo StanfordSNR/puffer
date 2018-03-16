@@ -97,9 +97,9 @@ void serve_video_to_client(WebSocketServer & server, WebSocketClient & client)
                                         next_vts, channel.vduration(),
                                         next_vsegment.offset(),
                                         next_vsegment.length());
-  frame_payload.append(next_vsegment.read(max_ws_frame_len));
+  next_vsegment.read_and_append(max_ws_frame_len, frame_payload);
 
-  WSFrame frame {true, WSFrame::OpCode::Binary, frame_payload};
+  WSFrame frame {true, WSFrame::OpCode::Binary, move(frame_payload)};
   server.queue_frame(client.connection_id(), frame);
 
   if (next_vsegment.done()) {
@@ -143,9 +143,9 @@ void serve_audio_to_client(WebSocketServer & server, WebSocketClient & client)
                                         channel.aduration(),
                                         next_asegment.offset(),
                                         next_asegment.length());
-  frame_payload.append(next_asegment.read(max_ws_frame_len));
+  next_asegment.read_and_append(max_ws_frame_len, frame_payload);
 
-  WSFrame frame {true, WSFrame::OpCode::Binary, frame_payload};
+  WSFrame frame {true, WSFrame::OpCode::Binary, move(frame_payload)};
   server.queue_frame(client.connection_id(), frame);
 
   if (next_asegment.done()) {
@@ -251,7 +251,7 @@ void handle_client_init(WebSocketServer & server, WebSocketClient & client,
                                       client.init_id());
 
   /* Reinitialize video playback on the client */
-  WSFrame frame {true, WSFrame::OpCode::Binary, reply};
+  WSFrame frame {true, WSFrame::OpCode::Binary, move(reply)};
   server.queue_frame(client.connection_id(), frame);
 }
 
@@ -270,7 +270,7 @@ void handle_client_open(WebSocketServer & server, const uint64_t connection_id)
 {
   /* Send the client the list of playable channels */
   string server_hello = make_server_hello_msg(channel_names);
-  WSFrame frame {true, WSFrame::OpCode::Binary, server_hello};
+  WSFrame frame {true, WSFrame::OpCode::Binary, move(server_hello)};
   server.queue_frame(connection_id, frame);
 }
 

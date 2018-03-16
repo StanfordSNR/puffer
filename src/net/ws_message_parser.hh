@@ -18,7 +18,7 @@ private:
   std::queue<WSMessage> complete_messages_ {};
 
 public:
-  void parse( const std::string & buf );
+  void parse(const std::string & buf);
 
   bool empty() const { return complete_messages_.empty(); }
   const WSMessage & front() const { return complete_messages_.front(); }

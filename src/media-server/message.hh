@@ -62,16 +62,14 @@ public:
     explicit BadClientMessageException(const std::string & message)
       : msg_(message) {}
     virtual ~BadClientMessageException() throw () {}
-    virtual const char * what() const throw () {
-       return msg_.c_str();
-    }
+    virtual const char * what() const throw () { return msg_.c_str(); }
 
 protected:
     std::string msg_;
 };
 
 /* Client message format:
- *   "<message_type> <json_string>"
+ *   <message_type> <json_string>
  */
 
 /* Returns a pair containing the message type and the json payload */
@@ -84,7 +82,7 @@ ClientInitMessage parse_client_init_msg(const std::string & data);
 ClientInfoMessage parse_client_info_msg(const std::string & data);
 
 /* Server message format:
- *   [0:2]             message _en (network endian)
+ *   [0:2]             message_len (network endian)
  *   [2:2+message_len] json string
  *   [2+message_len:]  data
  */

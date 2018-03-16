@@ -119,8 +119,8 @@ uint64_t WSFrame::expected_length( const Chunk & chunk )
 
 uint32_t WSFrame::Header::header_length() const
 {
-  return 2 + ((payload_length_ < 126) ? 0
-                                      : ((payload_length_ < (1 << 16)) ? 2 : 8))
+  return 2 + ((payload_length_ < 126) ?
+               0 : ((payload_length_ < (1 << 16)) ? 2 : 8))
            + (masking_key_.initialized() ? 4 : 0);
 }
 
