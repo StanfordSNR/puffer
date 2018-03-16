@@ -240,10 +240,11 @@ void handle_client_init(WebSocketServer & server, WebSocketClient & client,
   }
   auto & channel = it->second;
 
-  uint16_t init_vts = channel.init_vts();
-  uint16_t init_ats = channel.find_ats(init_vts);
+  uint64_t init_vts = channel.init_vts();
+  uint64_t init_ats = channel.find_ats(init_vts);
 
   client.init(channel.name(), init_vts, init_ats);
+  assert(init_vts == client.next_vts().value());
 
   string reply = make_server_init_msg(channel.name(), channel.vcodec(),
                                       channel.acodec(), channel.timescale(),
