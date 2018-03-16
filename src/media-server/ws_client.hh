@@ -13,10 +13,15 @@ class MediaSegment
 {
 public:
   MediaSegment(mmap_t & data, std::optional<mmap_t> init);
+
+  /* this function avoids one copy of the read string */
+  void read_and_append(const size_t n, std::string & ret);
+
   std::string read(const size_t n);
   size_t offset() { return offset_; }
   size_t length() { return length_; }
   bool done() { return offset_ == length_; }
+
 private:
   std::optional<mmap_t> init_;
   mmap_t data_;
@@ -31,6 +36,7 @@ public:
                std::optional<mmap_t> init)
     : MediaSegment(data, init), format_(format) {}
   const VideoFormat & format() const { return format_; }
+
 private:
   const VideoFormat & format_;
 };
@@ -42,6 +48,7 @@ public:
                std::optional<mmap_t> init)
     : MediaSegment(data, init), format_(format) {}
   const AudioFormat & format() const { return format_; }
+
 private:
   const AudioFormat & format_;
 };

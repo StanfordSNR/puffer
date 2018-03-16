@@ -11,28 +11,38 @@ MediaSegment::MediaSegment(mmap_t & data, std::optional<mmap_t> init)
   }
 }
 
-string MediaSegment::read(const size_t n) {
+void MediaSegment::read_and_append(const size_t n, string & ret)
+{
   assert(offset_ < length_);
   const size_t init_size = init_.has_value() ? get<1>(init_.value()) : 0;
+  const size_t ret_init_length = ret.length();
 
-  string ret;
   if (init_.has_value() and offset_ < init_size) {
     const size_t to_read = init_size - offset_ > n ? n : init_size - offset_;
     ret.append(get<0>(init_.value()).get() + offset_, to_read);
     offset_ += to_read;
-    if (ret.length() >= n) {
-      return ret;
+    if (ret.length() - ret_init_length >= n) {
+      return;
     }
   }
 
   const auto & [seg_data, seg_size] = data_;
   const size_t offset_into_data = offset_ - init_size;
-  const size_t to_read = seg_size - offset_into_data > n - ret.length() ?
-                         n - ret.length() : seg_size - offset_into_data;
+
+  size_t to_read = n - (ret.length() - ret_init_length);
+  to_read = seg_size - offset_into_data > to_read ?
+            to_read : seg_size - offset_into_data;
+
   ret.append(seg_data.get() + offset_into_data, to_read);
   offset_ += to_read;
 
-  assert (ret.length() <= n);
+  assert(ret.length() - ret_init_length <= n);
+}
+
+string MediaSegment::read(const size_t n)
+{
+  string ret;
+  read_and_append(n, ret);
   return ret;
 }
 
