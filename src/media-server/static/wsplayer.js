@@ -35,13 +35,12 @@ function format_client_msg(msg_type, data) {
 }
 
 /* Concatenates an array of arraybuffers */
-function concat_arraybuffers(arr) {
-  var len = arr.reduce((acc, x) => acc + x.length);
+function concat_arraybuffers(arr, len) {
   var tmp = new Uint8Array(len);
   arr.reduce(function (i, x) {
     tmp.set(new Uint8Array(x), i);
-    return i + x.length;
-  })
+    return i + x.byteLength;
+  }, 0)
   return tmp.buffer;
 }
 
@@ -140,12 +139,18 @@ function AVSource(video, audio, options) {
 
     /* Last fragment received */
     if (data.byteLength + metadata.byteOffset == metadata.totalByteLength) {
+      if (debug) {
+        console.log('video: done receiving', metadata.timestamp);
+      }
       pending_video_chunks.push({
         ts: metadata.timestamp,
-        data: concat_arraybuffers(partial_video_chunks)
+        data: concat_arraybuffers(partial_video_chunks,
+                                  metadata.totalByteLength)
       });
       partial_video_chunks = [];
       next_video_timestamp = metadata.timestamp + metadata.duration;
+    } else if (debug) {
+      console.log('video: not done receiving', metadata.timestamp);
     }
   };
 
@@ -161,12 +166,18 @@ function AVSource(video, audio, options) {
 
     /* Last fragment received */
     if (data.byteLength + metadata.byteOffset == metadata.totalByteLength) {
+      if (debug) {
+        console.log('audio: done receiving', metadata.timestamp);
+      }
       pending_audio_chunks.push({
         ts: metadata.timestamp,
-        data: concat_arraybuffers(partial_audio_chunks)
+        data: concat_arraybuffers(partial_audio_chunks,
+                                  metadata.totalByteLength)
       });
       partial_audio_chunks = [];
       next_audio_timestamp = metadata.timestamp + metadata.duration;
+    } else if (debug) {
+      console.log('audio: not done receiving', metadata.timestamp);
     }
   };
 

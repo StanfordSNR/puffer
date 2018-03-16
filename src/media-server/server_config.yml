@@ -1,6 +1,7 @@
 port: 8081
 max_buffer: 30
 max_inflight: 3
+max_ws_frame: 200000
 channel:
   - tos
 tos:
