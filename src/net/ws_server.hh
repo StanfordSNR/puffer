@@ -45,7 +45,6 @@ private:
 
     /* outgoing messages */
     std::string send_buffer {};
-    size_t queue_size() const { return send_buffer.size(); }
 
     Connection(TCPSocket && sock, SSLContext & ssl_context);
 
@@ -81,6 +80,7 @@ public:
 
   void queue_frame(const uint64_t connection_id, const WSFrame & frame);
   void close_connection(const uint64_t connection_id);
+  size_t queue_size(const uint64_t connection_id);
 };
 
 using WebSocketServer = WSServer<TCPSocket>;
