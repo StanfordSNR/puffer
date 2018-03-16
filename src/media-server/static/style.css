@@ -60,7 +60,6 @@
   transition: opacity .2s;
   position: relative;
   left: 30px;
-  padding: 5px;
   opacity: 0.8;
 }
 
@@ -99,7 +98,6 @@
   transition: opacity .2s;
   position: relative;
   left: 30px;
-  top: -5px;
   opacity: 0.8;
 }
 
