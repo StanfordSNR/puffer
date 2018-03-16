@@ -69,6 +69,7 @@ ClientInfoMessage parse_client_info_msg(const string & data)
     }
 
     ret.event = event;
+    ret.init_id = obj.at("initId");
     ret.video_buffer_len = obj.at("videoBufferLen");
     ret.audio_buffer_len = obj.at("audioBufferLen");
     ret.next_video_timestamp = obj.at("nextVideoTimestamp");
@@ -118,7 +119,8 @@ string make_server_init_msg(const string & channel,
                             const string & video_codec,
                             const string & audio_codec,
                             const unsigned int timescale,
-                            const unsigned int init_timestamp)
+                            const unsigned int init_timestamp,
+                            const unsigned int init_id)
 {
   json msg = {
     {"type", "server-init"},
@@ -126,7 +128,8 @@ string make_server_init_msg(const string & channel,
     {"videoCodec", video_codec},
     {"audioCodec", audio_codec},
     {"timescale", timescale},
-    {"initTimestamp", init_timestamp}
+    {"initTimestamp", init_timestamp},
+    {"initId", init_id}
   };
   return pack_json(msg);
 }

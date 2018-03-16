@@ -54,6 +54,7 @@ function AVSource(video, audio, options) {
   var audio_codec = options.audioCodec;
   var timescale = options.timescale;
   var init_timestamp = options.initTimestamp;
+  var init_id = options.initId;
 
   /* Timestamps for the next chunks that the player is expecting */
   var next_audio_timestamp = init_timestamp;
@@ -216,6 +217,11 @@ function AVSource(video, audio, options) {
     return next_audio_timestamp;
   };
 
+  /* Get the id that identifies this initialized source */
+  this.getInitId = function() {
+    return init_id;
+  };
+
   /* Pushes data onto the SourceBuffers if they are ready */
   this.update = function() {
     if (vbuf && !vbuf.updating
@@ -281,6 +287,7 @@ function WebSocketClient(video, audio, channel_select) {
             playerWidth: video.videoWidth,
             playerHeight: video.videoHeight,
             playerReadyState: video.readyState,
+            initId: av_source.getInitId(),
           }
         ));
       } catch (e) {

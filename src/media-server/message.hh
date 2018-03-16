@@ -51,6 +51,8 @@ using ClientInfo = struct ClientInfoMessage {
   int player_width;
   int player_height;
   PlayerReadyState player_ready_state;
+
+  unsigned int init_id;
 };
 
 class BadClientMessageException : public std::exception
@@ -96,7 +98,8 @@ std::string make_server_init_msg(
   const std::string & video_codec,
   const std::string & audio_codec,
   const unsigned int timescale,        /* video timescale */
-  const unsigned int init_timestamp);  /* starting timestamp in timescale */
+  const unsigned int init_timestamp,   /* starting timestamp in timescale */
+  const unsigned int init_id);
 
 /* Audio segment message, payload contains the init and data */
 std::string make_audio_msg(

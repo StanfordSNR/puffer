@@ -32,6 +32,8 @@ public:
   std::optional<uint64_t> client_next_vts() const { return client_next_vts_; }
   std::optional<uint64_t> client_next_ats() const { return client_next_ats_; }
 
+  unsigned int init_id() const { return init_id_; }
+
   /* mutators */
   void set_next_vts(const uint64_t next_vts) { next_vts_ = next_vts; }
   void set_next_ats(const uint64_t next_ats) { next_ats_ = next_ats; }
@@ -60,6 +62,8 @@ private:
 
   std::optional<uint64_t> client_next_vts_;
   std::optional<uint64_t> client_next_ats_;
+
+  unsigned int init_id_;
 };
 
 #endif /* WS_CLIENT_HH */

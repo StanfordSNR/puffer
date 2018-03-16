@@ -225,7 +225,8 @@ void handle_client_init(WebSocketServer & server, WebSocketClient & client,
 
   string reply = make_server_init_msg(channel.name(), channel.vcodec(),
                                       channel.acodec(), channel.timescale(),
-                                      client.next_vts().value());
+                                      client.next_vts().value(),
+                                      client.init_id());
 
   /* Reinitialize video playback on the client */
   WSFrame frame {true, WSFrame::OpCode::Binary, reply};
@@ -235,10 +236,12 @@ void handle_client_init(WebSocketServer & server, WebSocketClient & client,
 void handle_client_info(WebSocketClient & client,
                         const ClientInfoMessage & message)
 {
-  client.set_audio_playback_buf(message.audio_buffer_len);
-  client.set_video_playback_buf(message.video_buffer_len);
-  client.set_client_next_vts(message.next_video_timestamp);
-  client.set_client_next_ats(message.next_audio_timestamp);
+  if (message.init_id == client.init_id()) {
+    client.set_audio_playback_buf(message.audio_buffer_len);
+    client.set_video_playback_buf(message.video_buffer_len);
+    client.set_client_next_vts(message.next_video_timestamp);
+    client.set_client_next_ats(message.next_audio_timestamp);
+  }
 }
 
 void handle_client_open(WebSocketServer & server, const uint64_t connection_id)
