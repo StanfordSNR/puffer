@@ -1,4 +1,3 @@
-
 #include <cstdint>
 
 #include <iostream>
@@ -160,14 +159,15 @@ inline unsigned int video_in_flight(const Channel & channel,
                                     const WebSocketClient & client)
 {
   /* Return number of seconds of video in flight */
-  return (client.next_vts().value() - client.client_next_vts().value_or(0))
+  return (client.next_vts().value() - client.client_next_vts().value())
           / channel.timescale();
 }
 
 inline unsigned int audio_in_flight(const Channel & channel,
                                     const WebSocketClient & client)
 {
-  return (client.next_ats().value() - client.client_next_ats().value_or(0))
+  /* Return number of seconds of audio in flight */
+  return (client.next_ats().value() - client.client_next_ats().value())
           / channel.timescale();
 }
 
@@ -222,9 +222,6 @@ void handle_client_init(WebSocketServer & server, WebSocketClient & client,
   uint16_t init_ats = channel.find_ats(init_vts);
 
   client.init(channel.name(), init_vts, init_ats);
-  assert(client.channel().has_value());
-  assert(client.next_vts().has_value());
-  assert(client.next_ats().has_value());
 
   string reply = make_server_init_msg(channel.name(), channel.vcodec(),
                                       channel.acodec(), channel.timescale(),
@@ -273,11 +270,11 @@ int main(int argc, char * argv[])
   /* mmap new media files */
   Inotify inotify(server.poller());
 
-  for (YAML::const_iterator it= config["channel"].begin();
-       it !=  config["channel"].end(); ++it) {
+  for (YAML::const_iterator it = config["channel"].begin();
+       it != config["channel"].end(); ++it) {
     const string channel_name = it->as<string>();
-    channels.emplace(channel_name, Channel(channel_name, config[channel_name],
-                     inotify));
+    channels.emplace(channel_name,
+                     Channel(channel_name, config[channel_name], inotify));
     channel_names.push_back(channel_name);
   }
 
