@@ -133,6 +133,16 @@ WSFrame::WSFrame(const bool fin, const OpCode opcode, const string & payload,
   : header_(fin, opcode, payload.length(), masking_key), payload_(payload)
 {}
 
+WSFrame::WSFrame(const bool fin, const OpCode opcode, string && payload)
+  : header_(fin, opcode, payload.length()), payload_(move(payload))
+{}
+
+WSFrame::WSFrame(const bool fin, const OpCode opcode, string && payload,
+                 const uint32_t masking_key)
+  : header_(fin, opcode, payload.length(), masking_key),
+    payload_(move(payload))
+{}
+
 WSFrame::WSFrame(const Chunk & chunk)
   : header_(chunk),
     payload_(chunk(header_.header_length()).to_string())

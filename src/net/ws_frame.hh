@@ -48,6 +48,9 @@ public:
   WSFrame(const bool fin, const OpCode opcode, const std::string & payload);
   WSFrame(const bool fin, const OpCode opcode, const std::string & payload,
           const uint32_t masking_key);
+  WSFrame(const bool fin, const OpCode opcode, std::string && payload);
+  WSFrame(const bool fin, const OpCode opcode, std::string && payload,
+          const uint32_t masking_key);
 
   const Header & header() const { return header_; }
   const std::string & payload() const { return payload_; }
