@@ -63,7 +63,7 @@ void serve_video_to_client(WebSocketServer & server, WebSocketClient & client)
 
   uint64_t next_vts = client.next_vts().value();
 
-  if (!client.next_vsegment().has_value()) {
+  if (!client.next_vsegment().has_value()) { /* or try a lower quality */
     /* Start new chunk */
     if (not channel.vready(next_vts)) {
       return;
@@ -108,7 +108,7 @@ void serve_audio_to_client(WebSocketServer & server, WebSocketClient & client)
   Channel & channel = channels.at(client.channel().value());
   uint64_t next_ats = client.next_ats().value();
 
-  if (not client.next_asegment().has_value()) {
+  if (not client.next_asegment().has_value()) { /* or try a lower quality */
     if (not channel.aready(next_ats)) {
       return;
     }
