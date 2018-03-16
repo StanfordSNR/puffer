@@ -45,6 +45,7 @@ private:
 
     /* outgoing messages */
     std::string send_buffer {};
+    size_t queue_size() const { return send_buffer.size(); }
 
     Connection(TCPSocket && sock, SSLContext & ssl_context);
 
