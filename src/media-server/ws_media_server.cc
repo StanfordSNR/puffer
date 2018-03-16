@@ -97,7 +97,7 @@ void serve_video_to_client(WebSocketServer & server, WebSocketClient & client)
                                         next_vts, channel.vduration(),
                                         next_vsegment.offset(),
                                         next_vsegment.length());
-  next_vsegment.read_and_append(max_ws_frame_len, frame_payload);
+  next_vsegment.read(frame_payload, max_ws_frame_len);
 
   WSFrame frame {true, WSFrame::OpCode::Binary, move(frame_payload)};
   server.queue_frame(client.connection_id(), frame);
@@ -143,7 +143,7 @@ void serve_audio_to_client(WebSocketServer & server, WebSocketClient & client)
                                         channel.aduration(),
                                         next_asegment.offset(),
                                         next_asegment.length());
-  next_asegment.read_and_append(max_ws_frame_len, frame_payload);
+  next_asegment.read(frame_payload, max_ws_frame_len);
 
   WSFrame frame {true, WSFrame::OpCode::Binary, move(frame_payload)};
   server.queue_frame(client.connection_id(), frame);
