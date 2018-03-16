@@ -11,17 +11,17 @@ MediaSegment::MediaSegment(mmap_t & data, std::optional<mmap_t> init)
   }
 }
 
-void MediaSegment::read_and_append(const size_t n, string & ret)
+void MediaSegment::read(string & dst, const size_t n)
 {
   assert(offset_ < length_);
   const size_t init_size = init_.has_value() ? get<1>(init_.value()) : 0;
-  const size_t ret_init_length = ret.length();
+  const size_t orig_dst_len = dst.length();
 
   if (init_.has_value() and offset_ < init_size) {
     const size_t to_read = init_size - offset_ > n ? n : init_size - offset_;
-    ret.append(get<0>(init_.value()).get() + offset_, to_read);
+    dst.append(get<0>(init_.value()).get() + offset_, to_read);
     offset_ += to_read;
-    if (ret.length() - ret_init_length >= n) {
+    if (dst.length() - orig_dst_len >= n) {
       return;
     }
   }
@@ -29,21 +29,14 @@ void MediaSegment::read_and_append(const size_t n, string & ret)
   const auto & [seg_data, seg_size] = data_;
   const size_t offset_into_data = offset_ - init_size;
 
-  size_t to_read = n - (ret.length() - ret_init_length);
+  size_t to_read = n - (dst.length() - orig_dst_len);
   to_read = seg_size - offset_into_data > to_read ?
             to_read : seg_size - offset_into_data;
 
-  ret.append(seg_data.get() + offset_into_data, to_read);
+  dst.append(seg_data.get() + offset_into_data, to_read);
   offset_ += to_read;
 
-  assert(ret.length() - ret_init_length <= n);
-}
-
-string MediaSegment::read(const size_t n)
-{
-  string ret;
-  read_and_append(n, ret);
-  return ret;
+  assert(dst.length() - orig_dst_len <= n);
 }
 
 WebSocketClient::WebSocketClient(const uint64_t connection_id)

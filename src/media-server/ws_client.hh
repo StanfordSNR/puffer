@@ -14,10 +14,7 @@ class MediaSegment
 public:
   MediaSegment(mmap_t & data, std::optional<mmap_t> init);
 
-  /* this function avoids one copy of the read string */
-  void read_and_append(const size_t n, std::string & ret);
-
-  std::string read(const size_t n);
+  void read(std::string & dst, const size_t n);
   size_t offset() { return offset_; }
   size_t length() { return length_; }
   bool done() { return offset_ == length_; }
