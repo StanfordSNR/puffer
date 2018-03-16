@@ -17,16 +17,22 @@
 using namespace std;
 using namespace PollerShortNames;
 
+const int DEFAULT_MAX_BUFFER_S = 60;
+const int DEFAULT_MAX_INFLIGHT_S = 5;
+const size_t DEFAULT_MAX_WS_FRAME_LEN = 100000;
+const size_t DEFAULT_MAX_WS_QUEUE_LEN = DEFAULT_MAX_WS_FRAME_LEN;
+
 static vector<string> channel_names;
 static map<string, Channel> channels;
 static map<uint64_t, WebSocketClient> clients;
 
 static Timerfd global_timer;
 
-static unsigned int max_buffer_len;
-static unsigned int max_inflight_len;
+static unsigned int max_buffer_seconds;
+static unsigned int max_inflight_seconds;
 
 static size_t max_ws_frame_len;
+static size_t max_ws_queue_len;
 
 void print_usage(const string & program_name)
 {
@@ -168,20 +174,42 @@ inline unsigned int audio_in_flight(const Channel & channel,
 void serve_client(WebSocketServer & server, WebSocketClient & client)
 {
   const Channel & channel = channels.at(client.channel().value());
-  if (client.video_playback_buf() < max_buffer_len and
-      video_in_flight(channel, client) < max_inflight_len) {
-    serve_video_to_client(server, client);
-  }
-  if (client.audio_playback_buf() < max_buffer_len and
-      audio_in_flight(channel, client) < max_inflight_len) {
-    serve_audio_to_client(server, client);
+  if (server.queue_size(client.connection_id()) < max_ws_queue_len) {
+    const bool can_send_video =
+      client.video_playback_buf() < max_buffer_seconds and
+      video_in_flight(channel, client) < max_inflight_seconds;
+    const bool can_send_audio =
+      client.audio_playback_buf() < max_buffer_seconds and
+      audio_in_flight(channel, client) < max_inflight_seconds;
+
+    if (client.next_vts().value() > client.next_ats().value()) {
+      /* prioritize audio */
+      if (can_send_audio) {
+        serve_audio_to_client(server, client);
+      }
+      /* serve video only if there is still room */
+      if (can_send_video and
+          server.queue_size(client.connection_id()) < max_ws_queue_len) {
+        serve_video_to_client(server, client);
+      }
+    } else {
+      /* prioritize video */
+      if (can_send_video) {
+        serve_video_to_client(server, client);
+      }
+      /* serve audio only if there is still room */
+      if (can_send_audio and
+          server.queue_size(client.connection_id()) < max_ws_queue_len) {
+        serve_audio_to_client(server, client);
+      }
+    }
   }
 }
 
 void start_global_timer(WebSocketServer & server)
 {
-  /* the timer fires every 100 ms */
-  global_timer.start(100, 100);
+  /* the timer fires every 10 ms */
+  global_timer.start(10, 10);
 
   server.poller().add_action(
     Poller::Action(global_timer, Direction::In,
@@ -275,11 +303,14 @@ int main(int argc, char * argv[])
     channel_names.push_back(channel_name);
   }
 
-  max_buffer_len = config["max_buffer"] ? config["max_buffer"].as<int>() : 240;
-  max_inflight_len = config["max_inflight"] ?
-                     config["max_buffer"].as<int>() : 5;
-  max_ws_frame_len = config["max_ws_frame"] ? config["max_ws_frame"].as<int>()
-                     : 100000;
+  max_buffer_seconds = config["max_buffer_s"] ?
+    config["max_buffer_s"].as<int>() : DEFAULT_MAX_BUFFER_S;
+  max_inflight_seconds = config["max_inflight_s"] ?
+    config["max_inflight_s"].as<int>() : DEFAULT_MAX_INFLIGHT_S;
+  max_ws_frame_len = config["max_ws_frame_b"] ?
+    config["max_ws_frame_b"].as<int>() : DEFAULT_MAX_WS_FRAME_LEN;
+  max_ws_queue_len = config["max_ws_queue_b"] ?
+    config["max_ws_queue_b"].as<int>() : DEFAULT_MAX_WS_QUEUE_LEN;
 
   /* start the global timer */
   start_global_timer(server);
