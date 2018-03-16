@@ -15,9 +15,9 @@ void WSMessageParser::parse(const string & buf)
   }
 
   /* okay, we have a complete frame now! */
-  WSFrame frame {buf};
+  WSFrame frame {raw_buffer_.substr(0, expected_length)};
   bool fin = frame.header().fin();
-  raw_buffer_.replace(0, expected_length, std::string());
+  raw_buffer_.erase(0, expected_length);
 
   switch (frame.header().opcode()) {
   case WSFrame::OpCode::Continuation:
