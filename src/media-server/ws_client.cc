@@ -7,7 +7,8 @@ WebSocketClient::WebSocketClient(const uint64_t connection_id)
     channel_(), next_vts_(), next_ats_(),
     video_playback_buf_(), audio_playback_buf_(),
     curr_vq_(), curr_aq_(),
-    client_next_vts_(), client_next_ats_()
+    client_next_vts_(), client_next_ats_(),
+    init_id_(0)
 {}
 
 void WebSocketClient::init(const string & channel,
@@ -24,4 +25,6 @@ void WebSocketClient::init(const string & channel,
 
   client_next_vts_ = vts;
   client_next_ats_ = ats;
+
+  init_id_++;
 }
