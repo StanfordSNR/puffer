@@ -26,6 +26,8 @@ static Timerfd global_timer;
 static unsigned int max_buffer_len;
 static unsigned int max_inflight_len;
 
+static size_t max_ws_frame_len;
+
 void print_usage(const string & program_name)
 {
   cerr << program_name << " <YAML configuration>" << endl;
@@ -60,99 +62,91 @@ void serve_video_to_client(WebSocketServer & server, WebSocketClient & client)
   Channel & channel = channels.at(client.channel().value());
 
   uint64_t next_vts = client.next_vts().value();
-  if (not channel.vready(next_vts)) {
-    return;
-  }
 
-  const VideoFormat & next_vq = select_video_quality(client);
+  if (!client.next_vsegment().has_value()) {
+    /* Start new chunk */
+    if (not channel.vready(next_vts)) {
+      return;
+    }
+    const VideoFormat & next_vq = select_video_quality(client);
 
-  cerr << "serving (id=" << client.connection_id() << ") video " << next_vts
-       << " " << next_vq << endl;
+    cerr << "serving (id=" << client.connection_id() << ") video " << next_vts
+         << " " << next_vq << endl;
 
-  const auto & [video_data, video_size] = channel.vdata(next_vq, next_vts);
-  const auto & [init_data, init_size] = channel.vinit(next_vq);
-
-  /* Compute size of frame payload excluding header */
-  const bool init_segment_required = (not client.curr_vq().has_value() or
-                                      next_vq != client.curr_vq().value());
-  size_t payload_len = video_size;
-  if (init_segment_required) {
-    payload_len += init_size;
-  }
-
-  /* Make the metadata at the start of a frame */
-  string metadata = make_video_msg(next_vq.to_string(), next_vts,
-                                   channel.vduration(),
-                                   0, /* payload start offset */
-                                   payload_len);
-
-  /* Copy data into payload string */
-  string frame_payload(metadata.length() + payload_len, 0);
-  memcpy(&frame_payload[0], &metadata[0], metadata.length());
-  int video_segment_begin;
-  if (init_segment_required) {
-    memcpy(&frame_payload[metadata.length()], init_data.get(), init_size);
-    video_segment_begin = metadata.length() + init_size;
+    optional<mmap_t> init_mmap;
+    if (not client.curr_vq().has_value() or
+        next_vq != client.curr_vq().value()) {
+      init_mmap = channel.vinit(next_vq);
+    }
+    client.set_next_vsegment(next_vq, channel.vdata(next_vq, next_vts),
+                             init_mmap);
   } else {
-    video_segment_begin = metadata.length();
+    cerr << "continuing (id=" << client.connection_id() << ") video "
+         << next_vts << endl;
   }
-  memcpy(&frame_payload[video_segment_begin], video_data.get(), video_size);
 
-  // TODO: fragment this further
+  VideoSegment & next_vsegment = client.next_vsegment().value();
+
+  string frame_payload = make_video_msg(next_vsegment.format().to_string(),
+                                        next_vts, channel.vduration(),
+                                        next_vsegment.offset(),
+                                        next_vsegment.length());
+  frame_payload.append(next_vsegment.read(max_ws_frame_len));
+
   WSFrame frame {true, WSFrame::OpCode::Binary, frame_payload};
   server.queue_frame(client.connection_id(), frame);
 
-  client.set_next_vts(next_vts + channel.vduration());
-  client.set_curr_vq(next_vq);
+  if (next_vsegment.done()) {
+    client.set_next_vts(next_vts + channel.vduration());
+    client.set_curr_vq(next_vsegment.format());
+    client.clear_next_vsegment();
+  }
 }
 
 void serve_audio_to_client(WebSocketServer & server, WebSocketClient & client)
 {
   Channel & channel = channels.at(client.channel().value());
   uint64_t next_ats = client.next_ats().value();
-  if (not channel.aready(next_ats)) {
-    return;
-  }
 
-  const AudioFormat & next_aq = select_audio_quality(client);
+  if (not client.next_asegment().has_value()) {
+    if (not channel.aready(next_ats)) {
+      return;
+    }
 
-  cerr << "serving (id=" << client.connection_id() << ") audio " << next_ats
-       << " " << next_aq << endl;
+    const AudioFormat & next_aq = select_audio_quality(client);
 
-  const auto & [audio_data, audio_size] = channel.adata(next_aq, next_ats);
-  const auto & [init_data, init_size] = channel.ainit(next_aq);
+    cerr << "serving (id=" << client.connection_id() << ") audio " << next_ats
+         << " " << next_aq << endl;
 
-  /* Compute size of frame payload excluding header */
-  const bool init_segment_required = (not client.curr_aq().has_value() or
-                                      next_aq != client.curr_aq().value());
-  size_t payload_len = audio_size;
-  if (init_segment_required) {
-    payload_len += init_size;
-  }
-
-  /* Make the metadata at the start of a frame */
-  string metadata = make_audio_msg(next_aq.to_string(), next_ats,
-                                   channel.aduration(),
-                                   0, /* payload start offset */
-                                   payload_len);
-
-  /* Copy data into payload string */
-  string frame_payload(metadata.length() + payload_len, 0);
-  memcpy(&frame_payload[0], &metadata[0], metadata.length());
-  int audio_segment_begin;
-  if (init_segment_required) {
-    memcpy(&frame_payload[metadata.length()], init_data.get(), init_size);
-    audio_segment_begin = metadata.length() + init_size;
+    optional<mmap_t> init_mmap;
+    if (not client.curr_aq().has_value() or
+        next_aq != client.curr_aq().value()) {
+      init_mmap = channel.ainit(next_aq);
+    }
+    client.set_next_asegment(next_aq, channel.adata(next_aq, next_ats),
+                             init_mmap);
   } else {
-    audio_segment_begin = metadata.length();
+    cerr << "continuing (id=" << client.connection_id() << ") audio "
+         << next_ats << endl;
   }
-  memcpy(&frame_payload[audio_segment_begin], audio_data.get(), audio_size);
+
+  AudioSegment & next_asegment = client.next_asegment().value();
+
+  string frame_payload = make_audio_msg(next_asegment.format().to_string(),
+                                        next_ats,
+                                        channel.aduration(),
+                                        next_asegment.offset(),
+                                        next_asegment.length());
+  frame_payload.append(next_asegment.read(max_ws_frame_len));
 
   WSFrame frame {true, WSFrame::OpCode::Binary, frame_payload};
   server.queue_frame(client.connection_id(), frame);
 
-  client.set_next_ats(next_ats + channel.aduration());
-  client.set_curr_aq(next_aq);
+  if (next_asegment.done()) {
+    client.set_next_ats(next_ats + channel.aduration());
+    client.set_curr_aq(next_asegment.format());
+    client.clear_next_asegment();
+  }
 }
 
 inline unsigned int video_in_flight(const Channel & channel,
@@ -282,7 +276,10 @@ int main(int argc, char * argv[])
   }
 
   max_buffer_len = config["max_buffer"] ? config["max_buffer"].as<int>() : 240;
-  max_inflight_len = config["max_inflight"] ? config["max_buffer"].as<int>() : 5;
+  max_inflight_len = config["max_inflight"] ?
+                     config["max_buffer"].as<int>() : 5;
+  max_ws_frame_len = config["max_ws_frame"] ? config["max_ws_frame"].as<int>()
+                     : 100000;
 
   /* start the global timer */
   start_global_timer(server);
