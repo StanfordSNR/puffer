@@ -255,28 +255,23 @@ WSServer<SocketType>::WSServer(const Address & listener_addr)
 }
 
 template<class SocketType>
-void WSServer<SocketType>::queue_frame(const uint64_t connection_id, const WSFrame & frame)
+void WSServer<SocketType>::queue_frame(const uint64_t connection_id,
+                                       const WSFrame & frame)
 {
-  if (connections_.count(connection_id) == 0) {
-    throw runtime_error("invalid connection id: " + to_string(connection_id));
-  }
-
   Connection & conn = connections_.at(connection_id);
 
   if (conn.state != Connection::State::Connected) {
     throw runtime_error("not connected, cannot send the frame");
   }
 
+  /* frame.to_string() inevitably copies frame.payload_ into the return string,
+   * but the return string will be moved into conn.send_buffer without copy */
   conn.send_buffer.emplace_back(frame.to_string());
 }
 
 template<class SocketType>
 void WSServer<SocketType>::close_connection(const uint64_t connection_id)
 {
-  if (connections_.count(connection_id) == 0) {
-    throw runtime_error("invalid connection id: " + to_string(connection_id));
-  }
-
   Connection & conn = connections_.at(connection_id);
 
   if (conn.state != Connection::State::Connected) {
@@ -297,6 +292,7 @@ size_t WSServer<SocketType>::queue_size(const uint64_t connection_id)
   for (const auto & buffer : conn.send_buffer) {
     total_size += buffer.size();
   }
+
   return total_size;
 }
 

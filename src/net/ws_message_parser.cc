@@ -4,7 +4,7 @@
 
 using namespace std;
 
-void WSMessageParser::parse( const string & buf )
+void WSMessageParser::parse(const string & buf)
 {
   raw_buffer_.append(buf);
   uint64_t expected_length = WSFrame::expected_length(raw_buffer_);
