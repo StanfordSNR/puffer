@@ -164,7 +164,8 @@ WSServer<SocketType>::WSServer(const Address & listener_addr)
                 break;
 
               default:
-                throw runtime_error("unhandled message type");
+                cerr << "unhandled message type" << endl;
+                close_connection(conn_id);
               }
             }
           }
@@ -191,6 +192,10 @@ WSServer<SocketType>::WSServer(const Address & listener_addr)
             }
           }
           else {
+            /* TODO: this needs to clean-up the connection
+             *    cerr << "unhandled data" << endl;
+             *    close_connection(conn_id);
+             * The above code will throw. */
             throw runtime_error("unhandled data");
           }
 
