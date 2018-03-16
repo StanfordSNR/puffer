@@ -54,6 +54,7 @@ public:
 
   std::string ezread();
   void ezwrite(const std::string & message) { write_buffer_.push(message); };
+  void ezwrite(std::string && message) { write_buffer_.push(move(message)); };
 
   bool something_to_write() { return (write_buffer_.size() > 0); }
   bool something_to_read() { return (read_buffer_.size() > 0); }
