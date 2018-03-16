@@ -86,8 +86,8 @@ void WSServer<TCPSocket>::Connection::write()
 template<>
 void WSServer<NBSecureSocket>::Connection::write()
 {
-  for (const auto & buffer : send_buffer) {
-    socket.ezwrite(buffer);
+  for (string & buffer : send_buffer) {
+    socket.ezwrite(move(buffer));
   }
 
   send_buffer.clear();
