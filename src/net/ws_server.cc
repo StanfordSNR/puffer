@@ -275,6 +275,13 @@ void WSServer<SocketType>::close_connection(const uint64_t connection_id)
 }
 
 template<class SocketType>
+size_t WSServer<SocketType>::queue_size(const uint64_t connection_id)
+{
+  Connection & conn = connections_.at(connection_id);
+  return conn.send_buffer.size();
+}
+
+template<class SocketType>
 Poller::Result WSServer<SocketType>::loop_once()
 {
   auto result = poller_.poll(-1);
