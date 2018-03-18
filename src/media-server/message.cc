@@ -31,6 +31,7 @@ pair<ClientMessageType, string> unpack_client_msg(const string & data)
 ClientInitMessage parse_client_init_msg(const string & data)
 {
   optional<string> channel;
+  optional<uint64_t> next_vts, next_ats;
   int player_width, player_height;
   try {
     auto obj = json::parse(data);
@@ -40,10 +41,19 @@ ClientInitMessage parse_client_init_msg(const string & data)
     }
     player_width = obj.at("playerWidth");
     player_height = obj.at("playerHeight");
+
+    auto it2 = obj.find("nextVideoTimestamp");
+    if (it2 != obj.end()) {
+      next_vts = *it2;
+    }
+    auto it3 = obj.find("nextAudioTimestamp");
+    if (it3 != obj.end()) {
+      next_ats = *it3;
+    }
   } catch (const exception & e) {
     throw BadClientMessageException(e.what());
   }
-  return {channel, player_width, player_height};
+  return { channel, player_width, player_height, next_vts, next_ats };
 }
 
 ClientInfoMessage parse_client_info_msg(const string & data)
@@ -115,12 +125,16 @@ string make_server_hello_msg(const vector<string> & channels)
   return pack_json(msg);
 }
 
-string make_server_init_msg(const string & channel,
-                            const string & video_codec,
-                            const string & audio_codec,
-                            const unsigned int timescale,
-                            const unsigned int init_timestamp,
-                            const unsigned int init_id)
+string make_server_init_msg(
+  const string & channel,
+  const string & video_codec,
+  const string & audio_codec,
+  const unsigned int timescale,
+  const uint64_t init_seek_ts,
+  const uint64_t init_vts,
+  const uint64_t init_ats,
+  const unsigned int init_id,
+  const bool can_resume)
 {
   json msg = {
     {"type", "server-init"},
@@ -128,8 +142,11 @@ string make_server_init_msg(const string & channel,
     {"videoCodec", video_codec},
     {"audioCodec", audio_codec},
     {"timescale", timescale},
-    {"initTimestamp", init_timestamp},
-    {"initId", init_id}
+    {"initSeekTimestamp", init_seek_ts},
+    {"initVideoTimestamp", init_vts},
+    {"initAudioTimestamp", init_ats},
+    {"initId", init_id},
+    {"canResume", can_resume},
   };
   return pack_json(msg);
 }

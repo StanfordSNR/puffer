@@ -240,16 +240,35 @@ void handle_client_init(WebSocketServer & server, WebSocketClient & client,
   }
   auto & channel = it->second;
 
-  uint64_t init_vts = channel.init_vts();
-  uint64_t init_ats = channel.find_ats(init_vts);
+  bool can_resume;
+  uint64_t init_vts, init_ats;
+  if (message.channel.has_value() and
+      message.next_vts.has_value() and
+      channel.is_valid_vts(message.next_vts.value()) and
+      channel.vready(message.next_vts.value()) and
+      message.next_ats.has_value() and 
+      channel.is_valid_ats(message.next_ats.value()) and
+      channel.aready(message.next_ats.value())) {
+    /* Resume */
+    init_vts = message.next_vts.value();
+    init_ats = message.next_ats.value();
+    can_resume = true;
+  } else {
+    /* Reinitialize */
+    init_vts = channel.init_vts();
+    init_ats = channel.find_ats(init_vts);
+    can_resume = false;
+  }
 
   client.init(channel.name(), init_vts, init_ats);
   assert(init_vts == client.next_vts().value());
 
   string reply = make_server_init_msg(channel.name(), channel.vcodec(),
                                       channel.acodec(), channel.timescale(),
+                                      init_vts,
                                       client.next_vts().value(),
-                                      client.init_id());
+                                      client.next_ats().value(),
+                                      client.init_id(), can_resume);
 
   /* Reinitialize video playback on the client */
   WSFrame frame {true, WSFrame::OpCode::Binary, move(reply)};

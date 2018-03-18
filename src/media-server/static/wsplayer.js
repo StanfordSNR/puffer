@@ -2,6 +2,7 @@ const WS_OPEN = 1;
 
 const SEND_INFO_INTERVAL = 2000;
 const UPDATE_AV_SOURCE_INTERVAL = 100;
+const BASE_RECONNECT_BACKOFF = 100;
 
 const HTML_MEDIA_READY_STATES = [
   'HAVE_NOTHING',
@@ -46,12 +47,12 @@ function AVSource(video, audio, options) {
   var video_codec = options.videoCodec;
   var audio_codec = options.audioCodec;
   var timescale = options.timescale;
-  var init_timestamp = options.initTimestamp;
+  var init_seek_ts = options.initSeekTimestamp;
   var init_id = options.initId;
 
   /* Timestamps for the next chunks that the player is expecting */
-  var next_audio_timestamp = init_timestamp;
-  var next_video_timestamp = init_timestamp;
+  var next_audio_timestamp = options.initAudioTimestamp;
+  var next_video_timestamp = options.initVideoTimestamp;
 
   /* Lists to store accepted segments that have not been added to the
    * SourceBuffers yet because they may be in the updating state */
@@ -67,7 +68,7 @@ function AVSource(video, audio, options) {
   /* Initializes the video and audio source buffers, and sets the initial
    * offset */
   function init_source_buffers() {
-    video.currentTime = init_timestamp / timescale;
+    video.currentTime = init_seek_ts / timescale;
 
     vbuf = ms.addSourceBuffer(video_codec);
     vbuf.addEventListener('updateend', that.update);
@@ -107,6 +108,22 @@ function AVSource(video, audio, options) {
     console.log('media source error: ' + ms.readyState, e);
     that.close();
   });
+
+  this.canResume = function(options) {
+    return (
+      options.canResume
+      && options.channel == channel
+      && options.videoCodec == video_codec
+      && options.audioCodec == audio_codec
+      && options.timescale == timescale
+      && options.initVideoTimestamp <= next_video_timestamp
+      && options.initAudioTimestamp <= next_audio_timestamp
+    );
+  };
+
+  this.resume = function(options) {
+    init_id = options.initId;
+  };
 
   this.isOpen = function() { return abuf != undefined && vbuf != undefined; };
 
@@ -192,6 +209,8 @@ function AVSource(video, audio, options) {
     }
   };
 
+  this.getChannel = function() { return channel; }
+
   /* Get the number of seconds of video buffered */
   this.getVideoBufferLen = function() {
     if (vbuf && vbuf.buffered.length > 0) {
@@ -259,13 +278,16 @@ function WebSocketClient(video, audio, channel_select) {
   function send_client_init(ws, channel) {
     if (ws && ws.readyState == WS_OPEN) {
       try {
-        // TODO: the player dimensions are not right
         var msg = {
           playerWidth: video.videoWidth,
           playerHeight: video.videoHeight
         };
         if (channel != null) {
           msg.channel = channel;
+        }
+        if (av_source && av_source.getChannel() == channel) {
+          msg.nextAudioTimestamp = av_source.getNextAudioTimestamp();
+          msg.nextVideoTimestamp = av_source.getNextVideoTimestamp();
         }
         ws.send(format_client_msg('client-init', msg));
       } catch (e) {
@@ -309,11 +331,16 @@ function WebSocketClient(video, audio, channel_select) {
 
     } else if (message.metadata.type == 'server-init') {
       console.log(message.metadata.type, message.metadata);
-      if (av_source) {
-        av_source.close(); // Close any existing source
+      if (av_source && av_source.canResume(message.metadata)) {
+        console.log("Resuming playback");
+        av_source.resume(message.metadata);
+      } else {
+        console.log("Initializing new AV source");
+        if (av_source) {
+          av_source.close();
+        }
+        av_source = new AVSource(video, audio, message.metadata);
       }
-      av_source = new AVSource(video, audio, message.metadata);
-
     } else if (message.metadata.type == 'audio') {
       if (debug) {
         console.log('received', message.metadata.type,
@@ -334,6 +361,7 @@ function WebSocketClient(video, audio, channel_select) {
     }
   }
 
+  var backoff = BASE_RECONNECT_BACKOFF;
   this.connect = function() {
     console.log('HTTP at', location.host);
     var ws_host_and_port = location.host.split(':')[0] + ':8081';
@@ -344,19 +372,23 @@ function WebSocketClient(video, audio, channel_select) {
 
     ws.onopen = function (e) {
       console.log('WebSocket open, sending client-hello');
-      send_client_init(ws, null);
+      send_client_init(ws, av_source ? av_source.getChannel() : null);
+      backoff = BASE_RECONNECT_BACKOFF;
     };
 
     ws.onclose = function (e) {
       console.log('WebSocket closed');
-      if (av_source && av_source.isOpen()) {
-        av_source.close();
-      }
-      alert('WebSocket closed. Refresh the page to reconnect.');
+      ws = undefined;
+
+      /* Try to reconnect */
+      console.log("Reconnecting in " + backoff + "ms");
+      setTimeout(that.connect, backoff);
+      backoff *= 2;
     };
 
     ws.onerror = function (e) {
       console.log('WebSocket error:', e);
+      ws = undefined;
     };
   };
 
