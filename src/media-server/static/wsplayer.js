@@ -48,7 +48,8 @@ function AVSource(video, audio, options) {
   var video_codec = options.videoCodec;
   var audio_codec = options.audioCodec;
   var timescale = options.timescale;
-  var init_seek_ts = options.initSeekTimestamp;
+  var init_seek_ts = Math.max(options.initAudioTimestamp,
+                              options.initVideoTimestamp);
   var init_id = options.initId;
 
   /* Timestamps for the next chunks that the player is expecting */
