@@ -171,9 +171,40 @@ inline unsigned int audio_in_flight(const Channel & channel,
           / channel.timescale();
 }
 
+void reinit_laggy_client(WebSocketServer & server, WebSocketClient & client,
+                         const Channel & channel)
+{
+  /* Reinitialize very slow clients if the cleaner has caught up
+   * (warning: UNTESTED CODE!) */
+  uint64_t init_vts = channel.init_vts(max_buffer_seconds).value();
+  uint64_t init_ats = channel.find_ats(init_vts);
+  client.init(channel.name(), init_vts, init_ats);
+  assert(init_vts == client.next_vts().value());
+
+  string reinit = make_server_init_msg(channel.name(), channel.vcodec(),
+                                       channel.acodec(), channel.timescale(),
+                                       init_vts,
+                                       client.next_vts().value(),
+                                       client.next_ats().value(),
+                                       client.init_id(), false);
+  WSFrame frame {true, WSFrame::OpCode::Binary, move(reinit)};
+  server.queue_frame(client.connection_id(), frame);
+}
+
 void serve_client(WebSocketServer & server, WebSocketClient & client)
 {
   const Channel & channel = channels.at(client.channel().value());
+
+  auto vclean_frontier = channel.vclean_frontier();
+  auto aclean_frontier = channel.aclean_frontier();
+  if ((vclean_frontier.has_value() and
+       vclean_frontier.value() >= client.next_vts().value()) or
+      (aclean_frontier.has_value() and
+       aclean_frontier.value() >= client.next_ats().value())) {
+    reinit_laggy_client(server, client, channel);
+    return;
+  }
+
   if (server.queue_size(client.connection_id()) < max_ws_queue_len) {
     const bool can_send_video =
       client.video_playback_buf() < max_buffer_seconds and
@@ -246,7 +277,7 @@ void handle_client_init(WebSocketServer & server, WebSocketClient & client,
       message.next_vts.has_value() and
       channel.is_valid_vts(message.next_vts.value()) and
       channel.vready(message.next_vts.value()) and
-      message.next_ats.has_value() and 
+      message.next_ats.has_value() and
       channel.is_valid_ats(message.next_ats.value()) and
       channel.aready(message.next_ats.value())) {
     /* Resume */
@@ -254,8 +285,9 @@ void handle_client_init(WebSocketServer & server, WebSocketClient & client,
     init_ats = message.next_ats.value();
     can_resume = true;
   } else {
-    /* Reinitialize */
-    init_vts = channel.init_vts();
+    /* (Re)Initialize */
+    // TODO: init_vts() might throw if not enough video is available
+    init_vts = channel.init_vts(max_buffer_seconds).value();
     init_ats = channel.find_ats(init_vts);
     can_resume = false;
   }

@@ -20,7 +20,8 @@ Channel::Channel(const string & name, YAML::Node config, Inotify & inotify)
     timescale_(),
     vduration_(), aduration_(),
     vcodec_(), acodec_(),
-    init_vts_()
+    init_vts_(),
+    vclean_frontier_(), aclean_frontier_()
 {
   vformats_ = get_video_formats(config);
   aformats_ = get_audio_formats(config);
@@ -50,21 +51,46 @@ Channel::Channel(const string & name, YAML::Node config, Inotify & inotify)
   load_ssim_files(inotify);
 }
 
-uint64_t Channel::init_vts() const
+optional<uint64_t> Channel::vready_frontier(const unsigned int n) const
+{
+  unsigned int tmp = n;
+  for (auto it = vdata_.rbegin(); it != vdata_.rend(); ++it) {
+    uint64_t ts = it->first;
+    if (vready(ts)) {
+      if (tmp == 0) {
+        return ts;
+      } else {
+        tmp--;
+      }
+    }
+  }
+  return nullopt;
+}
+
+optional<uint64_t> Channel::aready_frontier(const unsigned int n) const
+{
+  unsigned int tmp = n;
+  for (auto it = adata_.rbegin(); it != adata_.rend(); ++it) {
+    uint64_t ts = it->first;
+    if (aready(ts)) {
+      if (tmp == 0) {
+        return ts;
+      } else {
+        tmp--;
+      }
+    }
+  }
+  return nullopt;
+}
+
+optional<uint64_t> Channel::init_vts(const unsigned int max_playback_buf) const
 {
   if (init_vts_.has_value()) {
     return init_vts_.value(); /* The user configured a fixed VTS */
   } else {
-    /* Choose the newest vts with all qualities available */
-    for (auto it = vdata_.rbegin(); it != vdata_.rend(); ++it) {
-      uint64_t ts = it->first;
-      if (vready(ts)) {
-        return ts;
-      }
-    }
-    /* TODO: this abort check may cause a race on startup */
-    cerr << "Encoder is in a bad state, no vts has all qualities available" << endl;
-    abort();
+    /* Choose the newest vts with all qualities available that allows for
+     * a maximum playback buffer */
+    return vready_frontier(max_playback_buf * timescale_ / vduration_ + 1);
   }
 }
 
@@ -161,6 +187,10 @@ void Channel::munmap_video(const uint64_t ts)
         break;
       }
     }
+
+    if (!vclean_frontier_.has_value() or vclean_frontier_.value() < ts) {
+      vclean_frontier_ = obsolete;
+    }
   }
 }
 
@@ -178,6 +208,10 @@ void Channel::munmap_audio(const uint64_t ts)
       } else {
         break;
       }
+    }
+
+    if (!aclean_frontier_.has_value() or aclean_frontier_.value() < ts) {
+      aclean_frontier_ = obsolete;
     }
   }
 }

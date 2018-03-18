@@ -3,6 +3,7 @@
 
 #include <cstdint>
 #include <string>
+#include <optional>
 #include <map>
 #include <memory>
 
@@ -32,9 +33,21 @@ public:
   double vssim(const VideoFormat & format, const uint64_t ts);
   std::map<VideoFormat, double> & vssim(const uint64_t ts);
 
+  /* Return newest vts with at least n ready segments after it */
+  std::optional<uint64_t> vready_frontier(const unsigned int n) const;
+
+  /* Return largest vts that has been cleaned */
+  std::optional<uint64_t> vclean_frontier() const { return vclean_frontier_; }
+
   bool aready(const uint64_t ts) const;
   mmap_t & ainit(const AudioFormat & format);
   mmap_t & adata(const AudioFormat & format, const uint64_t ts);
+
+  /* Return newest ats with at least n ready segments after it */
+  std::optional<uint64_t> aready_frontier(const unsigned int n) const;
+
+  /* Return largest ats that has been cleaned */
+  std::optional<uint64_t> aclean_frontier() const { return aclean_frontier_; }
 
   unsigned int timescale() const { return timescale_; }
   unsigned int vduration() const { return vduration_; }
@@ -43,7 +56,7 @@ public:
   const std::string & vcodec() const { return vcodec_; }
   const std::string & acodec() const { return acodec_; }
 
-  uint64_t init_vts() const;
+  std::optional<uint64_t> init_vts(const unsigned int max_playback_buf) const;
   uint64_t find_ats(const uint64_t vts) const;
 
   bool is_valid_vts(const uint64_t ts) const { return ts % vduration_ == 0; }
@@ -68,6 +81,9 @@ private:
   std::string vcodec_;
   std::string acodec_;
   std::optional<uint64_t> init_vts_;
+
+  std::optional<uint64_t> vclean_frontier_;
+  std::optional<uint64_t> aclean_frontier_;
 
   void do_mmap_video(const fs::path & filepath, const VideoFormat & vf);
   void munmap_video(const uint64_t ts);
