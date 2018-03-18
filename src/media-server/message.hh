@@ -99,7 +99,6 @@ std::string make_server_init_msg(
   const std::string & video_codec,
   const std::string & audio_codec,
   const unsigned int timescale,        /* video timescale */
-  const uint64_t init_seek_ts,         /* starting timestamp in timescale */
   const uint64_t init_vts,
   const uint64_t init_ats,
   const unsigned int init_id,
