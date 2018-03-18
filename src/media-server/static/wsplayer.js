@@ -3,6 +3,7 @@ const WS_OPEN = 1;
 const SEND_INFO_INTERVAL = 2000;
 const UPDATE_AV_SOURCE_INTERVAL = 100;
 const BASE_RECONNECT_BACKOFF = 100;
+const MAX_RECONNECT_BACKOFF = 30000;
 
 const HTML_MEDIA_READY_STATES = [
   'HAVE_NOTHING',
@@ -259,9 +260,17 @@ function AVSource(video, audio, options) {
   };
 }
 
+function get_ws_server_host_and_port(cb) {
+  /* TODO: this needs to query the http server */
+  cb(location.host.split(':')[0] + ':8081');
+}
+
 function WebSocketClient(video, audio, channel_select) {
   var ws;
   var av_source;
+
+  /* Exponential backoff to reconnect */
+  var rc_backoff = BASE_RECONNECT_BACKOFF;
 
   var that = this;
 
@@ -361,10 +370,7 @@ function WebSocketClient(video, audio, channel_select) {
     }
   }
 
-  var backoff = BASE_RECONNECT_BACKOFF;
-  this.connect = function() {
-    console.log('HTTP at', location.host);
-    var ws_host_and_port = location.host.split(':')[0] + ':8081';
+  function connect_to_ws_server(ws_host_and_port) {
     console.log('WS at', ws_host_and_port);
     ws = new WebSocket('ws://' + ws_host_and_port);
     ws.binaryType = 'arraybuffer';
@@ -373,7 +379,7 @@ function WebSocketClient(video, audio, channel_select) {
     ws.onopen = function (e) {
       console.log('WebSocket open, sending client-hello');
       send_client_init(ws, av_source ? av_source.getChannel() : null);
-      backoff = BASE_RECONNECT_BACKOFF;
+      rc_backoff = BASE_RECONNECT_BACKOFF;
     };
 
     ws.onclose = function (e) {
@@ -381,15 +387,21 @@ function WebSocketClient(video, audio, channel_select) {
       ws = undefined;
 
       /* Try to reconnect */
-      console.log("Reconnecting in " + backoff + "ms");
-      setTimeout(that.connect, backoff);
-      backoff *= 2;
+      console.log("Reconnecting in " + rc_backoff + "ms");
+      setTimeout(that.connect, rc_backoff);
+      rc_backoff = Math.min(MAX_RECONNECT_BACKOFF, rc_backoff * 2);
+
     };
 
     ws.onerror = function (e) {
       console.log('WebSocket error:', e);
       ws = undefined;
     };
+  }
+
+  this.connect = function() {
+    console.log('HTTP at', location.host);
+    get_ws_server_host_and_port(connect_to_ws_server);
   };
 
   this.set_channel = function(channel) {
