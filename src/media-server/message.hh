@@ -18,6 +18,9 @@ using ClientInit = struct ClientInitMessage {
 
   int player_width;
   int player_height;
+
+  std::optional<uint64_t> next_vts;
+  std::optional<uint64_t> next_ats;
 };
 
 /* Sent by the client when playing */
@@ -96,8 +99,11 @@ std::string make_server_init_msg(
   const std::string & video_codec,
   const std::string & audio_codec,
   const unsigned int timescale,        /* video timescale */
-  const unsigned int init_timestamp,   /* starting timestamp in timescale */
-  const unsigned int init_id);
+  const uint64_t init_seek_ts,         /* starting timestamp in timescale */
+  const uint64_t init_vts,
+  const uint64_t init_ats,
+  const unsigned int init_id,
+  const bool can_resume);
 
 /* Audio segment message, payload contains the init and data */
 std::string make_audio_msg(
