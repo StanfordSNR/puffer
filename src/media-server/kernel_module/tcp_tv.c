@@ -104,12 +104,84 @@ struct bictcp {
   u32 curr_rtt; /* the minimum rtt of current round */
 };
 
+static inline size_t proc_fname_len(void)
+{
+  return strlen(PROC_PREFIX) +
+         2 * (2 * sizeof(uint32_t)) + /* addrs */
+         2 * (2 * sizeof(uint16_t)) + /* ports */
+         3 /* :'s */ + 1 /* \0 */;
+}
+
+/* Difficult to include endian.h or arpa/inet.h in kernel module */
+static inline uint32_t swap_end_32(uint32_t x)
+{
+  uint32_t ret;
+  int i;
+  for (i = 0; i < sizeof(ret); i++) {
+    ((char *) &ret)[i] = ((char *) &x)[sizeof(ret) - i - 1];
+  }
+  return ret;
+}
+
+/* Difficult to include endian.h or arpa/inet.h in kernel module */
+static inline uint16_t swap_end_16(uint16_t x)
+{
+  uint16_t ret;
+  int i;
+  for (i = 0; i < sizeof(ret); i++) {
+    ((char *) &ret)[i] = ((char *) &x)[sizeof(ret) - i - 1];
+  }
+  return ret;
+}
+
+/* All args are in host order (le) */
+static inline void proc_fname_sprintf(char *dst, uint32_t local_v4,
+                                      uint16_t local_port, uint32_t peer_v4,
+                                      uint16_t peer_port)
+{
+  /* /proc path name args are in network order */
+  sprintf(dst, "%s%0x:%hx:%0x:%hx", PROC_PREFIX, swap_end_32(local_v4),
+          swap_end_16(local_port), swap_end_32(peer_v4), swap_end_16(peer_port));
+}
+
+/* All args are returned in host order (le) */
+static inline void proc_fname_sscanf(char * src, uint32_t * local_v4,
+                                     uint16_t * local_port, uint32_t * peer_v4,
+                                     uint16_t * peer_port)
+{
+  uint32_t local_v4_ne, peer_v4_ne;
+  uint16_t local_port_ne, peer_port_ne;
+  /* /proc path name args are in network order */
+  sscanf(src + strlen(PROC_PREFIX), "%8x:%hx:%8x:%hx", &local_v4_ne,
+         &local_port_ne, &peer_v4_ne, &peer_port_ne);
+  *local_v4 = swap_end_32(local_v4_ne);
+  *local_port = swap_end_16(local_port_ne);
+  *peer_v4 = swap_end_32(peer_v4_ne);
+  *peer_port = swap_end_16(peer_port_ne);
+}
+
 /* This funtion is called when the /proc file is read */
 static ssize_t tv_proc_read(struct file *file, char *buf,
                             size_t len, loff_t *offset)
 {
-  /* Write the cwnd and rtt estimate */
+  struct sock *sk;
+  struct tcp_sock *tp;
+  struct bictcp *ca;
   uint32_t ret[2];
+  char * fname = file->f_path.dentry->d_iname;
+  uint32_t local_v4, peer_v4;
+  uint16_t local_port, peer_port;
+  proc_fname_sscanf(fname, &local_v4, &local_port, &peer_v4, &peer_port);
+
+  /* TODO: lookup a TCP connection (might need locks)
+   * I don't know what the net, hashinfo, and dif args are supposed to be */
+  sk = __inet_lookup_established(NULL /* net */, NULL /* hashinfo */,
+                                 local_v4, local_port, peer_v4, peer_port,
+                                 0 /* dif */);
+  tp = tcp_sk(sk);
+  ca = inet_csk_ca(sk);
+
+  /* Write the cwnd and rtt estimate */
   ret[0] = 0;
   ret[1] = 0;
 
@@ -118,14 +190,20 @@ static ssize_t tv_proc_read(struct file *file, char *buf,
     return -EFAULT;
   }
 
-  return sizeof(ret);
+  return 2 * sizeof(uint32_t);
 }
 
 /* This function is called when /proc is written */
 static ssize_t tv_proc_write(struct file *file, const char *buf,
                              size_t len, loff_t *offset)
 {
+  struct sock *sk;
+  struct tcp_sock *tp;
+  struct bictcp *ca;
   uint32_t cwnd;
+  char * fname = file->f_path.dentry->d_iname;
+  uint32_t local_v4, peer_v4;
+  uint16_t local_port, peer_port;
 
   if (len != sizeof(cwnd)) {
     return -EFAULT;
@@ -134,6 +212,16 @@ static ssize_t tv_proc_write(struct file *file, const char *buf,
   if (copy_from_user(&cwnd, buf, sizeof(cwnd))) {
     return -EFAULT;
   }
+
+  proc_fname_sscanf(fname, &local_v4, &local_port, &peer_v4, &peer_port);
+
+  /* TODO: lookup a TCP connection (might need locks)
+   * I don't know what the net, hashinfo, and dif args are supposed to be */
+  sk = __inet_lookup_established(NULL /* net */, NULL /* hashinfo */,
+                                 local_v4, local_port, peer_v4, peer_port,
+                                 0 /* dif */);
+  tp = tcp_sk(sk);
+  ca = inet_csk_ca(sk);
 
   printk(KERN_INFO "setting cwnd to: %d", cwnd);
 
@@ -181,62 +269,6 @@ static inline void bictcp_hystart_reset(struct sock *sk)
   ca->sample_cnt = 0;
 }
 
-static inline size_t proc_fname_len(void)
-{
-  return strlen(PROC_PREFIX) +
-         2 * (2 * sizeof(uint32_t)) + /* addrs */
-         2 * (2 * sizeof(uint16_t)) + /* ports */
-         3 /* :'s */ + 1 /* \0 */;
-}
-
-/* Difficult to include endian.h or arpa/inet.h in kernel module */
-static inline uint32_t swap_end_32(uint32_t x)
-{
-  uint32_t ret;
-  int i;
-  for (i = 0; i < sizeof(ret); i++) {
-    ((char *) &ret)[i] = ((char *) &x)[sizeof(ret) - i - 1];
-  }
-  return ret;
-}
-
-/* Difficult to include endian.h or arpa/inet.h in kernel module */
-static inline uint16_t swap_end_16(uint16_t x)
-{
-  uint16_t ret;
-  int i;
-  for (i = 0; i < sizeof(ret); i++) {
-    ((char *) &ret)[i] = ((char *) &x)[sizeof(ret) - i - 1];
-  }
-  return ret;
-}
-
-/* All args are in host order (le) */
-static inline void proc_fname_sformat(char *dst, uint32_t local_v4,
-                                      uint16_t local_port, uint32_t peer_v4,
-                                      uint16_t peer_port)
-{
-  /* /proc path name args are in network order */
-  sprintf(dst, "%s%0x:%hx:%0x:%hx", PROC_PREFIX, swap_end_32(local_v4),
-          swap_end_16(local_port), swap_end_32(peer_v4), swap_end_16(peer_port));
-}
-
-/* All args are returned in host order (le) */
-static inline void proc_fname_sscan(char * src, uint32_t * local_v4,
-                                   uint16_t * local_port, uint32_t * peer_v4,
-                                   uint16_t * peer_port)
-{
-  uint32_t local_v4_ne, peer_v4_ne;
-  uint16_t local_port_ne, peer_port_ne;
-  /* /proc path name args are in network order */
-  sscanf(src + strlen(PROC_PREFIX), "%8x:%hx:%8x:%hx", &local_v4_ne,
-         &local_port_ne, &peer_v4_ne, &peer_port_ne);
-  *local_v4 = swap_end_32(local_v4_ne);
-  *local_port = swap_end_16(local_port_ne);
-  *peer_v4 = swap_end_32(peer_v4_ne);
-  *peer_port = swap_end_16(peer_port_ne);
-}
-
 static void bictcp_init(struct sock *sk)
 {
   char proc_name[proc_fname_len()];
@@ -258,7 +290,7 @@ static void bictcp_init(struct sock *sk)
     local_port = sk->sk_num;
     peer_v4 = sk->sk_daddr;
     peer_port = sk->sk_dport;
-    proc_fname_sformat(proc_name, local_v4, local_port, peer_v4, peer_port);
+    proc_fname_sprintf(proc_name, local_v4, local_port, peer_v4, peer_port);
     proc_create(proc_name, 0666, NULL, &tv_proc_fops);
     printk(KERN_INFO "/proc/%s created\n", proc_name);
   }
@@ -276,7 +308,7 @@ static void bictcp_release(struct sock *sk)
     local_port = sk->sk_num;
     peer_v4 = sk->sk_daddr;
     peer_port = sk->sk_dport;
-    proc_fname_sformat(proc_name, local_v4, local_port, peer_v4, peer_port);
+    proc_fname_sprintf(proc_name, local_v4, local_port, peer_v4, peer_port);
     remove_proc_entry(proc_name, NULL);
     printk(KERN_INFO "/proc/%s removed\n", proc_name);
   }
