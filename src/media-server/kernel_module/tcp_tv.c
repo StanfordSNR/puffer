@@ -200,6 +200,7 @@ static inline uint32_t swap_end_32(uint32_t x)
   return ret;
 }
 
+/* Difficult to include endian.h or arpa/inet.h in kernel module */
 static inline uint16_t swap_end_16(uint16_t x)
 {
   uint16_t ret;
@@ -215,6 +216,7 @@ static inline void proc_fname_sformat(char *dst, uint32_t local_v4,
                                       uint16_t local_port, uint32_t peer_v4,
                                       uint16_t peer_port)
 {
+  /* /proc path name args are in network order */
   sprintf(dst, "%s%0x:%hx:%0x:%hx", PROC_PREFIX, swap_end_32(local_v4),
           swap_end_16(local_port), swap_end_32(peer_v4), swap_end_16(peer_port));
 }
@@ -226,6 +228,7 @@ static inline void proc_fname_sscan(char * src, uint32_t * local_v4,
 {
   uint32_t local_v4_ne, peer_v4_ne;
   uint16_t local_port_ne, peer_port_ne;
+  /* /proc path name args are in network order */
   sscanf(src + strlen(PROC_PREFIX), "%8x:%hx:%8x:%hx", &local_v4_ne,
          &local_port_ne, &peer_v4_ne, &peer_port_ne);
   *local_v4 = swap_end_32(local_v4_ne);

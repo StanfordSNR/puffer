@@ -9,6 +9,9 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <endian.h>
+#include <fcntl.h>
+
+#include "file_descriptor.hh"
 
 using namespace std;
 
@@ -42,18 +45,52 @@ string proc_fname(const Address & local_addr, const Address & peer_addr)
   return ss.str();
 }
 
-ConnInfo get_conn_info(const Address & local_addr, const Address & peer_addr)
+optional<ConnInfo> get_conn_info(const Address & local_addr,
+                                 const Address & peer_addr)
 {
-  cerr << "proc read: " <<  proc_fname(local_addr, peer_addr) << endl;
-  // TODO: actually read some data
-  return { 0, 0 };
+  string proc_file = proc_fname(local_addr, peer_addr);
+  cerr << "proc read: " << proc_file << endl;
+
+  int fd = open(proc_file.c_str(), O_RDONLY);
+  if (fd == -1) {
+    cerr << "could not open for reading: " << proc_file << endl;
+    return nullopt;
+  }
+
+  // TODO: probably want to catch something here
+  string data;
+  try {
+    data = FileDescriptor(fd).read_exactly(2 * sizeof(uint32_t));
+  } catch (const runtime_error & e) {
+    cerr << "read failed: " << proc_file << endl;
+    return nullopt;
+  }
+
+  uint32_t cwnd = *reinterpret_cast<uint32_t*>(&data[0] + sizeof(uint32_t));
+  uint32_t rtt = *reinterpret_cast<uint32_t*>(&data[0] + sizeof(uint32_t));
+  return optional<ConnInfo>({cwnd, rtt});
 }
 
 int set_conn_cwnd(const Address & local_addr, const Address & peer_addr,
-                   const uint32_t new_cwnd)
+                  const uint32_t new_cwnd)
 {
-  cerr << "proc write: " <<  proc_fname(local_addr, peer_addr) << endl;
-  assert(new_cwnd != 0);
-  // TODO: actually write some data
+  string proc_file = proc_fname(local_addr, peer_addr);
+  cerr << "proc write: " << proc_file << endl;
+
+  int fd = open(proc_file.c_str(), O_WRONLY);
+  if (fd == -1) {
+    cerr << "could not open for writing: " << proc_file << endl;
+    return -1;
+  }
+
+  uint32_t cwnd_copy = new_cwnd;
+  try {
+    FileDescriptor(fd).write(
+      {reinterpret_cast<char *>(&cwnd_copy), sizeof(uint32_t)}, true);
+  } catch (const runtime_error & e) {
+    cerr << "write failed: " << proc_file << endl;
+    return -1;
+  }
+
   return 0;
 }
