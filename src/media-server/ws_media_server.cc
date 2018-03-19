@@ -50,17 +50,20 @@ inline int randint(const int a, const int b)
 
 const VideoFormat & select_video_quality(WebSocketClient & client)
 {
-  // TODO: make a real choice
+  // TODO: this chooses randomly right now
   Channel & channel = channels.at(client.channel().value());
-  // return client.curr_vq().value_or(channel.vformats()[0]);
+
+  // TODO: actually use the info, there is probably a better place to set cwnd
+  get_conn_info(client.local_address(), client.peer_address());
+  set_conn_cwnd(client.local_address(), client.peer_address(), 1 /* Mock val */);
+
   return channel.vformats()[randint(0, channel.vformats().size())];
 }
 
 const AudioFormat & select_audio_quality(WebSocketClient & client)
 {
-  // TODO: make a real choice
+  // TODO: this chooses randomly right now
   Channel & channel = channels.at(client.channel().value());
-  // return client.curr_aq().value_or(channel.aformats()[0]);
   return channel.aformats()[randint(0, channel.aformats().size())];
 }
 
