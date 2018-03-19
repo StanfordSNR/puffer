@@ -108,47 +108,36 @@ struct bictcp {
 static ssize_t tv_proc_read(struct file *file, char *buf,
                             size_t len, loff_t *offset)
 {
-  // TODO: this does nothing atm
-  static int finished = 0;
-  char tmp_buf[] = "there is nothing in here\n";
-
-  /* return 0 to indicate end of file */
-  if (finished) {
-    finished = 0;
-    return 0;
-  }
-
-  finished = 1;
+  /* Write the cwnd and rtt estimate */
+  uint32_t ret[2];
+  ret[0] = 0;
+  ret[1] = 0;
 
   /* fill the buffer, return the buffer size */
-  if (copy_to_user(buf, tmp_buf, sizeof(tmp_buf))) {
+  if (copy_to_user(buf, ret, sizeof(ret))) {
     return -EFAULT;
   }
 
-  return sizeof(tmp_buf);
+  return sizeof(ret);
 }
 
 /* This function is called when /proc is written */
 static ssize_t tv_proc_write(struct file *file, const char *buf,
                              size_t len, loff_t *offset)
 {
-  // TODO: this does nothing atm
-  char tmp_buf[128];
-  size_t copy_len;
+  uint32_t cwnd;
 
-  if (len > sizeof(tmp_buf)) {
-    copy_len = sizeof(tmp_buf);
-  } else {
-    copy_len = len;
-  }
-
-  if (copy_from_user(tmp_buf, buf, copy_len)) {
+  if (len != sizeof(cwnd)) {
     return -EFAULT;
   }
 
-  printk(KERN_INFO "kernel received: %s", tmp_buf);
+  if (copy_from_user(&cwnd, buf, sizeof(cwnd))) {
+    return -EFAULT;
+  }
 
-  return copy_len;
+  printk(KERN_INFO "setting cwnd to: %d", cwnd);
+
+  return sizeof(cwnd);
 }
 
 static const struct file_operations tv_proc_fops = {
@@ -200,20 +189,49 @@ static inline size_t proc_fname_len(void)
          3 /* :'s */ + 1 /* \0 */;
 }
 
-static inline void proc_fname_sformat(char *dst, uint32_t local_v4,
-                                     uint16_t local_port, uint32_t peer_v4,
-                                     uint16_t peer_port)
+/* Difficult to include endian.h or arpa/inet.h in kernel module */
+static inline uint32_t swap_end_32(uint32_t x)
 {
-  sprintf(dst, "%s%0x:%hx:%0x:%hx", PROC_PREFIX, local_v4, local_port, peer_v4,
-          peer_port);
+  uint32_t ret;
+  int i;
+  for (i = 0; i < sizeof(ret); i++) {
+    ((char *) &ret)[i] = ((char *) &x)[sizeof(ret) - i - 1];
+  }
+  return ret;
 }
 
+static inline uint16_t swap_end_16(uint16_t x)
+{
+  uint16_t ret;
+  int i;
+  for (i = 0; i < sizeof(ret); i++) {
+    ((char *) &ret)[i] = ((char *) &x)[sizeof(ret) - i - 1];
+  }
+  return ret;
+}
+
+/* All args are in host order (le) */
+static inline void proc_fname_sformat(char *dst, uint32_t local_v4,
+                                      uint16_t local_port, uint32_t peer_v4,
+                                      uint16_t peer_port)
+{
+  sprintf(dst, "%s%0x:%hx:%0x:%hx", PROC_PREFIX, swap_end_32(local_v4),
+          swap_end_16(local_port), swap_end_32(peer_v4), swap_end_16(peer_port));
+}
+
+/* All args are returned in host order (le) */
 static inline void proc_fname_sscan(char * src, uint32_t * local_v4,
                                    uint16_t * local_port, uint32_t * peer_v4,
                                    uint16_t * peer_port)
 {
-  sscanf(src + strlen(PROC_PREFIX), "%8x:%hx:%8x:%hx", local_v4, local_port,
-         peer_v4, peer_port);
+  uint32_t local_v4_ne, peer_v4_ne;
+  uint16_t local_port_ne, peer_port_ne;
+  sscanf(src + strlen(PROC_PREFIX), "%8x:%hx:%8x:%hx", &local_v4_ne,
+         &local_port_ne, &peer_v4_ne, &peer_port_ne);
+  *local_v4 = swap_end_32(local_v4_ne);
+  *local_port = swap_end_16(local_port_ne);
+  *peer_v4 = swap_end_32(peer_v4_ne);
+  *peer_port = swap_end_16(peer_port_ne);
 }
 
 static void bictcp_init(struct sock *sk)
