@@ -7,6 +7,7 @@
 #include <string>
 
 #include "yaml.hh"
+#include "address.hh"
 #include "channel.hh"
 
 class MediaSegment
@@ -53,13 +54,18 @@ private:
 class WebSocketClient
 {
 public:
-  WebSocketClient(const uint64_t connection_id);
+  WebSocketClient(const uint64_t connection_id, const Address & local_address,
+                  const Address & peer_address);
 
   void init(const std::string & channel,
             const uint64_t vts, const uint64_t ats);
 
   /* accessors */
   uint64_t connection_id() const { return connection_id_; }
+
+  const Address & peer_address() const { return peer_address_; }
+  const Address & local_address() const { return local_address_; }
+
   std::optional<std::string> channel() const { return channel_; }
 
   std::optional<uint64_t> next_vts() const { return next_vts_; }
@@ -101,7 +107,9 @@ public:
   void set_client_next_ats(const uint64_t ats) { client_next_ats_ = ats; }
 
 private:
-  uint64_t connection_id_;
+  const uint64_t connection_id_;
+  const Address local_address_;
+  const Address peer_address_;
 
   /* Fields set in init */
   std::optional<std::string> channel_;

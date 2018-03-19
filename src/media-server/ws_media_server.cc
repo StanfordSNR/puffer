@@ -9,6 +9,7 @@
 #include "yaml.hh"
 #include "inotify.hh"
 #include "timerfd.hh"
+#include "kernel.hh"
 #include "channel.hh"
 #include "message.hh"
 #include "ws_server.hh"
@@ -400,7 +401,10 @@ int main(int argc, char * argv[])
       cerr << "Connected (id=" << connection_id << ")" << endl;
 
       handle_client_open(server, connection_id);
-      auto ret = clients.emplace(connection_id, WebSocketClient(connection_id));
+      const auto & [local_addr, peer_addr] = server.addresses(connection_id);
+      auto ret = clients.emplace(connection_id,
+                                 WebSocketClient(connection_id, local_addr, 
+                                                 peer_addr));
       if (not ret.second) {
         throw runtime_error("Connection ID " + to_string(connection_id) +
                             " already exists");

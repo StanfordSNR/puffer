@@ -302,6 +302,14 @@ size_t WSServer<SocketType>::queue_size(const uint64_t connection_id)
 }
 
 template<class SocketType>
+tuple<Address, Address> WSServer<SocketType>::addresses(
+  const uint64_t connection_id)
+{
+  Connection & conn = connections_.at(connection_id);
+  return { conn.socket.local_address(), conn.socket.peer_address() };
+}
+
+template<class SocketType>
 Poller::Result WSServer<SocketType>::loop_once()
 {
   auto result = poller_.poll(-1);

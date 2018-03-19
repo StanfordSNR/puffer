@@ -7,6 +7,7 @@
 #include <set>
 #include <functional>
 #include <deque>
+#include <tuple>
 
 #include "socket.hh"
 #include "nb_secure_socket.hh"
@@ -83,6 +84,8 @@ public:
 
   void close_connection(const uint64_t connection_id);
   size_t queue_size(const uint64_t connection_id);
+
+  std::tuple<Address, Address> addresses(const uint64_t connection_id);
 };
 
 using WebSocketServer = WSServer<TCPSocket>;

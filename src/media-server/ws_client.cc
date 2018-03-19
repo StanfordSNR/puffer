@@ -39,8 +39,12 @@ void MediaSegment::read(string & dst, const size_t n)
   assert(dst.length() - orig_dst_len <= n);
 }
 
-WebSocketClient::WebSocketClient(const uint64_t connection_id)
+WebSocketClient::WebSocketClient(
+  const uint64_t connection_id,
+  const Address & local_address,
+  const Address & peer_address)
   : connection_id_(connection_id),
+    local_address_(local_address), peer_address_(peer_address),
     channel_(), next_vts_(), next_ats_(),
     next_vsegment_(), next_asegment_(),
     curr_vq_(), curr_aq_(),
