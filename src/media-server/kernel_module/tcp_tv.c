@@ -30,6 +30,7 @@
 #include <net/tcp.h>
 
 #define PROC_PREFIX "tv-cong-"
+#define MSS_APPROX 1500
 
 #define BICTCP_BETA_SCALE    1024 /* Scale factor beta calculation
            * max_cwnd = snd_cwnd * beta
@@ -164,9 +165,9 @@ static inline void proc_fname_sscanf(char * src, uint32_t * local_v4,
 static ssize_t tv_proc_read(struct file *file, char *buf,
                             size_t len, loff_t *offset)
 {
-  struct sock *sk;
-  struct tcp_sock *tp;
-  struct bictcp *ca;
+  // struct sock *sk;
+  // struct tcp_sock *tp;
+  // struct bictcp *ca;
   uint32_t ret[2];
   char * fname = file->f_path.dentry->d_iname;
   uint32_t local_v4, peer_v4;
@@ -175,15 +176,15 @@ static ssize_t tv_proc_read(struct file *file, char *buf,
 
   /* TODO: lookup a TCP connection (might need locks)
    * I don't know what the net, hashinfo, and dif args are supposed to be */
-  sk = __inet_lookup_established(NULL /* net */, NULL /* hashinfo */,
-                                 local_v4, local_port, peer_v4, peer_port,
-                                 0 /* dif */);
-  tp = tcp_sk(sk);
-  ca = inet_csk_ca(sk);
+  // sk = __inet_lookup_established(NULL /* net */, NULL /* hashinfo */,
+  //                                local_v4, local_port, peer_v4, peer_port,
+  //                                0 /* dif */);
+  // tp = tcp_sk(sk);
+  // ca = inet_csk_ca(sk);
 
   /* Write the cwnd and rtt estimate */
-  ret[0] = 0;
-  ret[1] = 0;
+  ret[0] = 0; // ca->cnt * MSS_APPROX;
+  ret[1] = 0; // ca->curr_rtt;
 
   /* fill the buffer, return the buffer size */
   if (copy_to_user(buf, ret, sizeof(ret))) {
@@ -197,9 +198,9 @@ static ssize_t tv_proc_read(struct file *file, char *buf,
 static ssize_t tv_proc_write(struct file *file, const char *buf,
                              size_t len, loff_t *offset)
 {
-  struct sock *sk;
-  struct tcp_sock *tp;
-  struct bictcp *ca;
+  // struct sock *sk;
+  // struct tcp_sock *tp;
+  // struct bictcp *ca;
   uint32_t cwnd;
   char * fname = file->f_path.dentry->d_iname;
   uint32_t local_v4, peer_v4;
@@ -217,13 +218,15 @@ static ssize_t tv_proc_write(struct file *file, const char *buf,
 
   /* TODO: lookup a TCP connection (might need locks)
    * I don't know what the net, hashinfo, and dif args are supposed to be */
-  sk = __inet_lookup_established(NULL /* net */, NULL /* hashinfo */,
-                                 local_v4, local_port, peer_v4, peer_port,
-                                 0 /* dif */);
-  tp = tcp_sk(sk);
-  ca = inet_csk_ca(sk);
+  // sk = __inet_lookup_established(NULL /* net */, NULL /* hashinfo */,
+  //                                local_v4, local_port, peer_v4, peer_port,
+  //                                0 /* dif */);
+  // tp = tcp_sk(sk);
+  // ca = inet_csk_ca(sk);
 
-  printk(KERN_INFO "setting cwnd to: %d", cwnd);
+  /* TODO: this is probably not the best way to set this */
+  // ca->cnt = cwnd / MSS_APPROX + 1;
+  printk(KERN_INFO "set cwnd to: %d", cwnd);
 
   return sizeof(cwnd);
 }
@@ -311,7 +314,7 @@ static void bictcp_release(struct sock *sk)
     proc_fname_sprintf(proc_name, local_v4, local_port, peer_v4, peer_port);
     remove_proc_entry(proc_name, NULL);
     printk(KERN_INFO "/proc/%s removed\n", proc_name);
-  }
+  } 
 }
 
 static void bictcp_cwnd_event(struct sock *sk, enum tcp_ca_event event)
@@ -620,16 +623,16 @@ static void bictcp_acked(struct sock *sk, const struct ack_sample *sample)
 }
 
 static struct tcp_congestion_ops cubictcp __read_mostly = {
-  .init   = bictcp_init,
-  .release = bictcp_release,
-  .ssthresh = bictcp_recalc_ssthresh,
+  .init       = bictcp_init,
+  .release    = bictcp_release,
+  .ssthresh   = bictcp_recalc_ssthresh,
   .cong_avoid = bictcp_cong_avoid,
   .set_state  = bictcp_state,
   .undo_cwnd  = tcp_reno_undo_cwnd,
   .cwnd_event = bictcp_cwnd_event,
-  .pkts_acked     = bictcp_acked,
-  .owner    = THIS_MODULE,
-  .name   = "tv",
+  .pkts_acked = bictcp_acked,
+  .owner      = THIS_MODULE,
+  .name       = "tv",
 };
 
 static int __init tvtcp_register(void)
