@@ -10,7 +10,8 @@
 #include "inotify.hh"
 #include "timerfd.hh"
 #include "channel.hh"
-#include "message.hh"
+#include "server_message.hh"
+#include "client_message.hh"
 #include "ws_server.hh"
 #include "ws_client.hh"
 
@@ -93,10 +94,11 @@ void serve_video_to_client(WebSocketServer & server, WebSocketClient & client)
 
   VideoSegment & next_vsegment = client.next_vsegment().value();
 
-  string frame_payload = make_video_msg(next_vsegment.format().to_string(),
-                                        next_vts, channel.vduration(),
-                                        next_vsegment.offset(),
-                                        next_vsegment.length());
+  ServerVideoMsg video_msg(next_vsegment.format().to_string(),
+                           next_vts, channel.vduration(),
+                           next_vsegment.offset(),
+                           next_vsegment.length());
+  string frame_payload = video_msg.to_string();
   next_vsegment.read(frame_payload, max_ws_frame_len);
 
   WSFrame frame {true, WSFrame::OpCode::Binary, move(frame_payload)};
@@ -138,11 +140,12 @@ void serve_audio_to_client(WebSocketServer & server, WebSocketClient & client)
 
   AudioSegment & next_asegment = client.next_asegment().value();
 
-  string frame_payload = make_audio_msg(next_asegment.format().to_string(),
-                                        next_ats,
-                                        channel.aduration(),
-                                        next_asegment.offset(),
-                                        next_asegment.length());
+  ServerAudioMsg audio_msg(next_asegment.format().to_string(),
+                           next_ats,
+                           channel.aduration(),
+                           next_asegment.offset(),
+                           next_asegment.length());
+  string frame_payload = audio_msg.to_string();
   next_asegment.read(frame_payload, max_ws_frame_len);
 
   WSFrame frame {true, WSFrame::OpCode::Binary, move(frame_payload)};
@@ -180,12 +183,12 @@ void reinit_laggy_client(WebSocketServer & server, WebSocketClient & client,
   uint64_t init_ats = channel.find_ats(init_vts);
   client.init(channel.name(), init_vts, init_ats);
 
-  string reinit = make_server_init_msg(channel.name(), channel.vcodec(),
-                                       channel.acodec(), channel.timescale(),
-                                       client.next_vts().value(),
-                                       client.next_ats().value(),
-                                       client.init_id(), false);
-  WSFrame frame {true, WSFrame::OpCode::Binary, move(reinit)};
+  ServerInitMsg reinit(channel.name(), channel.vcodec(),
+                       channel.acodec(), channel.timescale(),
+                       client.next_vts().value(),
+                       client.next_ats().value(),
+                       client.init_id(), false);
+  WSFrame frame {true, WSFrame::OpCode::Binary, reinit.to_string()};
   server.queue_frame(client.connection_id(), frame);
 }
 
@@ -260,27 +263,27 @@ void start_global_timer(WebSocketServer & server)
 }
 
 void handle_client_init(WebSocketServer & server, WebSocketClient & client,
-                        const ClientInitMessage & message)
+                        const ClientInitMsg & msg)
 {
-  auto it = message.channel.has_value() ?
-    channels.find(message.channel.value()) : channels.begin();
+  auto it = msg.channel.has_value() ?
+    channels.find(msg.channel.value()) : channels.begin();
   if (it == channels.end()) {
-    throw BadClientMessageException("Requested channel not found");
+    throw BadClientMsgException("Requested channel not found");
   }
   auto & channel = it->second;
 
   bool can_resume;
   uint64_t init_vts, init_ats;
-  if (message.channel.has_value() and
-      message.next_vts.has_value() and
-      channel.is_valid_vts(message.next_vts.value()) and
-      channel.vready(message.next_vts.value()) and
-      message.next_ats.has_value() and
-      channel.is_valid_ats(message.next_ats.value()) and
-      channel.aready(message.next_ats.value())) {
+  if (msg.channel.has_value() and
+      msg.next_vts.has_value() and
+      channel.is_valid_vts(msg.next_vts.value()) and
+      channel.vready(msg.next_vts.value()) and
+      msg.next_ats.has_value() and
+      channel.is_valid_ats(msg.next_ats.value()) and
+      channel.aready(msg.next_ats.value())) {
     /* Resume */
-    init_vts = message.next_vts.value();
-    init_ats = message.next_ats.value();
+    init_vts = msg.next_vts.value();
+    init_ats = msg.next_ats.value();
     can_resume = true;
   } else {
     /* (Re)Initialize */
@@ -292,33 +295,32 @@ void handle_client_init(WebSocketServer & server, WebSocketClient & client,
 
   client.init(channel.name(), init_vts, init_ats);
 
-  string reply = make_server_init_msg(channel.name(), channel.vcodec(),
-                                      channel.acodec(), channel.timescale(),
-                                      client.next_vts().value(),
-                                      client.next_ats().value(),
-                                      client.init_id(), can_resume);
+  ServerInitMsg reply(channel.name(), channel.vcodec(),
+                      channel.acodec(), channel.timescale(),
+                      client.next_vts().value(),
+                      client.next_ats().value(),
+                      client.init_id(), can_resume);
 
   /* Reinitialize video playback on the client */
-  WSFrame frame {true, WSFrame::OpCode::Binary, move(reply)};
+  WSFrame frame {true, WSFrame::OpCode::Binary, reply.to_string()};
   server.queue_frame(client.connection_id(), frame);
 }
 
-void handle_client_info(WebSocketClient & client,
-                        const ClientInfoMessage & message)
+void handle_client_info(WebSocketClient & client, const ClientInfoMsg & msg)
 {
-  if (message.init_id == client.init_id()) {
-    client.set_audio_playback_buf(message.audio_buffer_len);
-    client.set_video_playback_buf(message.video_buffer_len);
-    client.set_client_next_vts(message.next_video_timestamp);
-    client.set_client_next_ats(message.next_audio_timestamp);
+  if (msg.init_id == client.init_id()) {
+    client.set_audio_playback_buf(msg.audio_buffer_len);
+    client.set_video_playback_buf(msg.video_buffer_len);
+    client.set_client_next_vts(msg.next_video_timestamp);
+    client.set_client_next_ats(msg.next_audio_timestamp);
   }
 }
 
 void handle_client_open(WebSocketServer & server, const uint64_t connection_id)
 {
-  /* Send the client the list of playable channels */
-  string server_hello = make_server_hello_msg(channel_names);
-  WSFrame frame {true, WSFrame::OpCode::Binary, move(server_hello)};
+  /* Send server-hello with the list of playable channels */
+  ServerHelloMsg hello_msg(channel_names);
+  WSFrame frame {true, WSFrame::OpCode::Binary, hello_msg.to_string()};
   server.queue_frame(connection_id, frame);
 }
 
@@ -348,7 +350,7 @@ int main(int argc, char * argv[])
     const string channel_name = it->as<string>();
     channels.emplace(channel_name,
                      Channel(channel_name, config[channel_name], inotify));
-    channel_names.push_back(channel_name);
+    channel_names.emplace_back(channel_name);
   }
 
   max_buffer_seconds = config["max_buffer_s"] ?
@@ -370,24 +372,22 @@ int main(int argc, char * argv[])
            << message.payload() << endl;
 
       WebSocketClient & client = clients.at(connection_id);
+      ClientMsgParser parser(message.payload());
 
       try {
-        const auto data = unpack_client_msg(message.payload());
-        switch (data.first) {
-          case ClientMessageType::Init: {
-            ClientInitMessage client_init = parse_client_init_msg(data.second);
-            handle_client_init(server, client, client_init);
+        switch (parser.msg_type()) {
+          case ClientMsgParser::Type::Init: {
+            handle_client_init(server, client, parser.parse_init_msg());
             break;
           }
-          case ClientMessageType::Info: {
-            ClientInfoMessage client_info = parse_client_info_msg(data.second);
-            handle_client_info(client, client_info);
+          case ClientMsgParser::Type::Info: {
+            handle_client_info(client, parser.parse_info_msg());
             break;
           }
           default:
             break;
         }
-      } catch (const BadClientMessageException & e) {
+      } catch (const BadClientMsgException & e) {
         cerr << "Bad message from client: " << e.what() << endl;
         clients.erase(connection_id);
       }

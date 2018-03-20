@@ -25,9 +25,10 @@ function parse_server_msg(data) {
   };
 }
 
-/* Client messages are of the form: "message_type json_data" */
+/* Client messages are json_data */
 function format_client_msg(msg_type, data) {
-  return msg_type + ' ' + JSON.stringify(data);
+  data.type = msg_type;
+  return JSON.stringify(data);
 }
 
 /* Concatenates an array of arraybuffers */
@@ -36,7 +37,7 @@ function concat_arraybuffers(arr, len) {
   arr.reduce(function (i, x) {
     tmp.set(new Uint8Array(x), i);
     return i + x.byteLength;
-  }, 0)
+  }, 0);
   return tmp.buffer;
 }
 
