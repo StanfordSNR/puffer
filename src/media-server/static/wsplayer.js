@@ -352,7 +352,7 @@ function WebSocketClient(video, audio, channel_select) {
         }
         av_source = new AVSource(video, audio, message.metadata);
       }
-    } else if (message.metadata.type == 'audio') {
+    } else if (message.metadata.type == 'server-audio') {
       if (debug) {
         console.log('received', message.metadata.type,
                     message.metadata.timestamp,
@@ -361,7 +361,7 @@ function WebSocketClient(video, audio, channel_select) {
       av_source.handleAudio(message.data, message.metadata);
       send_client_info('audack');
 
-    } else if (message.metadata.type == 'video') {
+    } else if (message.metadata.type == 'server-video') {
       if (debug) {
         console.log('received', message.metadata.type,
                     message.metadata.timestamp,
@@ -369,6 +369,9 @@ function WebSocketClient(video, audio, channel_select) {
       }
       av_source.handleVideo(message.data, message.metadata);
       send_client_info('vidack');
+
+    } else {
+      console.log('received unknown message', message.metadata.type);
     }
   }
 
