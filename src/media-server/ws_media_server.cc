@@ -80,7 +80,7 @@ void serve_video_to_client(WebSocketServer & server, WebSocketClient & client)
     }
     const VideoFormat & next_vq = select_video_quality(client);
 
-    cerr << "Serving (id=" << client.connection_id() << ") video " << next_vts
+    cerr << client.connection_id() << ": serving video " << next_vts
          << " " << next_vq << endl;
 
     optional<mmap_t> init_mmap;
@@ -91,7 +91,7 @@ void serve_video_to_client(WebSocketServer & server, WebSocketClient & client)
     client.set_next_vsegment(next_vq, channel.vdata(next_vq, next_vts),
                              init_mmap);
   } else {
-    cerr << "Continuing (id=" << client.connection_id() << ") video "
+    cerr << client.connection_id() << ": continuing video "
          << next_vts << endl;
   }
 
@@ -126,7 +126,7 @@ void serve_audio_to_client(WebSocketServer & server, WebSocketClient & client)
 
     const AudioFormat & next_aq = select_audio_quality(client);
 
-    cerr << "Serving (id=" << client.connection_id() << ") audio " << next_ats
+    cerr << client.connection_id() << ": serving audio " << next_ats
          << " " << next_aq << endl;
 
     optional<mmap_t> init_mmap;
@@ -137,7 +137,7 @@ void serve_audio_to_client(WebSocketServer & server, WebSocketClient & client)
     client.set_next_asegment(next_aq, channel.adata(next_aq, next_ats),
                              init_mmap);
   } else {
-    cerr << "Continuing (id=" << client.connection_id() << ") audio "
+    cerr << client.connection_id() << ": continuing audio "
          << next_ats << endl;
   }
 
@@ -290,11 +290,15 @@ void handle_client_init(WebSocketServer & server, WebSocketClient & client,
       channel.is_valid_ats(msg.next_ats.value()) and
       channel.aready(msg.next_ats.value())) {
     /* Resume */
+    cerr << client.connection_id() << ": connection resumed" << endl;
+
     init_vts = msg.next_vts.value();
     init_ats = msg.next_ats.value();
     can_resume = true;
   } else {
     /* (Re)Initialize */
+    cerr << client.connection_id() << ": connection initialized" << endl;
+
     init_vts = channel.init_vts().value();
     init_ats = channel.find_ats(init_vts);
     can_resume = false;
@@ -367,8 +371,7 @@ void close_connection(WebSocketServer & server, const uint64_t connection_id)
   try {
     server.close_connection(connection_id);
   } catch (const exception & e) {
-    cerr << "Warning: cannot close the connection (id="
-         << connection_id << ")" << endl;
+    cerr << "Warning: cannot close the connection " << connection_id <<  endl;
   }
 
   clients.erase(connection_id);
@@ -407,8 +410,7 @@ int main(int argc, char * argv[])
     [&](const uint64_t connection_id, const WSMessage & msg)
     {
       if (debug) {
-        cerr << "Message (from=" << connection_id << "): "
-             << msg.payload() << endl;
+        cerr << connection_id << ": message " << msg.payload() << endl;
       }
 
       try {
@@ -426,11 +428,11 @@ int main(int argc, char * argv[])
             break;
         }
       } catch (const BadClientMsgException & e) {
-        cerr << "Bad message from client (id=" << connection_id << "): "
+        cerr << "Bad message from " << connection_id << ": "
              << e.what() << endl;
         close_connection(server, connection_id);
       } catch (const exception & e) {
-        cerr << "Warning: exception in client (id= " << connection_id << "): "
+        cerr << "Warning: exception in client " << connection_id << ": "
              << e.what() << endl;
         close_connection(server, connection_id);
       }
@@ -440,13 +442,13 @@ int main(int argc, char * argv[])
   server.set_open_callback(
     [&](const uint64_t connection_id)
     {
-      cerr << "Connected (id=" << connection_id << ")" << endl;
+      cerr << connection_id << ": connection opened" << endl;
 
       try {
         send_server_hello(server, connection_id);
         clients.emplace(connection_id, WebSocketClient(connection_id));
       } catch (const exception & e) {
-        cerr << "Warning: exception in client (id= " << connection_id << "): "
+        cerr << "Warning: exception in client " << connection_id << ": "
              << e.what() << endl;
         close_connection(server, connection_id);
       }
@@ -456,7 +458,7 @@ int main(int argc, char * argv[])
   server.set_close_callback(
     [&](const uint64_t connection_id)
     {
-      cerr << "Connection closed (id=" << connection_id << ")" << endl;
+      cerr << connection_id << ": connection closed" << endl;
       clients.erase(connection_id);
     }
   );

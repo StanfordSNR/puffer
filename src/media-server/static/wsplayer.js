@@ -119,8 +119,8 @@ function AVSource(video, audio, options) {
       && options.videoCodec === video_codec
       && options.audioCodec === audio_codec
       && options.timescale === timescale
-      && options.initVideoTimestamp <= next_video_timestamp
-      && options.initAudioTimestamp <= next_audio_timestamp
+      && options.initVideoTimestamp === next_video_timestamp
+      && options.initAudioTimestamp === next_audio_timestamp
     );
   };
 
@@ -339,7 +339,6 @@ function WebSocketClient(video, audio, channel_select) {
     if (message.metadata.type === 'server-hello') {
       console.log(message.metadata.type, message.metadata);
       update_channel_select(message.metadata.channels);
-      // that.set_channel(message.metadata.channels[0]); // may be redundant
 
     } else if (message.metadata.type === 'server-init') {
       console.log(message.metadata.type, message.metadata);
@@ -394,10 +393,13 @@ function WebSocketClient(video, audio, channel_select) {
       console.log('WebSocket closed');
       ws = null;
 
-      /* Try to reconnect */
-      console.log('Reconnecting in ' + rc_backoff + 'ms');
-      setTimeout(that.connect, rc_backoff);
-      rc_backoff = Math.min(MAX_RECONNECT_BACKOFF, rc_backoff * 2);
+      if (rc_backoff <= MAX_RECONNECT_BACKOFF) {
+        /* Try to reconnect */
+        console.log('Reconnecting in ' + rc_backoff + 'ms');
+
+        setTimeout(that.connect, rc_backoff);
+        rc_backoff = rc_backoff * 2;
+      }
     };
 
     ws.onerror = function (e) {
