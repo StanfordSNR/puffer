@@ -3,7 +3,6 @@
 
 #include <cstdint>
 #include <optional>
-#include <tuple>
 #include <string>
 
 #include "yaml.hh"
@@ -30,24 +29,24 @@ class VideoSegment : public MediaSegment
 {
 public:
   VideoSegment(const VideoFormat & format, mmap_t & data,
-               std::optional<mmap_t> init)
-    : MediaSegment(data, init), format_(format) {}
+               std::optional<mmap_t> init);
+
   const VideoFormat & format() const { return format_; }
 
 private:
-  const VideoFormat & format_;
+  VideoFormat format_;
 };
 
 class AudioSegment : public MediaSegment
 {
 public:
   AudioSegment(const AudioFormat & format, mmap_t & data,
-               std::optional<mmap_t> init)
-    : MediaSegment(data, init), format_(format) {}
+               std::optional<mmap_t> init);
+
   const AudioFormat & format() const { return format_; }
 
 private:
-  const AudioFormat & format_;
+  AudioFormat format_;
 };
 
 class WebSocketClient
@@ -101,27 +100,27 @@ public:
   void set_client_next_ats(const uint64_t ats) { client_next_ats_ = ats; }
 
 private:
-  uint64_t connection_id_;
+  uint64_t connection_id_ {};
 
   /* Fields set in init */
-  std::optional<std::string> channel_;
-  std::optional<uint64_t> next_vts_;
-  std::optional<uint64_t> next_ats_;
+  std::optional<std::string> channel_ {};
+  std::optional<uint64_t> next_vts_ {};
+  std::optional<uint64_t> next_ats_ {};
 
   /* Segments in the process of being sent */
-  std::optional<VideoSegment> next_vsegment_;
-  std::optional<AudioSegment> next_asegment_;
+  std::optional<VideoSegment> next_vsegment_ {};
+  std::optional<AudioSegment> next_asegment_ {};
 
-  std::optional<VideoFormat> curr_vq_;
-  std::optional<AudioFormat> curr_aq_;
+  std::optional<VideoFormat> curr_vq_ {};
+  std::optional<AudioFormat> curr_aq_ {};
 
   /* Fields from the client */
-  double video_playback_buf_;
-  double audio_playback_buf_;
-  std::optional<uint64_t> client_next_vts_;
-  std::optional<uint64_t> client_next_ats_;
+  double video_playback_buf_ {};
+  double audio_playback_buf_ {};
+  std::optional<uint64_t> client_next_vts_ {};
+  std::optional<uint64_t> client_next_ats_ {};
 
-  unsigned int init_id_;
+  unsigned int init_id_ {0};
 };
 
 #endif /* WS_CLIENT_HH */

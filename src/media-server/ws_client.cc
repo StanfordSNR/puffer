@@ -2,7 +2,7 @@
 
 using namespace std;
 
-MediaSegment::MediaSegment(mmap_t & data, std::optional<mmap_t> init)
+MediaSegment::MediaSegment(mmap_t & data, optional<mmap_t> init)
   : init_(init), data_(data), offset_(0), length_()
 {
   length_ = get<1>(data_);
@@ -39,15 +39,20 @@ void MediaSegment::read(string & dst, const size_t n)
   assert(dst.length() - orig_dst_len <= n);
 }
 
-WebSocketClient::WebSocketClient(const uint64_t connection_id)
-  : connection_id_(connection_id),
-    channel_(), next_vts_(), next_ats_(),
-    next_vsegment_(), next_asegment_(),
-    curr_vq_(), curr_aq_(),
-    video_playback_buf_(), audio_playback_buf_(),
-    client_next_vts_(), client_next_ats_(),
-    init_id_(0)
+VideoSegment::VideoSegment(const VideoFormat & format, mmap_t & data,
+                           optional<mmap_t> init)
+  : MediaSegment(data, init), format_(format)
 {}
+
+AudioSegment::AudioSegment(const AudioFormat & format, mmap_t & data,
+                           optional<mmap_t> init)
+  : MediaSegment(data, init), format_(format)
+{}
+
+WebSocketClient::WebSocketClient(const uint64_t connection_id)
+{
+  connection_id_ = connection_id;
+}
 
 void WebSocketClient::init(const string & channel,
                            const uint64_t vts, const uint64_t ats)
@@ -55,8 +60,6 @@ void WebSocketClient::init(const string & channel,
   channel_ = channel;
   next_vts_ = vts;
   next_ats_ = ats;
-  video_playback_buf_ = 0;
-  audio_playback_buf_ = 0;
 
   next_vsegment_.reset();
   next_asegment_.reset();
@@ -64,6 +67,8 @@ void WebSocketClient::init(const string & channel,
   curr_vq_.reset();
   curr_aq_.reset();
 
+  video_playback_buf_ = 0;
+  audio_playback_buf_ = 0;
   client_next_vts_ = vts;
   client_next_ats_ = ats;
 

@@ -35,7 +35,6 @@ std::ostream &operator<<(std::ostream & os, const AudioFormat & o);
 
 /* load and validate the YAML file */
 YAML::Node load_yaml(const std::string & yaml_path);
-YAML::Node load_yaml_unsafe(const std::string & yaml_path);
 
 /* get video formats (resolution, CRF) from YAML configuration */
 std::vector<VideoFormat> get_video_formats(const YAML::Node & config);
