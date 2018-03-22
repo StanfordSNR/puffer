@@ -94,6 +94,18 @@ void WSServer<NBSecureSocket>::Connection::write()
 }
 
 template<class SocketType>
+unsigned int WSServer<SocketType>::Connection::buffer_bytes() const
+{
+  unsigned int total_bytes = 0;
+
+  for (const auto & buffer : send_buffer) {
+    total_bytes += buffer.size();
+  }
+
+  return total_bytes;
+}
+
+template<class SocketType>
 WSServer<SocketType>::WSServer(const Address & listener_addr)
   : listener_socket_()
 {
@@ -288,15 +300,21 @@ void WSServer<SocketType>::close_connection(const uint64_t connection_id)
   conn.state = Connection::State::Closing;
 }
 
-template<class SocketType>
-size_t WSServer<SocketType>::queue_size(const uint64_t connection_id)
+template<>
+unsigned int WSServer<TCPSocket>::queue_bytes(const uint64_t conn_id) const
 {
-  Connection & conn = connections_.at(connection_id);
+  const Connection & conn = connections_.at(conn_id);
 
-  size_t total_size = 0;
-  for (const auto & buffer : conn.send_buffer) {
-    total_size += buffer.size();
-  }
+  return conn.buffer_bytes();
+}
+
+template<>
+unsigned int WSServer<NBSecureSocket>::queue_bytes(const uint64_t conn_id) const
+{
+  const Connection & conn = connections_.at(conn_id);
+
+  unsigned int total_size = conn.buffer_bytes();
+  total_size += conn.socket.buffer_bytes();
 
   return total_size;
 }

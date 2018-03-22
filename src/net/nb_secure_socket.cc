@@ -117,7 +117,7 @@ void NBSecureSocket::continue_SSL_write()
     return;
   }
 
-  write_buffer_.pop();
+  write_buffer_.pop_front();
   state_ = State::ready;
 }
 
@@ -151,4 +151,15 @@ string NBSecureSocket::ezread()
   string buffer {move(read_buffer_)};
   read_buffer_ = string {};
   return buffer;
+}
+
+unsigned int NBSecureSocket::buffer_bytes() const
+{
+  unsigned int total_bytes = 0;
+
+  for (const auto & buffer : write_buffer_) {
+    total_bytes += buffer.size();
+  }
+
+  return total_bytes;
 }

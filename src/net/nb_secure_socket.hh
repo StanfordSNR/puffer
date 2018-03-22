@@ -4,7 +4,7 @@
 #define CONNECTION_HH
 
 #include <string>
-#include <queue>
+#include <deque>
 
 #include "secure_socket.hh"
 
@@ -36,7 +36,7 @@ private:
   Mode mode_ {Mode::not_set};
   State state_ {State::not_connected};
 
-  std::queue<std::string> write_buffer_ {};
+  std::deque<std::string> write_buffer_ {};
   std::string read_buffer_ {};
 
 public:
@@ -53,8 +53,9 @@ public:
   void continue_SSL_read();
 
   std::string ezread();
-  void ezwrite(const std::string & message) { write_buffer_.push(message); };
-  void ezwrite(std::string && message) { write_buffer_.push(move(message)); };
+  void ezwrite(const std::string & msg) { write_buffer_.emplace_back(msg); };
+  void ezwrite(std::string && msg) { write_buffer_.emplace_back(move(msg)); };
+  unsigned int buffer_bytes() const;
 
   bool something_to_write() { return (write_buffer_.size() > 0); }
   bool something_to_read() { return (read_buffer_.size() > 0); }

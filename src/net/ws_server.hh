@@ -53,6 +53,7 @@ private:
     void write();
 
     bool data_to_send() const { return not send_buffer.empty(); }
+    unsigned int buffer_bytes() const;
   };
 
   SSLContext ssl_context_ {};
@@ -82,7 +83,7 @@ public:
   void queue_frame(const uint64_t connection_id, const WSFrame & frame);
 
   void close_connection(const uint64_t connection_id);
-  size_t queue_size(const uint64_t connection_id);
+  unsigned int queue_bytes(const uint64_t connection_id) const;
 };
 
 using WebSocketServer = WSServer<TCPSocket>;

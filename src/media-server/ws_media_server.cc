@@ -208,7 +208,7 @@ void serve_client(WebSocketServer & server, WebSocketClient & client)
     return;
   }
 
-  if (server.queue_size(client.connection_id()) < max_ws_queue_len) {
+  if (server.queue_bytes(client.connection_id()) < max_ws_queue_len) {
     const bool can_send_video =
       client.video_playback_buf() < max_buffer_seconds and
       video_in_flight(channel, client) < max_inflight_seconds;
@@ -223,7 +223,7 @@ void serve_client(WebSocketServer & server, WebSocketClient & client)
       }
       /* serve video only if there is still room */
       if (can_send_video and
-          server.queue_size(client.connection_id()) < max_ws_queue_len) {
+          server.queue_bytes(client.connection_id()) < max_ws_queue_len) {
         serve_video_to_client(server, client);
       }
     } else {
@@ -233,7 +233,7 @@ void serve_client(WebSocketServer & server, WebSocketClient & client)
       }
       /* serve audio only if there is still room */
       if (can_send_audio and
-          server.queue_size(client.connection_id()) < max_ws_queue_len) {
+          server.queue_bytes(client.connection_id()) < max_ws_queue_len) {
         serve_audio_to_client(server, client);
       }
     }
