@@ -51,7 +51,7 @@ public:
   const std::string & vcodec() const { return vcodec_; }
   const std::string & acodec() const { return acodec_; }
 
-  uint64_t init_vts() const;
+  std::optional<uint64_t> init_vts() const;
   uint64_t find_ats(const uint64_t vts) const;
 
   bool is_valid_vts(const uint64_t ts) const { return ts % vduration_ == 0; }
@@ -82,7 +82,7 @@ private:
   std::optional<uint64_t> vclean_frontier_ {};
   std::optional<uint64_t> aclean_frontier_ {};
 
-  /* live_ == false */
+  /* configured only if live_ == false */
   std::optional<uint64_t> init_vts_ {};
 
   void do_mmap_video(const fs::path & filepath, const VideoFormat & vf);

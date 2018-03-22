@@ -6,16 +6,16 @@ max_ws_queue_b: 100000
 channel:
   - tos
 tos:
-  output: tos/
+  live: false
+  input: tos/
   video:
     1280x720: [20, 28]
     854x480: [20, 28]
   audio:
     - 128k
-  # clean_time_window: 540000
   timescale: 90000
   video_duration: 180000
   audio_duration: 432000
-  init_vts: 0
   video_codec: 'video/mp4; codecs="avc1.42E020"'
   audio_codec: 'audio/webm; codecs="opus"'
+  init_vts: 0

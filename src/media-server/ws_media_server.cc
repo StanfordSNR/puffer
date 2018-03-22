@@ -181,7 +181,7 @@ void reinit_laggy_client(WebSocketServer & server, WebSocketClient & client,
                          const Channel & channel)
 {
   /* Reinitialize very slow clients if the cleaner has caught up */
-  uint64_t init_vts = channel.init_vts();
+  uint64_t init_vts = channel.init_vts().value();
   uint64_t init_ats = channel.find_ats(init_vts);
   client.init(channel.name(), init_vts, init_ats);
 
@@ -273,7 +273,12 @@ void handle_client_init(WebSocketServer & server, WebSocketClient & client,
   if (it == channels.end()) {
     throw BadClientMsgException("Requested channel not found");
   }
+
   const auto & channel = it->second;
+  /* ignore client-init if the channel is not ready */
+  if (not channel.init_vts().has_value()) {
+    return;
+  }
 
   bool can_resume;
   uint64_t init_vts, init_ats;
@@ -290,7 +295,7 @@ void handle_client_init(WebSocketServer & server, WebSocketClient & client,
     can_resume = true;
   } else {
     /* (Re)Initialize */
-    init_vts = channel.init_vts();
+    init_vts = channel.init_vts().value();
     init_ats = channel.find_ats(init_vts);
     can_resume = false;
   }
