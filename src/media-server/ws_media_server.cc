@@ -18,26 +18,29 @@
 using namespace std;
 using namespace PollerShortNames;
 
-const int DEFAULT_MAX_BUFFER_S = 60;
-const int DEFAULT_MAX_INFLIGHT_S = 5;
-const size_t DEFAULT_MAX_WS_FRAME_LEN = 100000;
-const size_t DEFAULT_MAX_WS_QUEUE_LEN = DEFAULT_MAX_WS_FRAME_LEN;
-
-static vector<string> channel_names;
-static map<string, Channel> channels;
-static map<uint64_t, WebSocketClient> clients;
-
-static Timerfd global_timer;
+/* global settings */
+static const int DEFAULT_MAX_BUFFER_S = 60;
+static const int DEFAULT_MAX_INFLIGHT_S = 5;
+static const size_t DEFAULT_MAX_WS_FRAME_LEN = 100000;
+static const size_t DEFAULT_MAX_WS_QUEUE_LEN = DEFAULT_MAX_WS_FRAME_LEN;
 
 static unsigned int max_buffer_seconds;
 static unsigned int max_inflight_seconds;
-
 static size_t max_ws_frame_len;
 static size_t max_ws_queue_len;
 
+static vector<string> channel_names;   /* cache of all channel names */
+static map<string, Channel> channels;  /* key: channel name */
+
+static map<uint64_t, WebSocketClient> clients;  /* key: connection ID */
+
+static Timerfd global_timer;  /* non-blocking global timer fd for scheduling */
+
+static bool debug = false;
+
 void print_usage(const string & program_name)
 {
-  cerr << program_name << " <YAML configuration>" << endl;
+  cerr << program_name << " <YAML configuration> [debug]" << endl;
 }
 
 inline int randint(const int a, const int b)
@@ -70,14 +73,14 @@ void serve_video_to_client(WebSocketServer & server, WebSocketClient & client)
 
   uint64_t next_vts = client.next_vts().value();
 
-  if (!client.next_vsegment().has_value()) { /* or try a lower quality */
+  if (not client.next_vsegment().has_value()) { /* or try a lower quality */
     /* Start new chunk */
     if (not channel.vready(next_vts)) {
       return;
     }
     const VideoFormat & next_vq = select_video_quality(client);
 
-    cerr << "serving (id=" << client.connection_id() << ") video " << next_vts
+    cerr << "Serving (id=" << client.connection_id() << ") video " << next_vts
          << " " << next_vq << endl;
 
     optional<mmap_t> init_mmap;
@@ -88,7 +91,7 @@ void serve_video_to_client(WebSocketServer & server, WebSocketClient & client)
     client.set_next_vsegment(next_vq, channel.vdata(next_vq, next_vts),
                              init_mmap);
   } else {
-    cerr << "continuing (id=" << client.connection_id() << ") video "
+    cerr << "Continuing (id=" << client.connection_id() << ") video "
          << next_vts << endl;
   }
 
@@ -123,7 +126,7 @@ void serve_audio_to_client(WebSocketServer & server, WebSocketClient & client)
 
     const AudioFormat & next_aq = select_audio_quality(client);
 
-    cerr << "serving (id=" << client.connection_id() << ") audio " << next_ats
+    cerr << "Serving (id=" << client.connection_id() << ") audio " << next_ats
          << " " << next_aq << endl;
 
     optional<mmap_t> init_mmap;
@@ -134,7 +137,7 @@ void serve_audio_to_client(WebSocketServer & server, WebSocketClient & client)
     client.set_next_asegment(next_aq, channel.adata(next_aq, next_ats),
                              init_mmap);
   } else {
-    cerr << "continuing (id=" << client.connection_id() << ") audio "
+    cerr << "Continuing (id=" << client.connection_id() << ") audio "
          << next_ats << endl;
   }
 
@@ -266,11 +269,11 @@ void handle_client_init(WebSocketServer & server, WebSocketClient & client,
                         const ClientInitMsg & msg)
 {
   auto it = msg.channel.has_value() ?
-    channels.find(msg.channel.value()) : channels.begin();
+            channels.find(msg.channel.value()) : channels.begin();
   if (it == channels.end()) {
     throw BadClientMsgException("Requested channel not found");
   }
-  auto & channel = it->second;
+  const auto & channel = it->second;
 
   bool can_resume;
   uint64_t init_vts, init_ats;
@@ -287,7 +290,6 @@ void handle_client_init(WebSocketServer & server, WebSocketClient & client,
     can_resume = true;
   } else {
     /* (Re)Initialize */
-    // TODO: init_vts() might throw if not enough video is available
     init_vts = channel.init_vts(max_buffer_seconds).value();
     init_ats = channel.find_ats(init_vts);
     can_resume = false;
@@ -316,12 +318,57 @@ void handle_client_info(WebSocketClient & client, const ClientInfoMsg & msg)
   }
 }
 
-void handle_client_open(WebSocketServer & server, const uint64_t connection_id)
+void send_server_hello(WebSocketServer & server, const uint64_t connection_id)
 {
   /* Send server-hello with the list of playable channels */
-  ServerHelloMsg hello_msg(channel_names);
-  WSFrame frame {true, WSFrame::OpCode::Binary, hello_msg.to_string()};
+  ServerHelloMsg hello(channel_names);
+  WSFrame frame {true, WSFrame::OpCode::Binary, hello.to_string()};
   server.queue_frame(connection_id, frame);
+}
+
+void load_global_settings(const YAML::Node & config)
+{
+  max_buffer_seconds = config["max_buffer_s"] ?
+    config["max_buffer_s"].as<unsigned int>() : DEFAULT_MAX_BUFFER_S;
+  max_inflight_seconds = config["max_inflight_s"] ?
+    config["max_inflight_s"].as<unsigned int>() : DEFAULT_MAX_INFLIGHT_S;
+  max_ws_frame_len = config["max_ws_frame_b"] ?
+    config["max_ws_frame_b"].as<size_t>() : DEFAULT_MAX_WS_FRAME_LEN;
+  max_ws_queue_len = config["max_ws_queue_b"] ?
+    config["max_ws_queue_b"].as<size_t>() : DEFAULT_MAX_WS_QUEUE_LEN;
+}
+
+void load_channels(const YAML::Node & config, Inotify & inotify)
+{
+  /* load channels */
+  for (YAML::const_iterator it = config["channel"].begin();
+       it != config["channel"].end(); ++it) {
+    const string & channel_name = it->as<string>();
+
+    if (not config[channel_name]) {
+      throw runtime_error("Cannot find details of channel: " + channel_name);
+    }
+
+    auto ret = channels.emplace(
+        channel_name, Channel(channel_name, config[channel_name], inotify));
+    if (not ret.second) {
+      throw runtime_error("Duplicate channels found: " + channel_name);
+    }
+
+    channel_names.emplace_back(channel_name);
+  }
+}
+
+void close_connection(WebSocketServer & server, const uint64_t connection_id)
+{
+  try {
+    server.close_connection(connection_id);
+  } catch (const exception & e) {
+    cerr << "Warning: cannot close the connection (id="
+         << connection_id << ")" << endl;
+  }
+
+  clients.erase(connection_id);
 }
 
 int main(int argc, char * argv[])
@@ -330,66 +377,59 @@ int main(int argc, char * argv[])
     abort();
   }
 
-  if (argc != 2) {
+  if (argc > 3) {
     print_usage(argv[0]);
     return EXIT_FAILURE;
   }
 
-  YAML::Node config = load_yaml_unsafe(argv[1]);
+  if (argc == 3 and string(argv[2]) == "debug") {
+    debug = true;
+  }
+
+  /* load YAML settings */
+  YAML::Node config = YAML::LoadFile(argv[1]);
+  load_global_settings(config);
 
   /* create a WebSocketServer instance */
   const string ip = "0.0.0.0";
-  const uint16_t port = config["port"].as<int>();
+  const uint16_t port = config["port"].as<uint16_t>();
   WebSocketServer server {{ip, port}};
 
-  /* mmap new media files */
+  /* load channels and mmap (existing and new) media files */
   Inotify inotify(server.poller());
+  load_channels(config, inotify);
 
-  for (YAML::const_iterator it = config["channel"].begin();
-       it != config["channel"].end(); ++it) {
-    const string channel_name = it->as<string>();
-    channels.emplace(channel_name,
-                     Channel(channel_name, config[channel_name], inotify));
-    channel_names.emplace_back(channel_name);
-  }
-
-  max_buffer_seconds = config["max_buffer_s"] ?
-    config["max_buffer_s"].as<int>() : DEFAULT_MAX_BUFFER_S;
-  max_inflight_seconds = config["max_inflight_s"] ?
-    config["max_inflight_s"].as<int>() : DEFAULT_MAX_INFLIGHT_S;
-  max_ws_frame_len = config["max_ws_frame_b"] ?
-    config["max_ws_frame_b"].as<int>() : DEFAULT_MAX_WS_FRAME_LEN;
-  max_ws_queue_len = config["max_ws_queue_b"] ?
-    config["max_ws_queue_b"].as<int>() : DEFAULT_MAX_WS_QUEUE_LEN;
-
-  /* start the global timer */
-  start_global_timer(server);
-
+  /* set server callbacks */
   server.set_message_callback(
-    [&](const uint64_t connection_id, const WSMessage & message)
+    [&](const uint64_t connection_id, const WSMessage & msg)
     {
-      cerr << "Message (from=" << connection_id << "): "
-           << message.payload() << endl;
-
-      WebSocketClient & client = clients.at(connection_id);
-      ClientMsgParser parser(message.payload());
+      if (debug) {
+        cerr << "Message (from=" << connection_id << "): "
+             << msg.payload() << endl;
+      }
 
       try {
+        WebSocketClient & client = clients.at(connection_id);
+        ClientMsgParser parser(msg.payload());
+
         switch (parser.msg_type()) {
-          case ClientMsgParser::Type::Init: {
+          case ClientMsgParser::Type::Init:
             handle_client_init(server, client, parser.parse_init_msg());
             break;
-          }
-          case ClientMsgParser::Type::Info: {
+          case ClientMsgParser::Type::Info:
             handle_client_info(client, parser.parse_info_msg());
             break;
-          }
           default:
             break;
         }
       } catch (const BadClientMsgException & e) {
-        cerr << "Bad message from client: " << e.what() << endl;
-        clients.erase(connection_id);
+        cerr << "Bad message from client (id=" << connection_id << "): "
+             << e.what() << endl;
+        close_connection(server, connection_id);
+      } catch (const exception & e) {
+        cerr << "Warning: exception in client (id= " << connection_id << "): "
+             << e.what() << endl;
+        close_connection(server, connection_id);
       }
     }
   );
@@ -399,11 +439,13 @@ int main(int argc, char * argv[])
     {
       cerr << "Connected (id=" << connection_id << ")" << endl;
 
-      handle_client_open(server, connection_id);
-      auto ret = clients.emplace(connection_id, WebSocketClient(connection_id));
-      if (not ret.second) {
-        throw runtime_error("Connection ID " + to_string(connection_id) +
-                            " already exists");
+      try {
+        send_server_hello(server, connection_id);
+        clients.emplace(connection_id, WebSocketClient(connection_id));
+      } catch (const exception & e) {
+        cerr << "Warning: exception in client (id= " << connection_id << "): "
+             << e.what() << endl;
+        close_connection(server, connection_id);
       }
     }
   );
@@ -412,10 +454,12 @@ int main(int argc, char * argv[])
     [&](const uint64_t connection_id)
     {
       cerr << "Connection closed (id=" << connection_id << ")" << endl;
-
       clients.erase(connection_id);
     }
   );
+
+  /* start the global timer */
+  start_global_timer(server);
 
   for (;;) {
     /* TODO: returns Poller::Result::Type::Exit sometimes? */
