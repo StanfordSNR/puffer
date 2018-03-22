@@ -11,38 +11,27 @@
 using namespace std;
 
 Channel::Channel(const string & name, YAML::Node config, Inotify & inotify)
-  : name_(name),
-    output_path_(),
-    vformats_(), aformats_(),
-    vinit_(), ainit_(),
-    vdata_(), vssim_(), adata_(),
-    clean_time_window_(),
-    timescale_(),
-    vduration_(), aduration_(),
-    vcodec_(), acodec_(),
-    init_vts_(),
-    vclean_frontier_(), aclean_frontier_()
 {
-  vformats_ = get_video_formats(config);
-  aformats_ = get_audio_formats(config);
+  name_ = name;
 
   string output_dir = config["output"].as<string>();
   output_path_ = fs::path(output_dir);
 
-  cerr << "Channel " << name_ << " at " << output_path_;
+  vformats_ = get_video_formats(config);
+  aformats_ = get_audio_formats(config);
 
   vcodec_ = config["video_codec"].as<string>();
   acodec_ = config["audio_codec"].as<string>();
 
   if (config["clean_time_window"]) {
-    clean_time_window_ = config["clean_time_window"].as<int>();
+    clean_time_window_ = config["clean_time_window"].as<uint64_t>();
   }
-  timescale_ = config["timescale"].as<int>();
-  vduration_ = config["video_duration"].as<int>();
-  aduration_ = config["audio_duration"].as<int>();
+  timescale_ = config["timescale"].as<unsigned int>();
+  vduration_ = config["video_duration"].as<unsigned int>();
+  aduration_ = config["audio_duration"].as<unsigned int>();
 
   if (config["init_vts"]) {
-    init_vts_ = config["init_vts"].as<int>();
+    init_vts_ = config["init_vts"].as<uint64_t>();
     assert(init_vts_.value() % vduration_ == 0);
   }
 
@@ -170,17 +159,15 @@ static mmap_t mmap_file(const string & filepath)
   return {static_pointer_cast<char>(data), size};
 }
 
-void Channel::munmap_video(const uint64_t ts)
+void Channel::munmap_video(const uint64_t latest_ts)
 {
-  if (clean_time_window_.has_value()) {
-    uint64_t obsolete = 0;
-    if (ts > clean_time_window_.value()) {
-      obsolete = ts - clean_time_window_.value();
-    }
+  if (clean_time_window_.has_value() and
+      latest_ts >= clean_time_window_.value()) {
+    uint64_t obsolete = latest_ts - clean_time_window_.value();
 
     for (auto it = vdata_.cbegin(); it != vdata_.cend();) {
       uint64_t ts = it->first;
-      if (ts < obsolete) {
+      if (ts <= obsolete) {
         vssim_.erase(ts);
         it = vdata_.erase(it);
       } else {
@@ -188,29 +175,29 @@ void Channel::munmap_video(const uint64_t ts)
       }
     }
 
-    if (!vclean_frontier_.has_value() or vclean_frontier_.value() < ts) {
+    if (not vclean_frontier_.has_value() or
+        vclean_frontier_.value() < obsolete) {
       vclean_frontier_ = obsolete;
     }
   }
 }
 
-void Channel::munmap_audio(const uint64_t ts)
+void Channel::munmap_audio(const uint64_t latest_ts)
 {
-  if (clean_time_window_.has_value()) {
-    uint64_t obsolete = 0;
-    if (ts > clean_time_window_.value()) {
-      obsolete = ts - clean_time_window_.value();
-    }
+  if (clean_time_window_.has_value() and
+      latest_ts >= clean_time_window_.value()) {
+    uint64_t obsolete = latest_ts - clean_time_window_.value();
 
     for (auto it = adata_.cbegin(); it != adata_.cend();) {
-      if (it->first < obsolete) {
+      if (it->first <= obsolete) {
         it = adata_.erase(it);
       } else {
         break;
       }
     }
 
-    if (!aclean_frontier_.has_value() or aclean_frontier_.value() < ts) {
+    if (not aclean_frontier_.has_value() or
+        aclean_frontier_.value() < obsolete) {
       aclean_frontier_ = obsolete;
     }
   }

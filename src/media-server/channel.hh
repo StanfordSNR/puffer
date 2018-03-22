@@ -63,27 +63,27 @@ public:
   bool is_valid_ats(const uint64_t ts) const { return ts % aduration_ == 0; }
 
 private:
-  std::string name_;
+  std::string name_ {};
 
-  fs::path output_path_;
-  std::vector<VideoFormat> vformats_;
-  std::vector<AudioFormat> aformats_;
-  std::map<VideoFormat, mmap_t> vinit_;
-  std::map<AudioFormat, mmap_t> ainit_;
-  std::map<uint64_t, std::map<VideoFormat, mmap_t>> vdata_;
-  std::map<uint64_t, std::map<VideoFormat, double>> vssim_;
-  std::map<uint64_t, std::map<AudioFormat, mmap_t>> adata_;
+  fs::path output_path_ {};
+  std::vector<VideoFormat> vformats_ {};
+  std::vector<AudioFormat> aformats_ {};
+  std::map<VideoFormat, mmap_t> vinit_ {};
+  std::map<AudioFormat, mmap_t> ainit_ {};
+  std::map<uint64_t, std::map<VideoFormat, mmap_t>> vdata_ {};
+  std::map<uint64_t, std::map<VideoFormat, double>> vssim_ {};
+  std::map<uint64_t, std::map<AudioFormat, mmap_t>> adata_ {};
 
-  std::optional<unsigned int> clean_time_window_;
-  unsigned int timescale_;
-  unsigned int vduration_;
-  unsigned int aduration_;
-  std::string vcodec_;
-  std::string acodec_;
-  std::optional<uint64_t> init_vts_;
+  std::optional<uint64_t> clean_time_window_ {};
+  unsigned int timescale_ {};
+  unsigned int vduration_ {};
+  unsigned int aduration_ {};
+  std::string vcodec_ {};
+  std::string acodec_ {};
+  std::optional<uint64_t> init_vts_ {};
 
-  std::optional<uint64_t> vclean_frontier_;
-  std::optional<uint64_t> aclean_frontier_;
+  std::optional<uint64_t> vclean_frontier_ {};
+  std::optional<uint64_t> aclean_frontier_ {};
 
   void do_mmap_video(const fs::path & filepath, const VideoFormat & vf);
   void munmap_video(const uint64_t ts);
