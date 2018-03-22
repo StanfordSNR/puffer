@@ -180,9 +180,8 @@ inline unsigned int audio_in_flight(const Channel & channel,
 void reinit_laggy_client(WebSocketServer & server, WebSocketClient & client,
                          const Channel & channel)
 {
-  /* Reinitialize very slow clients if the cleaner has caught up
-   * (warning: UNTESTED CODE!) */
-  uint64_t init_vts = channel.init_vts(max_buffer_seconds).value();
+  /* Reinitialize very slow clients if the cleaner has caught up */
+  uint64_t init_vts = channel.init_vts();
   uint64_t init_ats = channel.find_ats(init_vts);
   client.init(channel.name(), init_vts, init_ats);
 
@@ -268,6 +267,7 @@ void start_global_timer(WebSocketServer & server)
 void handle_client_init(WebSocketServer & server, WebSocketClient & client,
                         const ClientInitMsg & msg)
 {
+  /* use the channel requested by client or automatically choose one */
   auto it = msg.channel.has_value() ?
             channels.find(msg.channel.value()) : channels.begin();
   if (it == channels.end()) {
@@ -290,7 +290,7 @@ void handle_client_init(WebSocketServer & server, WebSocketClient & client,
     can_resume = true;
   } else {
     /* (Re)Initialize */
-    init_vts = channel.init_vts(max_buffer_seconds).value();
+    init_vts = channel.init_vts();
     init_ats = channel.find_ats(init_vts);
     can_resume = false;
   }
@@ -302,8 +302,6 @@ void handle_client_init(WebSocketServer & server, WebSocketClient & client,
                       client.next_vts().value(),
                       client.next_ats().value(),
                       client.init_id(), can_resume);
-
-  /* Reinitialize video playback on the client */
   WSFrame frame {true, WSFrame::OpCode::Binary, reply.to_string()};
   server.queue_frame(client.connection_id(), frame);
 }
