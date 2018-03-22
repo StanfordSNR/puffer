@@ -43,7 +43,7 @@ function concat_arraybuffers(arr, len) {
 
 function AVSource(video, audio, options) {
   /* SourceBuffers for audio and video */
-  var vbuf, abuf;
+  var vbuf = null, abuf = null;
 
   var channel = options.channel;
   var video_codec = options.videoCodec;
@@ -115,10 +115,10 @@ function AVSource(video, audio, options) {
   this.canResume = function(options) {
     return (
       options.canResume
-      && options.channel == channel
-      && options.videoCodec == video_codec
-      && options.audioCodec == audio_codec
-      && options.timescale == timescale
+      && options.channel === channel
+      && options.videoCodec === video_codec
+      && options.audioCodec === audio_codec
+      && options.timescale === timescale
       && options.initVideoTimestamp <= next_video_timestamp
       && options.initAudioTimestamp <= next_audio_timestamp
     );
@@ -128,29 +128,29 @@ function AVSource(video, audio, options) {
     init_id = options.initId;
   };
 
-  this.isOpen = function() { return abuf != undefined && vbuf != undefined; };
+  this.isOpen = function() { return abuf !== null && vbuf !== null; };
 
   /* Close the AV source, presumably it is being replaced */
   this.close = function() {
     console.log('Closing AV source');
     pending_audio_chunks = [];
     pending_video_chunks = [];
-    abuf = undefined;
-    vbuf = undefined;
+    abuf = null;
+    vbuf = null;
   };
 
-  var partial_video_qualiity = undefined;
-  var partial_video_chunks;
+  var partial_video_quality = null;
+  var partial_video_chunks = null;
   this.handleVideo = function(data, metadata) {
     /* New segment or server aborted sending */
-    if (partial_video_qualiity != metadata.quality) {
-      partial_video_qualiity = metadata.quality;
+    if (partial_video_quality !== metadata.quality) {
+      partial_video_quality = metadata.quality;
       partial_video_chunks = [];
     }
     partial_video_chunks.push(data);
 
     /* Last fragment received */
-    if (data.byteLength + metadata.byteOffset == metadata.totalByteLength) {
+    if (data.byteLength + metadata.byteOffset === metadata.totalByteLength) {
       if (debug) {
         console.log('video: done receiving', metadata.timestamp);
       }
@@ -166,18 +166,18 @@ function AVSource(video, audio, options) {
     }
   };
 
-  var partial_audio_quality = undefined;
-  var partial_audio_chunks;
+  var partial_audio_quality = null;
+  var partial_audio_chunks = null;
   this.handleAudio = function(data, metadata) {
     /* New segment or server aborted sending */
-    if (partial_audio_quality != metadata.quality) {
+    if (partial_audio_quality !== metadata.quality) {
       partial_audio_quality = metadata.quality;
       partial_audio_chunks = [];
     }
     partial_audio_chunks.push(data);
 
     /* Last fragment received */
-    if (data.byteLength + metadata.byteOffset == metadata.totalByteLength) {
+    if (data.byteLength + metadata.byteOffset === metadata.totalByteLength) {
       if (debug) {
         console.log('audio: done receiving', metadata.timestamp);
       }
@@ -268,8 +268,8 @@ function get_ws_server_host_and_port(cb) {
 }
 
 function WebSocketClient(video, audio, channel_select) {
-  var ws;
-  var av_source;
+  var ws = null;
+  var av_source = null;
 
   /* Exponential backoff to reconnect */
   var rc_backoff = BASE_RECONNECT_BACKOFF;
@@ -287,16 +287,16 @@ function WebSocketClient(video, audio, channel_select) {
   }
 
   function send_client_init(ws, channel) {
-    if (ws && ws.readyState == WS_OPEN) {
+    if (ws && ws.readyState === WS_OPEN) {
       try {
         var msg = {
           playerWidth: video.videoWidth,
           playerHeight: video.videoHeight
         };
-        if (channel != null) {
+        if (channel) {
           msg.channel = channel;
         }
-        if (av_source && av_source.getChannel() == channel) {
+        if (av_source && av_source.getChannel() === channel) {
           msg.nextAudioTimestamp = av_source.getNextAudioTimestamp();
           msg.nextVideoTimestamp = av_source.getNextVideoTimestamp();
         }
@@ -311,7 +311,7 @@ function WebSocketClient(video, audio, channel_select) {
     if (debug && av_source && av_source.isOpen()) {
       av_source.logBufferInfo();
     }
-    if (ws && ws.readyState == WS_OPEN && av_source && av_source.isOpen()) {
+    if (ws && ws.readyState === WS_OPEN && av_source && av_source.isOpen()) {
       try {
         ws.send(format_client_msg('client-info',
           {
@@ -335,24 +335,26 @@ function WebSocketClient(video, audio, channel_select) {
   /* Handle a websocket message from the server */
   function handle_msg(e) {
     var message = parse_server_msg(e.data);
-    if (message.metadata.type == 'server-hello') {
-      console.log(message.metadata.type, message.metadata.channels);
-      update_channel_select(message.metadata.channels);
-      that.set_channel(message.metadata.channels[0]); // may be redundant
 
-    } else if (message.metadata.type == 'server-init') {
+    if (message.metadata.type === 'server-hello') {
+      console.log(message.metadata.type, message.metadata);
+      update_channel_select(message.metadata.channels);
+      // that.set_channel(message.metadata.channels[0]); // may be redundant
+
+    } else if (message.metadata.type === 'server-init') {
       console.log(message.metadata.type, message.metadata);
       if (av_source && av_source.canResume(message.metadata)) {
-        console.log("Resuming playback");
+        console.log('Resuming playback');
         av_source.resume(message.metadata);
       } else {
-        console.log("Initializing new AV source");
+        console.log('Initializing new AV source');
         if (av_source) {
           av_source.close();
         }
         av_source = new AVSource(video, audio, message.metadata);
       }
-    } else if (message.metadata.type == 'server-audio') {
+
+    } else if (message.metadata.type === 'server-audio') {
       if (debug) {
         console.log('received', message.metadata.type,
                     message.metadata.timestamp,
@@ -361,7 +363,7 @@ function WebSocketClient(video, audio, channel_select) {
       av_source.handleAudio(message.data, message.metadata);
       send_client_info('audack');
 
-    } else if (message.metadata.type == 'server-video') {
+    } else if (message.metadata.type === 'server-video') {
       if (debug) {
         console.log('received', message.metadata.type,
                     message.metadata.timestamp,
@@ -378,29 +380,29 @@ function WebSocketClient(video, audio, channel_select) {
   function connect_to_ws_server(ws_host_and_port) {
     console.log('WS at', ws_host_and_port);
     ws = new WebSocket('ws://' + ws_host_and_port);
+
     ws.binaryType = 'arraybuffer';
     ws.onmessage = handle_msg;
 
     ws.onopen = function (e) {
-      console.log('WebSocket open, sending client-hello');
+      console.log('WebSocket open, sending client-init');
       send_client_init(ws, av_source ? av_source.getChannel() : null);
       rc_backoff = BASE_RECONNECT_BACKOFF;
     };
 
     ws.onclose = function (e) {
       console.log('WebSocket closed');
-      ws = undefined;
+      ws = null;
 
       /* Try to reconnect */
-      console.log("Reconnecting in " + rc_backoff + "ms");
+      console.log('Reconnecting in ' + rc_backoff + 'ms');
       setTimeout(that.connect, rc_backoff);
       rc_backoff = Math.min(MAX_RECONNECT_BACKOFF, rc_backoff * 2);
-
     };
 
     ws.onerror = function (e) {
       console.log('WebSocket error:', e);
-      ws = undefined;
+      ws = null;
     };
   }
 
@@ -410,7 +412,7 @@ function WebSocketClient(video, audio, channel_select) {
   };
 
   this.set_channel = function(channel) {
-    send_client_init(channel);
+    send_client_init(ws, channel);
   };
 
   video.oncanplay = function() {
