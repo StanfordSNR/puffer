@@ -6,7 +6,10 @@ import socket
 import subprocess
 from subprocess import PIPE
 import signal
+import uuid
 from functools import wraps
+import tempfile
+from shutil import copyfile, move
 
 def get_open_port():
     sock = socket.socket(socket.AF_INET)
@@ -83,13 +86,21 @@ def timeout(seconds=10, error_message=os.strerror(errno.ETIME)):
 
 
 def create_tmp_and_move_to(directory, ext='.ext'):
-    tmp_filepath = check_output(['mktemp']).decode('utf-8').strip()
+    fd, tmp_filepath = tempfile.mkstemp()
+    os.close(fd)
+
     tmp_filename = path.basename(tmp_filepath) + ext
 
     new_filepath = path.join(directory, tmp_filename)
-    check_call(['mv', tmp_filepath, new_filepath])
+    move(tmp_filepath, new_filepath)
 
     return tmp_filename
+
+
+def copy_move(src_path, dst_path):
+    tmp_path = path.join(tempfile.gettempdir(), path.basename(src_path))
+    copyfile(src_path, tmp_path)
+    move(tmp_path, dst_path)
 
 
 def touch(filename, times=None):
