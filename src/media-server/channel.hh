@@ -34,15 +34,9 @@ public:
   double vssim(const VideoFormat & format, const uint64_t ts);
   std::map<VideoFormat, double> & vssim(const uint64_t ts);
 
-  /* Return largest vts that has been cleaned */
-  std::optional<uint64_t> vclean_frontier() const { return vclean_frontier_; }
-
   bool aready(const uint64_t ts) const;
   mmap_t & ainit(const AudioFormat & format);
   mmap_t & adata(const AudioFormat & format, const uint64_t ts);
-
-  /* Return largest ats that has been cleaned */
-  std::optional<uint64_t> aclean_frontier() const { return aclean_frontier_; }
 
   unsigned int timescale() const { return timescale_; }
   unsigned int vduration() const { return vduration_; }
@@ -56,6 +50,14 @@ public:
 
   bool is_valid_vts(const uint64_t ts) const { return ts % vduration_ == 0; }
   bool is_valid_ats(const uint64_t ts) const { return ts % aduration_ == 0; }
+
+  /* return live edges that allow for presentation_delay_s */
+  std::optional<uint64_t> vlive_frontier() const { return vlive_frontier_; }
+  std::optional<uint64_t> alive_frontier() const { return alive_frontier_; }
+
+  /* return largest timestamps that have been cleaned */
+  std::optional<uint64_t> vclean_frontier() const { return vclean_frontier_; }
+  std::optional<uint64_t> aclean_frontier() const { return aclean_frontier_; }
 
 private:
   bool live_ {false};
@@ -78,6 +80,9 @@ private:
 
   /* live_ == true */
   std::optional<unsigned int> presentation_delay_s_ {};
+  std::optional<uint64_t> vlive_frontier_ {};
+  std::optional<uint64_t> alive_frontier_ {};
+
   std::optional<unsigned int> clean_window_s_ {};
   std::optional<uint64_t> vclean_frontier_ {};
   std::optional<uint64_t> aclean_frontier_ {};
@@ -95,6 +100,8 @@ private:
 
   void do_read_ssim(const fs::path & filepath, const VideoFormat & vf);
   void load_ssim_files(Inotify & inotify);
+
+  void update_live_edge(const uint64_t ts);
 };
 
 #endif /* CHANNEL_HH */

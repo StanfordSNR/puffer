@@ -52,25 +52,10 @@ Channel::Channel(const string & name, YAML::Node config, Inotify & inotify)
 
 optional<uint64_t> Channel::init_vts() const
 {
-  if (init_vts_.has_value()) {
-    /* the user configured a fixed VTS */
-    return init_vts_.value();
+  if (live_) {
+    return vlive_frontier_;
   } else {
-    /* choose the newest vts with all qualities available that allows for
-     * at least presentation_delay_s; carefully return nullopt */
-    uint64_t newest_vts = vdata_.cend()->first;
-    unsigned int delay_vts = presentation_delay_s_.value() * timescale_;
-    if (newest_vts < delay_vts) return nullopt;
-
-    unsigned int n = (newest_vts - delay_vts) / vduration_ + 1;
-    if (newest_vts < n * vduration_) return nullopt;
-    uint64_t init_vts = newest_vts - n * vduration_;
-
-    /* if init_vts or the corresponding init_ats is not ready */
-    if (not vready(init_vts)) return nullopt;
-    if (not aready(find_ats(init_vts))) return nullopt;
-
-    return init_vts;
+    return init_vts_;
   }
 }
 
@@ -150,57 +135,77 @@ mmap_t mmap_file(const string & filepath)
 
 void Channel::munmap_video(const uint64_t newest_ts)
 {
-  if (clean_window_s_.has_value()) {
-    uint64_t clean_window_ts = clean_window_s_.value() * timescale_;
-    if (newest_ts < clean_window_ts) return;
-    uint64_t obsolete = newest_ts - clean_window_ts;
+  assert(clean_window_s_.has_value());
 
-    optional<uint64_t> cleaned_ts;
-    for (auto it = vdata_.cbegin(); it != vdata_.cend();) {
-      uint64_t ts = it->first;
-      if (ts <= obsolete) {
-        cleaned_ts = ts;
-        vssim_.erase(ts);
-        it = vdata_.erase(it);
-      } else {
-        break;
-      }
+  uint64_t clean_window_ts = clean_window_s_.value() * timescale_;
+  if (newest_ts < clean_window_ts) return;
+  uint64_t obsolete = newest_ts - clean_window_ts;
+
+  optional<uint64_t> cleaned_ts;
+  for (auto it = vdata_.cbegin(); it != vdata_.cend();) {
+    uint64_t ts = it->first;
+    if (ts <= obsolete) {
+      cleaned_ts = ts;
+      vssim_.erase(ts);
+      it = vdata_.erase(it);
+    } else {
+      break;
     }
+  }
 
-    if (not cleaned_ts.has_value()) return;
+  if (not cleaned_ts.has_value()) return;
 
-    if (not vclean_frontier_.has_value() or
-        vclean_frontier_.value() < cleaned_ts.value()) {
-      vclean_frontier_ = cleaned_ts.value();
-    }
+  if (not vclean_frontier_.has_value() or
+      vclean_frontier_.value() < cleaned_ts.value()) {
+    vclean_frontier_ = cleaned_ts.value();
   }
 }
 
 void Channel::munmap_audio(const uint64_t newest_ts)
 {
-  if (clean_window_s_.has_value()) {
-    uint64_t clean_window_ts = clean_window_s_.value() * timescale_;
-    if (newest_ts < clean_window_ts) return;
-    uint64_t obsolete = newest_ts - clean_window_ts;
+  assert(clean_window_s_.has_value());
 
-    optional<uint64_t> cleaned_ts;
-    for (auto it = adata_.cbegin(); it != adata_.cend();) {
-      uint64_t ts = it->first;
-      if (ts <= obsolete) {
-        cleaned_ts = ts;
-        it = adata_.erase(it);
-      } else {
-        break;
-      }
-    }
+  uint64_t clean_window_ts = clean_window_s_.value() * timescale_;
+  if (newest_ts < clean_window_ts) return;
+  uint64_t obsolete = newest_ts - clean_window_ts;
 
-    if (not cleaned_ts.has_value()) return;
-
-    if (not aclean_frontier_.has_value() or
-        aclean_frontier_.value() < cleaned_ts) {
-      aclean_frontier_ = cleaned_ts.value();
+  optional<uint64_t> cleaned_ts;
+  for (auto it = adata_.cbegin(); it != adata_.cend();) {
+    uint64_t ts = it->first;
+    if (ts <= obsolete) {
+      cleaned_ts = ts;
+      it = adata_.erase(it);
+    } else {
+      break;
     }
   }
+
+  if (not cleaned_ts.has_value()) return;
+
+  if (not aclean_frontier_.has_value() or
+      aclean_frontier_.value() < cleaned_ts) {
+    aclean_frontier_ = cleaned_ts.value();
+  }
+}
+
+void Channel::update_live_edge(const uint64_t ts)
+{
+  assert(presentation_delay_s_.has_value());
+
+  /* round up presentation delay to a multiple of video duration */
+  uint64_t delay_vts = presentation_delay_s_.value() * timescale_;
+  delay_vts = (delay_vts / vduration_ + 1) * vduration_;
+
+  if (ts < delay_vts) return;
+
+  uint64_t live_vts = ts - delay_vts;
+  uint64_t live_ats = find_ats(live_vts);
+
+  if (not vready(live_vts)) return;
+  if (not aready(live_ats)) return;
+
+  vlive_frontier_ = live_vts;
+  alive_frontier_ = live_ats;
 }
 
 void Channel::do_mmap_video(const fs::path & filepath, const VideoFormat & vf)
@@ -217,8 +222,14 @@ void Channel::do_mmap_video(const fs::path & filepath, const VideoFormat & vf)
       uint64_t ts = stoull(filestem);
       vdata_[ts][vf] = data_size;
 
-      if (clean_window_s_.has_value()) {
+      if (live_) {
+        update_live_edge(ts);
         munmap_video(ts);
+
+        /* assert that clean frontier < live frontier */
+        if (vclean_frontier_.has_value() and vlive_frontier_.has_value()) {
+          assert(vclean_frontier_.value() < vlive_frontier_.value());
+        }
       }
     }
   }
@@ -264,8 +275,13 @@ void Channel::do_mmap_audio(const fs::path & filepath, const AudioFormat & af)
       uint64_t ts = stoull(filestem);
       adata_[ts][af] = data_size;
 
-      if (clean_window_s_.has_value()) {
+      if (live_) {
         munmap_audio(ts);
+
+        /* assert that clean frontier < live frontier */
+        if (aclean_frontier_.has_value() and alive_frontier_.has_value()) {
+          assert(aclean_frontier_.value() < alive_frontier_.value());
+        }
       }
     }
   }
