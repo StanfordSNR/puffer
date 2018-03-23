@@ -36,12 +36,21 @@ Channel::Channel(const string & name, YAML::Node config, Inotify & inotify)
       throw runtime_error("clean_window_s should be larger enough "
                           "(5 video durations) than presentation_delay_s_");
     }
+
+    if (config["init_vts"]) {
+      throw runtime_error("init_vts cannot be specified if live is true");
+    }
   } else {
     init_vts_ = config["init_vts"].as<uint64_t>();
 
     if (not is_valid_vts(init_vts_.value())) {
       throw runtime_error("invalid init_vts: should be a multiple of video "
                           "duration");
+    }
+
+    if (config["presentation_delay_s"] or config["clean_window_s"]) {
+      throw runtime_error("presentation_delay_s_ or clean_window_s cannot be "
+                          "specified if live is false");
     }
   }
 
