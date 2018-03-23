@@ -32,7 +32,7 @@ Channel::Channel(const string & name, YAML::Node config, Inotify & inotify)
 
     /* ensure an enough gap between clean_window_s and presentation_delay_s_ */
     if (presentation_delay_s_.value() + 5.0 * vduration_ / timescale_
-        <= clean_window_s_.value()) {
+        > clean_window_s_.value()) {
       throw runtime_error("clean_window_s should be larger enough "
                           "(5 video durations) than presentation_delay_s_");
     }

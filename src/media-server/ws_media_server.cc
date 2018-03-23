@@ -409,7 +409,7 @@ int main(int argc, char * argv[])
     abort();
   }
 
-  if (argc > 3) {
+  if (argc != 2 and argc != 3) {
     print_usage(argv[0]);
     return EXIT_FAILURE;
   }
