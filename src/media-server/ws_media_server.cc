@@ -385,8 +385,10 @@ void load_channels(const YAML::Node & config, Inotify & inotify)
     if (not ret.second) {
       throw runtime_error("Duplicate channels found: " + channel_name);
     }
+  }
 
-    channel_names.emplace_back(channel_name);
+  for (const auto & channel_item : channels) {
+    channel_names.emplace_back(channel_item.first);
   }
 }
 
