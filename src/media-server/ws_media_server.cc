@@ -381,7 +381,9 @@ void load_channels(const YAML::Node & config, Inotify & inotify)
     }
 
     auto ret = channels.emplace(
-        channel_name, Channel(channel_name, config[channel_name], inotify));
+        piecewise_construct,
+        forward_as_tuple(channel_name),
+        forward_as_tuple(channel_name, config[channel_name], inotify));
     if (not ret.second) {
       throw runtime_error("Duplicate channels found: " + channel_name);
     }
