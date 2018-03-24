@@ -49,8 +49,8 @@ void StscBox::parse_data(MP4File & mp4, const uint64_t data_size)
     uint32_t samples_per_chunk = mp4.read_uint32();
     uint32_t sample_description_index = mp4.read_uint32();
 
-    entries_.emplace_back(
-        Entry{first_chunk, samples_per_chunk, sample_description_index});
+    entries_.push_back({first_chunk, samples_per_chunk,
+                        sample_description_index});
   }
 
   check_data_left(mp4, data_size, init_offset);

@@ -59,7 +59,7 @@ void SttsBox::parse_data(MP4File & mp4, const uint64_t data_size)
   for (uint32_t i = 0; i < entry_count; ++i) {
     uint32_t sample_count = mp4.read_uint32();
     uint32_t sample_delta = mp4.read_uint32();
-    entries_.emplace_back(Entry{sample_count, sample_delta});
+    entries_.push_back({sample_count, sample_delta});
   }
 
   check_data_left(mp4, data_size, init_offset);

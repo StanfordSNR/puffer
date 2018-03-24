@@ -162,9 +162,8 @@ void TrunBox::parse_data(MP4File & mp4, const uint64_t data_size)
       }
     }
 
-    samples_.emplace_back(
-      Sample{sample_duration, sample_size, sample_flags,
-             sample_composition_time_offset});
+    samples_.push_back({sample_duration, sample_size, sample_flags,
+                        sample_composition_time_offset});
   }
 
   check_data_left(mp4, data_size, init_offset);

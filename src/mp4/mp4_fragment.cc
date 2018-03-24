@@ -241,14 +241,12 @@ vector<TrunBox::Sample> create_samples(MP4Parser & mp4_parser,
   uint32_t sample_cnt = check_sample_count(size_cnt, duration_cnt, offset_cnt);
 
   for (unsigned int i = 0; i < sample_cnt; ++i) {
-    samples.emplace_back(
-      TrunBox::Sample{
-        duration_cnt ? duration_entries[i] : 0,  // sample_duration
-        size_cnt ? size_entries[i] : 0,      // sample_size
-        0,                                   // sample_flags (not present)
-        offset_cnt ? offset_entries[i] : 0,  // sample_composition_time_offset
-      }
-    );
+    samples.push_back({
+      duration_cnt ? duration_entries[i] : 0,  // sample_duration
+      size_cnt ? size_entries[i] : 0,      // sample_size
+      0,                                   // sample_flags (not present)
+      offset_cnt ? offset_entries[i] : 0,  // sample_composition_time_offset
+    });
   }
 
   return samples;

@@ -474,7 +474,9 @@ int main(int argc, char * argv[])
 
       try {
         send_server_hello(server, connection_id);
-        clients.emplace(connection_id, WebSocketClient(connection_id));
+        clients.emplace(piecewise_construct,
+                        forward_as_tuple(connection_id),
+                        forward_as_tuple(connection_id)); /* WebSocketClient */
       } catch (const exception & e) {
         cerr << "Warning: exception in client " << connection_id << ": "
              << e.what() << endl;

@@ -78,11 +78,11 @@ void WebSocketClient::init(const string & channel,
 void WebSocketClient::set_next_vsegment(const VideoFormat & format,
                                         mmap_t & data, optional<mmap_t> & init)
 {
-  next_vsegment_.emplace(VideoSegment(format, data, init));
+  next_vsegment_ = {format, data, init};
 }
 
 void WebSocketClient::set_next_asegment(const AudioFormat & format,
                                         mmap_t & data, optional<mmap_t> & init)
 {
-  next_asegment_.emplace(AudioSegment(format, data, init));
+  next_asegment_ = {format, data, init};
 }

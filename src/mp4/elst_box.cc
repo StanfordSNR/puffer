@@ -62,9 +62,8 @@ void ElstBox::parse_data(MP4File & mp4, const uint64_t data_size)
     int16_t media_rate_integer = mp4.read_int16();
     int16_t media_rate_fraction = mp4.read_int16();
 
-    edit_list_.emplace_back(
-      Edit{segment_duration, media_time,
-           media_rate_integer, media_rate_fraction});
+    edit_list_.push_back({segment_duration, media_time,
+                          media_rate_integer, media_rate_fraction});
   }
 
   check_data_left(mp4, data_size, init_offset);

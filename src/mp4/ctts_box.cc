@@ -61,14 +61,14 @@ void CttsBox::parse_data(MP4File & mp4, const uint64_t data_size)
       uint32_t sample_count = mp4.read_uint32();
       uint32_t sample_offset = mp4.read_uint32();
 
-      entries_.emplace_back(Entry{sample_count, sample_offset});
+      entries_.push_back({sample_count, sample_offset});
     }
   } else {
     for (uint32_t i = 0; i < entry_count; ++i) {
       uint32_t sample_count = mp4.read_uint32();
       int32_t sample_offset = mp4.read_int32();
 
-      entries_.emplace_back(Entry{sample_count, sample_offset});
+      entries_.push_back({sample_count, sample_offset});
     }
   }
 

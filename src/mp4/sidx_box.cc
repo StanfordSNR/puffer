@@ -111,10 +111,10 @@ void SidxBox::parse_data(MP4File & mp4, const uint64_t data_size)
     uint8_t sap_type = (data >> 28) & 7;
     uint32_t sap_delta = data & 0x0FFFFFFF;
 
-    reference_list_.emplace_back(
-      SidxReference{reference_type, referenced_size, subsegment_duration,
-                    starts_with_sap, sap_type, sap_delta}
-    );
+    reference_list_.push_back({
+      reference_type, referenced_size, subsegment_duration,
+      starts_with_sap, sap_type, sap_delta
+    });
   }
 
   check_data_left(mp4, data_size, init_offset);
