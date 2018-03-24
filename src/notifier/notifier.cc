@@ -58,14 +58,9 @@ Notifier::Notifier(const string & src_dir,
 
   /* watch moved-in files and run programs as child processes */
   inotify_.add_watch(src_dir_, IN_MOVED_TO,
-    [&](const inotify_event & event, const string & path) {
-      if (not (event.mask & IN_MOVED_TO)) {
-        /* only interested in event IN_MOVED_TO */
-        return;
-      }
-
-      if (event.mask & IN_ISDIR) {
-        /* ignore directories moved into source directory */
+    [this](const inotify_event & event, const string & path) {
+      /* only interested in regular files that are moved into the directory */
+      if (not (event.mask & IN_MOVED_TO) or (event.mask & IN_ISDIR)) {
         return;
       }
 
@@ -114,7 +109,7 @@ void Notifier::run_as_child(const string & prefix)
   /* run program_ as a child */
   if (check_mode_) {
     pid_t pid = process_manager_.run_as_child(program_, args,
-      [&](const pid_t & pid) {
+      [this](const pid_t & pid) {
         /* verify that the correct output has been written */
         assert(check_mode_);
 

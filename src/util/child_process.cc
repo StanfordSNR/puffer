@@ -200,7 +200,7 @@ ProcessManager::ProcessManager()
   /* poller listens on signal_fd_ for signals */
   poller_.add_action(
     Poller::Action(signal_fd_.fd(), Direction::In,
-      [&]() {
+      [this]() {
         return handle_signal(signal_fd_.read_signal());
       }
     )
@@ -212,7 +212,8 @@ pid_t ProcessManager::run_as_child(const string & program,
                                    const callback_t & callback)
 {
   auto child = ChildProcess(program,
-    [&]() {
+    [&program, &prog_args]() {
+      /* references won't be dangling as they will be used immediately */
       return ezexec(program, prog_args);
     }
   );

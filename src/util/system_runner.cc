@@ -90,7 +90,8 @@ string run( const string & filename, const vector<string> & args,
   Optional<pair<FileDescriptor, FileDescriptor>> pipe { read_stdout_until_eof, make_pipe() };
 
   ChildProcess command_process( args[ 0 ],
-    [&]()
+    [&filename, &args, &env, use_environ, path_search, read_stdout_until_eof,
+     suppress_errors, &pipe]()
     {
       if ( read_stdout_until_eof ) {
         CheckSystemCall( "dup2", dup2( pipe->second.fd_num(), STDOUT_FILENO ) );

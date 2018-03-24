@@ -250,12 +250,13 @@ void Channel::mmap_video_files(Inotify & inotify)
     string video_dir = input_path_ / "ready" / vf.to_string();
 
     inotify.add_watch(video_dir, IN_MOVED_TO,
-      [&](const inotify_event & event, const string & path) {
-        /* ignore events other than IN_MOVED_TO or moved-in directories */
+      [this, &vf, video_dir](const inotify_event & event, const string & path) {
+        /* only interested in regular files that are moved into the dir */
         if (not (event.mask & IN_MOVED_TO) or (event.mask & IN_ISDIR)) {
           return;
         }
 
+        assert(video_dir == path);
         assert(event.len != 0);
 
         fs::path filepath = fs::path(path) / event.name;
@@ -302,12 +303,13 @@ void Channel::mmap_audio_files(Inotify & inotify)
     string audio_dir = input_path_ / "ready" / af.to_string();
 
     inotify.add_watch(audio_dir, IN_MOVED_TO,
-      [&](const inotify_event & event, const string & path) {
-        /* ignore events other than IN_MOVED_TO or moved-in directories */
+      [this, &af, audio_dir](const inotify_event & event, const string & path) {
+        /* only interested in regular files that are moved into the dir */
         if (not (event.mask & IN_MOVED_TO) or (event.mask & IN_ISDIR)) {
           return;
         }
 
+        assert(audio_dir == path);
         assert(event.len != 0);
 
         fs::path filepath = fs::path(path) / event.name;
@@ -342,12 +344,13 @@ void Channel::load_ssim_files(Inotify & inotify)
     string ssim_dir = input_path_ / "ready" / (vf.to_string() + "-ssim");
 
     inotify.add_watch(ssim_dir, IN_MOVED_TO,
-      [&](const inotify_event & event, const string & path) {
-        /* ignore events other than IN_MOVED_TO or moved-in directories */
+      [this, &vf, ssim_dir](const inotify_event & event, const string & path) {
+        /* only interested in regular files that are moved into the dir */
         if (not (event.mask & IN_MOVED_TO) or (event.mask & IN_ISDIR)) {
           return;
         }
 
+        assert(ssim_dir == path);
         assert(event.len != 0);
 
         fs::path filepath = fs::path(path) / event.name;

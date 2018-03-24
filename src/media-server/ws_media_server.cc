@@ -260,7 +260,7 @@ void start_global_timer(WebSocketServer & server)
 
   server.poller().add_action(
     Poller::Action(global_timer, Direction::In,
-      [&]() {
+      [&server]() {
         if (global_timer.expirations() > 0) {
           /* iterate over all connections */
           for (auto & client_item : clients) {
@@ -433,7 +433,7 @@ int main(int argc, char * argv[])
 
   /* set server callbacks */
   server.set_message_callback(
-    [&](const uint64_t connection_id, const WSMessage & msg)
+    [&server](const uint64_t connection_id, const WSMessage & msg)
     {
       if (debug) {
         cerr << connection_id << ": message " << msg.payload() << endl;
@@ -466,7 +466,7 @@ int main(int argc, char * argv[])
   );
 
   server.set_open_callback(
-    [&](const uint64_t connection_id)
+    [&server](const uint64_t connection_id)
     {
       cerr << connection_id << ": connection opened" << endl;
 
@@ -482,7 +482,7 @@ int main(int argc, char * argv[])
   );
 
   server.set_close_callback(
-    [&](const uint64_t connection_id)
+    [](const uint64_t connection_id)
     {
       cerr << connection_id << ": connection closed" << endl;
       clients.erase(connection_id);

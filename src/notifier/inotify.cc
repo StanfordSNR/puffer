@@ -16,7 +16,7 @@ Inotify::Inotify(Poller & poller)
 {
   poller.add_action(
     Poller::Action(inotify_fd_, Direction::In,
-      [&]() {
+      [this]() {
         return handle_events();
       }
     )
