@@ -182,6 +182,9 @@ void reinit_laggy_client(WebSocketServer & server, WebSocketClient & client,
 {
   /* return if the channel is not ready */
   if (not channel.init_vts().has_value()) {
+
+    cerr << client.connection_id() << ": cannot reinit laggy client "
+         << "(channel is not ready)" << endl;
     return;
   }
 
@@ -299,8 +302,6 @@ void handle_client_init(WebSocketServer & server, WebSocketClient & client,
       channel.is_valid_ats(msg.next_ats.value()) and
       channel.aready(msg.next_ats.value())) {
     /* Resume */
-    cerr << client.connection_id() << ": connection resumed" << endl;
-
     init_vts = msg.next_vts.value();
     init_ats = msg.next_ats.value();
 
@@ -308,24 +309,29 @@ void handle_client_init(WebSocketServer & server, WebSocketClient & client,
       /* ignore client-init if the requested vts is beyond live edge */
       if (channel.vlive_frontier().has_value() or
           init_vts > channel.vlive_frontier().value()) {
+        cerr << client.connection_id() << ": ignored client-init "
+             << "(request beyond live edge)" << endl;
         return;
       }
     }
 
     can_resume = true;
+
+    cerr << client.connection_id() << ": connection resumed" << endl;
   } else {
     /* (Re)Initialize */
-    cerr << client.connection_id() << ": connection initialized" << endl;
-
     /* ignore client-init if the channel is not ready */
     if (not channel.init_vts().has_value()) {
+      cerr << client.connection_id() << ": ignored client-init "
+           << "(channel is not ready)" << endl;
       return;
     }
 
     init_vts = channel.init_vts().value();
     init_ats = channel.find_ats(init_vts);
-
     can_resume = false;
+
+    cerr << client.connection_id() << ": connection initialized" << endl;
   }
 
   client.init(channel.name(), init_vts, init_ats);
@@ -399,7 +405,7 @@ void close_connection(WebSocketServer & server, const uint64_t connection_id)
   try {
     server.close_connection(connection_id);
   } catch (const exception & e) {
-    cerr << "Warning: cannot close the connection " << connection_id <<  endl;
+    cerr << "Warning: cannot close the connection " << connection_id << endl;
   }
 
   clients.erase(connection_id);
@@ -460,8 +466,8 @@ int main(int argc, char * argv[])
              << e.what() << endl;
         close_connection(server, connection_id);
       } catch (const exception & e) {
-        cerr << "Warning: exception in client " << connection_id << ": "
-             << e.what() << endl;
+        cerr << "Warning in message callback: exception in client "
+             << connection_id << ": " << e.what() << endl;
         close_connection(server, connection_id);
       }
     }
@@ -478,8 +484,8 @@ int main(int argc, char * argv[])
                         forward_as_tuple(connection_id),
                         forward_as_tuple(connection_id)); /* WebSocketClient */
       } catch (const exception & e) {
-        cerr << "Warning: exception in client " << connection_id << ": "
-             << e.what() << endl;
+        cerr << "Warning in open callback: exception in client "
+             << connection_id << ": " << e.what() << endl;
         close_connection(server, connection_id);
       }
     }

@@ -27,14 +27,14 @@ public:
   const std::vector<VideoFormat> & vformats() const { return vformats_; }
   const std::vector<AudioFormat> & aformats() const { return aformats_; }
 
-  bool vready(const uint64_t ts) const;
+  bool vexist(const uint64_t ts) const;
   mmap_t & vinit(const VideoFormat & format);
   mmap_t & vdata(const VideoFormat & format, const uint64_t ts);
   std::map<VideoFormat, mmap_t> & vdata(const uint64_t ts);
   double vssim(const VideoFormat & format, const uint64_t ts);
   std::map<VideoFormat, double> & vssim(const uint64_t ts);
 
-  bool aready(const uint64_t ts) const;
+  bool aexist(const uint64_t ts) const;
   mmap_t & ainit(const AudioFormat & format);
   mmap_t & adata(const AudioFormat & format, const uint64_t ts);
 
@@ -58,6 +58,11 @@ public:
   /* return largest timestamps that have been cleaned */
   std::optional<uint64_t> vclean_frontier() const { return vclean_frontier_; }
   std::optional<uint64_t> aclean_frontier() const { return aclean_frontier_; }
+
+  /* live=false: same as vexist, indicating if all qualities of ts exist;
+   * live=true: ready if ts is behind live frontier */
+  bool vready(const uint64_t ts) const;
+  bool aready(const uint64_t ts) const;
 
 private:
   bool live_ {false};
