@@ -92,8 +92,8 @@ vector<VideoFormat> get_video_formats(const YAML::Node & config)
       throw runtime_error("video resolution must be <width>x<height>");
     }
 
-    int width = stol(res.substr(0, pos));
-    int height = stol(res.substr(pos + 1));
+    int width = stoi(res.substr(0, pos));
+    int height = stoi(res.substr(pos + 1));
 
     const YAML::Node & crf_list = res_node.second;
     for (const auto & crf_node : crf_list) {
@@ -116,7 +116,7 @@ vector<AudioFormat> get_audio_formats(const YAML::Node & config)
 
     auto pos = bitrate_str.find('k');
     if (pos != string::npos) {
-      bitrate = stol(bitrate_str.substr(0, pos)) * 1000;
+      bitrate = stoi(bitrate_str.substr(0, pos)) * 1000;
     } else {
       throw runtime_error("audio bitrate must be <integer>k");
     }

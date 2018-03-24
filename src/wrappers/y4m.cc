@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string>
 #include <vector>
+#include <fstream>
 
 #include "exception.hh"
 #include "tokenize.hh"
@@ -14,21 +15,9 @@ Y4MParser::Y4MParser(const string & y4m_path)
   : width_(-1), height_(-1), frame_rate_numerator_(-1),
     frame_rate_denominator_(-1), interlaced_(false)
 {
-  /* only the first line is needed so getline() is more efficient */
-  FILE *fp = fopen(y4m_path.c_str(), "r");
-  if (fp == NULL) {
-    throw runtime_error("fopen failed to open " + y4m_path);
-  }
-
-  char * line_ptr = NULL;
-  size_t len = 0;
-  if (getline(&line_ptr, &len, fp) == -1) {
-    free(line_ptr);
-    throw runtime_error("getline failed to read a line from " + y4m_path);
-  }
-
-  string line(line_ptr);
-  free(line_ptr);
+  ifstream y4m_file(y4m_path);
+  string line;
+  getline(y4m_file, line);
 
   /* split the first line into parameters */
   vector<string> params = split(line, " ");
@@ -44,16 +33,16 @@ Y4MParser::Y4MParser(const string & y4m_path)
 
     switch (p.at(0)) {
     case 'W':
-      width_ = stol(p.substr(1));
+      width_ = stoi(p.substr(1));
       break;
     case 'H':
-      height_ = stol(p.substr(1));
+      height_ = stoi(p.substr(1));
       break;
     case 'F':
       pos = p.find(':');
       if (pos != string::npos) {
-        frame_rate_numerator_ = stol(p.substr(1, pos - 1));
-        frame_rate_denominator_ = stol(p.substr(pos + 1));
+        frame_rate_numerator_ = stoi(p.substr(1, pos - 1));
+        frame_rate_denominator_ = stoi(p.substr(pos + 1));
       }
       break;
     case 'I':

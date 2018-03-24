@@ -2,7 +2,6 @@
 
 #include <fcntl.h>
 #include <fstream>
-#include <sstream>
 
 #include "file_descriptor.hh"
 #include "exception.hh"
@@ -334,11 +333,11 @@ void Channel::do_read_ssim(const fs::path & filepath, const VideoFormat & vf) {
     string filestem = filepath.stem();
     uint64_t ts = stoull(filestem);
 
-    std::ifstream ifs(filepath);
-    std::stringstream buffer;
-    buffer << ifs.rdbuf();
+    ifstream ssim_file(filepath);
+    string line;
+    getline(ssim_file, line);
 
-    vssim_[ts][vf] = stod(buffer.str());
+    vssim_[ts][vf] = stod(line);
   }
 }
 
