@@ -35,9 +35,9 @@ install:
 script:
   - ./autogen.sh
   - ./configure
-  - make -j3 distcheck V=1 || (cat tv-encoder-0.1/_build/src/tests/test-suite.log && exit 1)
+  - make -j3 distcheck V=1 || (cat puffer-0.2/_build/src/tests/test-suite.log && exit 1)
 
 notifications:
   email: false
   webhooks:
-    - https://snr.zulipchat.com/api/v1/external/travis?api_key=AtzK5F9kaHRKDQKNbD4ujZCTQTm91B5j&stream=tv-notification&topic=build-status
+    - https://snr.zulipchat.com/api/v1/external/travis?api_key=AtzK5F9kaHRKDQKNbD4ujZCTQTm91B5j&stream=puffer-notification&topic=build-status
