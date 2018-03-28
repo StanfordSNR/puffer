@@ -1,4 +1,4 @@
-AM_CPPFLAGS = -I$(srcdir)/../util $(CXX14_FLAGS) $(SSL_CFLAGS)
+AM_CPPFLAGS = -I$(srcdir)/../util $(CXX17_FLAGS) $(SSL_CFLAGS)
 AM_CXXFLAGS = $(PICKY_CXXFLAGS)
 
 noinst_LIBRARIES = libnet.a

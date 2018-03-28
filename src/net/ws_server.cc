@@ -71,15 +71,8 @@ template<>
 void WSServer<TCPSocket>::Connection::write()
 {
   while (not send_buffer.empty()) {
-    string & buffer = send_buffer.front();
-
-    auto it = socket.write(buffer);
-    if (it != buffer.cend()) {
-      buffer.erase(0, it - buffer.cbegin());
-      break;
-    } else {
-      send_buffer.pop_front();
-    }
+    socket.write( send_buffer.front() );
+    send_buffer.pop_front();
   }
 }
 

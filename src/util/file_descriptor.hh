@@ -6,6 +6,8 @@
 #include <string>
 #include <unistd.h>
 
+#include "config.h"
+
 /* maximum size of a read */
 static constexpr size_t BUFFER_SIZE = 1024 * 1024;
 
