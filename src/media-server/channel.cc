@@ -58,7 +58,7 @@ Channel::Channel(const string & name, YAML::Node config, Inotify & inotify)
   load_ssim_files(inotify);
 
   /* update live edge after processing existing files if there are */
-  if (vdata_.crbegin() != vdata_.crend()) {
+  if (live_ and vdata_.crbegin() != vdata_.crend()) {
     uint64_t newest_ts = vdata_.crbegin()->first;
     cerr << "Update live edge based on existing files: "
             "the newest video timestamp is " << newest_ts << endl;
@@ -78,6 +78,11 @@ optional<uint64_t> Channel::init_vts() const
 uint64_t Channel::find_ats(const uint64_t vts) const
 {
   return (vts / aduration_) * aduration_;
+}
+
+bool Channel::ready() const
+{
+  return init_vts().has_value();
 }
 
 bool Channel::vready(const uint64_t ts) const
@@ -263,20 +268,24 @@ void Channel::mmap_video_files(Inotify & inotify)
   for (const auto & vf : vformats_) {
     string video_dir = input_path_ / "ready" / vf.to_string();
 
-    inotify.add_watch(video_dir, IN_MOVED_TO,
-      [this, &vf, video_dir](const inotify_event & event, const string & path) {
-        /* only interested in regular files that are moved into the dir */
-        if (not (event.mask & IN_MOVED_TO) or (event.mask & IN_ISDIR)) {
-          return;
+    /* watch new files only on live */
+    if (live_) {
+      inotify.add_watch(video_dir, IN_MOVED_TO,
+        [this, &vf, video_dir](const inotify_event & event,
+                               const string & path) {
+          /* only interested in regular files that are moved into the dir */
+          if (not (event.mask & IN_MOVED_TO) or (event.mask & IN_ISDIR)) {
+            return;
+          }
+
+          assert(video_dir == path);
+          assert(event.len != 0);
+
+          fs::path filepath = fs::path(path) / event.name;
+          do_mmap_video(filepath, vf);
         }
-
-        assert(video_dir == path);
-        assert(event.len != 0);
-
-        fs::path filepath = fs::path(path) / event.name;
-        do_mmap_video(filepath, vf);
-      }
-    );
+      );
+    }
 
     /* process existing files */
     for (const auto & file : fs::directory_iterator(video_dir)) {
@@ -316,20 +325,24 @@ void Channel::mmap_audio_files(Inotify & inotify)
   for (const auto & af : aformats_) {
     string audio_dir = input_path_ / "ready" / af.to_string();
 
-    inotify.add_watch(audio_dir, IN_MOVED_TO,
-      [this, &af, audio_dir](const inotify_event & event, const string & path) {
-        /* only interested in regular files that are moved into the dir */
-        if (not (event.mask & IN_MOVED_TO) or (event.mask & IN_ISDIR)) {
-          return;
+    /* watch new files only on live */
+    if (live_) {
+      inotify.add_watch(audio_dir, IN_MOVED_TO,
+        [this, &af, audio_dir](const inotify_event & event,
+                               const string & path) {
+          /* only interested in regular files that are moved into the dir */
+          if (not (event.mask & IN_MOVED_TO) or (event.mask & IN_ISDIR)) {
+            return;
+          }
+
+          assert(audio_dir == path);
+          assert(event.len != 0);
+
+          fs::path filepath = fs::path(path) / event.name;
+          do_mmap_audio(filepath, af);
         }
-
-        assert(audio_dir == path);
-        assert(event.len != 0);
-
-        fs::path filepath = fs::path(path) / event.name;
-        do_mmap_audio(filepath, af);
-      }
-    );
+      );
+    }
 
     /* process existing files */
     for (const auto & file : fs::directory_iterator(audio_dir)) {
@@ -357,20 +370,24 @@ void Channel::load_ssim_files(Inotify & inotify)
   for (const auto & vf : vformats_) {
     string ssim_dir = input_path_ / "ready" / (vf.to_string() + "-ssim");
 
-    inotify.add_watch(ssim_dir, IN_MOVED_TO,
-      [this, &vf, ssim_dir](const inotify_event & event, const string & path) {
-        /* only interested in regular files that are moved into the dir */
-        if (not (event.mask & IN_MOVED_TO) or (event.mask & IN_ISDIR)) {
-          return;
+    /* watch new files only on live */
+    if (live_) {
+      inotify.add_watch(ssim_dir, IN_MOVED_TO,
+        [this, &vf, ssim_dir](const inotify_event & event,
+                              const string & path) {
+          /* only interested in regular files that are moved into the dir */
+          if (not (event.mask & IN_MOVED_TO) or (event.mask & IN_ISDIR)) {
+            return;
+          }
+
+          assert(ssim_dir == path);
+          assert(event.len != 0);
+
+          fs::path filepath = fs::path(path) / event.name;
+          do_read_ssim(filepath, vf);
         }
-
-        assert(ssim_dir == path);
-        assert(event.len != 0);
-
-        fs::path filepath = fs::path(path) / event.name;
-        do_read_ssim(filepath, vf);
-      }
-    );
+      );
+    }
 
     /* process existing files */
     for (const auto & file : fs::directory_iterator(ssim_dir)) {

@@ -27,6 +27,9 @@ public:
   const std::vector<VideoFormat> & vformats() const { return vformats_; }
   const std::vector<AudioFormat> & aformats() const { return aformats_; }
 
+  /* if channel is ready to serve */
+  bool ready() const;
+
   bool vready(const uint64_t ts) const;
   mmap_t & vinit(const VideoFormat & format);
   mmap_t & vdata(const VideoFormat & format, const uint64_t ts);
