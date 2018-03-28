@@ -279,9 +279,78 @@ void start_global_timer(WebSocketServer & server)
   );
 }
 
+void send_server_init(WebSocketServer & server, WebSocketClient & client,
+                      const bool can_resume)
+{
+  const Channel & channel = channels.at(client.channel().value());
+
+  ServerInitMsg init(channel.name(), channel.vcodec(),
+                     channel.acodec(), channel.timescale(),
+                     client.next_vts().value(),
+                     client.next_ats().value(),
+                     client.init_id(), can_resume);
+  WSFrame frame {true, WSFrame::OpCode::Binary, init.to_string()};
+  server.queue_frame(client.connection_id(), frame);
+}
+
+bool resume_connection(WebSocketServer & server, WebSocketClient & client,
+                       const ClientInitMsg & msg)
+{
+  /* check if client knows which channel to resume */
+  if (not msg.channel.has_value()) {
+    return false;
+  }
+
+  const Channel & channel = channels.at(msg.channel.value());
+
+  /* check if the requested timestamps are valid */
+  if (not (msg.next_vts.has_value() and
+           channel.is_valid_vts(msg.next_vts.value()) and
+           msg.next_ats.has_value() and
+           channel.is_valid_ats(msg.next_ats.value()))) {
+    return false;
+  }
+
+  uint64_t requested_vts = msg.next_vts.value();
+  uint64_t requested_ats = msg.next_ats.value();
+
+  if (channel.live()) {
+    /* live: don't try to resume if the requested video is already behind
+     * the live edge */
+    if (not channel.vlive_frontier().has_value() or
+        requested_vts < channel.vlive_frontier().value()) {
+      return false;
+    }
+
+    /* check if the _previous_ chunks of the requestd video/audio are ready */
+    if (not (channel.vready(requested_vts - channel.vduration()) and
+             channel.aready(requested_ats - channel.aduration()))) {
+      return false;
+    }
+  } else {
+    /* VoD: check if the requested video and audio are ready */
+    if (not (channel.vready(requested_vts) and
+             channel.aready(requested_ats))) {
+      return false;
+    }
+  }
+
+  /* reinitialize the client */
+  client.init(channel.name(), requested_vts, requested_ats);
+  send_server_init(server, client, true /* can resume */);
+
+  cerr << client.connection_id() << ": connection resumed" << endl;
+  return true;
+}
+
 void handle_client_init(WebSocketServer & server, WebSocketClient & client,
                         const ClientInitMsg & msg)
 {
+  /* check if the streaming can be resumed */
+  if (resume_connection(server, client, msg)) {
+    return;
+  }
+
   /* use the channel requested by client or automatically choose one */
   auto it = msg.channel.has_value() ?
             channels.find(msg.channel.value()) : channels.begin();
@@ -291,67 +360,33 @@ void handle_client_init(WebSocketServer & server, WebSocketClient & client,
 
   const auto & channel = it->second;
 
-  bool can_resume;
-  uint64_t init_vts, init_ats;
-  if (msg.channel.has_value() and
-      msg.next_vts.has_value() and
-      channel.is_valid_vts(msg.next_vts.value()) and
-      channel.vready(msg.next_vts.value()) and
-      msg.next_ats.has_value() and
-      channel.is_valid_ats(msg.next_ats.value()) and
-      channel.aready(msg.next_ats.value())) {
-    /* Resume */
-    init_vts = msg.next_vts.value();
-    init_ats = msg.next_ats.value();
-
-    if (channel.live()) {
-      /* ignore client-init if the requested vts is beyond live edge */
-      if (channel.vlive_frontier().has_value() or
-          init_vts > channel.vlive_frontier().value()) {
-        cerr << client.connection_id() << ": ignored client-init "
-             << "(request beyond live edge)" << endl;
-        return;
-      }
-    }
-
-    can_resume = true;
-
-    cerr << client.connection_id() << ": connection resumed" << endl;
-  } else {
-    /* (Re)Initialize */
-    /* ignore client-init if the channel is not ready */
-    if (not channel.init_vts().has_value()) {
-      cerr << client.connection_id() << ": ignored client-init "
-           << "(channel is not ready)" << endl;
-      return;
-    }
-
-    init_vts = channel.init_vts().value();
-    init_ats = channel.find_ats(init_vts);
-    can_resume = false;
-
-    cerr << client.connection_id() << ": connection initialized" << endl;
+  /* ignore client-init if the channel is not ready */
+  if (not channel.init_vts().has_value()) {
+    cerr << client.connection_id() << ": ignored client-init "
+         << "(channel is not ready)" << endl;
+    return;
   }
 
-  client.init(channel.name(), init_vts, init_ats);
+  uint64_t init_vts = channel.init_vts().value();
+  uint64_t init_ats = channel.find_ats(init_vts);
 
-  ServerInitMsg reply(channel.name(), channel.vcodec(),
-                      channel.acodec(), channel.timescale(),
-                      client.next_vts().value(),
-                      client.next_ats().value(),
-                      client.init_id(), can_resume);
-  WSFrame frame {true, WSFrame::OpCode::Binary, reply.to_string()};
-  server.queue_frame(client.connection_id(), frame);
+  client.init(channel.name(), init_vts, init_ats);
+  send_server_init(server, client, false /* initialize rather than resume */);
+
+  cerr << client.connection_id() << ": connection initialized" << endl;
 }
 
 void handle_client_info(WebSocketClient & client, const ClientInfoMsg & msg)
 {
-  if (msg.init_id == client.init_id()) {
-    client.set_audio_playback_buf(msg.audio_buffer_len);
-    client.set_video_playback_buf(msg.video_buffer_len);
-    client.set_client_next_vts(msg.next_video_timestamp);
-    client.set_client_next_ats(msg.next_audio_timestamp);
+  /* ignore client messages with old ID (init_id) */
+  if (msg.init_id != client.init_id()) {
+    return;
   }
+
+  client.set_audio_playback_buf(msg.audio_buffer_len);
+  client.set_video_playback_buf(msg.video_buffer_len);
+  client.set_client_next_vts(msg.next_video_timestamp);
+  client.set_client_next_ats(msg.next_audio_timestamp);
 }
 
 void send_server_hello(WebSocketServer & server, const uint64_t connection_id)
