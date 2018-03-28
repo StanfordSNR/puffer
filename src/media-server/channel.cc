@@ -56,6 +56,14 @@ Channel::Channel(const string & name, YAML::Node config, Inotify & inotify)
   mmap_video_files(inotify);
   mmap_audio_files(inotify);
   load_ssim_files(inotify);
+
+  /* update live edge after processing existing files if there are */
+  if (vdata_.crbegin() != vdata_.crend()) {
+    uint64_t newest_ts = vdata_.crbegin()->first;
+    cerr << "Update live edge based on existing files: "
+            "the newest video timestamp is " << newest_ts << endl;
+    update_live_edge(newest_ts);
+  }
 }
 
 optional<uint64_t> Channel::init_vts() const
@@ -75,11 +83,11 @@ uint64_t Channel::find_ats(const uint64_t vts) const
 bool Channel::vready(const uint64_t ts) const
 {
   auto it1 = vdata_.find(ts);
-  if (it1 == vdata_.end() or it1->second.size() != vformats_.size()) {
+  if (it1 == vdata_.cend() or it1->second.size() != vformats_.size()) {
     return false;
   }
   auto it2 = vssim_.find(ts);
-  if (it2 == vssim_.end() or it2->second.size() != vformats_.size()) {
+  if (it2 == vssim_.cend() or it2->second.size() != vformats_.size()) {
     return false;
   }
 
@@ -114,7 +122,7 @@ map<VideoFormat, double> & Channel::vssim(const uint64_t ts)
 bool Channel::aready(const uint64_t ts) const
 {
   auto it = adata_.find(ts);
-  if (it == adata_.end() or it->second.size() != aformats_.size()) {
+  if (it == adata_.cend() or it->second.size() != aformats_.size()) {
     return false;
   }
 
@@ -213,11 +221,14 @@ void Channel::update_live_edge(const uint64_t ts)
   if (not aready(live_ats)) return;
 
   if (not vlive_frontier_.has_value()) {
-    cerr << "Channel " << name_ << " is ready" << endl;
-  }
+    cerr << "Channel " << name_ << " becomes ready" << endl;
 
-  vlive_frontier_ = live_vts;
-  alive_frontier_ = live_ats;
+    vlive_frontier_ = live_vts;
+    alive_frontier_ = live_ats;
+  } else if (live_vts > vlive_frontier_.value()) {
+    vlive_frontier_ = live_vts;
+    alive_frontier_ = live_ats;
+  }
 }
 
 void Channel::do_mmap_video(const fs::path & filepath, const VideoFormat & vf)
