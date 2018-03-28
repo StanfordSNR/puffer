@@ -278,7 +278,14 @@ function WebSocketClient(video, audio, channel_select) {
 
   /* Updates the list to show the available channels */
   function update_channel_select(channels) {
-    for (var i = 0; i < channels.length; i++) {
+    var i;
+
+    /* remove options */
+    for (i = channel_select.options.length - 1; i >= 0; i--) {
+      channel_select.remove(i);
+    }
+
+    for (i = 0; i < channels.length; i++) {
       var option = document.createElement('option');
       option.value = channels[i];
       option.text = channels[i].toUpperCase();
