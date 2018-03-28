@@ -72,7 +72,7 @@ uint64_t Channel::find_ats(const uint64_t vts) const
   return (vts / aduration_) * aduration_;
 }
 
-bool Channel::vexist(const uint64_t ts) const
+bool Channel::vready(const uint64_t ts) const
 {
   auto it1 = vdata_.find(ts);
   if (it1 == vdata_.end() or it1->second.size() != vformats_.size()) {
@@ -111,7 +111,7 @@ map<VideoFormat, double> & Channel::vssim(const uint64_t ts)
   return vssim_.at(ts);
 }
 
-bool Channel::aexist(const uint64_t ts) const
+bool Channel::aready(const uint64_t ts) const
 {
   auto it = adata_.find(ts);
   if (it == adata_.end() or it->second.size() != aformats_.size()) {
@@ -209,8 +209,8 @@ void Channel::update_live_edge(const uint64_t ts)
   uint64_t live_vts = ts - delay_vts;
   uint64_t live_ats = find_ats(live_vts);
 
-  if (not vexist(live_vts)) return;
-  if (not aexist(live_ats)) return;
+  if (not vready(live_vts)) return;
+  if (not aready(live_ats)) return;
 
   if (not vlive_frontier_.has_value()) {
     cerr << "Channel " << name_ << " is ready" << endl;
@@ -365,23 +365,5 @@ void Channel::load_ssim_files(Inotify & inotify)
     for (const auto & file : fs::directory_iterator(ssim_dir)) {
       do_read_ssim(file.path(), vf);
     }
-  }
-}
-
-bool Channel::vready(const uint64_t ts) const
-{
-  if (live_) {
-    return vlive_frontier_.has_value() and ts <= vlive_frontier_.value();
-  } else {
-    return vexist(ts);
-  }
-}
-
-bool Channel::aready(const uint64_t ts) const
-{
-  if (live_) {
-    return alive_frontier_.has_value() and ts <= alive_frontier_.value();
-  } else {
-    return aexist(ts);
   }
 }
