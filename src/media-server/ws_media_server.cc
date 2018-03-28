@@ -182,7 +182,6 @@ void reinit_laggy_client(WebSocketServer & server, WebSocketClient & client,
 {
   /* return if the channel is not ready */
   if (not channel.init_vts().has_value()) {
-
     cerr << client.connection_id() << ": cannot reinit laggy client "
          << "(channel is not ready)" << endl;
     return;
