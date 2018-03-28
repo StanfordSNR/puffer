@@ -6,3 +6,4 @@ video:
 audio:
   - 64k
   - 32k
+clean_window_s: 60

@@ -10,6 +10,8 @@
 
 using namespace std;
 
+static const uint32_t global_timescale = 90000;
+
 static fs::path output_path;
 static fs::path src_path;
 static string notifier;
@@ -207,7 +209,7 @@ void run_depcleaner(ProcessManager & proc_manager,
 
 void run_windowcleaner(ProcessManager & proc_manager,
                        const vector<tuple<string, string>> & ready,
-                       const int clean_time_window)
+                       const int clean_window_ts)
 {
   string windowcleaner = src_path / "cleaner/windowcleaner";
 
@@ -215,7 +217,7 @@ void run_windowcleaner(ProcessManager & proc_manager,
   for (const auto & item : ready) {
     const auto & [dir, ext] = item;
     vector<string> notifier_args { notifier, dir, ext, "--exec", windowcleaner,
-                                   ext, to_string(clean_time_window) };
+                                   ext, to_string(clean_window_ts) };
     proc_manager.run_as_child(notifier, notifier_args);
   }
 }
@@ -284,9 +286,9 @@ int main(int argc, char * argv[])
   run_depcleaner(proc_manager, awork, aready);
 
   /* run windowcleaner to clean up files in ready/ */
-  int clean_time_window = config["clean_time_window"].as<int>();
-  run_windowcleaner(proc_manager, vready, clean_time_window);
-  run_windowcleaner(proc_manager, aready, clean_time_window);
+  int clean_window_ts = config["clean_window_s"].as<int>() * global_timescale;
+  run_windowcleaner(proc_manager, vready, clean_window_ts);
+  run_windowcleaner(proc_manager, aready, clean_window_ts);
 
   return proc_manager.wait();
 }
