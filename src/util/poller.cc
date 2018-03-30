@@ -162,7 +162,7 @@ Poller::Result Poller::poll( const int timeout_ms )
   for ( ; it_action != actions_.end() and it_pollfd != pollfds_.end()
         ; it_action++, it_pollfd++ ) {
     if ( it_pollfd->revents & (POLLERR | POLLHUP | POLLNVAL) ) {
-      //            throw Exception( "poll fd error" );
+      cerr << "Poller: poll fd error" << endl;
       return Result::Type::Exit;
     }
 

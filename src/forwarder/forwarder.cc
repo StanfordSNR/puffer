@@ -1,31 +1,24 @@
-#include <getopt.h>
 #include <iostream>
 #include <string>
-#include <stdexcept>
-#include <tuple>
+#include <cstdint>
+#include <deque>
 
+#include "strict_conversions.hh"
 #include "socket.hh"
+#include "poller.hh"
 
 using namespace std;
+using namespace PollerShortNames;
+
+static const int ALERT_BUFFER_BYTES = 100 * 1000 * 1000;  /* 100 MB */
 
 void print_usage(const string & program_name)
 {
   cerr <<
-  "Usage: " << program_name << " [options]\n\n"
-  "Options:\n"
-  "--udp-port PORT        UDP port on localhost to receive datagrams from\n"
-  "--tcp HOSTNAME:PORT    TCP host to forward datagrams to"
+  "Usage: " << program_name << " UDP-PORT TCP-PORT\n\n"
+  "Listen on the TCP port and accept the first connection only. Then start\n"
+  "forwarding datagrams from the UDP port to the connected TCP socket"
   << endl;
-}
-
-tuple<string, string> parse_host(const string & host)
-{
-  auto pos = host.find(':');
-  if (pos == string::npos) {
-    throw runtime_error("Invalid host format! Should be HOSTNAME:PORT");
-  }
-
-  return make_tuple(host.substr(0, pos), host.substr(pos + 1));
 }
 
 int main(int argc, char * argv[])
@@ -34,59 +27,81 @@ int main(int argc, char * argv[])
     abort();
   }
 
-  string udp_hostname{"0"}, udp_port;
-  string tcp_hostname, tcp_port;
-
-  const option cmd_line_opts[] = {
-    {"udp-port", required_argument, nullptr, 'u'},
-    {"tcp",      required_argument, nullptr, 't'},
-    { nullptr,   0,                 nullptr,  0 }
-  };
-
-  while (true) {
-    const int opt = getopt_long(argc, argv, "u:t:", cmd_line_opts, nullptr);
-    if (opt == -1) {
-      break;
-    }
-
-    switch (opt) {
-    case 'u':
-      udp_port = optarg;
-      break;
-    case 't':
-      tie(tcp_hostname, tcp_port) = parse_host(optarg);
-      break;
-    default:
-      print_usage(argv[0]);
-      return EXIT_FAILURE;
-    }
-  }
-
-  if (optind != argc) { /* if there are any positional arguments */
+  if (argc != 3) {
     print_usage(argv[0]);
     return EXIT_FAILURE;
   }
 
-  if (udp_port.empty() or tcp_hostname.empty() or tcp_port.empty()) {
-    cerr << "Error: --udp-port and --tcp are both required" << endl;
-    print_usage(argv[0]);
-    return EXIT_FAILURE;
-  }
+  uint16_t udp_port = narrow_cast<uint16_t>(stoi(argv[1]));
+  uint16_t tcp_port = narrow_cast<uint16_t>(stoi(argv[2]));
 
-  UDPSocket udp_sock;
-  udp_sock.bind(Address(udp_hostname, udp_port));
-  cerr << "Listening on UDP host " << udp_sock.local_address().str() << endl;
+  /* create a TCP socket */
+  TCPSocket listening_socket;
+  listening_socket.set_reuseaddr();
+  listening_socket.bind(Address("0", tcp_port));
+  listening_socket.listen();
+  cerr << "Listening on TCP " << listening_socket.local_address().str() << endl;
 
-  TCPSocket tcp_sock;
-  tcp_sock.connect(Address(tcp_hostname, tcp_port));
-  cerr << "Connected to TCP host " << tcp_sock.peer_address().str() << endl;
+  /* wait for the first connection blockingly */
+  TCPSocket client = listening_socket.accept();
+  client.set_blocking(false);
 
-  while (true) {
-    pair<Address, string> addr_payload = udp_sock.recvfrom();
-    const string & payload = addr_payload.second;
+  /* create a UDP socket */
+  UDPSocket udp_socket;
+  udp_socket.bind(Address("0", udp_port));
+  udp_socket.set_blocking(false);
+  cerr << "Start forwarding datagrams from UDP "
+       << udp_socket.local_address().str() << " to TCP "
+       << client.peer_address().str() << endl;
 
-    if (payload.size()) {
-      tcp_sock.write(payload);
+  /* start forwarding */
+  deque<string> buffer;
+  uint64_t buffer_size = 0;
+
+  Poller poller;
+
+  /* read datagrams from UDP socket into the buffer */
+  poller.add_action(Poller::Action(udp_socket, Direction::In,
+    [&udp_socket, &buffer, &buffer_size]() {
+      string data = udp_socket.read();
+
+      /* assert that there isn't nothing to read */
+      assert(not udp_socket.eof());
+
+      buffer_size += data.size();
+      if (buffer_size >= ALERT_BUFFER_BYTES) {
+        cerr << "ALERT: buffer size growing too big: " << buffer_size << endl;
+      }
+
+      buffer.emplace_back(move(data));
+
+      return ResultType::Continue;
+    }
+  ));
+
+  /* write datagrams to TCP client socket from the buffer */
+  poller.add_action(Poller::Action(client, Direction::Out,
+    [&client, &buffer, &buffer_size]() {
+      /* assert that the callback is active only when buffer is not empty */
+      assert(not buffer.empty());
+
+      const string & data = buffer.front();
+      buffer_size -= data.size();
+
+      client.write(data);
+
+      buffer.pop_front();
+
+      return ResultType::Continue;
+    },
+    /* interested only when buffer is not empty */
+    [&buffer]() { return not buffer.empty(); }
+  ));
+
+  for (;;) {
+    const Poller::Result & ret = poller.poll(-1);
+    if (ret.result == Poller::Result::Type::Exit) {
+      return ret.exit_status;
     }
   }
 
