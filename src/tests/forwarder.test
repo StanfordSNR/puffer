@@ -1,53 +1,52 @@
-#!/usr/bin/python3
+#!/usr/bin/env python3
 
 import os
 from os import path
+import sys
+import time
 import random
 import string
-import time
 import socket
-from test_helpers import get_open_port, Popen, timeout
-
-
-# timeout after 1 seconds
-@timeout(1)
-def test_loop(content, abs_builddir):
-    status = False
-    # create TCP socket
-    tcp_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    tcp_port = get_open_port()
-    tcp_sock.bind(("127.0.0.1", tcp_port))
-    tcp_sock.listen(1)
-
-    forwarder = path.abspath(
-        path.join(abs_builddir, os.pardir, 'forwarder', 'forwarder'))
-    udp_port = get_open_port()
-    forwarder_proc = Popen([forwarder, '--udp-port', str(udp_port),
-                           '--tcp', '127.0.0.1:' + str(tcp_port)])
-    # receive connection
-    connection, client_address = tcp_sock.accept()
-
-    # send udp content
-    udp_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    udp_sock.sendto(content, ("127.0.0.1", udp_port))
-
-    data = connection.recv(len(content))
-    if data != content:
-        forwarder_proc.terminate()
-        tcp_sock.close()
-        raise Exception("data received not equal to data sent")
-    else:
-        forwarder_proc.terminate()
-        tcp_sock.close()
+from test_helpers import get_open_port, Popen, PIPE
 
 
 def main():
-    # generate a random file
-    content = ''.join(random.choice(string.ascii_letters) for _ in range(2000))
+    # generate random data to send
+    content = ''.join(random.choice(string.ascii_letters) for _ in range(20))
+    content = content.encode()
 
     abs_builddir = os.environ['abs_builddir']
 
-    test_loop(content.encode('utf-8'), abs_builddir)
+    # run forwarder
+    forwarder = path.abspath(
+        path.join(abs_builddir, os.pardir, 'forwarder', 'forwarder'))
+    udp_port = get_open_port()
+    tcp_port = get_open_port()
+    forwarder_proc = Popen([forwarder, str(udp_port), str(tcp_port)],
+                           stderr=PIPE)
+
+    sys.stderr.write(forwarder_proc.stderr.readline().decode())
+
+    # create TCP socket
+    tcp_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    tcp_sock.connect(('127.0.0.1', tcp_port))
+
+    sys.stderr.write(forwarder_proc.stderr.readline().decode())
+
+    # send content over UDP socket
+    udp_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    udp_sock.sendto(content, ('127.0.0.1', udp_port))
+
+    # receive data from TCP socket
+    data = tcp_sock.recv(len(content))
+
+    # terminate connections and the forwarder
+    udp_sock.close()
+    tcp_sock.close()
+    forwarder_proc.terminate()
+
+    if data != content:
+        sys.exit('data received not equal to the data sent')
 
 
 if __name__ == '__main__':
