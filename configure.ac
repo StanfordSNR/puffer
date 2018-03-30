@@ -18,6 +18,7 @@ AC_PROG_RANLIB
 
 # Checks for libraries.
 PKG_CHECK_MODULES([libmpeg2],[libmpeg2])
+PKG_CHECK_MODULES([POSTGRES],[libpq libpqxx])
 PKG_CHECK_MODULES([SSL],[libssl libcrypto])
 PKG_CHECK_MODULES([CRYPTO],[libcrypto++])
 
