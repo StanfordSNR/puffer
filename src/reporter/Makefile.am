@@ -1,7 +1,5 @@
 # Use c++14 here to fix an error with pqxx in c++17.
 # error: ISO C++1z does not allow dynamic exception specifications
-CXX14_FLAGS="-std=c++14 -pthread"
-
 AM_CPPFLAGS = $(CXX14_FLAGS) -I$(srcdir)/../util
 AM_CXXFLAGS = $(PICKY_CXXFLAGS)
 
