@@ -157,10 +157,16 @@ Poller::Result Poller::poll( const int timeout_ms )
   it_action = actions_.begin();
   it_pollfd = pollfds_.begin();
 
+  /* store the ends of actions_ and pollfds_ in case add_action() is called
+   * especially inside callback functions */
+  auto actions_end = actions_.end();
+  auto pollfds_end = pollfds_.end();
+
   set<int> fds_to_remove;
 
-  for ( ; it_action != actions_.end() and it_pollfd != pollfds_.end()
+  for ( ; it_action != actions_end and it_pollfd != pollfds_end
         ; it_action++, it_pollfd++ ) {
+    assert( it_pollfd->fd == it_action->fd.fd_num() );
     if ( it_pollfd->revents & (POLLERR | POLLHUP | POLLNVAL) ) {
       cerr << "Poller: poll fd error" << endl;
       return Result::Type::Exit;

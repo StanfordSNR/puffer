@@ -536,10 +536,7 @@ int main(int argc, char * argv[])
   /* start the global timer */
   start_global_timer(server);
 
-  for (;;) {
-    /* TODO: returns Poller::Result::Type::Exit sometimes? */
-    server.loop_once();
-  }
+  while (server.loop_once().result == Poller::Result::Type::Success);
 
   return EXIT_SUCCESS;
 }
