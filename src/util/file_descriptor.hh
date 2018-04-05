@@ -3,13 +3,18 @@
 #ifndef FILE_DESCRIPTOR_HH
 #define FILE_DESCRIPTOR_HH
 
-#include <string>
 #include <unistd.h>
+
+#include <string>
+#include <unordered_map>
+#include <memory>
 
 #include "config.h"
 
 /* maximum size of a read */
 static constexpr size_t BUFFER_SIZE = 1024 * 1024;
+
+class Epoller;
 
 /* Unix file descriptors (sockets, files, etc.) */
 class FileDescriptor
@@ -19,6 +24,8 @@ private:
   bool eof_;
 
   unsigned int read_count_, write_count_;
+
+  std::unordered_map<int, std::weak_ptr<Epoller>> epollers_;
 
 protected:
   void register_read( void ) { read_count_++; }
@@ -68,6 +75,10 @@ public:
 
   /* set nonblocking/blocking behavior */
   void set_blocking( const bool block );
+
+  /* attach and detach Epollers */
+  void attach_epoller(const std::shared_ptr<Epoller> & epoller_ptr);
+  void detach_epoller(const std::shared_ptr<Epoller> & epoller_ptr);
 
   /* forbid copying FileDescriptor objects or assigning them */
   FileDescriptor( const FileDescriptor & other ) = delete;

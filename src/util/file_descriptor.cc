@@ -1,12 +1,14 @@
 /* -*-mode:c++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 
 #include "file_descriptor.hh"
-#include "exception.hh"
 
 #include <unistd.h>
 #include <fcntl.h>
 #include <cassert>
 #include <sys/file.h>
+
+#include "exception.hh"
+#include "epoller.hh"
 
 using namespace std;
 
@@ -15,7 +17,8 @@ FileDescriptor::FileDescriptor( const int fd )
   : fd_( fd ),
    eof_( false ),
    read_count_( 0 ),
-   write_count_( 0 )
+   write_count_( 0 ),
+   epollers_()
 {
   /* set close-on-exec flag so our file descriptors
     aren't passed on to unrelated children (like a shell) */
@@ -27,7 +30,8 @@ FileDescriptor::FileDescriptor( FileDescriptor && other )
   : fd_( other.fd_ ),
    eof_( other.eof_ ),
    read_count_( other.read_count_ ),
-   write_count_( other.write_count_ )
+   write_count_( other.write_count_ ),
+   epollers_( move( other.epollers_ ) )
 {
   /* mark other file descriptor as inactive */
   other.fd_ = -1;
@@ -40,9 +44,17 @@ void FileDescriptor::close()
     return;
   }
 
-  CheckSystemCall( "close", ::close( fd_ ) );
-
   fd_ = -1;
+
+  /* notify attached epollers */
+  for (const auto & epoller_item : epollers_) {
+    auto epoller_shared_ptr = epoller_item.second.lock();
+    if (epoller_shared_ptr) {
+      epoller_shared_ptr->deregister(*this);
+    }
+  }
+
+  CheckSystemCall( "close", ::close( fd_ ) );
 }
 
 /* destructor tries to close, but catches exception */
@@ -174,4 +186,14 @@ void FileDescriptor::reset()
 {
   seek(0, SEEK_SET);
   set_eof(false);
+}
+
+void FileDescriptor::attach_epoller(const shared_ptr<Epoller> & epoller_ptr)
+{
+  epollers_.emplace(epoller_ptr->fd_num(), epoller_ptr);
+}
+
+void FileDescriptor::detach_epoller(const shared_ptr<Epoller> & epoller_ptr)
+{
+  epollers_.erase(epoller_ptr->fd_num());
 }
