@@ -36,7 +36,7 @@ void Epoller::add_events(FileDescriptor & fd, const uint32_t events)
 
   epoll_control(EPOLL_CTL_ADD, fd, events);
 
-  /* attach this to fd */
+  /* attach the epoll instance to fd */
   fd.attach_epoller(shared_from_this());
 }
 
@@ -50,10 +50,10 @@ void Epoller::modify_events(FileDescriptor & fd, const uint32_t events)
   epoll_control(EPOLL_CTL_MOD, fd, events);
 }
 
-void Epoller::set_callback(FileDescriptor & fd, const uint32_t event,
+void Epoller::set_callback(FileDescriptor & fd, const uint32_t events,
                            const callback_t & callback)
 {
-  callback_table_[fd.fd_num()][event] = callback;
+  callback_table_[fd.fd_num()][events] = callback;
 }
 
 void Epoller::deregister(FileDescriptor & fd)
@@ -65,6 +65,7 @@ void Epoller::deregister(FileDescriptor & fd)
   /* clear associated callback functions */
   callback_table_.erase(fd.fd_num());
 
+  /* detach the epoll instance from fd */
   fd.detach_epoller(shared_from_this());
 }
 

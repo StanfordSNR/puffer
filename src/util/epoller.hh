@@ -13,6 +13,7 @@
 /* max events returned by epoll every time */
 static constexpr size_t MAX_EPOLL_EVENTS = 16 * 1024;
 
+/* epoll wrapper: instantiate an epoll instance on the heap only */
 class Epoller : public std::enable_shared_from_this<Epoller>
 {
 public:
@@ -21,16 +22,23 @@ public:
   Epoller();
   ~Epoller();
 
+  /* file descriptor of the epoll instance */
   int fd_num() const { return epoller_fd_; }
 
+  /* register fd and get notified about events on fd */
   void add_events(FileDescriptor & fd, const uint32_t events);
+
+  /* modify the events fd is monitoring */
   void modify_events(FileDescriptor & fd, const uint32_t events);
 
-  void set_callback(FileDescriptor & fd, const uint32_t event,
+  /* set callback function to run when (any of) events occur on fd */
+  void set_callback(FileDescriptor & fd, const uint32_t events,
                     const callback_t & callback);
 
+  /* deregister fd from the epoll instance */
   void deregister(FileDescriptor & fd);
 
+  /* return the number of fds that become ready in the interest list */
   int poll(const int timeout_ms);
 
 private:
