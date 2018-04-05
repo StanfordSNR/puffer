@@ -68,7 +68,7 @@ void Epoller::deregister(FileDescriptor & fd)
   fd.detach_epoller(shared_from_this());
 }
 
-void Epoller::poll(const int timeout_ms)
+int Epoller::poll(const int timeout_ms)
 {
   int nfds = CheckSystemCall("epoll_wait",
       epoll_wait(epoller_fd_, event_list_, sizeof(event_list_), timeout_ms));
@@ -85,8 +85,14 @@ void Epoller::poll(const int timeout_ms)
 
     for (const auto & [event, callback] : it->second) {
       if (revents & event) {
-        callback();
+        /* callback returns error */
+        if (callback() < 0) {
+          throw runtime_error("Epoller::poll: callback of fd " + to_string(fd)
+                              + " returns error");
+        }
       }
     }
   }
+
+  return nfds;
 }

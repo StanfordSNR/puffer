@@ -16,6 +16,8 @@ static constexpr size_t MAX_EPOLL_EVENTS = 16 * 1024;
 class Epoller : public std::enable_shared_from_this<Epoller>
 {
 public:
+  using callback_t = std::function<int(void)>;
+
   Epoller();
   ~Epoller();
 
@@ -24,13 +26,12 @@ public:
   void add_events(FileDescriptor & fd, const uint32_t events);
   void modify_events(FileDescriptor & fd, const uint32_t events);
 
-  using callback_t = std::function<void(void)>;
   void set_callback(FileDescriptor & fd, const uint32_t event,
                     const callback_t & callback);
 
   void deregister(FileDescriptor & fd);
 
-  void poll(const int timeout_ms);
+  int poll(const int timeout_ms);
 
 private:
   int epoller_fd_;
