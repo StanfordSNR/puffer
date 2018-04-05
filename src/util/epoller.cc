@@ -58,15 +58,19 @@ void Epoller::set_callback(FileDescriptor & fd, const uint32_t events,
 
 void Epoller::deregister(FileDescriptor & fd)
 {
+  /* detach the epoll instance from fd */
+  fd.detach_epoller(epoller_fd_);
+
+  /* clear associated callback functions */
+  if (callback_table_.erase(fd.fd_num()) == 0) {
+    cerr << "Warning: deregistering a non-existent fd " << fd.fd_num()
+         << "from Epoller" << endl;
+    return;
+  }
+
   /* deregister fd from epoll instance */
   CheckSystemCall("epoll_ctl",
                   epoll_ctl(epoller_fd_, EPOLL_CTL_DEL, fd.fd_num(), nullptr));
-
-  /* clear associated callback functions */
-  callback_table_.erase(fd.fd_num());
-
-  /* detach the epoll instance from fd */
-  fd.detach_epoller(shared_from_this());
 }
 
 int Epoller::poll(const int timeout_ms)
@@ -84,8 +88,8 @@ int Epoller::poll(const int timeout_ms)
                           "have any callbacks");
     }
 
-    for (const auto & [event, callback] : it->second) {
-      if (revents & event) {
+    for (const auto & [events, callback] : it->second) {
+      if (revents & events) {
         /* callback returns error */
         if (callback() < 0) {
           throw runtime_error("Epoller::poll: callback of fd " + to_string(fd)

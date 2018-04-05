@@ -78,7 +78,7 @@ public:
 
   /* attach and detach Epollers */
   void attach_epoller(const std::shared_ptr<Epoller> & epoller_ptr);
-  void detach_epoller(const std::shared_ptr<Epoller> & epoller_ptr);
+  void detach_epoller(const int epoller_fd);
 
   /* forbid copying FileDescriptor objects or assigning them */
   FileDescriptor( const FileDescriptor & other ) = delete;

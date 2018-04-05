@@ -11,7 +11,7 @@
 #include "file_descriptor.hh"
 
 /* max events returned by epoll every time */
-static constexpr size_t MAX_EPOLL_EVENTS = 16 * 1024;
+static constexpr size_t MAX_EPOLL_EVENTS = 128;
 
 /* epoll wrapper: instantiate an epoll instance on the heap only */
 class Epoller : public std::enable_shared_from_this<Epoller>
@@ -35,7 +35,7 @@ public:
   void set_callback(FileDescriptor & fd, const uint32_t events,
                     const callback_t & callback);
 
-  /* deregister fd from the epoll instance */
+  /* deregister fd from the epoll instance and detach epoller from fd */
   void deregister(FileDescriptor & fd);
 
   /* return the number of fds that become ready in the interest list */
