@@ -44,8 +44,6 @@ void FileDescriptor::close()
     return;
   }
 
-  fd_ = -1;
-
   /* notify attached epollers */
   for (const auto & epoller_item : epollers_) {
     auto epoller_shared_ptr = epoller_item.second.lock();
@@ -55,6 +53,8 @@ void FileDescriptor::close()
   }
 
   CheckSystemCall( "close", ::close( fd_ ) );
+
+  fd_ = -1;
 }
 
 /* destructor tries to close, but catches exception */

@@ -22,4 +22,5 @@ libutil_a_SOURCES = \
 	util.hh util.cc \
 	filesystem.hh \
 	chunk.hh \
-	mmap.hh mmap.cc
+	mmap.hh mmap.cc \
+	epoller.hh epoller.cc
