@@ -188,9 +188,9 @@ void FileDescriptor::reset()
   set_eof(false);
 }
 
-void FileDescriptor::attach_epoller(const shared_ptr<Epoller> & epoller_ptr)
+void FileDescriptor::attach_epoller(shared_ptr<Epoller> && epoller_ptr)
 {
-  auto ret = epollers_.emplace(epoller_ptr->fd_num(), epoller_ptr);
+  auto ret = epollers_.emplace(epoller_ptr->fd_num(), move(epoller_ptr));
 
   if (not ret.second) {
     cerr << "Warning: failed to attach an already-existent epoller "

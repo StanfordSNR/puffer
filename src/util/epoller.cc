@@ -62,11 +62,15 @@ void Epoller::deregister(FileDescriptor & fd)
   fd.detach_epoller(epoller_fd_);
 
   /* clear associated callback functions */
+
+  /* XXX: removing callbacks lead to bugs */
+  /*
   if (callback_table_.erase(fd.fd_num()) == 0) {
     cerr << "Warning: deregistering a non-existent fd " << fd.fd_num()
-         << "from Epoller" << endl;
+         << " from Epoller" << endl;
     return;
   }
+  */
 
   /* deregister fd from epoll instance */
   CheckSystemCall("epoll_ctl",

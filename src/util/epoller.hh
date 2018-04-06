@@ -17,6 +17,7 @@ static constexpr size_t MAX_EPOLL_EVENTS = 128;
 class Epoller : public std::enable_shared_from_this<Epoller>
 {
 public:
+  /* callback function should return 0 on success, and -1 on error */
   using callback_t = std::function<int(void)>;
 
   Epoller();
@@ -44,8 +45,8 @@ public:
 private:
   int epoller_fd_;
 
-  std::unordered_map<int, /* fd */
-      std::unordered_map<uint32_t /* event */, callback_t>> callback_table_;
+  std::unordered_map<int /* fd */,
+      std::unordered_map<uint32_t /* events */, callback_t>> callback_table_;
 
   struct epoll_event event_list_[MAX_EPOLL_EVENTS];
 
