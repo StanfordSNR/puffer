@@ -46,9 +46,9 @@ void FileDescriptor::close()
 
   /* notify attached epollers */
   for (const auto & epoller_item : epollers_) {
-    auto epoller_shared_ptr = epoller_item.second.lock();
-    if (epoller_shared_ptr) {
-      epoller_shared_ptr->deregister(*this);
+    auto epoller = epoller_item.second.lock();
+    if (epoller) {
+      epoller->deregister_fd(fd_);
     }
   }
 
@@ -194,7 +194,7 @@ void FileDescriptor::attach_epoller(shared_ptr<Epoller> && epoller_ptr)
 
   if (not ret.second) {
     cerr << "Warning: failed to attach an already-existent epoller "
-         << epoller_ptr->fd_num() << " to FileDescriptor" << endl;
+         << epoller_ptr->fd_num() << " to FileDescriptor " << fd_ << endl;
   }
 }
 
@@ -202,6 +202,6 @@ void FileDescriptor::detach_epoller(const int epoller_fd)
 {
   if (epollers_.erase(epoller_fd) == 0) {
     cerr << "Warning: failed to detach a non-existent epoller "
-         << epoller_fd << " from FileDescriptor" << endl;
+         << epoller_fd << " from FileDescriptor " << fd_ << endl;
   }
 }

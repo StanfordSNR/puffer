@@ -1,14 +1,15 @@
 #include "epoller.hh"
 
 #include <unistd.h>
-
 #include <iostream>
+
 #include "exception.hh"
 
 using namespace std;
 
 Epoller::Epoller()
   : epoller_fd_(CheckSystemCall("epoll_create1", epoll_create1(EPOLL_CLOEXEC))),
+    fd_table_(),
     callback_table_()
 {}
 
@@ -19,62 +20,120 @@ Epoller::~Epoller()
   }
 }
 
-inline void Epoller::epoll_control(const int op,
-                                   FileDescriptor & fd, const uint32_t events)
+inline void Epoller::epoll_control(const int op, const int fd,
+                                   const uint32_t events)
 {
   struct epoll_event ev;
-  ev.data.fd = fd.fd_num();
+  ev.data.fd = fd;
   ev.events = events;
-  CheckSystemCall("epoll_ctl", epoll_ctl(epoller_fd_, op, fd.fd_num(), &ev));
+  CheckSystemCall("epoll_ctl", epoll_ctl(epoller_fd_, op, fd, &ev));
 }
 
-void Epoller::add_events(FileDescriptor & fd, const uint32_t events)
+shared_ptr<FileDescriptor> Epoller::get_fd_ptr(const int fd)
 {
-  if (events == 0) {
-    throw runtime_error("Epoller::add_events: empty events");
+  /* throw an exception if fd does not exist in the epoll list */
+  auto it = fd_table_.find(fd);
+  if (it == fd_table_.end()) {
+    throw runtime_error("Epoller::get_fd_ptr: fd " + to_string(fd) +
+                        " does not exist in the epoll list");
   }
 
+  const auto & fd_weak_ptr = it->second;
+  return fd_weak_ptr.lock();
+}
+
+void Epoller::register_fd(const std::shared_ptr<FileDescriptor> & fd_ptr,
+                          const uint32_t events)
+{
+  if (events == 0) {
+    throw runtime_error("Epoller::register_fd: empty events");
+  }
+
+  /* add fd to the epoll list */
+  int fd = fd_ptr->fd_num();
   epoll_control(EPOLL_CTL_ADD, fd, events);
 
-  /* attach the epoll instance to fd */
-  fd.attach_epoller(shared_from_this());
-}
-
-void Epoller::modify_events(FileDescriptor & fd, const uint32_t events)
-{
-  if (events == 0) {
-    throw runtime_error("Epoller::modify_events: empty events; "
-                        "use Epoller::deregister instead");
+  /* add weak_ptr<FileDescriptor> to fd_table_ */
+  auto ret = fd_table_.emplace(fd, fd_ptr);
+  if (not ret.second) {
+    throw runtime_error("Epoller::register_fd: fd " + to_string(fd) +
+                        " already exists in the epoll list");
   }
 
+  /* attach the epoll instance to fd */
+  fd_ptr->attach_epoller(shared_from_this());
+}
+
+void Epoller::modify_events(const int fd, const uint32_t events)
+{
+  if (events == 0) {
+    throw runtime_error("Epoller::modify_events: empty events");
+  }
+
+  if (get_fd_ptr(fd) == nullptr) {
+    throw runtime_error(
+      "Epoller::modify_events: the FileDescriptor object of fd " +
+      to_string(fd) + " has gone");
+  }
+
+  /* modify events monitored on fd */
   epoll_control(EPOLL_CTL_MOD, fd, events);
 }
 
-void Epoller::set_callback(FileDescriptor & fd, const uint32_t events,
+void Epoller::set_callback(const int fd,
+                           const uint32_t events,
                            const callback_t & callback)
 {
-  callback_table_[fd.fd_num()][events] = callback;
+  if (events == 0) {
+    throw runtime_error("Epoller::set_callback: empty events");
+  }
+
+  if (get_fd_ptr(fd) == nullptr) {
+    throw runtime_error(
+      "Epoller::set_callback: the FileDescriptor object of fd " +
+      to_string(fd) + " has gone");
+  }
+
+  auto it = callback_table_.find(fd);
+
+  /* check if fd and events both already exist */
+  if (it != callback_table_.end()) {
+    const auto & events_map = it->second;
+    if (events_map.find(events) != events_map.end()) {
+      throw runtime_error("Epoller::set_callback: adding a callback for "
+                          "existing events on fd " + to_string(fd));
+    }
+  }
+
+  callback_table_[fd][events] = callback;
 }
 
-void Epoller::deregister(FileDescriptor & fd)
+/* tolerant non-fatal errors so fd can be deregistered multiple times */
+void Epoller::deregister_fd(const int fd)
 {
-  /* detach the epoll instance from fd */
-  fd.detach_epoller(epoller_fd_);
-
-  /* clear associated callback functions */
-
-  /* XXX: removing callbacks lead to bugs */
-  /*
-  if (callback_table_.erase(fd.fd_num()) == 0) {
-    cerr << "Warning: deregistering a non-existent fd " << fd.fd_num()
-         << " from Epoller" << endl;
+  auto it = fd_table_.find(fd);
+  if (it == fd_table_.end()) {
+    cerr << "Warning: Epoller: fd " << fd
+         << " does not exist in the epoll list" << endl;
     return;
   }
-  */
+
+  const auto & fd_weak_ptr = it->second;
+  auto fd_ptr = fd_weak_ptr.lock();
+  if (fd_ptr) {
+    /* detach the epoll instance from fd */
+    fd_ptr->detach_epoller(epoller_fd_);
+  }
+
+  fd_table_.erase(fd);
+
+  callback_table_.erase(fd);
 
   /* deregister fd from epoll instance */
-  CheckSystemCall("epoll_ctl",
-                  epoll_ctl(epoller_fd_, EPOLL_CTL_DEL, fd.fd_num(), nullptr));
+  if (epoll_ctl(epoller_fd_, EPOLL_CTL_DEL, fd, nullptr) < 0) {
+    cerr << "Warning: Epoller: failed to deregister fd " << fd << endl;
+    return;
+  }
 }
 
 int Epoller::poll(const int timeout_ms)
@@ -86,6 +145,13 @@ int Epoller::poll(const int timeout_ms)
     int fd = event_list_[i].data.fd;
     uint32_t revents = event_list_[i].events;
 
+    auto fd_ptr = get_fd_ptr(fd);
+    if (fd_ptr == nullptr) {
+      cerr << "Epoller::poll: the FileDescriptor object of fd " << fd
+           << " has gone" << endl;
+      deregister_fd(fd);
+    }
+
     auto it = callback_table_.find(fd);
     if (it == callback_table_.end()) {
       throw runtime_error("Epoller::poll: fd " + to_string(fd) + " does not "
@@ -96,8 +162,8 @@ int Epoller::poll(const int timeout_ms)
       if (revents & events) {
         /* callback returns error */
         if (callback() < 0) {
-          throw runtime_error("Epoller::poll: callback of fd " + to_string(fd)
-                              + " returns error");
+          cerr << "Epoller::poll: callback error on fd " << fd << endl;
+          deregister_fd(fd);
         }
       }
     }
