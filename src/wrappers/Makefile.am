@@ -1,6 +1,6 @@
 AM_CPPFLAGS = $(CXX17_FLAGS) -I$(srcdir)/../util \
 	-isystem$(srcdir)/../../third_party/yaml-cpp.upstream/include
-AM_CXXFLAGS = $(PICKY_CXXFLAGS)
+AM_CXXFLAGS = $(PICKY_CXXFLAGS) $(EXTRA_CXXFLAGS)
 
 bin_PROGRAMS = run_all video_canonicalizer video_encoder video_fragmenter \
 	audio_encoder audio_fragmenter ssim_calculator

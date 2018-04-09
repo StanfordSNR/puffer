@@ -1,5 +1,5 @@
 AM_CPPFLAGS = $(CXX17_FLAGS) -I$(srcdir)/../util
-AM_CXXFLAGS = $(PICKY_CXXFLAGS)
+AM_CXXFLAGS = $(PICKY_CXXFLAGS) $(EXTRA_CXXFLAGS)
 
 bin_PROGRAMS = cleaner depcleaner windowcleaner
 

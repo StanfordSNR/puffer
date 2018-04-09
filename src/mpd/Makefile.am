@@ -1,7 +1,7 @@
 AM_CPPFLAGS = $(CXX17_FLAGS) -I$(srcdir)/../util -I$(srcdir)/../mp4 \
 			  -I$(srcdir)/../webm \
 			  -I$(srcdir)/../../third_party/libwebm.upstream/webm_parser/include
-AM_CXXFLAGS = $(PICKY_CXXFLAGS)
+AM_CXXFLAGS = $(PICKY_CXXFLAGS) $(EXTRA_CXXFLAGS)
 
 bin_PROGRAMS = mpd_writer
 

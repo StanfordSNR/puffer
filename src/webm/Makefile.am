@@ -1,6 +1,6 @@
 AM_CPPFLAGS = $(CXX17_FLAGS) -I$(srcdir)/../util \
 	-isystem$(srcdir)/../../third_party/libwebm.fork
-AM_CXXFLAGS = $(PICKY_CXXFLAGS)
+AM_CXXFLAGS = $(PICKY_CXXFLAGS) $(EXTRA_CXXFLAGS)
 
 noinst_LIBRARIES = libwebm.a
 

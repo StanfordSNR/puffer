@@ -35,6 +35,14 @@ AC_CHECK_HEADERS([experimental/filesystem])
 CPPFLAGS="$save_CPPFLAGS"
 AC_LANG_POP(C++)
 
+AC_ARG_ENABLE([sanitize],
+  [AS_HELP_STRING([--enable-sanitize],
+     [build with address and undefined-behavior santizers])],
+  [EXTRA_CXXFLAGS="-fsanitize=address -fsanitize=undefined -fuse-ld=gold"],
+  [sanitize=false])
+
+AC_SUBST(EXTRA_CXXFLAGS)
+
 # Checks for typedefs, structures, and compiler characteristics.
 
 # Checks for library functions.

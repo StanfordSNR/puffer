@@ -1,5 +1,5 @@
 AM_CPPFLAGS = $(CXX17_FLAGS) -I$(srcdir)/../util -I$(srcdir)/../net
-AM_CXXFLAGS = $(PICKY_CXXFLAGS)
+AM_CXXFLAGS = $(PICKY_CXXFLAGS) $(EXTRA_CXXFLAGS)
 
 bin_PROGRAMS = forwarder
 forwarder_SOURCES = forwarder.cc
