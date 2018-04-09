@@ -74,6 +74,7 @@ int main()
 
           if (data.empty()) {
             clients.erase(client->fd_num());
+            // or epoller->deregister_fd(client->fd_num());
           } else {
             cerr << "Client " << client->fd_num() << ": received " << data;
 

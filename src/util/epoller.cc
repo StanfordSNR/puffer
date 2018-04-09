@@ -10,7 +10,8 @@ using namespace std;
 Epoller::Epoller()
   : epoller_fd_(CheckSystemCall("epoll_create1", epoll_create1(EPOLL_CLOEXEC))),
     fd_table_(),
-    callback_table_()
+    callback_table_(),
+    fds_to_deregister_()
 {}
 
 Epoller::~Epoller()
@@ -109,7 +110,7 @@ void Epoller::set_callback(const int fd,
 }
 
 /* tolerant non-fatal errors so fd can be deregistered multiple times */
-void Epoller::deregister_fd(const int fd)
+void Epoller::do_deregister_fd(const int fd)
 {
   auto it = fd_table_.find(fd);
   if (it == fd_table_.end()) {
@@ -136,6 +137,11 @@ void Epoller::deregister_fd(const int fd)
   }
 }
 
+void Epoller::deregister_fd(const int fd)
+{
+  fds_to_deregister_.emplace(fd);
+}
+
 int Epoller::poll(const int timeout_ms)
 {
   int nfds = CheckSystemCall("epoll_wait",
@@ -150,6 +156,7 @@ int Epoller::poll(const int timeout_ms)
       cerr << "Epoller::poll: the FileDescriptor object of fd " << fd
            << " has gone" << endl;
       deregister_fd(fd);
+      continue;
     }
 
     auto it = callback_table_.find(fd);
@@ -164,10 +171,17 @@ int Epoller::poll(const int timeout_ms)
         if (callback() < 0) {
           cerr << "Epoller::poll: callback error on fd " << fd << endl;
           deregister_fd(fd);
+          break;
         }
       }
     }
   }
+
+  /* do the real deregistering */
+  for (const int fd_to_deregister : fds_to_deregister_) {
+    do_deregister_fd(fd_to_deregister);
+  }
+  fds_to_deregister_.clear();
 
   return nfds;
 }

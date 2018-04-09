@@ -7,6 +7,7 @@
 #include <unordered_map>
 #include <functional>
 #include <memory>
+#include <set>
 
 #include "file_descriptor.hh"
 
@@ -54,6 +55,9 @@ private:
   std::unordered_map<int /* fd */, std::weak_ptr<FileDescriptor>> fd_table_;
   std::unordered_map<int /* fd */,
       std::unordered_map<uint32_t /* events */, callback_t>> callback_table_;
+
+  std::set<int> fds_to_deregister_;
+  void do_deregister_fd(const int fd);
 
   struct epoll_event event_list_[MAX_EPOLL_EVENTS];
 
