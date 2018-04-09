@@ -14,9 +14,10 @@ using namespace PollerShortNames;
 Poller::Action::Action( NBSecureSocket & s_socket,
                         const PollDirection & s_direction,
                         const CallbackType & s_callback,
-                        const std::function<bool(void)> & s_when_interested )
+                        const std::function<bool(void)> & s_when_interested,
+                        const std::function<void(void)> & fderror_callback )
   : fd( s_socket ), direction( s_direction ), callback(), when_interested(),
-    active( true )
+    fderror_callback( fderror_callback ), active( true )
 {
   if ( direction == Out ) { /* write */
     callback =
@@ -110,8 +111,9 @@ Poller::Action::Action( NBSecureSocket & s_socket,
 
 void Poller::add_action( Poller::Action action )
 {
-  actions_.push_back( action );
-  pollfds_.push_back( { action.fd.fd_num(), 0, 0 } );
+  /* the action won't be actually added until the next poll() function call.
+     this allows us to call add_action inside the callback functions */
+  action_add_queue_.push( action );
 }
 
 unsigned int Poller::Action::service_count( void ) const
@@ -121,6 +123,14 @@ unsigned int Poller::Action::service_count( void ) const
 
 Poller::Result Poller::poll( const int timeout_ms )
 {
+  /* first, let's add all the actions that are waiting in the queue */
+  while ( not action_add_queue_.empty() ) {
+    Action & action = action_add_queue_.front();
+    pollfds_.push_back( { action.fd.fd_num(), 0, 0 } );
+    actions_.emplace_back( move( action ) );
+    action_add_queue_.pop();
+  }
+
   assert( pollfds_.size() == actions_.size() );
 
   if ( timeout_ms == 0 ) {
@@ -146,7 +156,7 @@ Poller::Result Poller::poll( const int timeout_ms )
 
   /* Quit if no member in pollfds_ has a non-zero direction */
   if ( not accumulate( pollfds_.begin(), pollfds_.end(), false,
-             [] ( bool acc, pollfd x ) { return acc or x.events; } ) ) {
+                       [] ( bool acc, pollfd x ) { return acc or x.events; } ) ) {
     return Result::Type::Exit;
   }
 
@@ -157,19 +167,15 @@ Poller::Result Poller::poll( const int timeout_ms )
   it_action = actions_.begin();
   it_pollfd = pollfds_.begin();
 
-  /* store the ends of actions_ and pollfds_ in case add_action() is called
-   * especially inside callback functions */
-  auto actions_end = actions_.end();
-  auto pollfds_end = pollfds_.end();
-
   set<int> fds_to_remove;
 
-  for ( ; it_action != actions_end and it_pollfd != pollfds_end
+  for ( ; it_action != actions_.end() and it_pollfd != pollfds_.end()
         ; it_action++, it_pollfd++ ) {
     assert( it_pollfd->fd == it_action->fd.fd_num() );
     if ( it_pollfd->revents & (POLLERR | POLLHUP | POLLNVAL) ) {
-      cerr << "Poller: poll fd error" << endl;
-      return Result::Type::Exit;
+      it_action->fderror_callback();
+      fds_to_remove.insert( it_pollfd->fd );
+      continue;
     }
 
     if ( it_pollfd->revents & it_pollfd->events ) {
@@ -206,7 +212,7 @@ Poller::Result Poller::poll( const int timeout_ms )
   return Result::Type::Success;
 }
 
-void Poller::remove_actions( const set<int> fd_nums )
+void Poller::remove_actions( const set<int> & fd_nums )
 {
   if ( fd_nums.size() == 0 ) {
     return;
