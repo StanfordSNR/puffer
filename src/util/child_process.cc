@@ -233,8 +233,8 @@ pid_t ProcessManager::run_as_child(const string & program,
 int ProcessManager::wait()
 {
   while (not child_processes_.empty()) {
-    const Poller::Result & ret = poller_.poll(-1);
-    if (ret.result == Poller::Result::Type::Exit) {
+    auto ret = poller_.poll(-1);
+    if (ret.result != Poller::Result::Type::Success) {
       return ret.exit_status;
     }
   }
@@ -245,9 +245,8 @@ int ProcessManager::wait()
 int ProcessManager::loop()
 {
   for (;;) {
-    /* continue polling unless some error occurs */
-    const Poller::Result & ret = poller_.poll(-1);
-    if (ret.result == Poller::Result::Type::Exit) {
+    auto ret = poller_.poll(-1);
+    if (ret.result != Poller::Result::Type::Success) {
       return ret.exit_status;
     }
   }

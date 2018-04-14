@@ -118,16 +118,13 @@ WSServer<SocketType>::WSServer(const Address & listener_addr)
   poller_.add_action(Poller::Action(listener_socket_, Direction::In,
     [this] () -> ResultType
     {
-      /* incoming connection */
+      /* incoming connection (client inherits non-blocking) */
       TCPSocket client = listener_socket_.accept();
-
-      /* let's make the socket non-blocking */
-      client.set_blocking(false);
 
       const uint64_t conn_id = last_connection_id_++;
       connections_.emplace(piecewise_construct,
                            forward_as_tuple(conn_id),
-                           forward_as_tuple(move(client), ref(ssl_context_)));
+                           forward_as_tuple(move(client), ssl_context_));
       Connection & conn = connections_.at(conn_id);
 
       /* add the actions for this connection */
@@ -160,8 +157,8 @@ WSServer<SocketType>::WSServer(const Address & listener_addr)
 
               case WSMessage::Type::Close:
               {
-                WSFrame close { true, WSFrame::OpCode::Close, message.payload() };
-                queue_frame(conn_id, close);
+                WSFrame close_frame { true, WSFrame::OpCode::Close, message.payload() };
+                queue_frame(conn_id, close_frame);
                 conn.state = Connection::State::Closed;
                 break;
               }
@@ -302,7 +299,7 @@ void WSServer<SocketType>::close_connection(const uint64_t connection_id)
 }
 
 template<>
-unsigned int WSServer<TCPSocket>::queue_bytes(const uint64_t conn_id) const
+unsigned int WSServer<TCPSocket>::buffer_bytes(const uint64_t conn_id) const
 {
   const Connection & conn = connections_.at(conn_id);
 
@@ -310,7 +307,7 @@ unsigned int WSServer<TCPSocket>::queue_bytes(const uint64_t conn_id) const
 }
 
 template<>
-unsigned int WSServer<NBSecureSocket>::queue_bytes(const uint64_t conn_id) const
+unsigned int WSServer<NBSecureSocket>::buffer_bytes(const uint64_t conn_id) const
 {
   const Connection & conn = connections_.at(conn_id);
 
@@ -333,6 +330,18 @@ Poller::Result WSServer<SocketType>::loop_once()
   closed_connections_.clear();
 
   return result;
+}
+
+template<class SocketType>
+int WSServer<SocketType>::loop()
+{
+  for (;;) {
+    auto ret = loop_once();
+
+    if (ret.result != Poller::Result::Type::Success) {
+      return ret.exit_status;
+    }
+  }
 }
 
 template class WSServer<TCPSocket>;

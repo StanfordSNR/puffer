@@ -17,6 +17,7 @@
 
 using namespace std;
 using namespace PollerShortNames;
+using WebSocketServer = WebSocketTCPServer;
 
 /* global settings */
 static const int DEFAULT_MAX_BUFFER_S = 60;
@@ -221,7 +222,7 @@ void serve_client(WebSocketServer & server, WebSocketClient & client)
   }
 
   /* return if the server's queue has been full */
-  if (server.queue_bytes(client.connection_id()) >= max_ws_queue_len) {
+  if (server.buffer_bytes(client.connection_id()) >= max_ws_queue_len) {
     return;
   }
 
@@ -239,7 +240,7 @@ void serve_client(WebSocketServer & server, WebSocketClient & client)
     }
     /* serve video only if there is still room */
     if (can_send_video and
-        server.queue_bytes(client.connection_id()) < max_ws_queue_len) {
+        server.buffer_bytes(client.connection_id()) < max_ws_queue_len) {
       serve_video_to_client(server, client);
     }
   } else {
@@ -249,7 +250,7 @@ void serve_client(WebSocketServer & server, WebSocketClient & client)
     }
     /* serve audio only if there is still room */
     if (can_send_audio and
-        server.queue_bytes(client.connection_id()) < max_ws_queue_len) {
+        server.buffer_bytes(client.connection_id()) < max_ws_queue_len) {
       serve_audio_to_client(server, client);
     }
   }
@@ -536,7 +537,5 @@ int main(int argc, char * argv[])
   /* start the global timer */
   start_global_timer(server);
 
-  while (server.loop_once().result == Poller::Result::Type::Success);
-
-  return EXIT_SUCCESS;
+  return server.loop();
 }

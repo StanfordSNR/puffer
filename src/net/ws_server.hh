@@ -20,9 +20,9 @@ template<class SocketType>
 class WSServer
 {
 public:
-  typedef std::function<void(const uint64_t, const WSMessage &)> MessageCallback;
-  typedef std::function<void(const uint64_t)> OpenCallback;
-  typedef OpenCallback CloseCallback;
+  using MessageCallback = std::function<void(const uint64_t, const WSMessage &)>;
+  using OpenCallback = std::function<void(const uint64_t)>;
+  using CloseCallback = std::function<void(const uint64_t)>;
 
 private:
   uint64_t last_connection_id_ {0};
@@ -70,7 +70,9 @@ private:
 
 public:
   WSServer(const Address & listener_addr);
+
   Poller::Result loop_once();
+  int loop();
 
   Poller & poller() { return poller_; }
 
@@ -83,10 +85,10 @@ public:
   void queue_frame(const uint64_t connection_id, const WSFrame & frame);
 
   void close_connection(const uint64_t connection_id);
-  unsigned int queue_bytes(const uint64_t connection_id) const;
+  unsigned int buffer_bytes(const uint64_t connection_id) const;
 };
 
-using WebSocketServer = WSServer<TCPSocket>;
+using WebSocketTCPServer = WSServer<TCPSocket>;
 using WebSocketSecureServer = WSServer<NBSecureSocket>;
 
 #endif /* WSSERVER_HH */

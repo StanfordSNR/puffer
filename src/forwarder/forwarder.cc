@@ -99,8 +99,8 @@ int main(int argc, char * argv[])
   ));
 
   for (;;) {
-    const Poller::Result & ret = poller.poll(-1);
-    if (ret.result == Poller::Result::Type::Exit) {
+    auto ret = poller.poll(-1);
+    if (ret.result != Poller::Result::Type::Success) {
       return ret.exit_status;
     }
   }

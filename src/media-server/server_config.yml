@@ -5,7 +5,7 @@ max_ws_frame_b: 1000000
 max_ws_queue_b: 10000000
 channel:
   - tos
-  - tos-live
+# - tos-live
 tos:
   live: false
   input: tos/

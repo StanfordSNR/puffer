@@ -16,7 +16,6 @@ void WSMessageParser::parse(const string & buf)
 
   /* okay, we have a complete frame now! */
   WSFrame frame {raw_buffer_.substr(0, expected_length)};
-  bool fin = frame.header().fin();
   raw_buffer_.erase(0, expected_length);
 
   switch (frame.header().opcode()) {
@@ -47,11 +46,10 @@ void WSMessageParser::parse(const string & buf)
     /* we don't put control frames into the frame buffer, we directly create
     the message from those and push them into the output queue */
     complete_messages_.emplace(list<WSFrame>{frame});
-    fin = false;
-    break;
+    return;
   }
 
-  if (fin) {
+  if (frame.header().fin()) {
     complete_messages_.emplace(frame_buffer_);
     frame_buffer_.clear();
   }
