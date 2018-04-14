@@ -356,7 +356,7 @@ void handle_client_init(WebSocketServer & server, WebSocketClient & client,
   auto it = msg.channel.has_value() ?
             channels.find(msg.channel.value()) : channels.begin();
   if (it == channels.end()) {
-    throw BadClientMsgException("Requested channel not found");
+    throw runtime_error("Requested channel not found");
   }
 
   const auto & channel = it->second;
@@ -496,10 +496,6 @@ int main(int argc, char * argv[])
           default:
             break;
         }
-      } catch (const BadClientMsgException & e) {
-        cerr << "Bad message from " << connection_id << ": "
-             << e.what() << endl;
-        close_connection(server, connection_id);
       } catch (const exception & e) {
         cerr << "Warning in message callback: exception in client "
              << connection_id << ": " << e.what() << endl;

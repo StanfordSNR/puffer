@@ -60,18 +60,6 @@ public:
   unsigned int init_id {};
 };
 
-class BadClientMsgException : public std::exception
-{
-public:
-  explicit BadClientMsgException(const char * msg) : msg_(msg) {}
-  explicit BadClientMsgException(const std::string & msg) : msg_(msg) {}
-  virtual ~BadClientMsgException() throw () {}
-  virtual const char * what() const throw () { return msg_.c_str(); }
-
-protected:
-  std::string msg_;
-};
-
 class ClientMsgParser
 {
 public:
