@@ -63,7 +63,7 @@ private:
 public:
   struct Result
   {
-    enum class Type { Success, Timeout, FDError, Exit } result;
+    enum class Type { Success, Timeout, Exit } result;
     unsigned int exit_status;
     Result( const Type & s_result, const unsigned int & s_status = EXIT_SUCCESS )
       : result( s_result ), exit_status( s_status ) {}

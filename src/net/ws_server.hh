@@ -82,9 +82,9 @@ public:
   void set_open_callback(OpenCallback func) { open_callback_ = func; }
   void set_close_callback(CloseCallback func) { close_callback_ = func; }
 
-  void queue_frame(const uint64_t connection_id, const WSFrame & frame);
-
+  bool queue_frame(const uint64_t connection_id, const WSFrame & frame);
   void close_connection(const uint64_t connection_id);
+
   unsigned int buffer_bytes(const uint64_t connection_id) const;
 };
 

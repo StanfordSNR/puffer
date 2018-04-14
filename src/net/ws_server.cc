@@ -50,7 +50,7 @@ WSServer<TCPSocket>::Connection::Connection(TCPSocket && sock, SSLContext &)
 template<>
 WSServer<NBSecureSocket>::Connection::Connection(TCPSocket && sock,
                                                  SSLContext & ssl_context)
-  : socket(move(ssl_context.new_secure_socket(move(sock))))
+  : socket(ssl_context.new_secure_socket(move(sock)))
 {
   socket.accept();
 }
@@ -87,11 +87,10 @@ void WSServer<TCPSocket>::Connection::write()
 template<>
 void WSServer<NBSecureSocket>::Connection::write()
 {
-  for (string & buffer : send_buffer) {
-    socket.ezwrite(move(buffer));
+  while (not send_buffer.empty()) {
+    socket.ezwrite(move(send_buffer.front()));
+    send_buffer.pop_front();
   }
-
-  send_buffer.clear();
 }
 
 template<class SocketType>
@@ -132,6 +131,12 @@ WSServer<SocketType>::WSServer(const Address & listener_addr)
         [this, &conn, conn_id] () -> ResultType
         {
           const string data = conn.read();
+
+          if (data.empty()) {
+            close_callback_(conn_id);
+            closed_connections_.insert(conn_id);
+            return ResultType::CancelAll;
+          }
 
           if (conn.state == Connection::State::NotConnected) {
             conn.ws_handshake_parser.parse(data);
@@ -174,13 +179,14 @@ WSServer<SocketType>::WSServer(const Address & listener_addr)
                 break;
 
               default:
-                cerr << "unhandled message type" << endl;
-                close_connection(conn_id);
+                /* will not happen */
+                break;
               }
             }
           }
           else if (conn.state == Connection::State::Closing) {
             conn.ws_message_parser.parse(data);
+
             if (not conn.ws_message_parser.empty()) {
               WSMessage message = conn.ws_message_parser.front();
               conn.ws_message_parser.pop();
@@ -200,13 +206,6 @@ WSServer<SocketType>::WSServer(const Address & listener_addr)
                 break;
               }
             }
-          }
-          else {
-            /* TODO: this needs to clean-up the connection
-             *    cerr << "unhandled data" << endl;
-             *    close_connection(conn_id);
-             * The above code will throw. */
-            throw runtime_error("unhandled data");
           }
 
           return ResultType::Continue;
@@ -260,7 +259,7 @@ WSServer<SocketType>::WSServer(const Address & listener_addr)
                  ((conn.state == Connection::State::Connected or
                    conn.state == Connection::State::Closing or
                    conn.state == Connection::State::Closed) and
-                   conn.data_to_send());
+                  conn.data_to_send());
         }
       ));
 
@@ -270,18 +269,20 @@ WSServer<SocketType>::WSServer(const Address & listener_addr)
 }
 
 template<class SocketType>
-void WSServer<SocketType>::queue_frame(const uint64_t connection_id,
+bool WSServer<SocketType>::queue_frame(const uint64_t connection_id,
                                        const WSFrame & frame)
 {
   Connection & conn = connections_.at(connection_id);
 
   if (conn.state != Connection::State::Connected) {
-    throw runtime_error("not connected, cannot send the frame");
+    cerr << "not connected; cannot queue the frame" << endl;
+    return false;
   }
 
   /* frame.to_string() inevitably copies frame.payload_ into the return string,
    * but the return string will be moved into conn.send_buffer without copy */
   conn.send_buffer.emplace_back(frame.to_string());
+  return true;
 }
 
 template<class SocketType>
@@ -290,7 +291,8 @@ void WSServer<SocketType>::close_connection(const uint64_t connection_id)
   Connection & conn = connections_.at(connection_id);
 
   if (conn.state != Connection::State::Connected) {
-    throw runtime_error("not connected, cannot close the connection");
+    cerr << "not connected; cannot close the connection" << endl;
+    return;
   }
 
   WSFrame close_frame { true, WSFrame::OpCode::Close, "" };

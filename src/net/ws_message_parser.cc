@@ -47,6 +47,8 @@ void WSMessageParser::parse(const string & buf)
     the message from those and push them into the output queue */
     complete_messages_.emplace(list<WSFrame>{frame});
     return;
+  default:
+    throw runtime_error("invalid opcode");
   }
 
   if (frame.header().fin()) {
