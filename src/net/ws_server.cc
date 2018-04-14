@@ -143,19 +143,18 @@ WSServer<SocketType>::WSServer(const Address & listener_addr)
             conn.ws_handshake_parser.parse(data);
 
             if (not conn.ws_handshake_parser.empty()) {
-              const auto & request = conn.ws_handshake_parser.front();
+              auto request = move(conn.ws_handshake_parser.front());
+              conn.ws_handshake_parser.pop();
 
               try {
                 auto response = create_handshake_response(request).str();
                 conn.send_buffer.emplace_back(move(response));
               } catch (const exception & e) {
                 /* ignore invalid requests */
-                conn.ws_handshake_parser.pop();
                 print_exception("ws_server", e);
                 return ResultType::Continue;
               }
 
-              conn.ws_handshake_parser.pop();
               conn.state = Connection::State::Connecting;
             }
           }
@@ -166,10 +165,11 @@ WSServer<SocketType>::WSServer(const Address & listener_addr)
               /* close the connection if received an invalid message */
               print_exception("ws_server", e);
               close_connection(conn_id);
+              return ResultType::Continue;
             }
 
             if (not conn.ws_message_parser.empty()) {
-              WSMessage message = conn.ws_message_parser.front();
+              WSMessage message = move(conn.ws_message_parser.front());
               conn.ws_message_parser.pop();
 
               switch (message.type()) {
@@ -208,10 +208,11 @@ WSServer<SocketType>::WSServer(const Address & listener_addr)
             } catch (const exception & e) {
               /* already closing connection, so ignore invalid messages */
               print_exception("ws_server", e);
+              return ResultType::Continue;
             }
 
             if (not conn.ws_message_parser.empty()) {
-              WSMessage message = conn.ws_message_parser.front();
+              WSMessage message = move(conn.ws_message_parser.front());
               conn.ws_message_parser.pop();
 
               switch (message.type()) {

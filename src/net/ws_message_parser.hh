@@ -21,7 +21,10 @@ public:
   void parse(const std::string & buf);
 
   bool empty() const { return complete_messages_.empty(); }
+
   const WSMessage & front() const { return complete_messages_.front(); }
+  WSMessage & front() { return complete_messages_.front(); }
+
   void pop() { complete_messages_.pop(); }
 };
 
