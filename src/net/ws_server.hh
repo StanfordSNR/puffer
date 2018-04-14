@@ -40,7 +40,6 @@ private:
     SocketType socket;
 
     /* incoming messages */
-    HTTPRequest handshake_request {};
     HTTPRequestParser ws_handshake_parser {};
     WSMessageParser ws_message_parser {};
 

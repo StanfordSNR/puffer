@@ -9,6 +9,7 @@
 #include <crypto++/base64.h>
 
 #include "http_response.hh"
+#include "exception.hh"
 
 using namespace std;
 using namespace PollerShortNames;
@@ -142,13 +143,30 @@ WSServer<SocketType>::WSServer(const Address & listener_addr)
             conn.ws_handshake_parser.parse(data);
 
             if (not conn.ws_handshake_parser.empty()) {
-              conn.handshake_request = conn.ws_handshake_parser.front();
+              const auto & request = conn.ws_handshake_parser.front();
+
+              try {
+                auto response = create_handshake_response(request).str();
+                conn.send_buffer.emplace_back(move(response));
+              } catch (const exception & e) {
+                /* ignore invalid requests */
+                conn.ws_handshake_parser.pop();
+                print_exception("ws_server", e);
+                return ResultType::Continue;
+              }
+
               conn.ws_handshake_parser.pop();
               conn.state = Connection::State::Connecting;
             }
           }
           else if (conn.state == Connection::State::Connected) {
-            conn.ws_message_parser.parse(data);
+            try {
+              conn.ws_message_parser.parse(data);
+            } catch (const exception & e) {
+              /* close the connection if received an invalid message */
+              print_exception("ws_server", e);
+              close_connection(conn_id);
+            }
 
             if (not conn.ws_message_parser.empty()) {
               WSMessage message = conn.ws_message_parser.front();
@@ -179,13 +197,18 @@ WSServer<SocketType>::WSServer(const Address & listener_addr)
                 break;
 
               default:
-                /* will not happen */
+                assert(false);  /* will not happen */
                 break;
               }
             }
           }
           else if (conn.state == Connection::State::Closing) {
-            conn.ws_message_parser.parse(data);
+            try {
+              conn.ws_message_parser.parse(data);
+            } catch (const exception & e) {
+              /* already closing connection, so ignore invalid messages */
+              print_exception("ws_server", e);
+            }
 
             if (not conn.ws_message_parser.empty()) {
               WSMessage message = conn.ws_message_parser.front();
@@ -206,6 +229,8 @@ WSServer<SocketType>::WSServer(const Address & listener_addr)
                 break;
               }
             }
+          } else {
+            assert(false);  /* will not happen */
           }
 
           return ResultType::Continue;
@@ -221,18 +246,12 @@ WSServer<SocketType>::WSServer(const Address & listener_addr)
         [this, &conn, conn_id] () -> ResultType
         {
           if (conn.state == Connection::State::Connecting) {
-            /* okay, we should prepare the handshake response now */
             if (conn.data_to_send()) {
               conn.write();
             }
-            else {
-              conn.send_buffer.emplace_back(
-                  create_handshake_response(conn.handshake_request).str());
-              conn.write();
-            }
 
-            /* if we've sent the whole handshake response */
             if (not conn.data_to_send()) {
+              /* if we've sent the whole handshake response */
               conn.state = Connection::State::Connected;
               open_callback_(conn_id);
             }

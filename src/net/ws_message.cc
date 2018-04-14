@@ -32,9 +32,6 @@ WSMessage::WSMessage(const list<WSFrame> & frames)
 
     if (i == 0) {
       switch (frame.header().opcode()) {
-        case WSFrame::OpCode::Continuation:
-          break; /* not gonna happen */
-
         case WSFrame::OpCode::Text:
           type_ = WSMessage::Type::Text;
           break;
@@ -53,6 +50,10 @@ WSMessage::WSMessage(const list<WSFrame> & frames)
 
         case WSFrame::OpCode::Pong:
           type_ = WSMessage::Type::Pong;
+          break;
+
+        default:
+          assert(false);  /* will not happen */
           break;
       }
     }
