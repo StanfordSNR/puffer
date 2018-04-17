@@ -13,10 +13,12 @@ using json = nlohmann::json;
 class ClientInitMsg
 {
 public:
-  std::optional<std::string> channel {};
+  std::string user_id {};
 
   int player_width {};
   int player_height {};
+
+  std::optional<std::string> channel {};
 
   std::optional<uint64_t> next_vts {};
   std::optional<uint64_t> next_ats {};

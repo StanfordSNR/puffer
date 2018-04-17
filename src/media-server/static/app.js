@@ -267,7 +267,7 @@ function get_ws_server_host_and_port(cb) {
   cb(location.host.split(':')[0] + ':8081');
 }
 
-function WebSocketClient(video, audio, channel_select) {
+function WebSocketClient(user, video, audio, channel_select) {
   var ws = null;
   var av_source = null;
 
@@ -297,6 +297,7 @@ function WebSocketClient(video, audio, channel_select) {
     if (ws && ws.readyState === WS_OPEN) {
       try {
         var msg = {
+          userId: user.uid,
           playerWidth: video.videoWidth,
           playerHeight: video.videoHeight
         };
@@ -450,7 +451,7 @@ function WebSocketClient(video, audio, channel_select) {
   update_helper();
 }
 
-function start_streaming() {
+function start_streaming(user) {
   const video = document.getElementById('tv-player');
   const audio = document.getElementById('tv-audio');
 
@@ -459,7 +460,7 @@ function start_streaming() {
   const volume_bar = document.getElementById('volume-bar');
   const channel_select = document.getElementById('channel-select');
 
-  const client = new WebSocketClient(video, audio, channel_select);
+  const client = new WebSocketClient(user, video, audio, channel_select);
 
   mute_button.onclick = function() {
     video.volume = 0;
@@ -497,7 +498,7 @@ function initApp() {
       document.getElementById('user-signed-in').style.display = 'block';
       document.getElementById('user-info').textContent = 'Welcome! ' + user.displayName;
       /* Start streaming */
-      start_streaming();
+      start_streaming(user);
     } else {
       /* Redirect to the sign-in page if user is not signed in */
       window.location.replace('/widget.html');

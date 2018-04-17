@@ -30,6 +30,8 @@ ClientInitMsg ClientMsgParser::parse_init_msg()
 
   ClientInitMsg ret;
 
+  ret.user_id = msg_.at("userId");
+
   auto it = msg_.find("channel");
   if (it != msg_.end()) {
     ret.channel = *it;
