@@ -450,7 +450,7 @@ function WebSocketClient(video, audio, channel_select) {
   update_helper();
 }
 
-window.onload = function() {
+function start_streaming() {
   const video = document.getElementById('tv-player');
   const audio = document.getElementById('tv-audio');
 
@@ -488,3 +488,18 @@ window.onload = function() {
 
   client.connect();
 };
+
+function initApp() {
+  /* Track the authentication state */
+  firebase.auth().onAuthStateChanged(function(user) {
+    if (user) {
+      /* Start streaming if user is logged in */
+      start_streaming();
+    } else {
+      /* Redirect to the index if user is not logged in */
+      window.location.assign('/');
+    }
+  });
+}
+
+window.addEventListener('load', initApp);
