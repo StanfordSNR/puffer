@@ -3,25 +3,28 @@
 
 <head>
   <meta charset="utf-8">
-  <title>TV Streaming</title>
+  <title>Puffer</title>
+  <script src="https://www.gstatic.com/firebasejs/4.12.1/firebase.js"></script>
+  <script src="config.js"></script>
   <link rel="stylesheet" href="style.css">
 </head>
 
 <body>
+  <h1>Puffer</h1>
 
-<div id="tv-container">
-  <video id="tv-player" autoplay mediagroup="tv"></video>
-  <audio id="tv-audio" mediagroup="tv"></audio>
-  <div id="tv-controls">
-    <button type="button" id="mute-button"></button>
-    <input type="range" id="volume-bar" min="0" max="1" step="0.05" value="1">
-    <select id="channel-select"></select>
-    <button type="button" id="full-screen-button"></button>
+  <div id="user-prompt"></div>
+
+  <!--Display when user is signed in--!>
+  <div id="user-signed-in" class="hidden">
+    <button id="sign-out">Sign Out</button>
   </div>
 
-  <script src="wsplayer.js"></script>
-</div>
+  <!--Display when user is signed out--!>
+  <div id="user-signed-out" class="hidden">
+    <button id="sign-in">Sign In</button>
+  </div>
 
+  <script src="app.js"></script>
 </body>
 
 </html>

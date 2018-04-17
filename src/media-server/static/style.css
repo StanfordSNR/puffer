@@ -1,7 +1,12 @@
+.hidden {
+  display: none;
+}
+
 #tv-container {
   width: 90%;
   position: relative;
   margin: 0 auto;
+  background-color: #000000;
 }
 
 #tv-player {
@@ -120,8 +125,4 @@
 
 #full-screen-button:hover {
   opacity: 1;
-}
-
-body {
-  background-color: #000000;
 }
