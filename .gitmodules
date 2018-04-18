@@ -4,9 +4,6 @@
 [submodule "third_party/daala_tools.fork"]
 	path = third_party/daala_tools.fork
 	url = https://github.com/StanfordSNR/daala_tools.git
-[submodule "third_party/yaml-cpp.upstream"]
-	path = third_party/yaml-cpp.upstream
-	url = https://github.com/jbeder/yaml-cpp.git
 [submodule "third_party/json.upstream"]
 	path = third_party/json.upstream
 	url = https://github.com/nlohmann/json.git
