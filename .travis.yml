@@ -16,6 +16,7 @@ addons:
     - libcrypto++-dev
     - libpng-dev
     - libyaml-cpp-dev
+    - libboost-dev
 
 before_install:
   # download a static-built ffmpeg from the official website
