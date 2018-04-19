@@ -7,7 +7,6 @@ libutil_a_SOURCES = \
 	child_process.hh child_process.cc \
 	exception.hh \
 	file_descriptor.hh file_descriptor.cc \
-	optional.hh \
 	path.hh path.cc \
 	pipe.hh pipe.cc \
 	poller.hh poller.cc \

@@ -4,9 +4,9 @@
 #define WS_FRAME_HH
 
 #include <string>
+#include <optional>
 
 #include "chunk.hh"
-#include "optional.hh"
 
 class WSFrame
 {
@@ -23,7 +23,7 @@ public:
     bool fin_ {false};
     OpCode opcode_ {OpCode::Text};
     uint64_t payload_length_ {0};
-    Optional<uint32_t> masking_key_ {false};
+    std::optional<uint32_t> masking_key_ {};
 
   public:
     Header(const Chunk & chunk);
@@ -34,7 +34,7 @@ public:
     bool fin() const { return fin_; }
     OpCode opcode() const { return opcode_; }
     uint64_t payload_length() const { return payload_length_; }
-    Optional<uint32_t> masking_key() const { return masking_key_; }
+    std::optional<uint32_t> masking_key() const { return masking_key_; }
 
     uint32_t header_length() const;
   };

@@ -69,7 +69,7 @@ WSFrame::Header::Header(const Chunk & chunk)
       throw out_of_range("incomplete header: missing masking key");
     }
 
-    masking_key_.reset(chunk(next_idx, 4).be32());
+    masking_key_ = chunk(next_idx, 4).be32();
   }
 }
 
@@ -82,7 +82,7 @@ WSFrame::Header::Header(const bool fin, const OpCode opcode,
                         const uint64_t payload_length,
                         const uint32_t masking_key)
   : fin_(fin), opcode_(opcode), payload_length_(payload_length),
-    masking_key_(true, masking_key)
+    masking_key_(masking_key)
 {}
 
 uint64_t WSFrame::expected_length( const Chunk & chunk )
@@ -121,7 +121,7 @@ uint32_t WSFrame::Header::header_length() const
 {
   return 2 + ((payload_length_ < 126) ?
                0 : ((payload_length_ < (1 << 16)) ? 2 : 8))
-           + (masking_key_.initialized() ? 4 : 0);
+           + (masking_key_ ? 4 : 0);
 }
 
 WSFrame::WSFrame(const bool fin, const OpCode opcode, const string & payload)
@@ -151,7 +151,7 @@ WSFrame::WSFrame(const Chunk & chunk)
     throw out_of_range("payload size doesn't match the size in the header");
   }
 
-  if (header_.masking_key().initialized()) {
+  if (header_.masking_key()) {
     const string mk = put_field(*header_.masking_key());
 
     for (size_t i = 0; i < payload_.length(); i++) {
@@ -170,7 +170,7 @@ string WSFrame::to_string() const
   output.push_back(temp_byte);
 
   /* second byte */
-  temp_byte = (header_.masking_key().initialized() << 7);
+  temp_byte = header_.masking_key() ? 1 << 7 : 0;
 
   if (payload_.length() <= 125u) {
     temp_byte += static_cast<uint8_t>(payload_.length());
@@ -190,7 +190,7 @@ string WSFrame::to_string() const
     throw runtime_error("payload size > maximum allowed");
   }
 
-  if (header_.masking_key().initialized()) {
+  if (header_.masking_key()) {
     string mk = put_field(*header_.masking_key());
     output += mk;
 

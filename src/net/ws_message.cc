@@ -2,6 +2,7 @@
 
 #include "ws_message.hh"
 
+#include <cassert>
 #include <initializer_list>
 
 using namespace std;
