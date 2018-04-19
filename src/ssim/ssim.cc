@@ -1,55 +1,27 @@
-#include <getopt.h>
 #include <fcntl.h>
-#include <iostream>
-#include <memory>
-#include <string>
-#include <utility>
 
-#include "path.hh"
-#include "system_runner.hh"
-#include "tokenize.hh"
+#include <iostream>
+#include <string>
+#include <stdexcept>
+
 #include "file_descriptor.hh"
+#include "system_runner.hh"
 #include "exception.hh"
 
 using namespace std;
 
-void print_usage(const string & program_name)
+void print_usage(const string & program)
 {
   cerr <<
-  "Usage: " << program_name << " [options] <video1> <video2> <output>\n\n"
-  "<video1>, <video2>       Y4M video files\n"
-  "<output>                 output text file containing SSIM index\n\n"
-  "Options:\n"
-  "--fast-ssim              compute fast SSIM instead\n"
-  "-n, --step <n>           compute SSIM on one frame of every <n> frames\n"
-  "-p, --parallel <npar>    run <npar> parallel workers\n"
-  "                         (ignored when --fast-ssim is used)\n"
-  "-l, --limit <lim>        stop after <lim> frames\n"
-  "                         (ignored when --fast-ssim is used)"
+  "Usage: " << program << " <video1.y4m> <video2.y4m> <output>"
   << endl;
-}
-
-string get_ssim_path(const bool fast_ssim)
-{
-  /* get path to daala_tools based on the path of executable */
-  roost::path exe_path = roost::dirname(roost::readlink("/proc/self/exe"));
-  roost::path daala_tools_path = exe_path / "../../third_party/daala_tools";
-
-  string ssim_filename = fast_ssim ? "dump_fastssim" : "dump_ssim";
-  string ssim_path = (daala_tools_path / ssim_filename).string();
-
-  if (not roost::exists(ssim_path)) {
-    throw runtime_error("unable to find " + ssim_path);
-  }
-
-  return ssim_path;
 }
 
 void write_to_file(const string & output_path, const string & result)
 {
   FileDescriptor output_fd(CheckSystemCall("open (" + output_path + ")",
       open(output_path.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644)));
-  output_fd.write(result, true);
+  output_fd.write(result);
   output_fd.close();
 }
 
@@ -59,75 +31,50 @@ int main(int argc, char * argv[])
     abort();
   }
 
-  bool fast_ssim = false;
-  string step, parallel_cnt, frame_limit;
-
-  const option cmd_line_opts[] = {
-    {"fast-ssim", no_argument,       nullptr, 'x'},
-    {"step",      required_argument, nullptr, 'n'},
-    {"parallel",  required_argument, nullptr, 'p'},
-    {"limit",     required_argument, nullptr, 'l'},
-    { nullptr,    0,                 nullptr,  0 }
-  };
-
-  while (true) {
-    const int opt = getopt_long(argc, argv, "xn:p:l:", cmd_line_opts, nullptr);
-    if (opt == -1) {
-      break;
-    }
-
-    switch (opt) {
-    case 'x':
-      fast_ssim = true;
-      break;
-    case 'n':
-      step = optarg;
-      break;
-    case 'p':
-      parallel_cnt = optarg;
-      break;
-    case 'l':
-      frame_limit = optarg;
-      break;
-    default:
-      print_usage(argv[0]);
-      return EXIT_FAILURE;
-    }
-  }
-
-  if (optind != argc - 3) {
+  if (argc != 4) {
     print_usage(argv[0]);
     return EXIT_FAILURE;
   }
 
-  vector<string> y4m_paths = {argv[optind], argv[optind + 1]};
-  string output_path = argv[optind + 2];
+  string video1{argv[1]}, video2{argv[2]}, output_path{argv[3]};
 
-  /* construct command to run dump_ssim or dump_fastssim */
-  string ssim_path = get_ssim_path(fast_ssim);
+  /* run FFmpeg's SSIM calculation and read stderr */
+  vector<string> cmd {
+    "ffmpeg", "-nostdin", "-hide_banner", "-i", video1, "-i", video2,
+    "-lavfi", "ssim", "-f", "null", "-" };
+  string output = run("ffmpeg", cmd, false, true).second;
 
-  string cmd = ssim_path + " -s";
-  if (not fast_ssim) {
-    if (step.size()) {
-      cmd += " -n " + step;
+  int last_left_parenthesis = -1, last_right_parenthesis = -1;
+
+  for (int i = output.size() - 1; i >= 0; i--) {
+    const auto & c = output.at(i);
+
+    if (c == ')') {
+      last_right_parenthesis = i;
+    } else if (c == '(') {
+      last_left_parenthesis = i;
     }
 
-    if (parallel_cnt.size()) {
-      cmd += " -p " + parallel_cnt;
-    }
-
-    if (frame_limit.size()) {
-      cmd += " -l " + frame_limit;
+    if (last_left_parenthesis != -1 and last_right_parenthesis != -1) {
+      break;
     }
   }
-  cmd += " " + y4m_paths[0] + " " + y4m_paths[1];
-  cerr << "$ " << cmd << endl;
 
-  /* dump SSIM index to the output file */
-  auto args = split(cmd, " ");
-  string ssim_result = run(ssim_path, args, {}, true, true, true);
-  ssim_result = split(ssim_result, " ")[1];
-  write_to_file(output_path, ssim_result);
+  if (last_left_parenthesis == -1 or last_right_parenthesis == -1) {
+    cerr << "No SSIM found in the output" << endl;
+    return EXIT_FAILURE;
+  }
+
+  int cnt = last_right_parenthesis - last_left_parenthesis - 1;
+  string ssim_str = output.substr(last_left_parenthesis + 1, cnt);
+
+	/* check if ssim_str is a valid double */
+  stod(ssim_str);
+  cerr << "SSIM = " + ssim_str + " between " + video1 + " and " + video2
+       << endl;
+
+  /* write the SSIM value to output_path */
+  write_to_file(output_path, ssim_str);
 
   return EXIT_SUCCESS;
 }

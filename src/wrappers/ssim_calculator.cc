@@ -78,7 +78,6 @@ int main(int argc, char * argv[])
   Y4MParser y4m_parser(canonical_path);
   int width = y4m_parser.get_frame_width();
   int height = y4m_parser.get_frame_height();
-  float frame_rate = y4m_parser.get_frame_rate_float();
 
   /* scale the input video to a Y4M with the same resolution */
   string scaled_y4m = fs::path(output_path).parent_path() / y4m_filename;
@@ -89,16 +88,12 @@ int main(int argc, char * argv[])
 
   ProcessManager proc_manager;
   int ret_code = proc_manager.run("ffmpeg", ffmpeg_args);
-  if (ret_code < 0)
+  if (ret_code < 0) {
     return ret_code;
-
-  /* get the max step size that still makes sure 5 frames per second
-   * are used for SSIM calculation */
-  string step_size = to_string(static_cast<int>(floor(frame_rate / 5.0f)));
+  }
 
   /* run ssim program */
-  vector<string> ssim_args {
-    ssim, scaled_y4m, canonical_path, output_path, "-n", step_size };
+  vector<string> ssim_args { ssim, scaled_y4m, canonical_path, output_path };
   ret_code = proc_manager.run(ssim, ssim_args);
 
   /* remove scaled_y4m */
