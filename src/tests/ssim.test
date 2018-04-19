@@ -1,42 +1,38 @@
-#!/bin/bash -ex
-# this is a hack
-pwd="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+#!/usr/bin/env python3
 
-if [ -z $test_tmpdir ];then
-    test_tmpdir="test_tmp"
-    mkdir -p $test_tmpdir
-fi
+import os
+from os import path
+from test_helpers import check_call
 
-TEST_VECTOR="test-vectors"
 
-DAALA=$(pwd)/../../third_party/daala_tools
-D_SSIM=dump_ssim
-D_FSSIM=dump_fastssim
-SSIM=$(pwd)/../ssim/ssim
-FILE1=$TEST_VECTOR/"ssim/480p-to-720p.y4m"
-FILE2=$TEST_VECTOR/"ssim/canonical-720p.y4m"
-SOL1=$TEST_VECTOR/"ssim/sol.ssim"
-SOL2=$TEST_VECTOR/"ssim/sol-n2.ssim"
-OUTPUT1=$test_tmpdir/"out_ssim1"
-OUTPUT2=$test_tmpdir/"out_ssim2"
+def main():
+    abs_builddir = os.environ['abs_builddir']
+    ssim = path.abspath(path.join(abs_builddir, os.pardir, 'ssim', 'ssim'))
 
-# run the ssim test
-$SSIM $FILE1 $FILE2 $OUTPUT1
-result1=$(tail -n 1 $OUTPUT1)
-truth1=$(tail -n 1 $SOL1)
+    test_vectors = path.join(abs_builddir, 'test-vectors')
+    test_tmpdir = path.join(abs_builddir, 'test_tmpdir')
 
-# run the daala tools
-if [ "$result1" != "$truth1" ]
-then
-    exit 1
-fi
+    # test the program "ssim"
+    video1 = path.join(test_vectors, 'ssim', '480p-to-720p.y4m')
+    video2 = path.join(test_vectors, 'ssim', 'canonical-720p.y4m')
+    output_ssim_file = path.join(test_tmpdir, 'output.ssim')
+    check_call([ssim, video1, video2, output_ssim_file])
 
-# test step size
-$SSIM -n 2 $FILE1 $FILE2 $OUTPUT2
-result2=$(tail -n 1 $OUTPUT2)
-truth2=$(tail -n 1 $SOL2)
+    # compare the output with the solution
+    solution_file = path.join(test_vectors, 'ssim', 'sol.ssim')
 
-if [ "$result2" != "$truth2" ]
-then
-    exit 1
-fi
+    with open(solution_file) as fh:
+        solution = fh.readline()
+
+    with open(output_ssim_file) as fh:
+        output_ssim = fh.readline()
+
+    print('output=%s' % output_ssim)
+    print('solution=%s' % solution)
+
+    if solution != output_ssim:
+        exit('output SSIM is different from the solution')
+
+
+if __name__ == '__main__':
+  main()

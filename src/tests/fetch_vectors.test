@@ -3,10 +3,10 @@
 TARGET="test-vectors"
 
 if [ -d $TARGET ]; then
-    echo "$TARGET already exists"
-    exit 0
+  echo "$TARGET already exists"
+  exit 0
 fi
 
 echo "Fetching test-vectors"
 
-git clone --recursive https://github.com/StanfordSNR/tv-test-vectors $TARGET
+git clone --recursive https://github.com/StanfordSNR/puffer-test-vectors $TARGET
