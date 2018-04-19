@@ -1,9 +1,6 @@
 [submodule "third_party/libwebm.fork"]
 	path = third_party/libwebm.fork
 	url = https://github.com/StanfordSNR/libwebm.git
-[submodule "third_party/daala_tools.fork"]
-	path = third_party/daala_tools.fork
-	url = https://github.com/StanfordSNR/daala_tools.git
 [submodule "third_party/json.upstream"]
 	path = third_party/json.upstream
 	url = https://github.com/nlohmann/json.git

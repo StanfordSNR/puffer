@@ -9,12 +9,10 @@ addons:
     packages:
     - gcc-7
     - g++-7
-    - libogg-dev
     - libmpeg2-4-dev
     - libpqxx-dev
     - libssl-dev
     - libcrypto++-dev
-    - libpng-dev
     - libyaml-cpp-dev
     - libboost-dev
 
