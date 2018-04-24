@@ -114,14 +114,6 @@ string_view::const_iterator FileDescriptor::write( const string_view & buffer, c
   return it;
 }
 
-/* backwards-compatible write method that accepts a std::string and returns string interator */
-string::const_iterator FileDescriptor::write_compat( const string & buffer, const bool write_all )
-{
-  const string_view buffer_as_view = buffer;
-  const auto view_iterator = write( buffer_as_view, write_all );
-  return buffer.cbegin() + (view_iterator - buffer_as_view.cbegin());
-}
-
 string FileDescriptor::read_exactly( const size_t length,
                                      const bool fail_silently )
   {

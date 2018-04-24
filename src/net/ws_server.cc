@@ -75,7 +75,14 @@ void WSServer<TCPSocket>::Connection::write()
     string & buffer = send_buffer.front();
 
     /* set write_all to false because socket might be unable to write all */
-    auto it = socket.write_compat(buffer, false);
+    /* need to convert to and from string_view iterator for new write method */
+    /* XXX ideally send_buffer would simply maintain a string_view of the'
+       remaining portion of each string -- but seems unnecessary when NBSecureSocket
+       is the preferred implementation anyway */
+    string_view buffer_as_view = buffer;
+    const auto view_iterator = socket.write(buffer_as_view, false);
+    const auto it = send_buffer.front().cbegin() + (view_iterator - buffer_as_view.cbegin());
+
     if (it != buffer.cend()) {
       buffer.erase(0, it - buffer.cbegin());
       break;

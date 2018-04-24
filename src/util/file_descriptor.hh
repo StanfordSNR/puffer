@@ -62,9 +62,6 @@ public:
   std::string_view::const_iterator write( const std::string_view::const_iterator & begin,
                                           const std::string_view::const_iterator & end );
 
-  /* backwards-compatible method that accepts a std::string and returns a string iterator */
-  std::string::const_iterator write_compat( const std::string & buffer, const bool write_all = true );
-
   /* manipulate file offset */
   uint64_t seek(const int64_t offset, const int whence);
   uint64_t curr_offset();
