@@ -75,7 +75,7 @@ void WSServer<TCPSocket>::Connection::write()
     string & buffer = send_buffer.front();
 
     /* set write_all to false because socket might be unable to write all */
-    auto it = socket.write(buffer, false);
+    auto it = socket.write_compat(buffer, false);
     if (it != buffer.cend()) {
       buffer.erase(0, it - buffer.cbegin());
       break;

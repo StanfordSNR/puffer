@@ -70,8 +70,8 @@ FileDescriptor::~FileDescriptor()
 }
 
 /* attempt to write a portion of a string */
-string::const_iterator FileDescriptor::write( const string::const_iterator & begin,
-                       const string::const_iterator & end )
+string_view::const_iterator FileDescriptor::write( const string_view::const_iterator & begin,
+                                                   const string_view::const_iterator & end )
 {
   if ( begin >= end ) {
     throw runtime_error( "nothing to write" );
@@ -103,7 +103,7 @@ string FileDescriptor::read( const size_t limit )
 }
 
 /* write method */
-string::const_iterator FileDescriptor::write( const std::string & buffer, const bool write_all )
+string_view::const_iterator FileDescriptor::write( const string_view & buffer, const bool write_all )
 {
   auto it = buffer.begin();
 
@@ -112,6 +112,14 @@ string::const_iterator FileDescriptor::write( const std::string & buffer, const 
   } while ( write_all and (it != buffer.end()) );
 
   return it;
+}
+
+/* backwards-compatible write method that accepts a std::string and returns string interator */
+string::const_iterator FileDescriptor::write_compat( const string & buffer, const bool write_all )
+{
+  const string_view buffer_as_view = buffer;
+  const auto view_iterator = write( buffer_as_view, write_all );
+  return buffer.cbegin() + (view_iterator - buffer_as_view.cbegin());
 }
 
 string FileDescriptor::read_exactly( const size_t length,
