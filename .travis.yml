@@ -18,10 +18,10 @@ addons:
 
 before_install:
   # download a static-built ffmpeg from the official website
-  - wget https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-64bit-static.tar.xz
-  - tar -xf ffmpeg-release-64bit-static.tar.xz
-  - sudo cp ffmpeg-3.4.2-64bit-static/ffmpeg /usr/bin/
-  - sudo cp ffmpeg-3.4.2-64bit-static/ffprobe /usr/bin/
+  - wget https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-64bit-static.tar.xz -O ffmpeg-static.tar.xz
+  - mkdir ffmpeg-static
+  - tar -xf ffmpeg-static.tar.xz -C ffmpeg-static --strip-components=1
+  - sudo cp ffmpeg-static/ffmpeg /usr/bin/
 
 install:
   # upgrade gcc
