@@ -1,30 +1,44 @@
-#!/bin/bash -ex
+#!/usr/bin/env python3
 
-# create reference time files
-TIME_REF1="1970-01-01T00:00:02Z"
-TIME_REF2="1970-01-01T00:00:04Z"
-REF_NAME1="$test_tmpdir/time_ref1"
-REF_NAME2="$test_tmpdir/time_ref2"
+import os
+from os import path
+from test_helpers import check_call
 
-printf $TIME_REF1 > $REF_NAME1
-printf $TIME_REF2 > $REF_NAME2
 
-# remove time_test if exists
-TIME=$abs_builddir/../time/time
-TEST_NAME="$test_tmpdir/time_test"
-rm -f $TEST_NAME
+def read_time(timefile_path):
+    with open(timefile_path) as fh:
+        return fh.readline().strip()
 
-# test time.cc with two new "files"
-TEST_TIME1="180180.m4s"
-TEST_TIME2="360360.m4s"
 
-$TIME -o $TEST_NAME $TEST_TIME1
-diff $REF_NAME1 $TEST_NAME
+def main():
+    # remove timefile if already exists
+    abs_builddir = os.environ['abs_builddir']
+    test_tmpdir = path.join(abs_builddir, 'test_tmpdir')
+    output_timefile = path.join(test_tmpdir, 'timefile')
+    try:
+        os.remove(output_timefile)
+    except OSError:
+        pass
 
-# increase
-$TIME -o $TEST_NAME $TEST_TIME2
-diff $REF_NAME2 $TEST_NAME
+    # path of the "time" program
+    abs_builddir = os.environ['abs_builddir']
+    time = path.abspath(path.join(abs_builddir, os.pardir, 'time', 'time'))
 
-# decrease
-$TIME -o $TEST_NAME $TEST_TIME1
-diff $REF_NAME2 $TEST_NAME
+    # run "time" and check the output timefile
+    check_call([time, '-o', output_timefile, '180000.m4s'])
+    if read_time(output_timefile) != '1970-01-01T00:00:02Z':
+        exit('output timefile is wrong')
+
+    # run "time": timefile should increase
+    check_call([time, '-o', output_timefile, '360000.m4s'])
+    if read_time(output_timefile) != '1970-01-01T00:00:04Z':
+        exit('output timefile is wrong')
+
+    # run "time": timefile should not decrease
+    check_call([time, '-o', output_timefile, '180000.m4s'])
+    if read_time(output_timefile) != '1970-01-01T00:00:04Z':
+        exit('output timefile is wrong')
+
+
+if __name__ == '__main__':
+    main()

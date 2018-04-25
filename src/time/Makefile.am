@@ -5,4 +5,4 @@ bin_PROGRAMS = time
 
 time_SOURCES = time.cc
 
-time_LDADD = ../util/libutil.a
+time_LDADD = ../util/libutil.a -lstdc++fs
