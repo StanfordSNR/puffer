@@ -262,11 +262,6 @@ function AVSource(video, audio, options) {
   };
 }
 
-function get_ws_server_host_and_port(cb) {
-  /* TODO: this needs to query the http server */
-  cb(location.host.split(':')[0] + ':8081');
-}
-
 function WebSocketClient(user, video, audio, channel_select) {
   var ws = null;
   var av_source = null;
@@ -385,8 +380,8 @@ function WebSocketClient(user, video, audio, channel_select) {
   }
 
   function connect_to_ws_server(ws_host_and_port) {
-    console.log('WS at', ws_host_and_port);
-    ws = new WebSocket('ws://' + ws_host_and_port);
+    console.log('WS(S) at', ws_host_and_port);
+    ws = new WebSocket('wss://' + ws_host_and_port);
 
     ws.binaryType = 'arraybuffer';
     ws.onmessage = handle_msg;
@@ -417,8 +412,8 @@ function WebSocketClient(user, video, audio, channel_select) {
   }
 
   this.connect = function() {
-    console.log('HTTP at', location.host);
-    get_ws_server_host_and_port(connect_to_ws_server);
+    console.log('HTTP(S) at ', location.host);
+    connect_to_ws_server(location.hostname + ':9361');
   };
 
   this.set_channel = function(channel) {

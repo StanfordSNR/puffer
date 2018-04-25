@@ -17,7 +17,7 @@
 
 using namespace std;
 using namespace PollerShortNames;
-using WebSocketServer = WebSocketTCPServer;
+using WebSocketServer = WebSocketSecureServer;
 
 /* global settings */
 static const int DEFAULT_MAX_BUFFER_S = 60;
@@ -469,6 +469,8 @@ int main(int argc, char * argv[])
   const string ip = "0.0.0.0";
   const uint16_t port = config["port"].as<uint16_t>();
   WebSocketServer server {{ip, port}};
+  server.ssl_context().use_private_key_file(config["private_key"].as<string>());
+  server.ssl_context().use_certificate_file(config["certificate"].as<string>());
 
   /* load channels and mmap (existing and new) media files */
   Inotify inotify(server.poller());
