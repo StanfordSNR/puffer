@@ -38,12 +38,13 @@ int main(int argc, char * argv[])
 
   string video1{argv[1]}, video2{argv[2]}, output_path{argv[3]};
 
-  /* run FFmpeg's SSIM calculation and read stderr */
+  /* run FFmpeg's SSIM calculation and read from stderr */
   vector<string> cmd {
     "ffmpeg", "-nostdin", "-hide_banner", "-i", video1, "-i", video2,
     "-lavfi", "ssim", "-f", "null", "-" };
   string output = run("ffmpeg", cmd, false, true).second;
 
+  /* the overall SSIM should appear within the last pair of parentheses */
   int last_left_parenthesis = -1, last_right_parenthesis = -1;
 
   for (int i = output.size() - 1; i >= 0; i--) {

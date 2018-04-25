@@ -482,6 +482,7 @@ int main(int argc, char * argv[])
   string input_segment = argv[optind];
 
   if (init_segment.empty() and media_segment.empty()) {
+    cerr << "Error: at least one of -i and -m is required" << endl;
     print_usage(argv[0]);
     return EXIT_FAILURE;
   }

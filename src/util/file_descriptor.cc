@@ -135,9 +135,14 @@ string FileDescriptor::read_exactly( const size_t length,
     return ret;
   }
 
-void FileDescriptor::block_for_exclusive_lock()
+void FileDescriptor::acquire_exclusive_flock()
 {
   CheckSystemCall( "flock", flock( fd_num(), LOCK_EX ) );
+}
+
+void FileDescriptor::acquire_shared_flock()
+{
+  CheckSystemCall( "flock", flock( fd_num(), LOCK_SH ) );
 }
 
 void FileDescriptor::release_flock()
@@ -173,6 +178,12 @@ uint64_t FileDescriptor::inc_offset(const int64_t offset)
   return seek(offset, SEEK_CUR);
 }
 
+void FileDescriptor::reset_offset()
+{
+  seek(0, SEEK_SET);
+  set_eof(false);
+}
+
 uint64_t FileDescriptor::filesize()
 {
   uint64_t prev_offset = curr_offset();
@@ -182,10 +193,4 @@ uint64_t FileDescriptor::filesize()
   seek(prev_offset, SEEK_SET);
 
   return fsize;
-}
-
-void FileDescriptor::reset()
-{
-  seek(0, SEEK_SET);
-  set_eof(false);
 }

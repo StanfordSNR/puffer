@@ -66,14 +66,13 @@ public:
   uint64_t seek(const int64_t offset, const int whence);
   uint64_t curr_offset();
   uint64_t inc_offset(const int64_t offset);
+  void reset_offset();  /* also set EOF to false */
 
   uint64_t filesize();
 
-  /* reset file offset to the beginning and set EOF to false */
-  void reset();
-
-  /* block on an exclusive lock */
-  void block_for_exclusive_lock();
+  /* flock related */
+  void acquire_exclusive_flock();
+  void acquire_shared_flock();
   void release_flock();
 
   /* set nonblocking/blocking behavior */
