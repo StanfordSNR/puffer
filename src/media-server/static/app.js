@@ -381,7 +381,8 @@ function WebSocketClient(user, video, audio, channel_select) {
 
   function connect_to_ws_server(ws_host_and_port) {
     console.log('WS(S) at', ws_host_and_port);
-    ws = new WebSocket('wss://' + ws_host_and_port);
+    ws = new WebSocket('ws://' + ws_host_and_port);
+    // ws = new WebSocket('wss://' + ws_host_and_port);
 
     ws.binaryType = 'arraybuffer';
     ws.onmessage = handle_msg;

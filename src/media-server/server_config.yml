@@ -1,6 +1,6 @@
 port: 9361
-private_key:
-certificate:
+#private_key:
+#certificate:
 max_buffer_s: 30
 max_inflight_s: 10
 max_ws_frame_b: 1000000
