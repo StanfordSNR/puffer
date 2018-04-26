@@ -1,7 +1,6 @@
 #include <getopt.h>
 #include <iostream>
 #include <string>
-#include <string>
 
 #include "child_process.hh"
 #include "filesystem.hh"

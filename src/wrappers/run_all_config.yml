@@ -1,4 +1,4 @@
-output: test_output/
+output: media/
 overwrite_output: true
 video:
   1280x720: [23]
