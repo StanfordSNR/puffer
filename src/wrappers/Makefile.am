@@ -2,7 +2,7 @@ AM_CPPFLAGS = $(CXX17_FLAGS) -I$(srcdir)/../util
 AM_CXXFLAGS = $(PICKY_CXXFLAGS) $(EXTRA_CXXFLAGS)
 
 bin_PROGRAMS = run_all video_canonicalizer video_encoder video_fragmenter \
-	audio_encoder audio_fragmenter ssim_calculator
+	audio_encoder audio_fragmenter ssim_calculator generate_mpd
 
 run_all_SOURCES = run_all.cc yaml.hh yaml.cc
 run_all_LDADD = ../util/libutil.a ../net/libnet.a -lstdc++fs $(SSL_LIBS) $(YAML_LIBS)
@@ -24,3 +24,6 @@ audio_fragmenter_LDADD = ../util/libutil.a ../net/libnet.a -lstdc++fs $(SSL_LIBS
 
 ssim_calculator_SOURCES = ssim_calculator.cc y4m.hh y4m.cc
 ssim_calculator_LDADD = ../util/libutil.a ../net/libnet.a -lstdc++fs $(SSL_LIBS)
+
+generate_mpd_SOURCES = generate_mpd.cc
+generate_mpd_LDADD = ../util/libutil.a ../net/libnet.a -lstdc++fs $(SSL_LIBS)

@@ -5,3 +5,4 @@ video_fragmenter
 audio_encoder
 audio_fragmenter
 ssim_calculator
+generate_mpd
