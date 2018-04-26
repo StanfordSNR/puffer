@@ -5,11 +5,6 @@ function initApp() {
       /* User is signed in */
       document.getElementById('user-signed-in').style.display = 'block';
       document.getElementById('user-info').textContent = 'Welcome! ' + user.displayName;
-
-      var puffer_button = document.getElementById('puffer-streaming');
-      puffer_button.onclick = function() {
-        start_streaming(user);
-      };
     } else {
       /* Redirect to the sign-in page if user is not signed in */
       window.location.replace('/widget.html');
