@@ -1,6 +1,6 @@
 const abr_id = 6;
-const manifest_url = "other_algorithms/nbc-clip/live.mpd";
-//const manifest_url = "../tos/ready/live.mpd";
+//const manifest_url = "other_algorithms/nbc-clip/live.mpd";
+const manifest_url = "other_algorithms/ready/live.mpd";
 
 function start_streaming(user) {
   var player = dashjs.MediaPlayer().create();
