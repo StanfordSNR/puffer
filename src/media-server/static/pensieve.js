@@ -14,10 +14,10 @@ function start_streaming(user) {
   };
 
   // use the below block if you want to change the buffer size that dash tries to maintain
-  /* player.setBufferTimeAtTopQuality(60);
-   * player.setStableBufferTime(60);
-   * player.setBufferToKeep(60);
-   * player.setBufferPruningInterval(60); */
+   player.setBufferTimeAtTopQuality(60);
+   player.setStableBufferTime(60);
+   player.setBufferToKeep(60);
+   player.setBufferPruningInterval(60); 
 
   player.initialize(document.getElementById('tv-player'), manifest_url, true);
   player.clearDefaultUTCTimingSources();
