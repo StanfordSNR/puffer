@@ -9,8 +9,7 @@ from subprocess import Popen
 
 def check_before_link(p):
     if path.exists(p) and not path.islink(p):
-        sys.exit('Error: {} already exists but is not a symlink'
-                 .format(p))
+        sys.exit('Error: {} already exists but is not a symlink'.format(p))
 
 
 def link_dist(base_dir):
@@ -64,6 +63,7 @@ def main():
     procs.append(Popen([media_server_src, media_server_cfg]))
 
     # TODO: run the servers of other algorithms
+    pensieve_dir = path.join(base_dir, 'third_party', 'pensieve')
 
     for proc in procs:
         proc.wait()
