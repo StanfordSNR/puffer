@@ -38,6 +38,14 @@ def link_media(base_dir, src_media):
                              .format(src_media, dst_media))
 
 
+def run_servers_in_pensieve(pensieve_dir, procs):
+    run_video_src = path.join(pensieve_dir, 'real_exp',
+                              'run_video_modified.py')
+
+    procs.append(Popen([run_video_src, 'RL']))
+    procs.append(Popen([run_video_src, 'other']))
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('servers_config', help='YAML config file for servers')
@@ -62,8 +70,8 @@ def main():
     media_server_cfg = path.abspath(args.servers_config)
     procs.append(Popen([media_server_src, media_server_cfg]))
 
-    # TODO: run the servers of other algorithms
     pensieve_dir = path.join(base_dir, 'third_party', 'pensieve')
+    run_servers_in_pensieve(pensieve_dir, procs)
 
     for proc in procs:
         proc.wait()
