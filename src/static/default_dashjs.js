@@ -6,7 +6,7 @@ function start_streaming(user) {
   player.clearDefaultUTCTimingSources();
 }
 
-function initApp() {
+function init_app() {
   /* Listening for auth state changes */
   firebase.auth().onAuthStateChanged(function(user) {
     if (user) {
@@ -28,4 +28,4 @@ function initApp() {
   );
 }
 
-window.addEventListener('load', initApp);
+window.addEventListener('load', init_app);

@@ -31,7 +31,7 @@ function start_streaming(user) {
   player.setAbrAlgorithm(abr_id);
 }
 
-function initApp() {
+function init_app() {
   /* Listening for auth state changes */
   firebase.auth().onAuthStateChanged(function(user) {
     if (user) {
@@ -51,6 +51,6 @@ function initApp() {
       firebase.auth().signOut();
     }
   );
-};
+}
 
-window.addEventListener('load', initApp);
+window.addEventListener('load', init_app)
