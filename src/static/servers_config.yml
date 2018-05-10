@@ -1,6 +1,6 @@
 port: 9361
-#private_key:
-#certificate:
+# private_key:
+# certificate:
 max_buffer_s: 30
 max_inflight_s: 10
 max_ws_frame_b: 1000000
@@ -10,7 +10,7 @@ channel:
 # - tos-live
 tos:
   live: false
-  input: tos/
+  input: media/tos/
   video:
     1280x720: [20, 28]
     854x480: [20, 28]
@@ -24,7 +24,7 @@ tos:
   init_vts: 0
 tos-live:
   live: true
-  input: tos-live/
+  input: media/tos-live/
   video:
     1280x720: [20, 28]
     854x480: [20, 28]
