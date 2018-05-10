@@ -7,3 +7,6 @@
 [submodule "third_party/dist-for-puffer"]
 	path = third_party/dist-for-puffer
 	url = https://github.com/StanfordSNR/dist-for-puffer.git
+[submodule "third_party/pensieve"]
+	path = third_party/pensieve
+	url = https://github.com/StanfordSNR/pensieve.git
