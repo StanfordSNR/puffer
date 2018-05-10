@@ -12,4 +12,4 @@ install-exec-local:
 
 uninstall-local:
 
-EXTRA_DIST = libwebm.fork json.upstream
+EXTRA_DIST = libwebm.fork json.upstream dist-for-puffer

@@ -4,3 +4,6 @@
 [submodule "third_party/json.upstream"]
 	path = third_party/json.upstream
 	url = https://github.com/nlohmann/json.git
+[submodule "third_party/dist-for-puffer"]
+	path = third_party/dist-for-puffer
+	url = https://github.com/StanfordSNR/dist-for-puffer.git
