@@ -447,7 +447,7 @@ function WebSocketClient(user, video, audio, channel_select) {
   update_helper();
 }
 
-function start_streaming(user) {
+function start_puffer(user) {
   const video = document.getElementById('tv-player');
   const audio = document.getElementById('tv-audio');
 
@@ -485,27 +485,3 @@ function start_streaming(user) {
 
   client.connect();
 }
-
-function init_app() {
-  /* Listening for auth state changes */
-  firebase.auth().onAuthStateChanged(function(user) {
-    if (user) {
-      document.getElementById('user-signed-in').style.display = 'block';
-      document.getElementById('user-info').textContent = 'Welcome! ' + user.displayName;
-
-      /* User is signed in */
-      start_streaming(user);
-    } else {
-      /* Redirect to the sign-in page if user is not signed in */
-      window.location.replace('/widget.html');
-    }
-  });
-
-  document.getElementById('sign-out').addEventListener('click',
-    function() {
-      firebase.auth().signOut();
-    }
-  );
-}
-
-window.addEventListener('load', init_app);
