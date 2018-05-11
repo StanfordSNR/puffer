@@ -44,6 +44,7 @@ function start_dashjs(user, aid) {
       3: 'Rate Based'
       4: 'Pensieve'
       5: 'Festive'
+      6: (occupied)
       7: 'FastMPC
       8: 'RobustMPC' */
     pensieve_abr_id = aid - 3;
@@ -52,8 +53,40 @@ function start_dashjs(user, aid) {
       player.enablerlABR(true);
     }
 
-    player.setAbrAlgorithm(aid - 3);
+    player.setAbrAlgorithm(pensieve_abr_id);
   }
+}
+
+function setup_control_bar() {
+  const video = document.getElementById('tv-player');
+  const mute_button = document.getElementById('mute-button');
+  const volume_bar = document.getElementById('volume-bar');
+  const channel_select = document.getElementById('channel-select');
+  const full_screen_button = document.getElementById('full-screen-button');
+
+  mute_button.onclick = function() {
+    video.volume = 0;
+    volume_bar.value = 0;
+  };
+
+  full_screen_button.onclick = function() {
+    if (video.requestFullscreen) {
+      video.requestFullscreen();
+    } else if (video.mozRequestFullScreen) {
+      video.mozRequestFullScreen();
+    } else if (video.webkitRequestFullscreen) {
+      video.webkitRequestFullscreen();
+    }
+  };
+
+  volume_bar.value = video.volume;
+  volume_bar.onchange = function() {
+    video.volume = volume_bar.value;
+  };
+
+  channel_select.onchange = function() {
+    console.log('set channel:', channel_select.value);
+  };
 }
 
 function init_app() {
@@ -63,6 +96,9 @@ function init_app() {
       /* User is signed in */
       document.getElementById('user-signed-in').style.display = 'block';
       document.getElementById('user-info').textContent = 'Welcome! ' + user.displayName;
+
+      /* Set up the player control bar */
+      setup_control_bar();
 
       /* Get algorithm ID from the URL */
       var aid = Number(get_parameter_by_name('aid'));  // algorithm ID

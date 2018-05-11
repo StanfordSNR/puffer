@@ -262,7 +262,7 @@ function AVSource(video, audio, options) {
   };
 }
 
-function WebSocketClient(user, video, audio, channel_select) {
+function WebSocketClient(user, video, audio) {
   var ws = null;
   var av_source = null;
 
@@ -270,23 +270,6 @@ function WebSocketClient(user, video, audio, channel_select) {
   var rc_backoff = BASE_RECONNECT_BACKOFF;
 
   var that = this;
-
-  /* Updates the list to show the available channels */
-  function update_channel_select(channels) {
-    var i;
-
-    /* remove options */
-    for (i = channel_select.options.length - 1; i >= 0; i--) {
-      channel_select.remove(i);
-    }
-
-    for (i = 0; i < channels.length; i++) {
-      var option = document.createElement('option');
-      option.value = channels[i];
-      option.text = channels[i].toUpperCase();
-      channel_select.appendChild(option);
-    }
-  }
 
   function send_client_init(ws, channel) {
     if (ws && ws.readyState === WS_OPEN) {
@@ -451,37 +434,6 @@ function start_puffer(user) {
   const video = document.getElementById('tv-player');
   const audio = document.getElementById('tv-audio');
 
-  const mute_button = document.getElementById('mute-button');
-  const full_screen_button = document.getElementById('full-screen-button');
-  const volume_bar = document.getElementById('volume-bar');
-  const channel_select = document.getElementById('channel-select');
-
-  const client = new WebSocketClient(user, video, audio, channel_select);
-
-  mute_button.onclick = function() {
-    video.volume = 0;
-    volume_bar.value = 0;
-  };
-
-  full_screen_button.onclick = function() {
-    if (video.requestFullscreen) {
-      video.requestFullscreen();
-    } else if (video.mozRequestFullScreen) {
-      video.mozRequestFullScreen();
-    } else if (video.webkitRequestFullscreen) {
-      video.webkitRequestFullscreen();
-    }
-  };
-
-  volume_bar.value = video.volume;
-  volume_bar.onchange = function() {
-    video.volume = volume_bar.value;
-  };
-
-  channel_select.onchange = function() {
-    console.log('set channel:', channel_select.value);
-    client.set_channel(channel_select.value);
-  };
-
+  const client = new WebSocketClient(user, video, audio);
   client.connect();
 }
