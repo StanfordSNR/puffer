@@ -31,7 +31,6 @@ static unsigned int max_inflight_seconds;
 static size_t max_ws_frame_len;
 static size_t max_ws_queue_len;
 
-static vector<string> channel_names;   /* cache of all channel names */
 static map<string, Channel> channels;  /* key: channel name */
 
 static map<uint64_t, WebSocketClient> clients;  /* key: connection ID */
@@ -391,14 +390,6 @@ void handle_client_info(WebSocketClient & client, const ClientInfoMsg & msg)
   client.set_client_next_ats(msg.next_audio_timestamp);
 }
 
-void send_server_hello(WebSocketServer & server, const uint64_t connection_id)
-{
-  /* Send server-hello with the list of playable channels */
-  ServerHelloMsg hello(channel_names);
-  WSFrame frame {true, WSFrame::OpCode::Binary, hello.to_string()};
-  server.queue_frame(connection_id, frame);
-}
-
 void load_global_settings(const YAML::Node & config)
 {
   max_buffer_seconds = config["max_buffer_s"] ?
@@ -429,10 +420,6 @@ void load_channels(const YAML::Node & config, Inotify & inotify)
     if (not ret.second) {
       throw runtime_error("Duplicate channels found: " + channel_name);
     }
-  }
-
-  for (const auto & channel_item : channels) {
-    channel_names.emplace_back(channel_item.first);
   }
 }
 
@@ -511,17 +498,9 @@ int main(int argc, char * argv[])
     [&server](const uint64_t connection_id)
     {
       cerr << connection_id << ": connection opened" << endl;
-
-      try {
-        send_server_hello(server, connection_id);
-        clients.emplace(piecewise_construct,
-                        forward_as_tuple(connection_id),
-                        forward_as_tuple(connection_id)); /* WebSocketClient */
-      } catch (const exception & e) {
-        cerr << "Warning in open callback: exception in client "
-             << connection_id << ": " << e.what() << endl;
-        close_connection(server, connection_id);
-      }
+      clients.emplace(piecewise_construct,
+                      forward_as_tuple(connection_id),
+                      forward_as_tuple(connection_id)); /* WebSocketClient */
     }
   );
 
