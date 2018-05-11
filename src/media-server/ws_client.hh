@@ -5,8 +5,8 @@
 #include <optional>
 #include <string>
 
-#include "yaml.hh"
 #include "channel.hh"
+#include "media_formats.hh"
 
 class MediaSegment
 {

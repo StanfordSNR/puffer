@@ -7,10 +7,10 @@
 #include <map>
 #include <memory>
 
-#include "yaml.hh"
 #include "filesystem.hh"
 #include "inotify.hh"
 #include "mmap.hh"
+#include "media_formats.hh"
 
 using mmap_t = std::tuple<std::shared_ptr<char>, size_t>;
 

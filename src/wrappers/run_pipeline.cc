@@ -6,7 +6,7 @@
 #include "filesystem.hh"
 #include "path.hh"
 #include "child_process.hh"
-#include "yaml.hh"
+#include "media_formats.hh"
 
 using namespace std;
 
@@ -25,6 +25,25 @@ void print_usage(const string & program_name)
   cerr <<
   "Usage: " << program_name << " <YAML configuration>"
   << endl;
+}
+
+YAML::Node load_yaml(const string & yaml_path)
+{
+  YAML::Node config = YAML::LoadFile(yaml_path);
+
+  if (not config["output"]) {
+    throw runtime_error("invalid YAML: output is not present");
+  }
+
+  if (not config["video"]) {
+    throw runtime_error("invalid YAML: video is not present");
+  }
+
+  if (not config["audio"]) {
+    throw runtime_error("invalid YAML: audio is not present");
+  }
+
+  return config;
 }
 
 void run_video_canonicalizer(ProcessManager & proc_manager)

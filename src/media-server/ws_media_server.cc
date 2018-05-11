@@ -6,7 +6,7 @@
 #include <memory>
 #include <random>
 
-#include "yaml.hh"
+#include "media_formats.hh"
 #include "inotify.hh"
 #include "timerfd.hh"
 #include "channel.hh"

@@ -1,4 +1,3 @@
-/run_all
 /video_canonicalizer
 /video_encoder
 /video_fragmenter
@@ -6,3 +5,4 @@
 /audio_fragmenter
 /ssim_calculator
 /generate_mpd
+/run_pipeline

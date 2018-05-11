@@ -8,7 +8,7 @@ bin_PROGRAMS = ws_media_server
 ws_media_server_SOURCES = \
   ws_media_server.cc ws_client.hh ws_client.cc channel.hh channel.cc \
   client_message.hh client_message.cc server_message.hh server_message.cc \
-	../wrappers/yaml.hh ../wrappers/yaml.cc \
+	../wrappers/media_formats.hh ../wrappers/media_formats.cc \
 	../notifier/inotify.hh ../notifier/inotify.cc \
 	../../third_party/json.upstream/single_include/nlohmann/json.hpp
 ws_media_server_LDADD = ../net/libnet.a ../util/libutil.a ../net/libnet.a \

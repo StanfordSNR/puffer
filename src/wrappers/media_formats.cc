@@ -1,4 +1,4 @@
-#include "yaml.hh"
+#include "media_formats.hh"
 
 #include <string>
 #include <vector>
@@ -58,25 +58,6 @@ bool AudioFormat::operator!=(const AudioFormat & o) const
 ostream &operator<<(ostream & os, const AudioFormat & o)
 {
   return os << o.to_string();
-}
-
-YAML::Node load_yaml(const string & yaml_path)
-{
-  YAML::Node config = YAML::LoadFile(yaml_path);
-
-  if (not config["output"]) {
-    throw runtime_error("invalid YAML: output is not present");
-  }
-
-  if (not config["video"]) {
-    throw runtime_error("invalid YAML: video is not present");
-  }
-
-  if (not config["audio"]) {
-    throw runtime_error("invalid YAML: audio is not present");
-  }
-
-  return config;
 }
 
 vector<VideoFormat> get_video_formats(const YAML::Node & config)
