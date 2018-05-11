@@ -324,7 +324,6 @@ function WebSocketClient(user, video, audio) {
 
     if (message.metadata.type === 'server-hello') {
       console.log(message.metadata.type, message.metadata);
-      update_channel_select(message.metadata.channels);
 
     } else if (message.metadata.type === 'server-init') {
       console.log(message.metadata.type, message.metadata);
@@ -362,8 +361,10 @@ function WebSocketClient(user, video, audio) {
     }
   }
 
-  function connect_to_ws_server(ws_host_and_port) {
+  this.connect = function(channel) {
+    const ws_host_and_port = location.hostname + ':9361';
     console.log('WS(S) at', ws_host_and_port);
+
     ws = new WebSocket('ws://' + ws_host_and_port);
     // ws = new WebSocket('wss://' + ws_host_and_port);
 
@@ -372,7 +373,7 @@ function WebSocketClient(user, video, audio) {
 
     ws.onopen = function (e) {
       console.log('WebSocket open, sending client-init');
-      send_client_init(ws, av_source ? av_source.getChannel() : null);
+      send_client_init(ws, channel);
       rc_backoff = BASE_RECONNECT_BACKOFF;
     };
 
@@ -393,11 +394,6 @@ function WebSocketClient(user, video, audio) {
       console.log('WebSocket error:', e);
       ws = null;
     };
-  }
-
-  this.connect = function() {
-    console.log('HTTP(S) at ', location.host);
-    connect_to_ws_server(location.hostname + ':9361');
   };
 
   this.set_channel = function(channel) {
@@ -433,7 +429,13 @@ function WebSocketClient(user, video, audio) {
 function start_puffer(user) {
   const video = document.getElementById('tv-player');
   const audio = document.getElementById('tv-audio');
+  const channel_select = document.getElementById('channel-select');
+
+  channel_select.onchange = function() {
+    console.log('set channel:', channel_select.value);
+    client.set_channel(channel_select.value);
+  };
 
   const client = new WebSocketClient(user, video, audio);
-  client.connect();
+  client.connect(channel_select.value);
 }

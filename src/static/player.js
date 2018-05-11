@@ -18,12 +18,17 @@ function load_script(script_path) {
 }
 
 function start_dashjs(user, aid) {
-  // TODO: Modify manifest URL based on the selected channel
-  var manifest_url = '/media/tos/ready/live.mpd'
+  const channel_select = document.getElementById('channel-select');
+  var manifest_url = '/media/' + channel_select.value + '/ready/live.mpd';
 
   var player = dashjs.MediaPlayer().create();
   player.initialize(document.getElementById("tv-player"), manifest_url, true);
   player.clearDefaultUTCTimingSources();
+
+  channel_select.onchange = function() {
+    console.log('set channel:', channel_select.value);
+    player.attachSource('/media/' + channel_select.value + '/ready/live.mpd');
+  };
 
   if (aid === 2) {  // default dash.js
   } else if (aid === 3) {  // BOLA dash.js
@@ -61,12 +66,16 @@ function setup_control_bar() {
   const video = document.getElementById('tv-player');
   const mute_button = document.getElementById('mute-button');
   const volume_bar = document.getElementById('volume-bar');
-  const channel_select = document.getElementById('channel-select');
   const full_screen_button = document.getElementById('full-screen-button');
 
   mute_button.onclick = function() {
     video.volume = 0;
     volume_bar.value = 0;
+  };
+
+  volume_bar.value = video.volume;
+  volume_bar.onchange = function() {
+    video.volume = volume_bar.value;
   };
 
   full_screen_button.onclick = function() {
@@ -77,15 +86,6 @@ function setup_control_bar() {
     } else if (video.webkitRequestFullscreen) {
       video.webkitRequestFullscreen();
     }
-  };
-
-  volume_bar.value = video.volume;
-  volume_bar.onchange = function() {
-    video.volume = volume_bar.value;
-  };
-
-  channel_select.onchange = function() {
-    console.log('set channel:', channel_select.value);
   };
 }
 
@@ -121,7 +121,6 @@ function init_app() {
           start_dashjs(user, aid);
         }
       }
-
     } else {
       /* Redirect to the sign-in page if user is not signed in */
       window.location.replace('/widget.html');
