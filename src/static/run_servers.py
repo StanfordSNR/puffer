@@ -39,8 +39,7 @@ def link_media(base_dir, src_media):
 
 
 def run_servers_in_pensieve(pensieve_dir, procs):
-    run_video_src = path.join(pensieve_dir, 'real_exp',
-                              'run_video_modified.py')
+    run_video_src = path.join(pensieve_dir, 'real_exp', 'run_video_servers.py')
 
     procs.append(Popen([run_video_src, 'RL']))
     procs.append(Popen([run_video_src, 'fastMPC']))
