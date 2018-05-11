@@ -43,7 +43,9 @@ function start_dashjs(user, aid) {
       2: 'Buffer Based'
       3: 'Rate Based'
       4: 'Pensieve'
-      5: 'Festive' */
+      5: 'Festive'
+      7: 'FastMPC
+      8: 'RobustMPC' */
     pensieve_abr_id = aid - 3;
 
     if (pensieve_abr_id > 1) {
@@ -75,7 +77,7 @@ function init_app() {
 
         if (aid === 2 || aid === 3) {  // algorithms available in dash.js
           new_script = load_script('dist/dash.all.min.js');
-        } else if (aid >= 4 && aid <= 8) {  // algorithms available in pensieve
+        } else if (aid >= 4 && aid <= 11) {  // algorithms available in pensieve
           new_script = load_script('dist/pensieve.dash.all.min.js');
         }
 
