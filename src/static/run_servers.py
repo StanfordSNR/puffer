@@ -43,6 +43,8 @@ def run_servers_in_pensieve(pensieve_dir, procs):
                               'run_video_modified.py')
 
     procs.append(Popen([run_video_src, 'RL']))
+    procs.append(Popen([run_video_src, 'fastMPC']))
+    procs.append(Popen([run_video_src, 'robustMPC']))
     procs.append(Popen([run_video_src, 'other']))
 
 
