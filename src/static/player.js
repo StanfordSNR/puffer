@@ -87,31 +87,18 @@ function setup_control_bar() {
         mute_button.style.backgroundImage = "url(/images/volume_off.svg)";
     } 
   };
-/*  toggleMuteBtnState = function () {
-      var span = document.getElementById(getControlId('iconMute'));
-      if (player.isMuted()) {
-          span.classList.remove('icon-mute-off');
-          span.classList.add('icon-mute-on');
-      } else {
-          span.classList.remove('icon-mute-on')
-          span.classList.add('icon-mute-off');
-      }
-  };
-
-  onMuteClick = function (e) {
-      if (player.isMuted() && !isNaN(lastVolumeLevel)) {
-          setVolume(lastVolumeLevel);
-      } else {
-          lastVolumeLevel = parseFloat(volumebar.value);
-          setVolume(0);
-      }
-      player.setMute(player.getVolume() === 0);
-      toggleMuteBtnState();
-  }; */
 
   volume_bar.value = video.volume;
   volume_bar.onchange = function() {
+    
     video.volume = volume_bar.value;
+    if (video.volume > 0) {
+       mute_button.style.backgroundImage = "url(/images/volume_on.svg)";
+       mute_button.muted = false;
+    } else {
+        mute_button.style.backgroundImage = "url(/images/volume_off.svg)";
+        mute_button.muted = true;
+    }
   };
 
   full_screen_button.onclick = function() {
