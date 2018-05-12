@@ -25,7 +25,7 @@ using namespace MP4;
 
 const uint32_t global_timescale = 90000;
 
-const char default_base_uri[] = "/";
+const char default_base_uri[] = "";
 const char default_audio_uri[] = "$RepresentationID$/$Time$.chk";
 const char default_video_uri[] = "$RepresentationID$/$Time$.m4s";
 const char default_video_init_uri[] = "$RepresentationID$/init.mp4";

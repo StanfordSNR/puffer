@@ -13,10 +13,10 @@ void print_usage(const string & program)
   cerr <<
   "Usage: " << program << " [options] <input_dir>\n"
   "This program must be run from the base URL directory ('/')\n\n"
-  "<input_dir>    the ready dir in the output dir of run_all\n\n"
+  "<input_dir>    output dir of run_pipeline\n\n"
   "Options:\n"
-  "-o    output MPD filename (in the <input_dir>)\n"
-  "-t    filename of the time file (in the <input_dir>)"
+  "-o    output MPD filename (in the <input_dir/ready>)\n"
+  "-t    filename of the time file (in the <input_dir/ready>)"
   << endl;
 }
 
@@ -61,7 +61,7 @@ int main(int argc, char * argv[])
     abort();
   }
 
-  string output_mpd, timefile;
+  string output_mpd = "live.mpd", timefile = "time";
 
   const option cmd_line_opts[] = {
     {"output", required_argument, nullptr, 'o'},
@@ -93,20 +93,15 @@ int main(int argc, char * argv[])
     return EXIT_FAILURE;
   }
 
-  if (output_mpd.empty() or timefile.empty()) {
-    cerr << "-o and -t are both required" << endl;
-    return EXIT_FAILURE;
-  }
-
   string input_dir = argv[optind];
   check_input_dir(input_dir);
+  input_dir = input_dir + "ready/";
 
   /* path of the mpd_writer program */
   auto exe_dir = fs::path(roost::readlink("/proc/self/exe")).parent_path();
   string mpd_writer = fs::canonical(exe_dir / "../mpd/mpd_writer");
 
   /* add "/" to indicate absolute URL */
-  string base_url = "/" + input_dir;
   string time_url = "/" + input_dir + timefile;
 
   output_mpd = input_dir + output_mpd;
@@ -114,8 +109,7 @@ int main(int argc, char * argv[])
   /* find directories that contain media files (not SSIM) */
   vector<string> media_dir_list = find_media_dir_list(input_dir);
 
-  vector<string> args = { mpd_writer, "-u", base_url, "-t", time_url,
-                          "-o", output_mpd };
+  vector<string> args = { mpd_writer, "-t", time_url, "-o", output_mpd };
   args.insert(args.end(), media_dir_list.begin(), media_dir_list.end());
 
   ProcessManager proc_manager;

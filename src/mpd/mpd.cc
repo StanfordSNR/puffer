@@ -465,9 +465,11 @@ string MPDWriter::flush()
   writer_->attr("minimumUpdatePeriod", convert_pt(60));
 
   /* Base URL */
-  writer_->open_elt("BaseURL");
-  writer_->content(base_url_);
-  writer_->close_elt();
+  if (not base_url_.empty()) {
+    writer_->open_elt("BaseURL");
+    writer_->content(base_url_);
+    writer_->close_elt();
+  }
 
   /* Period */
   /* only 1 period for now */
@@ -488,7 +490,7 @@ string MPDWriter::flush()
   writer_->close_elt();
 
   /* write UTCTiming tag */
-  writer_-> open_elt("UTCTiming");
+  writer_->open_elt("UTCTiming");
   writer_->attr("schemeIdUri", utctiming_scheme);
   writer_->attr("value", time_url_);
 

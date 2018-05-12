@@ -46,13 +46,12 @@ def main():
 
     # use inotify to modify the name to have 90k clock
     i = inotify.adapters.Inotify()
-    i.add_watch(tmp_dir.encode('utf-8'))
+    i.add_watch(tmp_dir)
 
     try:
         for event in i.event_gen():
             if event is not None:
                 (header, type_names, watch_path, filename) = event
-                filename = filename.decode('utf-8')
                 if 'IN_CLOSE_WRITE' in type_names:
                     name, ext = path.basename(filename).split('.')
                     ts = int(name)
@@ -67,7 +66,7 @@ def main():
                     move(path.join(tmp_dir, filename), new_path)
     finally:
         p.kill()
-        i.remove_watch(tmp_dir.encode('utf-8'))
+        i.remove_watch(tmp_dir)
 
 
 if __name__ == '__main__':
