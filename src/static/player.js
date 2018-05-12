@@ -68,10 +68,46 @@ function setup_control_bar() {
   const volume_bar = document.getElementById('volume-bar');
   const full_screen_button = document.getElementById('full-screen-button');
 
+  var last_volume_before_mute = video.volume;
+
   mute_button.onclick = function() {
-    video.volume = 0;
-    volume_bar.value = 0;
+    
+    if (mute_button.muted == true) {
+       video.volume = last_volume_before_mute;
+       volume_bar.value = video.volume;
+       mute_button.muted = false;
+       mute_button.style.backgroundImage = "url(/images/volume_on.svg)";
+   
+
+    } else {
+        mute_button.muted = true;
+        last_volume_before_mute = video.volume;
+        video.volume = 0;
+        volume_bar.value = 0;
+        mute_button.style.backgroundImage = "url(/images/volume_off.svg)";
+    } 
   };
+/*  toggleMuteBtnState = function () {
+      var span = document.getElementById(getControlId('iconMute'));
+      if (player.isMuted()) {
+          span.classList.remove('icon-mute-off');
+          span.classList.add('icon-mute-on');
+      } else {
+          span.classList.remove('icon-mute-on')
+          span.classList.add('icon-mute-off');
+      }
+  };
+
+  onMuteClick = function (e) {
+      if (player.isMuted() && !isNaN(lastVolumeLevel)) {
+          setVolume(lastVolumeLevel);
+      } else {
+          lastVolumeLevel = parseFloat(volumebar.value);
+          setVolume(0);
+      }
+      player.setMute(player.getVolume() === 0);
+      toggleMuteBtnState();
+  }; */
 
   volume_bar.value = video.volume;
   volume_bar.onchange = function() {
