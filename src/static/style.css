@@ -3,8 +3,7 @@
 }
 
 #tv-container {
-  width: 90%; 
-  height: 50vw; 
+  width: 64%;
   position: relative;
   margin: 0;
   background-color: #000000;
@@ -12,7 +11,7 @@
 
 #tv-player {
   width: 100%;
-  height: 95%;
+  height: 100%;
   margin-left: auto;
   margin-right: auto;
   display: block;

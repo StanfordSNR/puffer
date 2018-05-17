@@ -16,50 +16,10 @@
   <div id="user-signed-in" class="hidden">
     <div id="user-info"></div>
     <button id="sign-out">Sign Out</button><br>
-    <p>
-      <button id="play_rand_alg" onclick="randAlg()">Begin Streaming (random algorithm)</button>
-
-      <script type="text/javascript">
-        function randAlg() {
-            var randURLs = [
-                "/player.html?aid=1",
-                "/player.html?aid=2",
-                "/player.html?aid=3",
-                "/player.html?aid=4",
-                "/player.html?aid=5",
-                "/player.html?aid=6",
-                "/player.html?aid=7",
-                "/player.html?aid=8",
-                "/player.html?aid=10",
-                "/player.html?aid=11"
-            ];
-
-            var randURLNum = Math.floor(Math.random() * randURLs.length);
-            var randURL = randURLs[randURLNum];
-            location.href = randURL;
-            //document.getElementById("play_rand_alg").onClick = function() {
-            //    console.log("clicked");
-            //    window.location.href = randURL;
-            //};
-        }
-      </script>
-      <!--
-      Pick a streaming algorithm below<br>
-      <a href="/player.html?aid=1">Puffer</a><br>
-      <a href="/player.html?aid=2">Default dash.js (abrDynamic)</a><br>
-      <a href="/player.html?aid=3">BOLA dash.js (abrBola)</a><br>
-      <a href="/player.html?aid=4">Fixed Rate</a><br>
-      <a href="/player.html?aid=5">Buffer Based</a><br>
-      <a href="/player.html?aid=6">Rate Based</a><br>
-      <a href="/player.html?aid=7">Pensieve</a><br>
-      <a href="/player.html?aid=8">Festive</a><br>
-      <a href="/player.html?aid=10">FastMPC</a><br>
-      <a href="/player.html?aid=11">RobustMPC</a><br>
-      --!>
-    </p>
+    <button id="play-rand-alg">Begin Streaming (random algorithm)</button>
   </div>
 
-  <script src="auth.js"></script>
+  <script src="index.js"></script>
 </body>
 
 </html>
