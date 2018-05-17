@@ -1,10 +1,12 @@
 #include <cstdint>
+#include <cmath>
 
 #include <iostream>
 #include <string>
 #include <map>
 #include <memory>
 #include <random>
+#include <algorithm>
 
 #include "media_formats.hh"
 #include "inotify.hh"
@@ -54,18 +56,92 @@ inline int randint(const int a, const int b)
 
 const VideoFormat & select_video_quality(WebSocketClient & client)
 {
-  // TODO: make a real choice
+  // TODO: make a better choice
   Channel & channel = channels.at(client.channel().value());
-  // return client.curr_vq().value_or(channel.vformats()[0]);
-  return channel.vformats()[randint(0, channel.vformats().size())];
+
+  /* simple buffer-based algorithm: assume max buffer is 10 seconds */
+  double buf = min(max(client.video_playback_buf(), 0.0), 10.0);
+
+  uint64_t next_vts = client.next_vts().value();
+  const auto & data_map = channel.vdata(next_vts);
+  const auto & ssim_map = channel.vssim(next_vts);
+
+  /* get max and min chunk size for the next video ts */
+  size_t max_size = 0, min_size = SIZE_MAX;
+
+  for (const auto & vf : channel.vformats()) {
+    size_t chunk_size = get<1>(data_map.at(vf));
+
+    max_size = max(chunk_size, max_size);
+    min_size = min(chunk_size, min_size);
+  }
+
+  double max_serve_size = ceil(buf * (max_size - min_size) / 10.0 + min_size);
+
+  /* pick the chunk with highest SSIM but with size <= max_serve_size */
+  double highest_ssim = 0.0;
+  size_t ret_idx = 0;
+
+  for (size_t i = 0; i < channel.vformats().size(); i++) {
+    const auto & vf = channel.vformats()[i];
+    size_t chunk_size = get<1>(data_map.at(vf));
+
+    if (chunk_size > max_serve_size) {
+      continue;
+    }
+
+    double ssim = ssim_map.at(vf);
+    if (ssim > highest_ssim) {
+      highest_ssim = ssim;
+      ret_idx = i;
+    }
+  }
+
+  return channel.vformats()[ret_idx];
 }
 
 const AudioFormat & select_audio_quality(WebSocketClient & client)
 {
-  // TODO: make a real choice
+  // TODO: make a better choice
   Channel & channel = channels.at(client.channel().value());
-  // return client.curr_aq().value_or(channel.aformats()[0]);
-  return channel.aformats()[randint(0, channel.aformats().size())];
+
+  /* simple buffer-based algorithm: assume max buffer is 10 seconds */
+  double buf = min(max(client.audio_playback_buf(), 0.0), 10.0);
+
+  uint64_t next_ats = client.next_ats().value();
+  const auto & data_map = channel.adata(next_ats);
+
+  /* get max and min chunk size for the next video ts */
+  size_t max_size = 0, min_size = SIZE_MAX;
+
+  for (const auto & af : channel.aformats()) {
+    size_t chunk_size = get<1>(data_map.at(af));
+
+    max_size = max(chunk_size, max_size);
+    min_size = min(chunk_size, min_size);
+  }
+
+  double max_serve_size = ceil(buf * (max_size - min_size) / 10.0 + min_size);
+
+  /* pick the chunk with biggest size <= max_serve_size */
+  size_t biggest_chunk_size = 0;
+  size_t ret_idx = 0;
+
+  for (size_t i = 0; i < channel.aformats().size(); i++) {
+    const auto & af = channel.aformats()[i];
+    size_t chunk_size = get<1>(data_map.at(af));
+
+    if (chunk_size > max_serve_size) {
+      continue;
+    }
+
+    if (chunk_size > biggest_chunk_size) {
+      biggest_chunk_size = chunk_size;
+      ret_idx = i;
+    }
+  }
+
+  return channel.aformats()[ret_idx];
 }
 
 void serve_video_to_client(WebSocketServer & server, WebSocketClient & client)

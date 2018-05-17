@@ -144,6 +144,11 @@ mmap_t & Channel::adata(const AudioFormat & format, const uint64_t ts)
   return adata_.at(ts).at(format);
 }
 
+map<AudioFormat, mmap_t> & Channel::adata(const uint64_t ts)
+{
+  return adata_.at(ts);
+}
+
 mmap_t mmap_file(const string & filepath)
 {
   FileDescriptor fd(CheckSystemCall("open (" + filepath + ")",

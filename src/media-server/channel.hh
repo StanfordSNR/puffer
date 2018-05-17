@@ -40,6 +40,7 @@ public:
   bool aready(const uint64_t ts) const;
   mmap_t & ainit(const AudioFormat & format);
   mmap_t & adata(const AudioFormat & format, const uint64_t ts);
+  std::map<AudioFormat, mmap_t> & adata(const uint64_t ts);
 
   unsigned int timescale() const { return timescale_; }
   unsigned int vduration() const { return vduration_; }
