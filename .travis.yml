@@ -17,10 +17,9 @@ addons:
     - libboost-dev
 
 before_install:
-  # download a static-built ffmpeg from the official website
-  - wget https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-64bit-static.tar.xz -O ffmpeg-static.tar.xz
-  - mkdir ffmpeg-static
-  - tar -xf ffmpeg-static.tar.xz -C ffmpeg-static --strip-components=1
+  # download a static-built ffmpeg
+  - wget https://sophon.stanford.edu/public/ffmpeg-static.tar.xz
+  - tar -xf ffmpeg-static.tar.xz
   - sudo cp ffmpeg-static/ffmpeg /usr/bin/
 
 install:
