@@ -378,6 +378,11 @@ bool resume_connection(WebSocketServer & server, WebSocketClient & client,
     return false;
   }
 
+  if (client.channel().has_value() and
+      client.channel().value() != msg.channel.value()) {
+    return false;
+  }
+
   const Channel & channel = channels.at(msg.channel.value());
 
   /* check if the requested timestamps are valid */
@@ -448,6 +453,7 @@ void handle_client_init(WebSocketServer & server, WebSocketClient & client,
   uint64_t init_ats = channel.find_ats(init_vts);
 
   client.init(channel.name(), init_vts, init_ats);
+
   send_server_init(server, client, false /* initialize rather than resume */);
 
   cerr << client.connection_id() << ": connection initialized" << endl;

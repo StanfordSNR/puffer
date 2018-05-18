@@ -22,7 +22,7 @@ tos:
   audio_duration: 432000
   video_codec: 'video/mp4; codecs="avc1.42E020"'
   audio_codec: 'audio/webm; codecs="opus"'
-  init_vts: 0
+  init_vts: 180000
 nbc-clip:
   live: false
   input: media/nbc-clip/
@@ -37,7 +37,7 @@ nbc-clip:
   audio_duration: 432000
   video_codec: 'video/mp4; codecs="avc1.42E020"'
   audio_codec: 'audio/webm; codecs="opus"'
-  init_vts: 0
+  init_vts: 180180
 tos-live:
   live: true
   input: media/tos-live/
