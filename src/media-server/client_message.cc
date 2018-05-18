@@ -34,7 +34,7 @@ ClientInitMsg ClientMsgParser::parse_init_msg()
 
   auto it = msg_.find("channel");
   if (it != msg_.end()) {
-    ret.channel = *it;
+    ret.channel = it->get<string>();
   }
 
   ret.player_width = msg_.at("playerWidth");
