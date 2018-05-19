@@ -39,6 +39,8 @@ const char ts_packet_sync_byte = 0x47;
 const size_t packets_in_chunk = 512;
 const unsigned int atsc_audio_sample_rate = 48000;
 const unsigned int audio_block_duration = 144000;
+/* units -v '(256 / (48 kHz)) * (27 megahertz)' -> 144000 */
+const unsigned int audio_samples_per_block = 256;
 
 template <typename T>
 inline T * notnull( const string & context, T * const x )
@@ -499,7 +501,7 @@ struct VideoParameters
 struct AudioBlock
 {
   uint64_t presentation_time_stamp;
-  int16_t left[ 256 ], right[ 256 ];
+  int16_t left[ audio_samples_per_block ], right[ audio_samples_per_block ];
 };
 
 class A52AudioDecoder
@@ -570,17 +572,16 @@ public:
 
         AudioBlock chunk;
         chunk.presentation_time_stamp = 300 * PES_packet.presentation_time_stamp + block_id * audio_block_duration;
-        /* units -v '(256 / (48 kHz)) * (27 megahertz)' -> 144000 */
         //        cerr << "Making audio block with pts_27M = " << chunk.presentation_time_stamp << "\n";
 
         sample_t * next_sample = a52_samples( decoder_.get() );
 
-        for ( unsigned int i = 0; i < 256; i++ ) {
+        for ( unsigned int i = 0; i < audio_samples_per_block; i++ ) {
           chunk.left[ i ] = static_cast<int16_t>( lround( check_sample( *next_sample ) ) );
           next_sample++;
         }
 
-        for ( unsigned int i = 0; i < 256; i++ ) {
+        for ( unsigned int i = 0; i < audio_samples_per_block; i++ ) {
           chunk.right[ i ] = static_cast<int16_t>( lround( check_sample( *next_sample ) ) );
           next_sample++;
         }
@@ -932,7 +933,7 @@ public:
     }
     
     /* copy field to proper lines of pending frame */
-    
+
     /* copy Y */
     for ( unsigned int source_row = 0, dest_row = (next_field_is_top_ ? 0 : 1);
           source_row < field.contents->height;
@@ -1065,7 +1066,7 @@ public:
     }
 
     wav_header_ += "RIFF";
-    const uint32_t ChunkSize = htole32( audio_blocks_per_chunk * 256 * 2 * 2 + 36 );
+    const uint32_t ChunkSize = htole32( audio_blocks_per_chunk * audio_samples_per_block * 2 * 2 + 36 );
     wav_header_ += string( reinterpret_cast<const char *>( &ChunkSize ), sizeof( ChunkSize ) );
     wav_header_ += "WAVE";
 
@@ -1092,8 +1093,53 @@ public:
 
     wav_header_ += "data";
 
-    const uint32_t SubChunk2Size = htole32( audio_blocks_per_chunk * 256 * 2 * 2 );
+    const uint32_t SubChunk2Size = htole32( audio_blocks_per_chunk * audio_samples_per_block * 2 * 2 );
     wav_header_ += string( reinterpret_cast<const char *>( &SubChunk2Size ), sizeof( SubChunk2Size ) );
+  }
+
+  void write_raw( const AudioBlock & audio_block )
+  {
+    pending_chunk_.at( pending_chunk_index_ ) = audio_block;
+
+    if ( pending_chunk_index_ == 0 ) {
+      pending_chunk_outer_timestamp_ = outer_timestamp_ / 300;
+      cerr << "Starting new audio chunk with outer timestamp = " << pending_chunk_outer_timestamp_ << "\n";
+    }
+
+    if ( pending_chunk_index_ == pending_chunk_.size() - 1 ) {
+      const string filename = "audio." + to_string( pending_chunk_outer_timestamp_ ) + ".wav";
+
+      cerr << "Writing " << directory_ + "/" + filename << " ... ";
+
+      FileDescriptor directory_fd_ { CheckSystemCall( "open " + directory_, open( directory_.c_str(),
+                                                                                  O_DIRECTORY ) ) };
+
+      FileDescriptor output_ { CheckSystemCall( "openat", openat( directory_fd_.fd_num(),
+                                                                  filename.c_str(),
+                                                                  O_WRONLY | O_CREAT | O_EXCL,
+                                                                  S_IRUSR | S_IWUSR ) ) };
+
+      output_.write( wav_header_ );
+
+      for ( const auto & pending_block : pending_chunk_ ) {
+        string serialized_block;
+
+        for ( unsigned int sample_id = 0; sample_id < audio_samples_per_block; sample_id++ ) {
+          serialized_block += string( reinterpret_cast<const char *>( pending_block.left + sample_id ),
+                                      sizeof( int16_t ) );
+          serialized_block += string( reinterpret_cast<const char *>( pending_block.right + sample_id ),
+                                      sizeof( int16_t ) );
+        }
+
+        output_.write( serialized_block );
+      }
+
+      cerr << "done.\n";
+    }
+
+    /* advance virtual clock */
+    outer_timestamp_ += audio_block_duration;
+    pending_chunk_index_ = (pending_chunk_index_ + 1) % pending_chunk_.size();
   }
 };
 
@@ -1103,9 +1149,9 @@ private:
   uint64_t expected_inner_timestamp_;
   AudioBlock silence_ {};
 
-  void write_block( const AudioBlock &, WavWriter & )
+  void write_block( const AudioBlock & audio_block, WavWriter & writer )
   {
-    //    writer.write_raw( audio_block );
+    writer.write_raw( audio_block );
     expected_inner_timestamp_ += audio_block_duration;
   }
   
