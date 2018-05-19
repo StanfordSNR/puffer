@@ -38,6 +38,7 @@ const size_t ts_packet_length = 188;
 const char ts_packet_sync_byte = 0x47;
 const size_t packets_in_chunk = 512;
 const unsigned int atsc_audio_sample_rate = 48000;
+const unsigned int audio_block_duration = 144000;
 
 template <typename T>
 inline T * notnull( const string & context, T * const x )
@@ -455,13 +456,15 @@ struct PESPacketHeader
       }
 
       if ( (packet.at( 13 ) & 0x01) != 1 ) {
-        throw InvalidMPEG( "invalid marker bit" );
+         throw InvalidMPEG( "invalid marker bit" );
       }
     }
 
     if ( PTS_DTS_flags == 2 ) {
       decoding_time_stamp = presentation_time_stamp;
     }
+
+    //    cerr << "PES packet header, is_video=" << is_video << ", dts_27M = " << 300 * decoding_time_stamp << ", pts_27M = " << 300 * presentation_time_stamp << "\n";
   }
 };
 
@@ -534,6 +537,8 @@ public:
         throw InvalidMPEG( "PES packet too small" );
       }
 
+      // cerr << "Audio frame with pts_27M = " << 300 * PES_packet.presentation_time_stamp << "\n";
+
       int flags, sample_rate, bit_rate;
       const int frame_length = a52_syncinfo( PES_packet.payload_start(),
                                              &flags, &sample_rate, &bit_rate );
@@ -564,8 +569,9 @@ public:
         }
 
         AudioBlock chunk;
-        chunk.presentation_time_stamp = PES_packet.presentation_time_stamp + block_id * 144000;
+        chunk.presentation_time_stamp = 300 * PES_packet.presentation_time_stamp + block_id * audio_block_duration;
         /* units -v '(256 / (48 kHz)) * (27 megahertz)' -> 144000 */
+        //        cerr << "Making audio block with pts_27M = " << chunk.presentation_time_stamp << "\n";
 
         sample_t * next_sample = a52_samples( decoder_.get() );
 
@@ -584,6 +590,7 @@ public:
 
       /* get ready for next frame */
       PES_packet.payload_start_index += frame_length;
+      PES_packet.presentation_time_stamp += 6 * audio_block_duration / 300;
     }
   }
 };
@@ -1063,14 +1070,54 @@ class AudioOutput
 {
 private:
   uint64_t expected_inner_timestamp_;
+  AudioBlock silence_ {};
+
+  void write_block( const AudioBlock &, WavWriter & )
+  {
+    //    writer.write_raw( audio_block );
+    expected_inner_timestamp_ += audio_block_duration;
+  }
   
 public:
   AudioOutput( const uint64_t initial_inner_timestamp )
     : expected_inner_timestamp_( initial_inner_timestamp )
-  {}
+  {
+    cerr << "AudioOutput: constructed with initial timestamp = " << initial_inner_timestamp << "\n";
+  }
 
-  void write( const AudioBlock & , WavWriter &  )
-  {}
+  void write( const AudioBlock & audio_block, WavWriter & writer )
+  {
+    /*
+    cerr << "New audio block, expected ts = " << expected_inner_timestamp_
+         << ", got " << audio_block.presentation_time_stamp << " -> timestamp_difference = "
+         << timestamp_difference( expected_inner_timestamp_, audio_block.presentation_time_stamp ) << "\n";
+    */
+
+    const int64_t diff = timestamp_difference( expected_inner_timestamp_,
+                                               audio_block.presentation_time_stamp );
+
+    /* block's moment has passed -> ignore (or bomb out) */
+    if ( diff > 0 ) {
+      cerr << "Warning, ignoring audio whose timestamp has already passed (diff = " << diff / double( audio_block_duration ) << " blocks).\n";
+      if ( abs( diff ) > audio_block_duration * 187 * 60 ) {
+        throw runtime_error( "BUG: huge negative audio difference (need to reinitialize inner timestamp)" );
+      }
+      return;
+    }
+
+    /* block's moment is in the future -> insert silence */
+    while ( timestamp_difference( expected_inner_timestamp_,
+                                  audio_block.presentation_time_stamp )
+            < -9 * int64_t( audio_block_duration ) / 8 ) {
+      cerr << "Generating silent blocks to fill in gap (diff now "
+           << timestamp_difference( expected_inner_timestamp_,
+                                    audio_block.presentation_time_stamp ) / double( audio_block_duration ) << " blocks)\n";
+      silence_.presentation_time_stamp = expected_inner_timestamp_;
+      write_block( silence_, writer );
+    }
+
+    write_block( audio_block, writer );
+  }
 };
 
 int main( int argc, char *argv[] )
@@ -1112,8 +1159,6 @@ int main( int argc, char *argv[] )
     optional<VideoOutput> video_output;
     optional<AudioOutput> audio_output;
 
-    FileDescriptor output_ { STDOUT_FILENO };
-    
     while ( true ) {
       /* parse transport stream packets into video (and eventually audio) PES packets */
       const string chunk = stdin.read_exactly( ts_packet_length * packets_in_chunk );
@@ -1159,7 +1204,7 @@ int main( int argc, char *argv[] )
         /* initialize audio and video outputs with earliest video field as first timestamp */
         if ( not outputs_initialized ) {
           video_output.emplace( params, decoded_fields.front().presentation_time_stamp );
-          audio_output.emplace( decoded_fields.front().presentation_time_stamp);
+          audio_output.emplace( decoded_fields.front().presentation_time_stamp );
           outputs_initialized = true;
         }
         video_output.value().write( decoded_fields.front(), y4m_writer );
