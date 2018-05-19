@@ -1058,11 +1058,42 @@ public:
              const unsigned int audio_blocks_per_chunk )
     : pending_chunk_(),
       directory_( directory ),
-      wav_header_( "HELLO XXX" )
+      wav_header_()
   {
     for ( unsigned int i = 0; i < audio_blocks_per_chunk; i++ ) {
       pending_chunk_.emplace_back();
     }
+
+    wav_header_ += "RIFF";
+    const uint32_t ChunkSize = htole32( audio_blocks_per_chunk * 256 * 2 * 2 + 36 );
+    wav_header_ += string( reinterpret_cast<const char *>( &ChunkSize ), sizeof( ChunkSize ) );
+    wav_header_ += "WAVE";
+
+    wav_header_ += "fmt ";
+    const uint32_t SubChunk1Size = htole32( 16 );
+    wav_header_ += string( reinterpret_cast<const char *>( &SubChunk1Size ), sizeof( SubChunk1Size ) );
+    wav_header_ += '\001'; /* PCM */
+    wav_header_ += '\000';
+
+    wav_header_ += '\002'; /* 2-channel */
+    wav_header_ += '\000';
+
+    const uint32_t SampleRate = htole32( atsc_audio_sample_rate );
+    wav_header_ += string( reinterpret_cast<const char *>( &SampleRate ), sizeof( SampleRate ) );
+
+    const uint32_t ByteRate = htole32( atsc_audio_sample_rate * 2 * 2 );
+    wav_header_ += string( reinterpret_cast<const char *>( &ByteRate ), sizeof( ByteRate ) );
+
+    wav_header_ += '\004'; /* BlockAlign */
+    wav_header_ += '\000';
+
+    wav_header_ += '\020'; /* 16 bits per sample */
+    wav_header_ += '\000';
+
+    wav_header_ += "data";
+
+    const uint32_t SubChunk2Size = htole32( audio_blocks_per_chunk * 256 * 2 * 2 );
+    wav_header_ += string( reinterpret_cast<const char *>( &SubChunk2Size ), sizeof( SubChunk2Size ) );
   }
 };
 
