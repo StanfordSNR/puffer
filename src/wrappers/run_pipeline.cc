@@ -280,6 +280,9 @@ int main(int argc, char * argv[])
 
   ProcessManager proc_manager;
 
+  /* create a tmp directory for decoder to output raw media chunks */
+  fs::create_directories(output_path / "tmp" / "raw");
+
   /* run video_canonicalizer */
   run_video_canonicalizer(proc_manager);
 

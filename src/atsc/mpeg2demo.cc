@@ -2,6 +2,7 @@
 
 #include "config.h"
 
+#include <getopt.h>
 #include <cstdlib>
 #include <iostream>
 #include <memory>
@@ -31,6 +32,7 @@ extern "C" {
 
 #include "file_descriptor.hh"
 #include "exception.hh"
+#include "filesystem.hh"
 
 using namespace std;
 
@@ -41,6 +43,22 @@ const unsigned int atsc_audio_sample_rate = 48000;
 const unsigned int audio_block_duration = 144000;
 /* units -v '(256 / (48 kHz)) * (27 megahertz)' -> 144000 */
 const unsigned int audio_samples_per_block = 256;
+
+/* if tmp_dir is not empty, output to tmp_dir first and move output chunks
+ * to video_output_dir or audio_output_dir */
+static string tmp_dir = "";
+
+void print_usage( const string & program_name )
+{
+  cerr <<
+  "Usage: " << program_name << " video_pid audio_pid format "
+  "frames_per_chunk audio_blocks_per_chunk "
+  "video_output_dir audio_output_dir [--tmp TMP]\n\n"
+  "format = \"1080i30\" | \"720p60\"\n"
+  "--tmp TMP: output to TMP directory first and then move output chunks "
+  "to video_output_dir or audio_output_dir"
+  << endl;
+}
 
 template <typename T>
 inline T * notnull( const string & context, T * const x )
@@ -868,15 +886,18 @@ private:
   {
     if ( pending_chunk_index_ == 0 ) {
       pending_chunk_outer_timestamp_ = outer_timestamp_ / 300;
-      cerr << "Starting new chunk with outer timestamp = " << pending_chunk_outer_timestamp_ << "\n";
+      cerr << "Starting new video chunk with outer timestamp = " << pending_chunk_outer_timestamp_ << "\n";
     }
 
     if ( pending_chunk_index_ == pending_chunk_.size() - 1 ) {
       const string filename = to_string( pending_chunk_outer_timestamp_ ) + ".y4m";
 
-      cerr << "Writing " << directory_ + "/" + filename << " ... ";
+      /* output to tmp_dir first if tmp_dir is not empty */
+      string output_dir = tmp_dir.empty() ? directory_ : tmp_dir;
 
-      FileDescriptor directory_fd_ { CheckSystemCall( "open " + directory_, open( directory_.c_str(),
+      cerr << "Writing " << output_dir + "/" + filename << " ... ";
+
+      FileDescriptor directory_fd_ { CheckSystemCall( "open " + output_dir, open( output_dir.c_str(),
                                                                                   O_DIRECTORY ) ) };
 
       FileDescriptor output_ { CheckSystemCall( "openat", openat( directory_fd_.fd_num(),
@@ -897,6 +918,12 @@ private:
 
         /* Cr */
         output_.write( string_view { reinterpret_cast<char *>( pending_frame.Cr.get() ), (pending_frame.width/2) * (pending_frame.height/2) } );
+      }
+
+      /* move output file if tmp_dir is not empty */
+      if ( output_dir != directory_ ) {
+        fs::rename( fs::path( output_dir ) / filename,
+                    fs::path( directory_ ) / filename );
       }
 
       cerr << "done.\n";
@@ -1013,7 +1040,7 @@ public:
     if ( diff > 0 ) {
       cerr << "Warning, ignoring field whose timestamp has already passed (diff = " << diff / double( frame_interval_ ) << " frames).\n";
       if ( abs( diff ) > frame_interval_ * 60 * 60 ) {
-        throw runtime_error( "BUG: huge negative difference (need to reinitialize inner timestamp)" );
+        throw runtime_error( "BUG: huge video difference (need to reinitialize inner timestamp)" );
       }
       return;
     }
@@ -1109,9 +1136,12 @@ public:
     if ( pending_chunk_index_ == pending_chunk_.size() - 1 ) {
       const string filename = to_string( pending_chunk_outer_timestamp_ ) + ".wav";
 
-      cerr << "Writing " << directory_ + "/" + filename << " ... ";
+      /* output to tmp_dir first if tmp_dir is not empty */
+      string output_dir = tmp_dir.empty() ? directory_ : tmp_dir;
 
-      FileDescriptor directory_fd_ { CheckSystemCall( "open " + directory_, open( directory_.c_str(),
+      cerr << "Writing " << output_dir + "/" + filename << " ... ";
+
+      FileDescriptor directory_fd_ { CheckSystemCall( "open " + output_dir, open( output_dir.c_str(),
                                                                                   O_DIRECTORY ) ) };
 
       FileDescriptor output_ { CheckSystemCall( "openat", openat( directory_fd_.fd_num(),
@@ -1132,6 +1162,12 @@ public:
         }
 
         output_.write( serialized_block );
+      }
+
+      /* move output file if tmp_dir is not empty */
+      if ( output_dir != directory_ ) {
+        fs::rename( fs::path( output_dir ) / filename,
+                    fs::path( directory_ ) / filename );
       }
 
       cerr << "done.\n";
@@ -1164,6 +1200,7 @@ public:
 
   void write( const AudioBlock & audio_block, WavWriter & writer )
   {
+
     /*
     cerr << "New audio block, expected ts = " << expected_inner_timestamp_
          << ", got " << audio_block.presentation_time_stamp << " -> timestamp_difference = "
@@ -1177,7 +1214,7 @@ public:
     if ( diff > 0 ) {
       cerr << "Warning, ignoring audio whose timestamp has already passed (diff = " << diff / double( audio_block_duration ) << " blocks).\n";
       if ( abs( diff ) > audio_block_duration * 187 * 60 ) {
-        throw runtime_error( "BUG: huge negative audio difference (need to reinitialize inner timestamp)" );
+        throw runtime_error( "BUG: huge audio difference (need to reinitialize inner timestamp)" );
       }
       return;
     }
@@ -1204,19 +1241,40 @@ int main( int argc, char *argv[] )
       abort();
     }
 
-    if ( argc != 8 ) {
-      cerr << "Usage: " << argv[ 0 ] << " video_pid audio_pid format frames_per_chunk audio_blocks_per_chunk video_output_directory audio_output_directory\n\n   format = \"1080i30\" | \"720p60\"\n";
+    const option cmd_line_opts[] = {
+      { "tmp",    required_argument, nullptr, 't' },
+      { nullptr,  0,                 nullptr,  0  }
+    };
+
+    while ( true ) {
+      const int opt = getopt_long( argc, argv, "t:", cmd_line_opts, nullptr );
+      if ( opt == -1 ) {
+        break;
+      }
+
+      switch ( opt ) {
+      case 't':
+        tmp_dir = optarg;
+        break;
+      default:
+        print_usage( argv[0] );
+        return EXIT_FAILURE;
+      }
+    }
+
+    if ( optind != argc - 7 ) {
+      print_usage( argv[0] );
       return EXIT_FAILURE;
     }
 
     /* NB: "1080i30" is the preferred notation in Poynton's books and "Video Demystified" */
-    const unsigned int video_pid = stoi( argv[ 1 ] );
-    const unsigned int audio_pid = stoi( argv[ 2 ] );
-    const VideoParameters params { argv[ 3 ] };
-    const unsigned int frames_per_chunk = atoi( argv[ 4 ] );
-    const unsigned int audio_blocks_per_chunk = atoi( argv[ 5 ] );
-    const string video_directory = argv[ 6 ];
-    const string audio_directory = argv[ 7 ];
+    const unsigned int video_pid = stoi( argv[ optind++ ] );
+    const unsigned int audio_pid = stoi( argv[ optind++ ] );
+    const VideoParameters params { argv[ optind++ ] };
+    const unsigned int frames_per_chunk = atoi( argv[ optind++ ] );
+    const unsigned int audio_blocks_per_chunk = atoi( argv[ optind++ ] );
+    const string video_directory = argv[ optind++ ];
+    const string audio_directory = argv[ optind++ ];
 
     FileDescriptor stdin { 0 };
 
