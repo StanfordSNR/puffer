@@ -68,12 +68,16 @@ inline T * notnull( const string & context, T * const x )
 
 int64_t timestamp_difference( const uint64_t ts_64, const uint64_t ts_33 )
 {
+  /*
   const uint64_t second_ts_unwrapped = (ts_64 & 0xffffffff80000000) | (ts_33 & 0x000000007fffffff);
 
   const int64_t first_ts_signed = ts_64;
   const int64_t second_ts_signed = second_ts_unwrapped;
 
   return first_ts_signed - second_ts_signed;
+  */
+
+  return (int64_t) ts_64 - (int64_t) ts_33;
 }
 
 struct Raster
@@ -866,7 +870,7 @@ class Y4M_Writer
 private:
   bool next_field_is_top_ { true };
 
-  unsigned int pending_chunk_outer_timestamp_ {};
+  uint64_t pending_chunk_outer_timestamp_ {};
   unsigned int pending_chunk_index_ {};
   vector<Raster> pending_chunk_;
 
@@ -875,7 +879,7 @@ private:
   string directory_;
   string y4m_header_;
 
-  unsigned int outer_timestamp_ {};
+  uint64_t outer_timestamp_ {};
 
   Raster & pending_frame()
   {
@@ -1072,14 +1076,14 @@ public:
 class WavWriter
 {
 private:
-  unsigned int pending_chunk_outer_timestamp_ {};
+  uint64_t pending_chunk_outer_timestamp_ {};
   unsigned int pending_chunk_index_ {};
   vector<AudioBlock> pending_chunk_;
 
   string directory_;
   string wav_header_;
 
-  unsigned int outer_timestamp_ {};
+  uint64_t outer_timestamp_ {};
 
 public:
   WavWriter( const string directory,
