@@ -371,19 +371,13 @@ void send_server_init(WebSocketServer & server, WebSocketClient & client,
 }
 
 bool resume_connection(WebSocketServer & server, WebSocketClient & client,
-                       const ClientInitMsg & msg)
+                       const ClientInitMsg & msg, const Channel & channel)
 {
-  /* check if client knows which channel to resume */
-  if (not msg.channel.has_value()) {
+  /* resume a connection only if client was playing the same channel */
+  if (not client.channel().has_value() or
+      client.channel().value() != channel.name()) {
     return false;
   }
-
-  if (client.channel().has_value() and
-      client.channel().value() != msg.channel.value()) {
-    return false;
-  }
-
-  const Channel & channel = channels.at(msg.channel.value());
 
   /* check if the requested timestamps are valid */
   if (not (msg.next_vts.has_value() and
@@ -428,24 +422,25 @@ bool resume_connection(WebSocketServer & server, WebSocketClient & client,
 void handle_client_init(WebSocketServer & server, WebSocketClient & client,
                         const ClientInitMsg & msg)
 {
-  /* check if the streaming can be resumed */
-  if (resume_connection(server, client, msg)) {
-    return;
-  }
-
   /* use the channel requested by client or automatically choose one */
   auto it = msg.channel.has_value() ?
             channels.find(msg.channel.value()) : channels.begin();
   if (it == channels.end()) {
-    throw runtime_error("Requested channel not found");
+    cerr << client.connection_id() << ": requested channel not found" << endl;
+    it = channels.begin();
   }
 
   const auto & channel = it->second;
 
   /* ignore client-init if the channel is not ready */
   if (not channel.init_vts().has_value()) {
-    cerr << client.connection_id() << ": ignored client-init "
-         << "(channel is not ready)" << endl;
+    cerr << client.connection_id()
+         << ": ignored client-init (channel is not ready)" << endl;
+    return;
+  }
+
+  /* check if the streaming can be resumed */
+  if (resume_connection(server, client, msg, channel)) {
     return;
   }
 

@@ -1,3 +1,18 @@
+*.mp4
+*.m4s
+*.m4a
+*.mpd
+*.log
+*.trs
+*.pyc
+*.ts
+*.y4m
+*.wav
+*.webm
+*.chk
+
+/puffer-*
+
 ##### autotools
 
 # autoconf
@@ -93,19 +108,3 @@ tags
 *.exe
 *.out
 *.app
-
-##### others
-*.mp4
-*.m4s
-*.m4a
-*.mpd
-*.log
-*.trs
-*.pyc
-*.ts
-*.y4m
-*.wav
-*.webm
-*.chk
-
-/puffer-*
