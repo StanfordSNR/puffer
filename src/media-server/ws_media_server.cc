@@ -69,18 +69,37 @@ const VideoFormat & select_video_quality(WebSocketClient & client)
   /* get max and min chunk size for the next video ts */
   size_t max_size = 0, min_size = SIZE_MAX;
 
-  for (const auto & vf : channel.vformats()) {
+  size_t MAX_VFORMATS = channel.vformats().size();
+  size_t max_idx = MAX_VFORMATS, min_idx = MAX_VFORMATS;
+
+  for (size_t i = 0; i < channel.vformats().size(); i++) {
+    const auto & vf = channel.vformats()[i];
     size_t chunk_size = get<1>(data_map.at(vf));
 
-    max_size = max(chunk_size, max_size);
-    min_size = min(chunk_size, min_size);
+    if (chunk_size > max_size) {
+      max_size = chunk_size;
+      max_idx = i;
+    }
+
+    if (chunk_size < min_size) {
+      min_size = chunk_size;
+      min_idx = i;
+    }
   }
 
-  double max_serve_size = ceil(buf * (max_size - min_size) / 10.0 + min_size);
+  assert(max_idx < MAX_VFORMATS);
+  assert(min_idx < MAX_VFORMATS);
+
+  if (buf >= 8.0) {
+    return channel.vformats()[max_idx];
+  } else if (buf <= 2.0) {
+    return channel.vformats()[min_idx];
+  }
 
   /* pick the chunk with highest SSIM but with size <= max_serve_size */
+  double max_serve_size = ceil(buf * (max_size - min_size) / 10.0 + min_size);
   double highest_ssim = 0.0;
-  size_t ret_idx = 0;
+  size_t ret_idx = MAX_VFORMATS;
 
   for (size_t i = 0; i < channel.vformats().size(); i++) {
     const auto & vf = channel.vformats()[i];
@@ -97,6 +116,7 @@ const VideoFormat & select_video_quality(WebSocketClient & client)
     }
   }
 
+  assert(ret_idx < MAX_VFORMATS);
   return channel.vformats()[ret_idx];
 }
 
@@ -114,18 +134,37 @@ const AudioFormat & select_audio_quality(WebSocketClient & client)
   /* get max and min chunk size for the next video ts */
   size_t max_size = 0, min_size = SIZE_MAX;
 
-  for (const auto & af : channel.aformats()) {
+  size_t MAX_AFORMATS = channel.aformats().size();
+  size_t max_idx = MAX_AFORMATS, min_idx = MAX_AFORMATS;
+
+  for (size_t i = 0; i < channel.aformats().size(); i++) {
+    const auto & af = channel.aformats()[i];
     size_t chunk_size = get<1>(data_map.at(af));
 
-    max_size = max(chunk_size, max_size);
-    min_size = min(chunk_size, min_size);
+    if (chunk_size > max_size) {
+      max_size = chunk_size;
+      max_idx = i;
+    }
+
+    if (chunk_size < min_size) {
+      min_size = chunk_size;
+      min_idx = i;
+    }
   }
 
-  double max_serve_size = ceil(buf * (max_size - min_size) / 10.0 + min_size);
+  assert(max_idx < MAX_AFORMATS);
+  assert(min_idx < MAX_AFORMATS);
+
+  if (buf >= 8.0) {
+    return channel.aformats()[max_idx];
+  } else if (buf <= 2.0) {
+    return channel.aformats()[min_idx];
+  }
 
   /* pick the chunk with biggest size <= max_serve_size */
+  double max_serve_size = ceil(buf * (max_size - min_size) / 10.0 + min_size);
   size_t biggest_chunk_size = 0;
-  size_t ret_idx = 0;
+  size_t ret_idx = MAX_AFORMATS;
 
   for (size_t i = 0; i < channel.aformats().size(); i++) {
     const auto & af = channel.aformats()[i];
@@ -141,6 +180,7 @@ const AudioFormat & select_audio_quality(WebSocketClient & client)
     }
   }
 
+  assert(ret_idx < MAX_AFORMATS);
   return channel.aformats()[ret_idx];
 }
 
