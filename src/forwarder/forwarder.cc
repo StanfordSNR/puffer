@@ -10,7 +10,7 @@
 using namespace std;
 using namespace PollerShortNames;
 
-static const int MAX_BUFFER_BYTES = 100 * 1000 * 1000;  /* 100 MB */
+static const int MAX_BUFFER_BYTES = 64 * 1000 * 1000;  /* 64 MB */
 
 void print_usage(const string & program_name)
 {
@@ -97,6 +97,22 @@ int main(int argc, char * argv[])
     },
     /* interested only when buffer is not empty */
     [&buffer]() { return not buffer.empty(); }
+  ));
+
+  /* check if TCP client socket has closed */
+  poller.add_action(Poller::Action(client, Direction::In,
+    [&client]() {
+      const string data = client.read();
+
+      if (data.empty()) {
+        cerr << "TCP client has closed the connection" << endl;
+        return ResultType::Exit;
+      } else {
+        cerr << "Warning: ignoring data received from TCP client" << endl;
+      }
+
+      return ResultType::Continue;
+    }
   ));
 
   for (;;) {
