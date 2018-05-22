@@ -10,7 +10,7 @@
 using namespace std;
 using namespace PollerShortNames;
 
-static const int ALERT_BUFFER_BYTES = 100 * 1000 * 1000;  /* 100 MB */
+static const int MAX_BUFFER_BYTES = 100 * 1000 * 1000;  /* 100 MB */
 
 void print_usage(const string & program_name)
 {
@@ -69,8 +69,9 @@ int main(int argc, char * argv[])
       assert(not udp_socket.eof());
 
       buffer_size += data.size();
-      if (buffer_size >= ALERT_BUFFER_BYTES) {
-        cerr << "ALERT: buffer size growing too big: " << buffer_size << endl;
+      if (buffer_size >= MAX_BUFFER_BYTES) {
+        cerr << "Buffer size grows too big: " << buffer_size << endl;
+        return ResultType::Exit;
       }
 
       buffer.emplace_back(move(data));
