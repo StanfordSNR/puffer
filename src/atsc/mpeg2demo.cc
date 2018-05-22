@@ -28,7 +28,7 @@ extern "C" {
 #include <a52dec/a52.h>
 #include <a52dec/mm_accel.h>
 }
- 
+
 #include "file_descriptor.hh"
 #include "exception.hh"
 
@@ -675,7 +675,7 @@ private:
          or sequence->pixel_height != 1 ) {
       throw UnsupportedMPEG( "non-square pels" );
     }
-    
+
     if ( sequence->frame_period != frame_interval_ ) {
       throw StreamMismatch( "frame interval mismatch" );
     }
@@ -745,7 +745,7 @@ public:
       mpeg2_state_t state = mpeg2_parse( decoder_.get() );
       const mpeg2_info_t * decoder_info = notnull( "mpeg2_info",
                                                    mpeg2_info( decoder_.get() ) );
-      
+
       switch ( state ) {
       case STATE_SEQUENCE:
       case STATE_SEQUENCE_REPEATED:
@@ -766,7 +766,7 @@ public:
         {
           const mpeg2_picture_t * pic = decoder_info->display_picture;
           if ( pic ) {
-            /* picture ready for display */          
+            /* picture ready for display */
             const mpeg2_fbuf_t * display_raster = notnull( "display_fbuf", decoder_info->display_fbuf );
             output_picture( pic, display_raster, output );
           }
@@ -793,7 +793,7 @@ class TSParser
 private:
   unsigned int pid_; /* program ID of interest */
   bool is_video_; /* true = video, false = audio */
-  
+
   string PES_packet_ {};
 
   void append_payload( const string_view & packet, const TSPacketHeader & header )
@@ -826,7 +826,7 @@ public:
       /* step 1: parse and decode old PES packet if there is one */
       if ( not PES_packet_.empty() ) {
         PESPacketHeader pes_header { PES_packet_, is_video_ };
-        
+
         video_PES_packets.emplace( pes_header.presentation_time_stamp,
                                    pes_header.payload_start,
                                    pes_header.PES_packet_length,
@@ -853,12 +853,12 @@ private:
   vector<Raster> pending_chunk_;
 
   unsigned int frame_interval_;
-  
+
   string directory_;
   string y4m_header_;
 
   unsigned int outer_timestamp_ {};
-  
+
   Raster & pending_frame()
   {
     return pending_chunk_.at( pending_chunk_index_ );
@@ -872,7 +872,7 @@ private:
     }
 
     if ( pending_chunk_index_ == pending_chunk_.size() - 1 ) {
-      const string filename = "video." + to_string( pending_chunk_outer_timestamp_ ) + ".y4m";
+      const string filename = to_string( pending_chunk_outer_timestamp_ ) + ".y4m";
 
       cerr << "Writing " << directory_ + "/" + filename << " ... ";
 
@@ -885,10 +885,10 @@ private:
                                                                   S_IRUSR | S_IWUSR ) ) };
 
       output_.write( y4m_header_ );
-      
+
       for ( const auto & pending_frame : pending_chunk_ ) {
         output_.write( "FRAME\n" );
-        
+
         /* Y */
         output_.write( string_view { reinterpret_cast<char *>( pending_frame.Y.get() ), pending_frame.width * pending_frame.height } );
 
@@ -901,7 +901,7 @@ private:
 
       cerr << "done.\n";
     }
-        
+
     /* advance virtual clock */
     outer_timestamp_ += frame_interval_;
 
@@ -925,13 +925,13 @@ public:
   }
 
   bool next_field_is_top() const { return next_field_is_top_; }
-  
+
   void write_raw( const VideoField & field )
   {
     if ( field.top_field != next_field_is_top_ ) {
       throw runtime_error( "field cadence mismatch" );
     }
-    
+
     /* copy field to proper lines of pending frame */
 
     /* copy Y */
@@ -981,9 +981,9 @@ private:
   void write_single_field( const VideoField & field, Y4M_Writer & writer )
   {
     writer.write_raw( field );
-    expected_inner_timestamp_ += frame_interval_ / 2;    
+    expected_inner_timestamp_ += frame_interval_ / 2;
   }
-  
+
 public:
   VideoOutput( const VideoParameters & params, const uint64_t initial_inner_timestamp )
     : frame_interval_( params.frame_interval ),
@@ -992,7 +992,7 @@ public:
   {
     cerr << "VideoOutput: constructed with initial timestamp = " << initial_inner_timestamp << "\n";
   }
-  
+
   void write( const VideoField & field, Y4M_Writer & writer )
   {
     /*
@@ -1053,7 +1053,7 @@ private:
   string wav_header_;
 
   unsigned int outer_timestamp_ {};
-  
+
 public:
   WavWriter( const string directory,
              const unsigned int audio_blocks_per_chunk )
@@ -1107,7 +1107,7 @@ public:
     }
 
     if ( pending_chunk_index_ == pending_chunk_.size() - 1 ) {
-      const string filename = "audio." + to_string( pending_chunk_outer_timestamp_ ) + ".wav";
+      const string filename = to_string( pending_chunk_outer_timestamp_ ) + ".wav";
 
       cerr << "Writing " << directory_ + "/" + filename << " ... ";
 
@@ -1154,7 +1154,7 @@ private:
     writer.write_raw( audio_block );
     expected_inner_timestamp_ += audio_block_duration;
   }
-  
+
 public:
   AudioOutput( const uint64_t initial_inner_timestamp )
     : expected_inner_timestamp_( initial_inner_timestamp )
@@ -1204,8 +1204,8 @@ int main( int argc, char *argv[] )
       abort();
     }
 
-    if ( argc != 7 ) {
-      cerr << "Usage: " << argv[ 0 ] << " video_pid audio_pid format frames_per_chunk audio_blocks_per_chunk target_directory\n\n   format = \"1080i30\" | \"720p60\"\n";
+    if ( argc != 8 ) {
+      cerr << "Usage: " << argv[ 0 ] << " video_pid audio_pid format frames_per_chunk audio_blocks_per_chunk video_output_directory audio_output_directory\n\n   format = \"1080i30\" | \"720p60\"\n";
       return EXIT_FAILURE;
     }
 
@@ -1215,8 +1215,9 @@ int main( int argc, char *argv[] )
     const VideoParameters params { argv[ 3 ] };
     const unsigned int frames_per_chunk = atoi( argv[ 4 ] );
     const unsigned int audio_blocks_per_chunk = atoi( argv[ 5 ] );
-    const string directory = argv[ 6 ];
-    
+    const string video_directory = argv[ 6 ];
+    const string audio_directory = argv[ 7 ];
+
     FileDescriptor stdin { 0 };
 
     TSParser video_parser { video_pid, true };
@@ -1226,11 +1227,11 @@ int main( int argc, char *argv[] )
 
     MPEG2VideoDecoder video_decoder { params };
     queue<VideoField> decoded_fields; /* output of MPEG2VideoDecoder */
-    Y4M_Writer y4m_writer { directory, frames_per_chunk, params };
+    Y4M_Writer y4m_writer { video_directory, frames_per_chunk, params };
 
     A52AudioDecoder audio_decoder;
     queue<AudioBlock> decoded_samples; /* output of A52AudioDecoder */
-    WavWriter wav_writer { directory, audio_blocks_per_chunk };
+    WavWriter wav_writer { audio_directory, audio_blocks_per_chunk };
 
     bool outputs_initialized = false;
     optional<VideoOutput> video_output;
