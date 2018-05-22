@@ -287,8 +287,8 @@ function WebSocketClient(user, video, audio) {
           msg.nextVideoTimestamp = av_source.getNextVideoTimestamp();
         }
 
-        console.log('sending client-init');
         ws.send(format_client_msg('client-init', msg));
+        console.log('sent client-init');
       } catch (e) {
         console.log(e);
       }

@@ -8,6 +8,10 @@
 
 using namespace std;
 
+static const unsigned int DEFAULT_PRESENTATION_DELAY = 10;
+static const unsigned int DEFAULT_CLEAN_WINDOW = 60;
+static const unsigned int DEFAULT_INIT_VTS = 0;
+
 Channel::Channel(const string & name, YAML::Node config, Inotify & inotify)
 {
   live_ = config["live"].as<bool>();
@@ -26,8 +30,11 @@ Channel::Channel(const string & name, YAML::Node config, Inotify & inotify)
   acodec_ = config["audio_codec"].as<string>();
 
   if (live_) {
-    presentation_delay_s_ = config["presentation_delay_s"].as<unsigned int>();
-    clean_window_s_ = config["clean_window_s"].as<unsigned int>();
+    presentation_delay_s_ = config["presentation_delay_s"] ?
+        config["presentation_delay_s"].as<unsigned int>() :
+        DEFAULT_PRESENTATION_DELAY;
+    clean_window_s_ = config["clean_window_s"] ?
+        config["clean_window_s"].as<unsigned int>() : DEFAULT_CLEAN_WINDOW;
 
     /* ensure an enough gap between clean_window_s and presentation_delay_s_ */
     if (presentation_delay_s_.value() + 5.0 * vduration_ / timescale_
@@ -40,7 +47,8 @@ Channel::Channel(const string & name, YAML::Node config, Inotify & inotify)
       throw runtime_error("init_vts cannot be specified if live is true");
     }
   } else {
-    init_vts_ = config["init_vts"].as<uint64_t>();
+    init_vts_ = config["init_vts"] ?
+        config["init_vts"].as<uint64_t>() : DEFAULT_INIT_VTS;
 
     if (not is_valid_vts(init_vts_.value())) {
       throw runtime_error("invalid init_vts: should be a multiple of video "
