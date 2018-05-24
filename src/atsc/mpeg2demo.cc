@@ -36,13 +36,13 @@ extern "C" {
 
 using namespace std;
 
-const size_t ts_packet_length = 188;
-const char ts_packet_sync_byte = 0x47;
-const size_t packets_in_chunk = 512;
-const unsigned int atsc_audio_sample_rate = 48000;
-const unsigned int audio_block_duration = 144000;
+static const size_t ts_packet_length = 188;
+static const char ts_packet_sync_byte = 0x47;
+static const size_t packets_in_chunk = 512;
+static const unsigned int atsc_audio_sample_rate = 48000;
+static const unsigned int audio_block_duration = 144000;
 /* units -v '(256 / (48 kHz)) * (27 megahertz)' -> 144000 */
-const unsigned int audio_samples_per_block = 256;
+static const unsigned int audio_samples_per_block = 256;
 
 /* if tmp_dir is not empty, output to tmp_dir first and move output chunks
  * to video_output_dir or audio_output_dir */
@@ -828,7 +828,7 @@ public:
     }
   }
 
-  void parse( const string_view & packet, queue<TimestampedPESPacket> & video_PES_packets )
+  void parse( const string_view & packet, queue<TimestampedPESPacket> & PES_packets )
   {
     TSPacketHeader header { packet };
 
@@ -843,10 +843,10 @@ public:
       if ( not PES_packet_.empty() ) {
         PESPacketHeader pes_header { PES_packet_, is_video_ };
 
-        video_PES_packets.emplace( pes_header.presentation_time_stamp,
-                                   pes_header.payload_start,
-                                   pes_header.PES_packet_length,
-                                   move( PES_packet_ ) );
+        PES_packets.emplace( pes_header.presentation_time_stamp,
+                             pes_header.payload_start,
+                             pes_header.PES_packet_length,
+                             move( PES_packet_ ) );
         PES_packet_.clear();
       }
 
@@ -1266,11 +1266,11 @@ int main( int argc, char *argv[] )
     }
 
     /* NB: "1080i30" is the preferred notation in Poynton's books and "Video Demystified" */
-    const unsigned int video_pid = stoi( argv[ optind++ ] );
-    const unsigned int audio_pid = stoi( argv[ optind++ ] );
+    const unsigned int video_pid = stoi( argv[ optind++ ], nullptr, 0 );
+    const unsigned int audio_pid = stoi( argv[ optind++ ], nullptr, 0 );
     const VideoParameters params { argv[ optind++ ] };
-    const unsigned int frames_per_chunk = atoi( argv[ optind++ ] );
-    const unsigned int audio_blocks_per_chunk = atoi( argv[ optind++ ] );
+    const unsigned int frames_per_chunk = stoi( argv[ optind++ ] );
+    const unsigned int audio_blocks_per_chunk = stoi( argv[ optind++ ] );
     const string video_directory = argv[ optind++ ];
     const string audio_directory = argv[ optind++ ];
 
@@ -1294,7 +1294,7 @@ int main( int argc, char *argv[] )
     optional<AudioOutput> audio_output;
 
     while ( true ) {
-      /* parse transport stream packets into video (and eventually audio) PES packets */
+      /* parse transport stream packets into video and audio PES packets */
       const string chunk = stdin.read_exactly( ts_packet_length * packets_in_chunk );
       const string_view chunk_view { chunk };
 
