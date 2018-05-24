@@ -8,6 +8,11 @@
 
 using namespace std;
 
+static const unsigned int DEFAULT_TIMESCALE = 90000;
+static const unsigned int DEFAULT_VIDEO_DURATION = 180180;
+static const unsigned int DEFAULT_AUDIO_DURATION = 432000;
+static const string DEFAULT_VIDEO_CODEC = "video/mp4; codecs=\"avc1.42E020\"";
+static const string DEFAULT_AUDIO_CODEC = "audio/webm; codecs=\"opus\"";
 static const unsigned int DEFAULT_PRESENTATION_DELAY = 10;
 static const unsigned int DEFAULT_CLEAN_WINDOW = 60;
 static const unsigned int DEFAULT_INIT_VTS = 0;
@@ -23,11 +28,16 @@ Channel::Channel(const string & name, YAML::Node config, Inotify & inotify)
   vformats_ = get_video_formats(config);
   aformats_ = get_audio_formats(config);
 
-  timescale_ = config["timescale"].as<unsigned int>();
-  vduration_ = config["video_duration"].as<unsigned int>();
-  aduration_ = config["audio_duration"].as<unsigned int>();
-  vcodec_ = config["video_codec"].as<string>();
-  acodec_ = config["audio_codec"].as<string>();
+  timescale_ = config["timescale"] ?
+      config["timescale"].as<unsigned int>() : DEFAULT_TIMESCALE;
+  vduration_ = config["video_duration"] ?
+      config["video_duration"].as<unsigned int>() : DEFAULT_VIDEO_DURATION;
+  aduration_ = config["audio_duration"] ?
+      config["audio_duration"].as<unsigned int>() : DEFAULT_AUDIO_DURATION;
+  vcodec_ = config["video_codec"] ?
+      config["video_codec"].as<string>() : DEFAULT_VIDEO_CODEC;
+  acodec_ = config["audio_codec"] ?
+      config["audio_codec"].as<string>() : DEFAULT_AUDIO_CODEC;
 
   if (live_) {
     presentation_delay_s_ = config["presentation_delay_s"] ?
