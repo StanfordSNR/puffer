@@ -1076,7 +1076,7 @@ public:
     /* field's moment is in the future -> insert filler fields */
     while ( timestamp_difference( expected_inner_timestamp_,
                                   field.presentation_time_stamp )
-            < -5 * int64_t( frame_interval_ ) / 8 ) {
+            < -9 * int64_t( frame_interval_ ) / 8 ) {
       cerr << "Generating replacement fields to fill in gap (diff now "
            << timestamp_difference( expected_inner_timestamp_,
                                     field.presentation_time_stamp ) / double( frame_interval_ ) << " frames)\n";
