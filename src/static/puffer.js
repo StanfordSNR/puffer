@@ -207,6 +207,11 @@ function AVSource(video, audio, options) {
   /* Log debugging info to console */
   this.logBufferInfo = function() {
     if (vbuf) {
+      if (vbuf.buffered.length > 1) {
+        console.log('Error: vbuf.buffered.length=' + vbuf.buffered.length +
+                    ', server not sending segments in order?');
+      }
+
       for (var i = 0; i < vbuf.buffered.length; i++) {
         // There should only be one range if the server is
         // sending segments in order
@@ -215,6 +220,11 @@ function AVSource(video, audio, options) {
       }
     }
     if (abuf) {
+      if (abuf.buffered.length > 1) {
+        console.log('Error: abuf.buffered.length=' + abuf.buffered.length +
+                    ', server not sending segments in order?');
+      }
+
       for (var i = 0; i < abuf.buffered.length; i++) {
         // Same comment as above
         console.log('audio range:',
@@ -289,11 +299,10 @@ function WebSocketClient(user, video, audio) {
         var msg = {
           userId: user.uid,
           playerWidth: video.videoWidth,
-          playerHeight: video.videoHeight
+          playerHeight: video.videoHeight,
+          channel: channel
         };
-        if (channel) {
-          msg.channel = channel;
-        }
+
         if (av_source && av_source.getChannel() === channel) {
           msg.nextAudioTimestamp = av_source.getNextAudioTimestamp();
           msg.nextVideoTimestamp = av_source.getNextVideoTimestamp();
@@ -395,11 +404,14 @@ function WebSocketClient(user, video, audio) {
       console.log('WebSocket closed');
       ws = null;
 
-      if (rc_backoff <= MAX_RECONNECT_BACKOFF) {
+      if (av_source && rc_backoff <= MAX_RECONNECT_BACKOFF) {
         /* Try to reconnect */
         console.log('Reconnecting in ' + rc_backoff + 'ms');
 
-        setTimeout(that.connect, rc_backoff);
+        setTimeout(function() {
+          that.connect(av_source.getChannel());
+        }, rc_backoff);
+
         rc_backoff = rc_backoff * 2;
       }
     };

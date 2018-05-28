@@ -8,12 +8,7 @@ ClientMsgParser::ClientMsgParser(const string & data)
 {
   msg_ = json::parse(data);
 
-  auto it = msg_.find("type");
-  if (it == msg_.end()) {
-    throw runtime_error("Cannot find message type");
-  }
-
-  string type_str = *it;
+  string type_str = msg_.at("type").get<string>();
 
   if (type_str == "client-init") {
     type_ = Type::Init;
@@ -30,24 +25,21 @@ ClientInitMsg ClientMsgParser::parse_init_msg()
 
   ClientInitMsg ret;
 
-  ret.user_id = msg_.at("userId");
+  ret.user_id = msg_.at("userId").get<string>();
 
-  auto it = msg_.find("channel");
+  ret.player_width = msg_.at("playerWidth").get<int>();
+  ret.player_height = msg_.at("playerHeight").get<int>();
+
+  ret.channel = msg_.at("channel").get<string>();
+
+  auto it = msg_.find("nextVideoTimestamp");
   if (it != msg_.end()) {
-    ret.channel = it->get<string>();
-  }
-
-  ret.player_width = msg_.at("playerWidth");
-  ret.player_height = msg_.at("playerHeight");
-
-  it = msg_.find("nextVideoTimestamp");
-  if (it != msg_.end()) {
-    ret.next_vts = *it;
+    ret.next_vts = it->get<uint64_t>();
   }
 
   it = msg_.find("nextAudioTimestamp");
   if (it != msg_.end()) {
-    ret.next_ats = *it;
+    ret.next_ats = it->get<uint64_t>();
   }
 
   return ret;
@@ -59,7 +51,7 @@ ClientInfoMsg ClientMsgParser::parse_info_msg()
 
   ClientInfoMsg ret;
 
-  string event_str = msg_.at("event");
+  string event_str = msg_.at("event").get<string>();
 
   if (event_str == "timer") {
     ret.event = ClientInfoMsg::PlayerEvent::Timer;
@@ -75,15 +67,15 @@ ClientInfoMsg ClientMsgParser::parse_info_msg()
     ret.event = ClientInfoMsg::PlayerEvent::Unknown;
   }
 
-  ret.init_id = msg_.at("initId");
-  ret.video_buffer_len = msg_.at("videoBufferLen");
-  ret.audio_buffer_len = msg_.at("audioBufferLen");
-  ret.next_video_timestamp = msg_.at("nextVideoTimestamp");
-  ret.next_audio_timestamp = msg_.at("nextAudioTimestamp");
-  ret.player_width = msg_.at("playerWidth");
-  ret.player_height = msg_.at("playerHeight");
+  ret.init_id = msg_.at("initId").get<unsigned int>();
+  ret.video_buffer_len = msg_.at("videoBufferLen").get<double>();
+  ret.audio_buffer_len = msg_.at("audioBufferLen").get<double>();
+  ret.next_video_timestamp = msg_.at("nextVideoTimestamp").get<unsigned int>();
+  ret.next_audio_timestamp = msg_.at("nextAudioTimestamp").get<unsigned int>();
+  ret.player_width = msg_.at("playerWidth").get<int>();
+  ret.player_height = msg_.at("playerHeight").get<int>();
 
-  int player_ready_state = msg_.at("playerReadyState");
+  int player_ready_state = msg_.at("playerReadyState").get<int>();
   if (player_ready_state < 0 || player_ready_state > 4) {
     throw runtime_error("Invalid player ready state");
   }

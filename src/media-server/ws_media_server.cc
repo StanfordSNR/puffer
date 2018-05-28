@@ -462,12 +462,11 @@ bool resume_connection(WebSocketServer & server, WebSocketClient & client,
 void handle_client_init(WebSocketServer & server, WebSocketClient & client,
                         const ClientInitMsg & msg)
 {
-  /* use the channel requested by client or automatically choose one */
-  auto it = msg.channel.has_value() ?
-            channels.find(msg.channel.value()) : channels.begin();
+  /* ignore invalid channel request */
+  auto it = channels.find(msg.channel);
   if (it == channels.end()) {
     cerr << client.connection_id() << ": requested channel not found" << endl;
-    it = channels.begin();
+    return;
   }
 
   const auto & channel = it->second;
