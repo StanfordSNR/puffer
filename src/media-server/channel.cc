@@ -265,11 +265,11 @@ void Channel::do_mmap_video(const fs::path & filepath, const VideoFormat & vf)
   string filestem = filepath.stem();
 
   if (filestem == "init") {
-    cerr << "video init: " << filepath << endl;
+    // cerr << "video init: " << filepath << endl;
     vinit_.emplace(vf, data_size);
   } else {
     if (filepath.extension() == ".m4s") {
-      cerr << "video chunk: " << filepath << endl;
+      // cerr << "video chunk: " << filepath << endl;
       uint64_t ts = stoull(filestem);
       vdata_[ts][vf] = data_size;
 
@@ -323,11 +323,11 @@ void Channel::do_mmap_audio(const fs::path & filepath, const AudioFormat & af)
   string filestem = filepath.stem();
 
   if (filestem == "init") {
-    cerr << "audio init: " << filepath << endl;
+    // cerr << "audio init: " << filepath << endl;
     ainit_.emplace(af, data_size);
   } else {
     if (filepath.extension() == ".chk") {
-      cerr << "audio chunk: " << filepath << endl;
+      // cerr << "audio chunk: " << filepath << endl;
       uint64_t ts = stoull(filestem);
       adata_[ts][af] = data_size;
 
@@ -376,7 +376,7 @@ void Channel::mmap_audio_files(Inotify & inotify)
 
 void Channel::do_read_ssim(const fs::path & filepath, const VideoFormat & vf) {
   if (filepath.extension() == ".ssim") {
-    cerr << "ssim file: " << filepath << endl;
+    // cerr << "ssim file: " << filepath << endl;
     string filestem = filepath.stem();
     uint64_t ts = stoull(filestem);
 

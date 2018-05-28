@@ -312,11 +312,19 @@ bool WSServer<SocketType>::queue_frame(const uint64_t connection_id,
   return true;
 }
 
-template<class SocketType>
-void WSServer<SocketType>::clear_buffer(const uint64_t connection_id)
+template<>
+void WSServer<TCPSocket>::clear_buffer(const uint64_t connection_id)
 {
   Connection & conn = connections_.at(connection_id);
   conn.send_buffer.clear();
+}
+
+template<>
+void WSServer<NBSecureSocket>::clear_buffer(const uint64_t connection_id)
+{
+  Connection & conn = connections_.at(connection_id);
+  conn.send_buffer.clear();
+  conn.socket.clear_buffer();
 }
 
 template<class SocketType>

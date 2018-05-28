@@ -163,3 +163,8 @@ unsigned int NBSecureSocket::buffer_bytes() const
 
   return total_bytes;
 }
+
+void NBSecureSocket::clear_buffer()
+{
+  write_buffer_.clear();
+}
