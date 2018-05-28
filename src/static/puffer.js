@@ -1,7 +1,6 @@
 const WS_OPEN = 1;
 
 const SEND_INFO_INTERVAL = 2000;
-const UPDATE_AV_SOURCE_INTERVAL = 100;
 const BASE_RECONNECT_BACKOFF = 100;
 const MAX_RECONNECT_BACKOFF = 30000;
 
@@ -74,7 +73,7 @@ function AVSource(video, audio, options) {
     video.currentTime = init_seek_ts / timescale;
 
     vbuf = ms.addSourceBuffer(video_codec);
-    vbuf.addEventListener('updateend', that.update);
+    vbuf.addEventListener('updateend', that.vbuf_update);
     vbuf.addEventListener('error', function(e) {
       console.log('vbuf error:', e);
       that.close();
@@ -85,7 +84,7 @@ function AVSource(video, audio, options) {
     });
 
     abuf = ms.addSourceBuffer(audio_codec);
-    abuf.addEventListener('updateend', that.update);
+    abuf.addEventListener('updateend', that.abuf_update);
     abuf.addEventListener('error', function(e) {
       console.log('abuf error:', e);
       that.close();
@@ -159,6 +158,12 @@ function AVSource(video, audio, options) {
         data: concat_arraybuffers(partial_video_chunks,
                                   metadata.totalByteLength)
       });
+
+      /* update vbuf when pending_video_chunks becomes non-empty */
+      if (pending_video_chunks.length === 1) {
+        that.vbuf_update();
+      }
+
       partial_video_chunks = [];
       next_video_timestamp = metadata.timestamp + metadata.duration;
     } else if (debug) {
@@ -186,6 +191,12 @@ function AVSource(video, audio, options) {
         data: concat_arraybuffers(partial_audio_chunks,
                                   metadata.totalByteLength)
       });
+
+      /* update abuf when pending_audio_chunks becomes non-empty */
+      if (pending_audio_chunks.length === 1) {
+        that.abuf_update();
+      }
+
       partial_audio_chunks = [];
       next_audio_timestamp = metadata.timestamp + metadata.duration;
     } else if (debug) {
@@ -248,14 +259,15 @@ function AVSource(video, audio, options) {
   };
 
   /* Pushes data onto the SourceBuffers if they are ready */
-  this.update = function() {
-    if (vbuf && !vbuf.updating
-      && pending_video_chunks.length > 0) {
+  this.vbuf_update = function() {
+    if (vbuf && !vbuf.updating && pending_video_chunks.length > 0) {
       var next_video = pending_video_chunks.shift();
       vbuf.appendBuffer(next_video.data);
     }
-    if (abuf && !abuf.updating
-      && pending_audio_chunks.length > 0) {
+  }
+
+  this.abuf_update = function() {
+    if (abuf && !abuf.updating && pending_audio_chunks.length > 0) {
       var next_audio = pending_audio_chunks.shift();
       abuf.appendBuffer(next_audio.data);
     }
@@ -418,14 +430,6 @@ function WebSocketClient(user, video, audio) {
     setTimeout(timer_helper, SEND_INFO_INTERVAL);
   }
   timer_helper();
-
-  function update_helper() {
-    if (av_source) {
-      av_source.update();
-    }
-    setTimeout(update_helper, UPDATE_AV_SOURCE_INTERVAL);
-  }
-  update_helper();
 }
 
 function start_puffer(user) {
