@@ -45,7 +45,7 @@ static const unsigned int audio_block_duration = 144000;
 static const unsigned int audio_samples_per_block = 256;
 
 /* max gap between two PES packet timestamps */
-static const unsigned int PES_timestamp_max_gap = 90000 * 60;  // 1 minute
+static const unsigned int PES_timestamp_max_gap = 90000 * 60 * 10;  // 10 min
 static const int64_t max_PES_timestamp = 0x1FFFFFFFF;  // 2^33
 
 static int64_t PES_timestamp_offset = 0;
@@ -854,18 +854,19 @@ public:
           int64_t diff = curr_PES_timestamp - last_PES_timestamp;
           if ( abs( diff ) > PES_timestamp_max_gap ) {
             if ( diff + max_PES_timestamp <= PES_timestamp_max_gap ) {
-              /* check if huge difference is caused by rollover */
+              /* check if the huge difference is caused by rollover */
               cerr << "PES timestamp rollover detected: "
                    << "last timestamp = " << last_PES_timestamp
                    << ", current timestamp = " << curr_PES_timestamp << endl;
               PES_timestamp_offset += max_PES_timestamp;
             } else {
               /* discontinuity detected */
-              cerr << "PES timestamp discontinuity detected: "
+              cerr << "Warning: PES timestamp discontinuity detected: "
                    << "last timestamp = " << last_PES_timestamp
                    << ", current timestamp = " << curr_PES_timestamp << endl;
-              /* TODO: recover from discontinuity */
-              throw runtime_error( "PES timestamp discontinuity detected" );
+              /* TODO: recover from discontinuity; ignore for now */
+              PES_packet_.clear();
+              return;
             }
           }
         }
