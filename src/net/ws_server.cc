@@ -313,6 +313,13 @@ bool WSServer<SocketType>::queue_frame(const uint64_t connection_id,
 }
 
 template<class SocketType>
+void WSServer<SocketType>::clear_buffer(const uint64_t connection_id)
+{
+  Connection & conn = connections_.at(connection_id);
+  conn.send_buffer.clear();
+}
+
+template<class SocketType>
 void WSServer<SocketType>::close_connection(const uint64_t connection_id)
 {
   Connection & conn = connections_.at(connection_id);

@@ -85,6 +85,7 @@ public:
   void close_connection(const uint64_t connection_id);
 
   unsigned int buffer_bytes(const uint64_t connection_id) const;
+  void clear_buffer(const uint64_t connection_id);
 };
 
 using WebSocketTCPServer = WSServer<TCPSocket>;
