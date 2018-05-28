@@ -66,7 +66,8 @@ ServerInitMsg::ServerInitMsg(const string & channel,
   });
 }
 
-ServerVideoMsg::ServerVideoMsg(const string & quality,
+ServerVideoMsg::ServerVideoMsg(const string & channel,
+                               const string & quality,
                                const unsigned int timestamp,
                                const unsigned int duration,
                                const unsigned int byte_offset,
@@ -75,6 +76,7 @@ ServerVideoMsg::ServerVideoMsg(const string & quality,
   set_type(Type::Video);
   set_msg({
     {"type", type_str()},
+    {"channel", channel},
     {"quality", quality},
     {"timestamp", timestamp},
     {"duration", duration},
@@ -83,7 +85,8 @@ ServerVideoMsg::ServerVideoMsg(const string & quality,
   });
 }
 
-ServerAudioMsg::ServerAudioMsg(const string & quality,
+ServerAudioMsg::ServerAudioMsg(const string & channel,
+                               const string & quality,
                                const unsigned int timestamp,
                                const unsigned int duration,
                                const unsigned int byte_offset,
@@ -92,6 +95,7 @@ ServerAudioMsg::ServerAudioMsg(const string & quality,
   set_type(Type::Audio);
   set_msg({
     {"type", type_str()},
+    {"channel", channel},
     {"quality", quality},
     {"timestamp", timestamp},
     {"duration", duration},

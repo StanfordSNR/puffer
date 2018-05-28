@@ -59,7 +59,8 @@ public:
 class ServerVideoMsg : public ServerMsg
 {
 public:
-  ServerVideoMsg(const std::string & quality,
+  ServerVideoMsg(const std::string & channel,
+                 const std::string & quality,
                  const unsigned int timestamp,
                  const unsigned int duration,
                  const unsigned int byte_offset,
@@ -69,7 +70,8 @@ public:
 class ServerAudioMsg : public ServerMsg
 {
 public:
-  ServerAudioMsg(const std::string & quality,
+  ServerAudioMsg(const std::string & channel,
+                 const std::string & quality,
                  const unsigned int timestamp,
                  const unsigned int duration,
                  const unsigned int byte_offset,

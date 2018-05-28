@@ -67,9 +67,9 @@ function AVSource(video, audio, options) {
 
   var that = this;
 
-  /* Initializes the video and audio source buffers, and sets the initial
-   * offset */
+  /* Initialize video and audio source buffers, and set the initial offset */
   function init_source_buffers() {
+    console.log('Initializing new AV source');
     video.currentTime = init_seek_ts / timescale;
 
     vbuf = ms.addSourceBuffer(video_codec);
@@ -354,31 +354,35 @@ function WebSocketClient(user, video, audio) {
         console.log('Resuming playback');
         av_source.resume(message.metadata);
       } else {
-        console.log('Initializing new AV source');
         if (av_source) {
           av_source.close();
         }
         av_source = new AVSource(video, audio, message.metadata);
       }
-
     } else if (message.metadata.type === 'server-audio') {
       if (debug) {
         console.log('received', message.metadata.type,
                     message.metadata.timestamp,
                     message.metadata.quality);
       }
-      av_source.handleAudio(message.data, message.metadata);
-      send_client_info('audack');
 
+      /* ignore chunks from incorrect channels */
+      if (av_source && av_source.getChannel() === message.metadata.channel) {
+        av_source.handleAudio(message.data, message.metadata);
+        send_client_info('audack');
+      }
     } else if (message.metadata.type === 'server-video') {
       if (debug) {
         console.log('received', message.metadata.type,
                     message.metadata.timestamp,
                     message.metadata.quality);
       }
-      av_source.handleVideo(message.data, message.metadata);
-      send_client_info('vidack');
 
+      /* ignore chunks from incorrect channels */
+      if (av_source && av_source.getChannel() === message.metadata.channel) {
+        av_source.handleVideo(message.data, message.metadata);
+        send_client_info('vidack');
+      }
     } else {
       console.log('received unknown message', message.metadata.type);
     }

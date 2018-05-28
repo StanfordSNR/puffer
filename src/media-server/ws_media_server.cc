@@ -197,8 +197,8 @@ void serve_video_to_client(WebSocketServer & server, WebSocketClient & client)
     }
     const VideoFormat & next_vq = select_video_quality(client);
 
-    cerr << client.connection_id() << ": serving video " << next_vts
-         << " " << next_vq << endl;
+    cerr << client.connection_id() << ": serving channel " << channel.name()
+         << ", video " << next_vts << " " << next_vq << endl;
 
     optional<mmap_t> init_mmap;
     if (not client.curr_vq().has_value() or
@@ -214,8 +214,10 @@ void serve_video_to_client(WebSocketServer & server, WebSocketClient & client)
 
   VideoSegment & next_vsegment = client.next_vsegment().value();
 
-  ServerVideoMsg video_msg(next_vsegment.format().to_string(),
-                           next_vts, channel.vduration(),
+  ServerVideoMsg video_msg(channel.name(),
+                           next_vsegment.format().to_string(),
+                           next_vts,
+                           channel.vduration(),
                            next_vsegment.offset(),
                            next_vsegment.length());
   string frame_payload = video_msg.to_string();
@@ -243,8 +245,8 @@ void serve_audio_to_client(WebSocketServer & server, WebSocketClient & client)
 
     const AudioFormat & next_aq = select_audio_quality(client);
 
-    cerr << client.connection_id() << ": serving audio " << next_ats
-         << " " << next_aq << endl;
+    cerr << client.connection_id() << ": serving channel " << channel.name()
+         << ", audio " << next_ats << " " << next_aq << endl;
 
     optional<mmap_t> init_mmap;
     if (not client.curr_aq().has_value() or
@@ -260,7 +262,8 @@ void serve_audio_to_client(WebSocketServer & server, WebSocketClient & client)
 
   AudioSegment & next_asegment = client.next_asegment().value();
 
-  ServerAudioMsg audio_msg(next_asegment.format().to_string(),
+  ServerAudioMsg audio_msg(channel.name(),
+                           next_asegment.format().to_string(),
                            next_ats,
                            channel.aduration(),
                            next_asegment.offset(),
@@ -407,6 +410,9 @@ void send_server_init(WebSocketServer & server, WebSocketClient & client,
                      client.next_ats().value(),
                      client.init_id(), can_resume);
   WSFrame frame {true, WSFrame::OpCode::Binary, init.to_string()};
+
+  /* drop previously queued frames before sending server init */
+  server.clear_buffer(client.connection_id());
   server.queue_frame(client.connection_id(), frame);
 }
 
