@@ -68,7 +68,7 @@ ServerInitMsg::ServerInitMsg(const string & channel,
 
 ServerVideoMsg::ServerVideoMsg(const string & channel,
                                const string & quality,
-                               const unsigned int timestamp,
+                               const uint64_t timestamp,
                                const unsigned int duration,
                                const unsigned int byte_offset,
                                const unsigned int total_byte_length)
@@ -87,7 +87,7 @@ ServerVideoMsg::ServerVideoMsg(const string & channel,
 
 ServerAudioMsg::ServerAudioMsg(const string & channel,
                                const string & quality,
-                               const unsigned int timestamp,
+                               const uint64_t timestamp,
                                const unsigned int duration,
                                const unsigned int byte_offset,
                                const unsigned int total_byte_length)

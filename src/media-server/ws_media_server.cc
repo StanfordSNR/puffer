@@ -46,14 +46,6 @@ void print_usage(const string & program_name)
   cerr << program_name << " <YAML configuration> [debug]" << endl;
 }
 
-inline int randint(const int a, const int b)
-{
-  assert(a < b);
-  int ret = a + rand() % (b - a);
-  assert(ret >= a and ret < b);
-  return ret;
-}
-
 const VideoFormat & select_video_quality(WebSocketClient & client)
 {
   // TODO: make a better choice

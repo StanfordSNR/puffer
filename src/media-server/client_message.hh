@@ -51,8 +51,8 @@ public:
   double audio_buffer_len {};
 
   /* Next segment the client is expecting */
-  unsigned int next_video_timestamp {};
-  unsigned int next_audio_timestamp {};
+  uint64_t next_video_timestamp {};
+  uint64_t next_audio_timestamp {};
 
   int player_width {};
   int player_height {};

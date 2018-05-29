@@ -70,8 +70,8 @@ ClientInfoMsg ClientMsgParser::parse_info_msg()
   ret.init_id = msg_.at("initId").get<unsigned int>();
   ret.video_buffer_len = msg_.at("videoBufferLen").get<double>();
   ret.audio_buffer_len = msg_.at("audioBufferLen").get<double>();
-  ret.next_video_timestamp = msg_.at("nextVideoTimestamp").get<unsigned int>();
-  ret.next_audio_timestamp = msg_.at("nextAudioTimestamp").get<unsigned int>();
+  ret.next_video_timestamp = msg_.at("nextVideoTimestamp").get<uint64_t>();
+  ret.next_audio_timestamp = msg_.at("nextAudioTimestamp").get<uint64_t>();
   ret.player_width = msg_.at("playerWidth").get<int>();
   ret.player_height = msg_.at("playerHeight").get<int>();
 
