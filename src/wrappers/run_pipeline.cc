@@ -301,7 +301,7 @@ int main(int argc, char * argv[])
     run_audio_fragmenter(proc_manager, af);
   }
 
-  /* vwork, awork, vready, aready should have been filled out now */
+  /* vwork, awork, vready, aready should already be filled in */
 
   /* run depcleaner to clean up files in working/ */
   run_depcleaner(proc_manager, vwork, vready);

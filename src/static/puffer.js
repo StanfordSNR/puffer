@@ -4,14 +4,6 @@ const SEND_INFO_INTERVAL = 2000;
 const BASE_RECONNECT_BACKOFF = 100;
 const MAX_RECONNECT_BACKOFF = 30000;
 
-const HTML_MEDIA_READY_STATES = [
-  'HAVE_NOTHING',
-  'HAVE_METADATA',
-  'HAVE_CURRENT_DATA',
-  'HAVE_FUTURE_DATA',
-  'HAVE_ENOUGH_DATA'
-];
-
 const debug = false;
 
 /* Server messages are of the form: "short_metadata_len|metadata_json|data" */
@@ -62,8 +54,21 @@ function AVSource(video, audio, options) {
   var pending_audio_chunks = [];
 
   var ms = new MediaSource();
+
   video.src = window.URL.createObjectURL(ms);
   audio.src = window.URL.createObjectURL(ms);
+
+  video.load();
+  audio.load();
+
+  var video_play_promise = video.play();
+  if (video_play_promise !== undefined) {
+    video_play_promise.then(function() {
+      console.log('video.play() succeeded');
+    }).catch(function(error) {
+      console.log('video.play() failed');
+    });
+  }
 
   var that = this;
 
@@ -347,7 +352,6 @@ function WebSocketClient(user, video, audio) {
 
     if (message.metadata.type === 'server-hello') {
       console.log(message.metadata.type, message.metadata);
-
     } else if (message.metadata.type === 'server-init') {
       console.log(message.metadata.type, message.metadata);
       if (av_source && av_source.canResume(message.metadata)) {
@@ -366,7 +370,7 @@ function WebSocketClient(user, video, audio) {
                     message.metadata.quality);
       }
 
-      /* ignore chunks from incorrect channels */
+      /* ignore chunks from wrong channels */
       if (av_source && av_source.getChannel() === message.metadata.channel) {
         av_source.handleAudio(message.data, message.metadata);
         send_client_info('audack');
@@ -378,7 +382,7 @@ function WebSocketClient(user, video, audio) {
                     message.metadata.quality);
       }
 
-      /* ignore chunks from incorrect channels */
+      /* ignore chunks from wrong channels */
       if (av_source && av_source.getChannel() === message.metadata.channel) {
         av_source.handleVideo(message.data, message.metadata);
         send_client_info('vidack');
@@ -431,12 +435,12 @@ function WebSocketClient(user, video, audio) {
   };
 
   video.oncanplay = function() {
-    console.log('canplay');
+    console.log('video canplay');
     send_client_info('canplay');
   };
 
   video.onwaiting = function() {
-    console.log('rebuffer');
+    console.log('video is rebuffering');
     send_client_info('rebuffer');
   };
 
