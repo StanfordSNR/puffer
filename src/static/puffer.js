@@ -55,8 +55,8 @@ function AVSource(video, audio, options) {
 
   var ms = new MediaSource();
 
-  video.src = window.URL.createObjectURL(ms);
-  audio.src = window.URL.createObjectURL(ms);
+  video.src = URL.createObjectURL(ms);
+  audio.src = URL.createObjectURL(ms);
 
   video.load();
   audio.load();
@@ -98,6 +98,15 @@ function AVSource(video, audio, options) {
       console.log('abuf abort:', e);
       that.close();
     });
+
+    /* check if there are already pending media chunks */
+    if (pending_video_chunks.length > 0) {
+      that.vbuf_update();
+    }
+
+    if (pending_audio_chunks.length > 0) {
+      that.abuf_update();
+    }
   }
 
   ms.addEventListener('sourceopen', function(e) {
@@ -164,8 +173,8 @@ function AVSource(video, audio, options) {
                                   metadata.totalByteLength)
       });
 
-      /* update vbuf when pending_video_chunks becomes non-empty */
-      if (pending_video_chunks.length === 1) {
+      /* update vbuf when there are pending_video_chunks */
+      if (pending_video_chunks.length > 0) {
         that.vbuf_update();
       }
 
@@ -197,8 +206,8 @@ function AVSource(video, audio, options) {
                                   metadata.totalByteLength)
       });
 
-      /* update abuf when pending_audio_chunks becomes non-empty */
-      if (pending_audio_chunks.length === 1) {
+      /* update abuf when there are pending_audio_chunks */
+      if (pending_audio_chunks.length > 0) {
         that.abuf_update();
       }
 
