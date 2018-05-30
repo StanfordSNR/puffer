@@ -17,9 +17,11 @@ function load_script(script_path) {
   return new_script;
 }
 
-function start_dashjs(user, aid) {
+function start_dashjs(aid) {
   const channel_select = document.getElementById('channel-select');
-  var manifest_url = '/media/' + channel_select.value + '/ready/live.mpd';
+  var manifest_url = 'static/puffer/media/' + channel_select.value + '/ready/live.mpd'; //I think
+  //this is not how this should be done. Instead I should set up redirects so that any URL beginning
+  //with static searches recursively through the entire static directory.
 
   var player = dashjs.MediaPlayer().create();
   player.initialize(document.getElementById("tv-player"), manifest_url, true);
@@ -27,7 +29,7 @@ function start_dashjs(user, aid) {
 
   channel_select.onchange = function() {
     console.log('set channel:', channel_select.value);
-    player.attachSource('/media/' + channel_select.value + '/ready/live.mpd');
+    player.attachSource('static/puffer/media/' + channel_select.value + '/ready/live.mpd');
   };
 
   if (aid === 2) {  // default dash.js
@@ -125,7 +127,7 @@ function init_app() {
 
       if (aid === 1) {  // puffer
         load_script('puffer.js').onload = function() {
-          start_puffer(user);  // start_puffer is defined in puffer.js
+          start_puffer();  // start_puffer is defined in puffer.js
         }
       } else {
         /* All the other algorithms are based on dash.js */
@@ -138,7 +140,7 @@ function init_app() {
         }
 
         new_script.onload = function() {
-          start_dashjs(user, aid);
+          start_dashjs(aid);
         }
       }
     } else {
