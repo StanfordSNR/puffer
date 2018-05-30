@@ -13,9 +13,9 @@
 
 {% if user.is_authenticated %}
   <h1>Puffer</h1>
-  <h3>Hello {{ user.get_username }}, Welcome to Puffer!</h3>
+  <h3>Hello {{ user.get_username }}, welcome to Puffer!</h3>
   <p>
-    Not {{ user.get_username }}? <a href="{% url 'logout' %}">Logout</a>
+    <a href="{% url 'logout' %}">Logout</a>
   </p>
   <br>
 
@@ -35,11 +35,10 @@
   {% endif %}
 
   <script src="{% static 'puffer/js/index.js' %}"></script>
-
 {% else %}
   <p>
-  You must <a href="{% url 'login' %}?next={{request.path}}">Login</a> to
-  use Puffer
+  You must <a href="{% url 'login' %}">login</a> to
+  use Puffer.
   </p>
 {% endif %}
 
