@@ -1,29 +1,48 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <title>Puffer</title>
+  <link rel="stylesheet" href="{% static 'puffer/css/style.css' %}">
+</head>
+
+<body>
+
 {% if user.is_authenticated %}
-  {% load static %}
-  <!DOCTYPE html>
-  <html lang="en">
+  <h1>Puffer</h1>
+  <h3>Hello {{ user.get_username }}, Welcome to Puffer!</h3>
+  <p>
+    Not {{ user.get_username }}? <a href="{% url 'logout' %}">Logout</a>
+  </p>
+  <br>
 
-  <head>
-    <meta charset="utf-8">
-    <title>Puffer</title>
-    <link rel="stylesheet" href="{% static 'puffer/style.css' %}">
-  </head>
+  <button id="play-rand-alg">Begin Streaming (random algorithm)</button>
 
-  <body>
-    <h1>Puffer</h1>
-    <h3>Hello {{ user.get_username }}, Welcome to Puffer!</h3>
-    <a>Not {{ user.get_username }}? </a><a href="{% url 'logout'%}">Logout</a>
-    <br>
-    <br>
+  {% if user.is_superuser %}
+    <a href="{% url 'player' aid=1 %}">Puffer</a><br>
+    <a href="{% url 'player' aid=2 %}">Default dash.js (abrDynamic)</a><br>
+    <a href="{% url 'player' aid=3 %}">BOLA dash.js (abrBola)</a><br>
+    <a href="{% url 'player' aid=4 %}">Fixed Rate</a><br>
+    <a href="{% url 'player' aid=5 %}">Buffer Based</a><br>
+    <a href="{% url 'player' aid=6 %}">Rate Based</a><br>
+    <a href="{% url 'player' aid=7 %}">Pensieve</a><br>
+    <a href="{% url 'player' aid=8 %}">Festive</a><br>
+    <a href="{% url 'player' aid=10 %}">FastMPC</a><br>
+    <a href="{% url 'player' aid=11 %}">RobustMPC</a><br>
+  {% endif %}
 
-    <button id="play-rand-alg">Begin Streaming (random algorithm)</button>
+  <script src="{% static 'puffer/js/index.js' %}"></script>
 
-    <script src="{% static 'puffer/index.js' %}"></script>
-  </body>
-
-  </html>
 {% else %}
-  <li><a>You must </a>
-  <a href="{% url 'login'%}?next={{request.path}}">Login</a>
-  <a> to use Puffer</a></li>
+  <p>
+  You must <a href="{% url 'login' %}?next={{request.path}}">Login</a> to
+  use Puffer
+  </p>
 {% endif %}
+
+</body>
+
+</html>
