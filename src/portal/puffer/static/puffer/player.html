@@ -1,21 +1,19 @@
+{% if user.is_authenticated %}
+{% load static %}
+
 <!DOCTYPE html>
 <html lang="en">
 
 <head>
   <meta charset="utf-8">
   <title>Puffer</title>
-  <script src="https://www.gstatic.com/firebasejs/4.12.1/firebase.js"></script>
-  <script src="config.js"></script>
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="{% static 'style.css' %}">
 </head>
 
 <body>
   <h1>Puffer</h1>
-
-  <!--Display when user is signed in--!>
-  <div id="user-signed-in" class="hidden">
-    <div id="user-info"></div>
-    <button id="sign-out">Sign Out</button>
+  <li>User: {{ user.get_username }}</li>
+  <li><a href="{% url 'logout'%}">Logout</a></li>
 
     <div id="tv-container">
       <video id="tv-player" mediagroup="tv" muted autoplay></video>
@@ -26,16 +24,17 @@
         <select id="channel-select">
           <option value="abc">abc</option>
           <option value="nbc">nbc</option>
-          <option value="fox">fox</option>
-          <option value="pbs">pbs</option>
-          <option value="cbs">cbs</option>
         </select>
         <button type="button" id="full-screen-button"></button>
       </div>
     </div>
-  </div>
 
-  <script src="player.js"></script>
+  <script src="{% static 'player.js' %}"></script>
 </body>
 
 </html>
+{% else %}
+  <li><a>You must </a>
+  <a href="{% url 'login'%}?next={{request.path}}">Login</a>
+  <a> to view this page.</a></li>
+{% endif %}
