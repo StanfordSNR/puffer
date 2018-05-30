@@ -116,13 +116,7 @@ function setup_control_bar() {
 }
 
 function init_app() {
-  /* Listening for auth state changes */
-  firebase.auth().onAuthStateChanged(function(user) {
-    if (user) {
-      /* User is signed in */
-      document.getElementById('user-signed-in').style.display = 'block';
-      document.getElementById('user-info').textContent = 'Welcome! ' + user.displayName;
-
+    if (true) {
       /* Set up the player control bar */
       setup_control_bar();
 
@@ -138,9 +132,9 @@ function init_app() {
         var new_script = null;
 
         if (aid === 2 || aid === 3) {  // algorithms available in dash.js
-          new_script = load_script('dist/dash.all.min.js');
+          new_script = load_script('static/puffer/dist/dash.all.min.js');
         } else if (aid >= 4 && aid <= 11) {  // algorithms available in pensieve
-          new_script = load_script('dist/pensieve.dash.all.min.js');
+          new_script = load_script('static/puffer/dist/pensieve.dash.all.debug.js');
         }
 
         new_script.onload = function() {
@@ -151,7 +145,6 @@ function init_app() {
       /* Redirect to the sign-in page if user is not signed in */
       window.location.replace('/widget.html');
     }
-  });
 
   document.getElementById('sign-out').addEventListener('click',
     function() {
