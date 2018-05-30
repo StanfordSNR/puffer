@@ -118,41 +118,30 @@ function setup_control_bar() {
 }
 
 function init_app() {
-    if (true) {
-      /* Set up the player control bar */
-      setup_control_bar();
+  /* Set up the player control bar */
+  setup_control_bar();
 
-      /* Get algorithm ID from the URL */
-      var aid = Number(get_parameter_by_name('aid'));  // algorithm ID
+  /* Get algorithm ID from the URL */
+  var aid = Number(get_parameter_by_name('aid'));  // algorithm ID
 
-      if (aid === 1) {  // puffer
-        load_script('static/puffer/puffer.js').onload = function() {
-          start_puffer();  // start_puffer is defined in puffer.js
-        }
-      } else {
-        /* All the other algorithms are based on dash.js */
-        var new_script = null;
+  if (aid === 1) {  // puffer
+    load_script('static/puffer/puffer.js').onload = function() {
+      start_puffer();  // start_puffer is defined in puffer.js
+    }
+  } else {
+    /* All the other algorithms are based on dash.js */
+    var new_script = null;
 
-        if (aid === 2 || aid === 3) {  // algorithms available in dash.js
-          new_script = load_script('static/puffer/dist/dash.all.min.js');
-        } else if (aid >= 4 && aid <= 11) {  // algorithms available in pensieve
-          new_script = load_script('static/puffer/dist/pensieve.dash.all.debug.js');
-        }
-
-        new_script.onload = function() {
-          start_dashjs(aid);
-        }
-      }
-    } else {
-      /* Redirect to the sign-in page if user is not signed in */
-      window.location.replace('/widget.html');
+    if (aid === 2 || aid === 3) {  // algorithms available in dash.js
+      new_script = load_script('static/puffer/dist/dash.all.min.js');
+    } else if (aid >= 4 && aid <= 11) {  // algorithms available in pensieve
+      new_script = load_script('static/puffer/dist/pensieve.dash.all.debug.js');
     }
 
-  document.getElementById('sign-out').addEventListener('click',
-    function() {
-      firebase.auth().signOut();
+    new_script.onload = function() {
+      start_dashjs(aid);
     }
-  );
+  }
 }
 
 window.addEventListener('load', init_app);
