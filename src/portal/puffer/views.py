@@ -1,3 +1,14 @@
 from django.shortcuts import render
 
-# Create your views here.
+
+def index(request):
+    return render(request, 'puffer/index.html')
+
+
+def player(request, aid):
+    context = {'aid': aid}
+    return render(request, 'puffer/player.html', context)
+
+
+def login(request):
+    return render(request, 'puffer/login.html')
