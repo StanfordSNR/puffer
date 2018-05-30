@@ -40,7 +40,7 @@
 }
 
 #mute-button {
-  background-image: url(/images/volume_on.svg);
+  background-image: url(/images/volume_off.svg);
   background-size: 25px;
   width: 25px;
   height: 25px;

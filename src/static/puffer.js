@@ -61,15 +61,6 @@ function AVSource(video, audio, options) {
   video.load();
   audio.load();
 
-  var video_play_promise = video.play();
-  if (video_play_promise !== undefined) {
-    video_play_promise.then(function() {
-      console.log('video.play() succeeded');
-    }).catch(function(error) {
-      console.log('video.play() failed');
-    });
-  }
-
   var that = this;
 
   /* Initialize video and audio source buffers, and set the initial offset */
@@ -107,6 +98,17 @@ function AVSource(video, audio, options) {
     if (pending_audio_chunks.length > 0) {
       that.abuf_update();
     }
+
+    /*
+    var video_play_promise = video.play();
+    if (video_play_promise) {
+      video_play_promise.then(function() {
+        console.log('video.play() succeeded');
+      }).catch(function(error) {
+        that.close();
+      });
+    }
+    */
   }
 
   ms.addEventListener('sourceopen', function(e) {
@@ -466,11 +468,12 @@ function start_puffer(user) {
   const audio = document.getElementById('tv-audio');
   const channel_select = document.getElementById('channel-select');
 
+  const client = new WebSocketClient(user, video, audio);
+
   channel_select.onchange = function() {
     console.log('set channel:', channel_select.value);
     client.set_channel(channel_select.value);
   };
 
-  const client = new WebSocketClient(user, video, audio);
   client.connect(channel_select.value);
 }
