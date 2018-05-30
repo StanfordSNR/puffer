@@ -1,28 +1,27 @@
-
 {% if user.is_authenticated %}
-    {% load static %}
-    <!DOCTYPE html>
-    <html lang="en">
+  {% load static %}
+  <!DOCTYPE html>
+  <html lang="en">
 
-    <head>
-      <meta charset="utf-8">
-      <title>Puffer</title>
-      <link rel="stylesheet" href="{% static 'style.css' %}">
-    </head>
+  <head>
+    <meta charset="utf-8">
+    <title>Puffer</title>
+    <link rel="stylesheet" href="{% static 'style.css' %}">
+  </head>
 
-    <body>
-      <h1>Puffer</h1>
-      <h3>Hello {{ user.get_username }}, Welcome to Puffer!</h3>
-      <a>Not {{ user.get_username }}? </a><a href="{% url 'logout'%}">Logout</a>
-      <br>
-      <br>
+  <body>
+    <h1>Puffer</h1>
+    <h3>Hello {{ user.get_username }}, Welcome to Puffer!</h3>
+    <a>Not {{ user.get_username }}? </a><a href="{% url 'logout'%}">Logout</a>
+    <br>
+    <br>
 
-      <button id="play-rand-alg">Begin Streaming (random algorithm)</button>
+    <button id="play-rand-alg">Begin Streaming (random algorithm)</button>
 
-      <script src="{% static 'index.js' %}"></script>
-    </body>
+    <script src="{% static 'index.js' %}"></script>
+  </body>
 
-    </html>
+  </html>
 {% else %}
   <li><a>You must </a>
   <a href="{% url 'login'%}?next={{request.path}}">Login</a>
