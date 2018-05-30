@@ -126,7 +126,7 @@ function init_app() {
       var aid = Number(get_parameter_by_name('aid'));  // algorithm ID
 
       if (aid === 1) {  // puffer
-        load_script('puffer.js').onload = function() {
+        load_script('static/puffer/puffer.js').onload = function() {
           start_puffer();  // start_puffer is defined in puffer.js
         }
       } else {
