@@ -18,7 +18,7 @@ def SignUp(request):
             invite_token = form.cleaned_data.get('invite_token')
             user = authenticate(username=username, password=raw_password)
             login(request, user)
-            return redirect('login')
+            return redirect('index')
     else:
         form = SignUpForm()
     return render(request, 'accounts/signup.html', {'form': form})
