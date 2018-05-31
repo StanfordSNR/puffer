@@ -4,6 +4,7 @@
 
 from django.contrib.auth import login, authenticate
 from django.shortcuts import render, redirect
+from django.contrib import messages
 
 from accounts.forms import SignUpForm
 
@@ -16,8 +17,8 @@ def SignUp(request):
             raw_password = form.cleaned_data.get('password1')
             invite_token = form.cleaned_data.get('invite_token')
             if invite_token != '63':
-                print("INVALID TOKEN: " + invite_token)
-                return redirect('account/signup.html')
+                messages.warning(request, 'Please provide a valid invitation code.')
+                return redirect('signup')
             user = authenticate(username=username, password=raw_password)
             login(request, user)
             return redirect('login')
