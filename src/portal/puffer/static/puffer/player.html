@@ -31,6 +31,13 @@
   </div>
 
   <script src="{% static 'puffer/js/player.js' %}"></script>
+
+  {% if aid %}
+  <script type="text/javascript">
+    init_player("{{ aid }}");
+  </script>
+  {% endif %}
+
 {% else %}
   <p>
   You must <a href="{% url 'login' %}">login</a>

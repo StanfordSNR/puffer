@@ -1,15 +1,15 @@
 function rand_alg() {
   var rand_urls = [
-    "../player.html?aid=1",
-    "../player.html?aid=2",
-    "../player.html?aid=3",
-    "../player.html?aid=4",
-    "../player.html?aid=5",
-    "../player.html?aid=6",
-    "../player.html?aid=7",
-    "../player.html?aid=8",
-    "../player.html?aid=10",
-    "../player.html?aid=11"
+    "/player/1/",
+    "/player/2/",
+    "/player/3/",
+    "/player/4/",
+    "/player/5/",
+    "/player/6/",
+    "/player/7/",
+    "/player/8/",
+    "/player/10/",
+    "/player/11/"
   ];
 
   var rand_url = rand_urls[Math.floor(Math.random() * rand_urls.length)];
