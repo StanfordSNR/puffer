@@ -17,9 +17,8 @@
   <p>
     <a href="{% url 'logout' %}">Logout</a>
   </p>
-  <br>
 
-  <button id="play-rand-alg">Begin Streaming (random algorithm)</button>
+  <button id="play-rand-alg">Begin Streaming (random algorithm)</button><br>
 
   {% if user.is_superuser %}
     <a href="{% url 'player' aid=1 %}">Puffer</a><br>

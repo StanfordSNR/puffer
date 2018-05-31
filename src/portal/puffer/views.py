@@ -8,7 +8,3 @@ def index(request):
 def player(request, aid):
     context = {'aid': aid}
     return render(request, 'puffer/player.html', context)
-
-
-def login(request):
-    return render(request, 'puffer/login.html')
