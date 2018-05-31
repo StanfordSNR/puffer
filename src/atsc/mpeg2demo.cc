@@ -777,7 +777,7 @@ public:
         break;
       case STATE_BUFFER:
         if ( picture_count > 1 ) {
-          throw runtime_error( "PES packet with multiple pictures" );
+          throw UnsupportedMPEG( "PES packet with multiple pictures" );
         }
         return;
       case STATE_SLICE:
