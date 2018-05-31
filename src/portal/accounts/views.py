@@ -17,7 +17,7 @@ def SignUp(request):
             raw_password = form.cleaned_data.get('password1')
             invite_token = form.cleaned_data.get('invite_token')
             if invite_token != '63':
-                messages.warning(request, 'Please provide a valid invitation code.')
+                #messages.warning(request, 'Please provide a valid invitation code.')
                 return redirect('signup')
             user = authenticate(username=username, password=raw_password)
             login(request, user)
