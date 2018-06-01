@@ -20,7 +20,7 @@ def SignUp(request):
             # Thus, a matchingToken is gauranteed to exist
 
             invite_token = form.cleaned_data.get('invite_token')
-            matching_token = tokenStorageModel.objects.filter(token=invite_token)
+            matching_token = InvitationToken.objects.filter(token=invite_token)
             matching_token.delete()  # Now that we have created a new user, delete their invite token
                                      # from the list of unassigned tokens
             user = authenticate(username=username, password=raw_password)

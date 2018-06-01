@@ -6,9 +6,9 @@ from accounts.models import InvitationToken
 class InviteTokenField(forms.CharField):
     def validate(self, value):
         super().validate(value)  # Use normal charField validator first
-        matching_token = tokenStorageModel.objects.filter(token=value)
-        if matching_token.first() is None or getattr(matching_token.first(), 'token') == '0':
-            # Have to check for 0 bc 0 is the default value for field
+
+        if not InvitationToken.objects.filter(token=value).exists():
+            # No matching invitation code was found
             raise forms.ValidationError("Please provide a valid invitation code!")
 
 
