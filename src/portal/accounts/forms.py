@@ -1,11 +1,14 @@
 from django import forms
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.models import User
+from accounts.models import tokenStorageModel
 
 class InviteTokenField(forms.CharField):
     def validate(self, value):
         super().validate(value) #Use normal charField validator first
-        if value != '63':
+        matchingToken = tokenStorageModel.objects.filter(token=value)
+        if matchingToken.first() is None or getattr(matchingToken.first(), 'token') == '0':
+            #Have to check for 0 bc 0 is the default value for field
             raise forms.ValidationError("Please provide a valid invitation code!")
 
 
@@ -21,8 +24,3 @@ class SignUpForm(UserCreationForm):
         model = User
         fields = ('username', 'first_name', 'last_name', 'email', 'invite_token', 'password1', 'password2', )
 
-    def clean_invite_token(self):
-        data = self.cleaned_data['invite_token']
-        if data != '63':
-            raise forms.ValidationError("Please provide a valid invitation code")
-        return data
