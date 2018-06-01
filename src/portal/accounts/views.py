@@ -1,13 +1,9 @@
-#from django.contrib.auth.forms import UserCreationForm
-#from django.urls import reverse_lazy
-#from django.views import generic
-
 from django.contrib.auth import login, authenticate
 from django.shortcuts import render, redirect
 from django.contrib import messages
 from accounts.models import InvitationToken
-
 from accounts.forms import SignUpForm
+
 
 def SignUp(request):
     if request.method == 'POST':
@@ -16,17 +12,16 @@ def SignUp(request):
             form.save()
             username = form.cleaned_data.get('username')
             raw_password = form.cleaned_data.get('password1')
-            # Note that form.is_valid() will only ever be true if a valid token was provided
-            # Thus, a matchingToken is gauranteed to exist
+            # form.is_valid() will only ever be true if a valid
+            # token was provided. Thus, a matchingToken is gauranteed to exist
 
             invite_token = form.cleaned_data.get('invite_token')
             matching_token = InvitationToken.objects.filter(token=invite_token)
-            matching_token.delete()  # Now that we have created a new user, delete their invite token
-                                     # from the list of unassigned tokens
+            # We have created the new user so we can delete their invite token
+            matching_token.delete()
             user = authenticate(username=username, password=raw_password)
             login(request, user)
             return redirect('index')
     else:
         form = SignUpForm()
     return render(request, 'accounts/signup.html', {'form': form})
-
