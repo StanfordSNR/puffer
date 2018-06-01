@@ -19,9 +19,11 @@ class SignUpForm(UserCreationForm):
     last_name = forms.CharField(max_length=30, required=False,
                                 help_text='Optional.')
     email = forms.EmailField(max_length=254,
-                          help_text='Required. Inform a valid email address.')
+                             help_text='Required. Inform a valid\
+                                        email address.')
     invite_token = InviteTokenField(max_length=64,
-                help_text='A valid invitation token is required for signup.')
+                                    help_text='A valid invitation token\
+                                    is required for signup.')
 
     class Meta:
         model = User
