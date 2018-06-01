@@ -32,9 +32,9 @@
 
   <script src="{% static 'puffer/js/player.js' %}"></script>
 
-  {% if aid %}
+  {% if params_json %}
   <script type="text/javascript">
-    init_player("{{ aid }}");
+    init_player("{{ params_json|escapejs }}");
   </script>
   {% endif %}
 

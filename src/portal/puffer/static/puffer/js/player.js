@@ -7,11 +7,9 @@ function load_script(script_path) {
   return new_script;
 }
 
-function start_dashjs(aid) {
+function start_dashjs(aid, session_key) {
   const channel_select = document.getElementById('channel-select');
-  var manifest_url = '/static/puffer/media/' + channel_select.value + '/ready/live.mpd'; //I think
-  //this is not how this should be done. Instead I should set up redirects so that any URL beginning
-  //with static searches recursively through the entire static directory.
+  var manifest_url = '/static/puffer/media/' + channel_select.value + '/ready/live.mpd';
 
   var player = dashjs.MediaPlayer().create();
   player.initialize(document.getElementById("tv-player"), manifest_url, true);
@@ -107,15 +105,24 @@ function setup_control_bar() {
   };
 }
 
-function init_player(aid_str) {
-  var aid = Number(aid_str);
+function init_player(params_json) {
+  var params = JSON.parse(params_json);
+
+  var aid = Number(params.aid);
+  var session_key = params.session_key;
+
+  /* assert that session_key is not null */
+  if (!session_key) {
+    console.log('Error: no session key')
+    return;
+  }
 
   /* Set up the player control bar */
   setup_control_bar();
 
   if (aid === 1) {  // puffer
     load_script('/static/puffer/js/puffer.js').onload = function() {
-      start_puffer();  // start_puffer is defined in puffer.js
+      start_puffer(session_key);  // start_puffer is defined in puffer.js
     }
   } else {
     /* All the other algorithms are based on dash.js */
@@ -128,7 +135,7 @@ function init_player(aid_str) {
     }
 
     new_script.onload = function() {
-      start_dashjs(aid);
+      start_dashjs(aid, session_key);
     }
   }
 }
