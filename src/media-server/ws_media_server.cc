@@ -548,6 +548,12 @@ void close_connection(WebSocketServer & server, const uint64_t connection_id)
   clients.erase(connection_id);
 }
 
+bool auth_client(const ClientInitMsg & msg)
+{
+  cerr << msg.session_key << endl;
+  return true;
+}
+
 int main(int argc, char * argv[])
 {
   if (argc < 1) {
@@ -591,14 +597,24 @@ int main(int argc, char * argv[])
         ClientMsgParser parser(msg.payload());
 
         switch (parser.msg_type()) {
-          case ClientMsgParser::Type::Init:
-            handle_client_init(server, client, parser.parse_init_msg());
-            break;
-          case ClientMsgParser::Type::Info:
-            handle_client_info(client, parser.parse_info_msg());
-            break;
-          default:
-            break;
+        case ClientMsgParser::Type::Init:
+          {
+            const ClientInitMsg & client_init_msg = parser.parse_init_msg();
+
+            if (not auth_client(client_init_msg)) {
+              cerr << connection_id << ": authentication failed" << endl;
+              close_connection(server, connection_id);
+              break;
+            }
+
+            handle_client_init(server, client, client_init_msg);
+          }
+          break;
+        case ClientMsgParser::Type::Info:
+          handle_client_info(client, parser.parse_info_msg());
+          break;
+        default:
+          break;
         }
       } catch (const exception & e) {
         cerr << "Warning in message callback: exception in client "

@@ -300,7 +300,7 @@ function AVSource(video, audio, options) {
   };
 }
 
-function WebSocketClient(video, audio) {
+function WebSocketClient(video, audio, session_key) {
   var ws = null;
   var av_source = null;
 
@@ -313,6 +313,7 @@ function WebSocketClient(video, audio) {
     if (ws && ws.readyState === WS_OPEN) {
       try {
         var msg = {
+          sessionKey: session_key,
           playerWidth: video.videoWidth,
           playerHeight: video.videoHeight,
           channel: channel
@@ -467,7 +468,7 @@ function start_puffer(session_key) {
   const audio = document.getElementById('tv-audio');
   const channel_select = document.getElementById('channel-select');
 
-  const client = new WebSocketClient(user, video, audio);
+  const client = new WebSocketClient(video, audio, session_key);
 
   channel_select.onchange = function() {
     console.log('set channel:', channel_select.value);

@@ -13,7 +13,7 @@ using json = nlohmann::json;
 class ClientInitMsg
 {
 public:
-  std::string user_id {};
+  std::string session_key {};
 
   int player_width {};
   int player_height {};
