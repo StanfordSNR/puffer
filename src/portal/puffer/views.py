@@ -9,6 +9,9 @@ def index(request):
 
 def player(request, aid):
     # parameters passed to Javascript stored in JSON
+    token_set = None
+    if request.user.is_authenticated:
+        token_set = request.user.invitationtoken_set.all()
     params = {'aid': aid, 'session_key': request.session.session_key}
     context = {'params_json': json.dumps(params)}
 
