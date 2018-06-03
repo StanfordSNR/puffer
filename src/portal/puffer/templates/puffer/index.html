@@ -20,6 +20,16 @@
 
   <button id="play-rand-alg">Begin Streaming (random algorithm)</button><br>
 
+  <p>Tokens available to distribute: {{ user.invitationtoken_set.all.count }}</p>
+  {% if user.invitationtoken_set.all %}
+    <p> List of Tokens: </p>
+    <ul>
+    {% for t in user.invitationtoken_set.all %}
+      <li> {{ t.token }}</li>
+    {% endfor %}
+    </ul>
+  {% endif %}
+
   {% if user.is_superuser %}
     <a href="{% url 'player' aid=1 %}">Puffer</a><br>
     <a href="{% url 'player' aid=2 %}">Default dash.js (abrDynamic)</a><br>
@@ -36,8 +46,7 @@
   <script src="{% static 'puffer/js/index.js' %}"></script>
 {% else %}
   <p>
-  You must <a href="{% url 'login' %}">login</a> to
-  use Puffer.
+  You must <a href="{% url 'login' %}">login</a> to use Puffer.
   </p>
 {% endif %}
 

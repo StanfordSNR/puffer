@@ -30,14 +30,6 @@
     </div>
   </div>
 
-  <p>Tokens available to distribute: {{ user.invitationtoken_set.all.count }}</p>
-  {% if user.invitationtoken_set.all %}
-    <p> List of Tokens: </p>
-    {% for t in user.invitationtoken_set.all %}
-      <li> {{ t.token }}</li>
-    {% endfor %}
-  {% endif %}
-
   <script src="{% static 'puffer/js/player.js' %}"></script>
 
   {% if params_json %}
@@ -48,8 +40,7 @@
 
 {% else %}
   <p>
-  You must <a href="{% url 'login' %}">login</a>
-  to view this page.
+  You must <a href="{% url 'login' %}">login</a> to view this page.
   </p>
 {% endif %}
 
