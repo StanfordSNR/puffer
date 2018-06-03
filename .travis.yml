@@ -10,7 +10,7 @@ addons:
     - gcc-7
     - g++-7
     - libmpeg2-4-dev
-    - libpqxx-dev
+    - libpq-dev
     - libssl-dev
     - libcrypto++-dev
     - libyaml-cpp-dev
@@ -19,9 +19,16 @@ addons:
 
 before_install:
   # download a static-built ffmpeg
-  - wget https://sophon.stanford.edu/public/ffmpeg-static.tar.xz
+  - wget https://s3-us-west-2.amazonaws.com/stanford-puffer/ffmpeg-static.tar.xz
   - tar -xf ffmpeg-static.tar.xz
   - sudo cp ffmpeg-static/ffmpeg /usr/bin/
+  # install the latest version of libpqxx
+  - git clone https://github.com/jtv/libpqxx.git
+  - cd libpqxx
+  - ./configure --enable-documentation=no
+  - make -j3
+  - sudo make install
+  - cd ..
 
 install:
   # upgrade gcc
