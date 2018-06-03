@@ -13,7 +13,7 @@ def SignUp(request):
             username = form.cleaned_data.get('username')
             raw_password = form.cleaned_data.get('password1')
             # form.is_valid() will only ever be true if a valid
-            # token was provided. Thus, a matchingToken is gauranteed to exist
+            # token was provided. Thus, a matching_token is guaranteed to exist
 
             invite_token = form.cleaned_data.get('invite_token')
             matching_token = InvitationToken.objects.filter(token=invite_token)

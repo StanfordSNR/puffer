@@ -40,7 +40,7 @@
 }
 
 #mute-button {
-  background-image: url(/images/volume_off.svg);
+  background-image: url(/static/puffer/images/volume_off.svg);
   background-size: 25px;
   width: 25px;
   height: 25px;
@@ -114,7 +114,7 @@
 }
 
 #full-screen-button {
-  background-image: url(/images/full_screen_button.svg);
+  background-image: url(/static/puffer/images/full_screen_button.svg);
   background-size: 25px;
   width: 25px;
   height: 25px;

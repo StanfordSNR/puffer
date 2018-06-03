@@ -31,12 +31,12 @@
   </div>
 
   <p>Tokens available to distribute: {{ user.invitationtoken_set.all.count }}</p>
-  {% if user.invitationtoken_set.all.count > 0 %}
+  {% if user.invitationtoken_set.all %}
     <p> List of Tokens: </p>
+    {% for t in user.invitationtoken_set.all %}
+      <li> {{ t.token }}</li>
+    {% endfor %}
   {% endif %}
-  {% for t in user.invitationtoken_set.all %}
-    <li> {{ t.token }}</li>
-  {% endfor %}
 
   <script src="{% static 'puffer/js/player.js' %}"></script>
 

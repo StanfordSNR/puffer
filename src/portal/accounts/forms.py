@@ -14,12 +14,11 @@ class InviteTokenField(forms.CharField):
 
 
 class SignUpForm(UserCreationForm):
-    email = forms.EmailField(max_length=254,
-                             help_text='Required. Inform a valid\
-                                        email address.')
-    invite_token = InviteTokenField(max_length=64,
-                                    help_text='A valid invitation token\
-                                    is required for signup.')
+    email = forms.EmailField(
+        max_length=254, help_text='Required. Inform a valid email address.')
+    invite_token = InviteTokenField(
+        max_length=64,
+        help_text='A valid invitation token is required for signup.')
 
     class Meta:
         model = User

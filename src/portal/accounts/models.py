@@ -14,7 +14,7 @@ class InvitationToken(models.Model):
             holder = self.holder.email
             admin = self.holder.is_superuser
             if admin:
-                return self.token + " (" + holder + "- admin)"
+                return self.token + " (" + holder + " - admin)"
             else:
                 return self.token + " (" + holder + " - non-admin)"
         return self.token + " (" + holder + ")"
