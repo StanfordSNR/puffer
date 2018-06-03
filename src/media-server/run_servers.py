@@ -12,9 +12,9 @@ def check_before_link(p):
         sys.exit('Error: {} already exists but is not a symlink'.format(p))
 
 
-def link_dist(base_dir):
+def link_dist(base_dir, static_dir):
     src_dist = path.join(base_dir, 'third_party', 'dist-for-puffer')
-    dst_dist = path.join(base_dir, 'src', 'static', 'dist')
+    dst_dist = path.join(static_dir, 'dist')
     check_before_link(dst_dist)
 
     if not path.islink(dst_dist) or os.readlink(dst_dist) != src_dist:
@@ -23,8 +23,8 @@ def link_dist(base_dir):
                          .format(src_dist, dst_dist))
 
 
-def link_media(base_dir, src_media):
-    dst_media = path.join(base_dir, 'src', 'static', 'media')
+def link_media(base_dir, static_dir, src_media):
+    dst_media = path.join(static_dir, 'media')
     check_before_link(dst_media)
 
     if src_media is None:
@@ -56,12 +56,14 @@ def main():
 
     base_dir = path.abspath(path.join(path.dirname(__file__),
                                       os.pardir, os.pardir))
+    static_dir = path.join(base_dir, 'src', 'portal',
+                           'puffer', 'static', 'puffer')
 
     # check and create a symbolic link for dist-for-puffer
-    link_dist(base_dir)
+    link_dist(base_dir, static_dir)
 
     # check or create a symbolic link for media
-    link_media(base_dir, args.media)
+    link_media(base_dir, static_dir, args.media)
 
     procs = []
 
@@ -69,7 +71,7 @@ def main():
     media_server_src = path.join(base_dir, 'src', 'media-server',
                                  'ws_media_server')
     media_server_cfg = path.abspath(args.servers_config)
-    procs.append(Popen([media_server_src, media_server_cfg]))
+    procs.append(Popen([media_server_src, media_server_cfg], cwd=static_dir))
 
     pensieve_dir = path.join(base_dir, 'third_party', 'pensieve')
     run_servers_in_pensieve(pensieve_dir, procs)

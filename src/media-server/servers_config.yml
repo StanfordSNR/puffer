@@ -7,8 +7,7 @@ max_ws_frame_b: 1000000
 max_ws_queue_b: 10000000
 channel:
   - tos
-  - nbc-clip
-# - tos-live
+  - nbc
 tos:
   live: false
   input: media/tos/
@@ -23,9 +22,9 @@ tos:
   video_codec: 'video/mp4; codecs="avc1.42E020"'
   audio_codec: 'audio/webm; codecs="opus"'
   init_vts: 180000
-nbc-clip:
+nbc:
   live: false
-  input: media/nbc-clip/
+  input: media/nbc/
   video:
     1280x720: [23]
     854x480: [18]
@@ -38,18 +37,3 @@ nbc-clip:
   video_codec: 'video/mp4; codecs="avc1.42E020"'
   audio_codec: 'audio/webm; codecs="opus"'
   init_vts: 180180
-tos-live:
-  live: true
-  input: media/tos-live/
-  video:
-    1280x720: [20, 28]
-    854x480: [20, 28]
-  audio:
-    - 128k
-  timescale: 90000
-  video_duration: 180000
-  audio_duration: 432000
-  video_codec: 'video/mp4; codecs="avc1.42E020"'
-  audio_codec: 'audio/webm; codecs="opus"'
-  presentation_delay_s: 10
-  clean_window_s: 60
