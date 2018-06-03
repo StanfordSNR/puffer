@@ -12,4 +12,4 @@ ws_media_server_SOURCES = \
 	../notifier/inotify.hh ../notifier/inotify.cc \
 	../../third_party/json.upstream/single_include/nlohmann/json.hpp
 ws_media_server_LDADD = ../net/libnet.a ../util/libutil.a ../net/libnet.a \
-	$(SSL_LIBS) $(CRYPTO_LIBS) $(YAML_LIBS) -lstdc++fs
+	$(POSTGRES_LIBS) $(SSL_LIBS) $(CRYPTO_LIBS) $(YAML_LIBS) -lstdc++fs

@@ -8,6 +8,7 @@
 #include <random>
 #include <algorithm>
 
+#include <pqxx/pqxx>
 #include "media_formats.hh"
 #include "inotify.hh"
 #include "timerfd.hh"
@@ -548,10 +549,19 @@ void close_connection(WebSocketServer & server, const uint64_t connection_id)
   clients.erase(connection_id);
 }
 
-bool auth_client(const ClientInitMsg & msg)
+bool auth_client(const string & session_key, pqxx::connection & db_conn)
 {
-  cerr << msg.session_key << endl;
-  return true;
+  pqxx::nontransaction n(db_conn);
+
+  /* check if session_key exists and is not expired yet */
+  string sql_query = "SELECT EXISTS(SELECT 1 FROM django_session WHERE "
+    "session_key='" + session_key + "' AND expire_date>now());";
+  pqxx::result r = n.exec(sql_query);
+
+  /* ensure there is only one returned record containing true or false */
+  assert(r.size() == 1 and r[0].size() == 1);
+
+  return r[0][0].as<bool>();
 }
 
 int main(int argc, char * argv[])
@@ -580,13 +590,20 @@ int main(int argc, char * argv[])
   // server.ssl_context().use_private_key_file(config["private_key"].as<string>());
   // server.ssl_context().use_certificate_file(config["certificate"].as<string>());
 
+  /* connect to database */
+  pqxx::connection db_conn(config["db_connection"].as<string>());
+  if (not db_conn.is_open()) {
+    cerr << "Failed to connect to database" << endl;
+    return EXIT_FAILURE;
+  }
+
   /* load channels and mmap (existing and new) media files */
   Inotify inotify(server.poller());
   load_channels(config, inotify);
 
   /* set server callbacks */
   server.set_message_callback(
-    [&server](const uint64_t connection_id, const WSMessage & msg)
+    [&server, &db_conn](const uint64_t connection_id, const WSMessage & msg)
     {
       if (debug) {
         cerr << connection_id << ": message " << msg.payload() << endl;
@@ -599,15 +616,15 @@ int main(int argc, char * argv[])
         switch (parser.msg_type()) {
         case ClientMsgParser::Type::Init:
           {
-            const ClientInitMsg & client_init_msg = parser.parse_init_msg();
+            const ClientInitMsg & init_msg = parser.parse_init_msg();
 
-            if (not auth_client(client_init_msg)) {
+            if (not auth_client(init_msg.session_key, db_conn)) {
               cerr << connection_id << ": authentication failed" << endl;
               close_connection(server, connection_id);
               break;
             }
 
-            handle_client_init(server, client, client_init_msg);
+            handle_client_init(server, client, init_msg);
           }
           break;
         case ClientMsgParser::Type::Info:

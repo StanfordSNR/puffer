@@ -1,6 +1,9 @@
 port: 9361
 # private_key:
 # certificate:
+db_connection: >-
+  host=puffer-dev.c78hjwwa209d.us-west-1.rds.amazonaws.com port=5432
+  dbname=puffer user=puffer password=
 max_buffer_s: 30
 max_inflight_s: 10
 max_ws_frame_b: 1000000
