@@ -3,7 +3,7 @@ from django.contrib.auth.models import User
 
 
 class InvitationToken(models.Model):
-    token = models.CharField(max_length=64, default=None)
+    token = models.CharField(max_length=64)
     holder = models.ForeignKey(User, on_delete=models.CASCADE,
                                null=True, blank=True)
 
