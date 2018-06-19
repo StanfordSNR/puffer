@@ -290,7 +290,7 @@ void MPDWriter::write_framerate(const float & framerate)
   } else if (nearly_equal(framerate, 30)) {
     writer_->attr("frameRate", 30);
   } else if (nearly_equal(framerate, 59.94)) {
-    writer_->attr("frameRate", "600000/1001");
+    writer_->attr("frameRate", "60000/1001");
   } else if (nearly_equal(framerate, 60)) {
     writer_->attr("frameRate", 60);
   } else {

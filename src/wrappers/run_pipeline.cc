@@ -228,7 +228,7 @@ void run_depcleaner(ProcessManager & proc_manager,
 
 void run_windowcleaner(ProcessManager & proc_manager,
                        const vector<tuple<string, string>> & ready,
-                       const int clean_window_ts)
+                       const int64_t clean_window_ts)
 {
   string windowcleaner = src_path / "cleaner/windowcleaner";
 
@@ -308,7 +308,7 @@ int main(int argc, char * argv[])
   run_depcleaner(proc_manager, awork, aready);
 
   /* run windowcleaner to clean up files in ready/ */
-  int clean_window_ts = config["clean_window_s"].as<int>() * global_timescale;
+  int64_t clean_window_ts = config["clean_window_s"].as<int>() * global_timescale;
   run_windowcleaner(proc_manager, vready, clean_window_ts);
   run_windowcleaner(proc_manager, aready, clean_window_ts);
 
