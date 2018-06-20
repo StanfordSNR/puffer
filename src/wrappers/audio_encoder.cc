@@ -69,6 +69,7 @@ int main(int argc, char * argv[])
     "ffmpeg", "-nostdin", "-hide_banner", "-loglevel", "panic", "-y",
     "-i", input_path, "-c:a", "libopus", "-b:a", bitrate,
     "-af", "aformat=channel_layouts='7.1|5.1|stereo'",
+    "-avoid_negative_ts", "make_zero", /* see https://trac.ffmpeg.org/ticket/6841 */
     "-cluster_time_limit", "5000", output_path };
 
   ProcessManager proc_manager;
