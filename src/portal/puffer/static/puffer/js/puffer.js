@@ -67,6 +67,7 @@ function AVSource(video, audio, options) {
   function init_source_buffers() {
     console.log('Initializing new AV source');
     video.currentTime = init_seek_ts / timescale;
+    audio.currentTime = video.currentTime;
 
     vbuf = ms.addSourceBuffer(video_codec);
     vbuf.addEventListener('updateend', that.vbuf_update);
@@ -457,6 +458,7 @@ function WebSocketClient(video, audio, session_key) {
 
   // Start sending status updates to the server
   function timer_helper() {
+    audio.currentTime = video.currentTime;
     send_client_info('timer');
     setTimeout(timer_helper, SEND_INFO_INTERVAL);
   }
