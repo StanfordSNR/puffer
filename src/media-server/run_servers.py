@@ -52,6 +52,8 @@ def main():
     parser.add_argument('servers_config', help='YAML config file for servers')
     parser.add_argument('--media',
             help='create a symlink to the directory containing channel media')
+    parser.add_argument('--all', action='store_true',
+            help='run all media servers (only run puffer by default)')
     args = parser.parse_args()
 
     base_dir = path.abspath(path.join(path.dirname(__file__),
@@ -73,8 +75,9 @@ def main():
     media_server_cfg = path.abspath(args.servers_config)
     procs.append(Popen([media_server_src, media_server_cfg], cwd=static_dir))
 
-    pensieve_dir = path.join(base_dir, 'third_party', 'pensieve')
-    run_servers_in_pensieve(pensieve_dir, procs)
+    if args.all:
+        pensieve_dir = path.join(base_dir, 'third_party', 'pensieve')
+        run_servers_in_pensieve(pensieve_dir, procs)
 
     for proc in procs:
         proc.wait()
