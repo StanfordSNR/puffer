@@ -24,10 +24,10 @@ using WebSocketServer = WebSocketTCPServer;
 // using WebSocketServer = WebSocketSecureServer;
 
 /* global settings */
-static const int DEFAULT_MAX_BUFFER_S = 60;
-static const int DEFAULT_MAX_INFLIGHT_S = 5;
-static const size_t DEFAULT_MAX_WS_FRAME_LEN = 100000;
-static const size_t DEFAULT_MAX_WS_QUEUE_LEN = DEFAULT_MAX_WS_FRAME_LEN;
+static const unsigned int DEFAULT_MAX_BUFFER_S = 60;
+static const unsigned int DEFAULT_MAX_INFLIGHT_S = 30;
+static const size_t DEFAULT_MAX_WS_FRAME_LEN = 5000000;
+static const size_t DEFAULT_MAX_WS_QUEUE_LEN = 30 * DEFAULT_MAX_WS_FRAME_LEN;
 
 static unsigned int max_buffer_seconds;
 static unsigned int max_inflight_seconds;
@@ -370,9 +370,6 @@ void serve_client(WebSocketServer & server, WebSocketClient & client)
 
 void start_global_timer(WebSocketServer & server)
 {
-  /* the timer fires every 10 ms */
-  global_timer.start(10, 10);
-
   server.poller().add_action(
     Poller::Action(global_timer, Direction::In,
       [&server]() {
@@ -390,6 +387,9 @@ void start_global_timer(WebSocketServer & server)
       }
     )
   );
+
+  /* the timer fires every 100 ms */
+  global_timer.start(100, 100);
 }
 
 void send_server_init(WebSocketServer & server, WebSocketClient & client,
@@ -659,7 +659,7 @@ int main(int argc, char * argv[])
     }
   );
 
-  /* start the global timer */
+  /* start a global timer to serve media to clients */
   start_global_timer(server);
 
   return server.loop();

@@ -1,6 +1,6 @@
 const WS_OPEN = 1;
 
-const SEND_INFO_INTERVAL = 2000;
+const TIMER_INTERVAL = 1000;
 const BASE_RECONNECT_BACKOFF = 100;
 const MAX_RECONNECT_BACKOFF = 30000;
 
@@ -459,8 +459,14 @@ function WebSocketClient(video, audio, session_key) {
   // Start sending status updates to the server
   function timer_helper() {
     audio.currentTime = video.currentTime;
+
+    if (debug) {
+      console.log('video.currentTime', video.currentTime,
+                  'audio.currentTime', audio.currentTime);
+    }
+
     send_client_info('timer');
-    setTimeout(timer_helper, SEND_INFO_INTERVAL);
+    setTimeout(timer_helper, TIMER_INTERVAL);
   }
   timer_helper();
 }
@@ -468,8 +474,15 @@ function WebSocketClient(video, audio, session_key) {
 function start_puffer(session_key) {
   const video = document.getElementById('tv-player');
   const audio = document.getElementById('tv-audio');
-  const channel_select = document.getElementById('channel-select');
 
+  video.addEventListener('loadeddata', function() {
+    if (video.readyState >= 2) {
+      console.log('Start playing video');
+      video.play();
+    }
+  });
+
+  const channel_select = document.getElementById('channel-select');
   const client = new WebSocketClient(video, audio, session_key);
 
   channel_select.onchange = function() {

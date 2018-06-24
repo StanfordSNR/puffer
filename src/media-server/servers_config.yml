@@ -4,39 +4,12 @@ port: 9361
 db_connection: >-
   host=puffer-dev.c78hjwwa209d.us-west-1.rds.amazonaws.com port=5432
   dbname=puffer user=puffer password=
-max_buffer_s: 30
-max_inflight_s: 10
-max_ws_frame_b: 1000000
-max_ws_queue_b: 10000000
 channel:
-  - tos
-  - nbc
-tos:
-  live: false
-  input: media/tos/
+  - fox
+fox:
+  live: true
+  input: media/fox/
   video:
-    1280x720: [20, 28]
-    854x480: [20, 28]
+    1280x720: [23, 28]
   audio:
     - 128k
-  timescale: 90000
-  video_duration: 180000
-  audio_duration: 432000
-  video_codec: 'video/mp4; codecs="avc1.42E020"'
-  audio_codec: 'audio/webm; codecs="opus"'
-  init_vts: 180000
-nbc:
-  live: false
-  input: media/nbc/
-  video:
-    1280x720: [23]
-    854x480: [18]
-  audio:
-    - 32k
-    - 64k
-  timescale: 90000
-  video_duration: 180180
-  audio_duration: 432000
-  video_codec: 'video/mp4; codecs="avc1.42E020"'
-  audio_codec: 'audio/webm; codecs="opus"'
-  init_vts: 180180
