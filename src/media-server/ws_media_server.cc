@@ -553,10 +553,10 @@ bool auth_client(const string & session_key, pqxx::connection & db_conn)
 {
   pqxx::nontransaction n(db_conn);
 
-  /* check if session_key exists and is not expired yet */
-  string sql_query = "SELECT EXISTS(SELECT 1 FROM django_session WHERE "
-    "session_key='" + session_key + "' AND expire_date>now());";
-  pqxx::result r = n.exec(sql_query);
+  /* safely check if session_key exists and is not expired yet */
+  db_conn.prepare("auth", "SELECT EXISTS(SELECT 1 FROM django_session WHERE "
+    "session_key = $1 AND expire_date > now());");
+  pqxx::result r = n.prepared("auth")(session_key).exec();
 
   /* ensure there is only one returned record containing true or false */
   assert(r.size() == 1 and r[0].size() == 1);
