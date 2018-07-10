@@ -18,7 +18,7 @@
     <a href="{% url 'logout' %}">Logout</a>
   </p>
 
-  <button id="play-rand-alg">Begin Streaming (random algorithm)</button><br>
+  <button id="play-rand-alg">Begin Streaming</button><br>
 
   <p>Tokens available to distribute: {{ user.invitationtoken_set.all.count }}</p>
   {% if user.invitationtoken_set.all %}

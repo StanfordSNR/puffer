@@ -25,7 +25,7 @@ SECRET_KEY = os.environ['PUFFER_PORTAL_SECRET_KEY']
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['puffer.stanford.edu']
 
 
 # Application definition

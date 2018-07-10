@@ -12,7 +12,8 @@ function rand_alg() {
     "/player/11/"
   ];
 
-  var rand_url = rand_urls[Math.floor(Math.random() * rand_urls.length)];
+//  var rand_url = rand_urls[Math.floor(Math.random() * rand_urls.length)];
+  var rand_url = rand_urls[0];
   window.location.replace(rand_url);
 }
 
