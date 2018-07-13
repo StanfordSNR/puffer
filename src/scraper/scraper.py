@@ -4,7 +4,8 @@ import argparse
 import os
 import urllib3
 import re
-
+import time
+import subprocess
 
 from collections import namedtuple
 
@@ -14,7 +15,7 @@ PASSWORD = os.getenv('BLONDER_TONGUE_PASSWORD')
 
 
 SESSION_ID_REGEX = re.compile(r'<input type="hidden" name="session_id" value="(\d+)">')
-LOGGED_IN_STR = 'Welcome Admin!  Please wait while retrieving information.'
+LOGGED_IN_STR = 'Welcome puffer!  Please wait while retrieving information.'
 INPUT_STATUS_REGEX = re.compile(
     r'<tr>\s+'
     r'<td width="2%" bgcolor="#[0-9A-F]+">(?P<input>\d+)</td>\s+'
@@ -26,6 +27,18 @@ INPUT_STATUS_REGEX = re.compile(
 
 InputStatus = namedtuple('InputStatus',
                          ['input', 'snr', 'rf_channel', 'ts_rate', 'data_rate'])
+
+
+# Sends snr info and more to influxdb for monitoring
+def send_to_influx(statuses):
+    cur_time = str(int(time.time()))
+    for status in statuses:
+        data_string_snr = 'curl -i -XPOST "http://localhost:8086/write?db' \
+        '=collectd&precision=s" --data-binary "rf_status,rf_channel=' + \
+        str(status.rf_channel).split(" ")[0] + ' snrval=' + \
+        str(status.snr) + ' ' + cur_time + '"'
+
+        print(subprocess.call(data_string_snr, shell=True))
 
 
 def get_args():
@@ -69,7 +82,8 @@ def post_login(http, host_and_port, session_id):
 
 
 def get_status_page(http, host_and_port, session_id):
-    r = http.request('GET', 'http://{}/cgi-bin/status.cgi?session_id={}'.format(host_and_port, session_id),
+    r = http.request('GET', 'http://{}/cgi-bin/status.cgi?session_id={}'.format(
+                     host_and_port, session_id),
                      headers={'Cookie': make_cookie(session_id)})
     if r.status != 200:
         raise RuntimeError('Failed to load information page')
@@ -89,20 +103,18 @@ def parse_status_html(html):
 
 
 def main(host_and_port):
-    http = urllib3.PoolManager()
+    # Loop endlessly and report results to influxdb
+    while True:
+        http = urllib3.PoolManager()
 
-    session_id = get_session_id(http, host_and_port)
-    post_login(http, host_and_port, session_id)
-    status_html = get_status_page(http, host_and_port, session_id)
-    statuses = parse_status_html(status_html)
+        session_id = get_session_id(http, host_and_port)
+        post_login(http, host_and_port, session_id)
+        status_html = get_status_page(http, host_and_port, session_id)
+        statuses = parse_status_html(status_html)
 
-    # TODO: send this information to a database
-    for status in statuses:
-        print ('Input', status.input)
-        print ('\t\tSNR:', status.snr)
-        print ('\t\tRF Channel:', status.rf_channel)
-        print ('\t\tTS Rate:', status.ts_rate)
-        print ('\t\tData Rate:', status.data_rate)
+        # Below sends snr info to influxdb
+        send_to_influx(statuses)
+        time.sleep(60)
 
 
 if __name__ == '__main__':
