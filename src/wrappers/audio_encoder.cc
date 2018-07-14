@@ -64,13 +64,29 @@ int main(int argc, char * argv[])
   string input_path = argv[optind];
   string output_path = argv[optind + 1];
 
-  /* encode audio */
-  vector<string> args {
-    "ffmpeg", "-nostdin", "-hide_banner", "-loglevel", "panic", "-y",
-    "-i", input_path, "-c:a", "libopus", "-b:a", bitrate,
-    "-af", "aformat=channel_layouts='7.1|5.1|stereo'",
-    "-cluster_time_limit", "5000", output_path };
+  string tmp_opus_name = fs::path(output_path).stem().string() + ".opus";
+  string tmp_opus_path = fs::path(output_path).parent_path() / tmp_opus_name;
 
   ProcessManager proc_manager;
-  return proc_manager.run("ffmpeg", args);
+
+  /* workaround: encode using opusenc first.
+   * Related bug of FFmpeg: https://trac.ffmpeg.org/ticket/6841. */
+  vector<string> args1 { "opusenc", "--quiet", input_path, tmp_opus_path };
+  int ret_code = proc_manager.run("opusenc", args1);
+  if (ret_code != 0) {
+    return ret_code;
+  }
+
+  /* encode audio */
+  vector<string> args2 {
+    "ffmpeg", "-nostdin", "-hide_banner", "-loglevel", "panic", "-y",
+    "-i", tmp_opus_path, "-c:a", "libopus", "-b:a", bitrate,
+    "-avoid_negative_ts", "make_zero", output_path };
+
+  ret_code = proc_manager.run("ffmpeg", args2);
+
+  /* remove the temporary opus audio */
+  fs::remove(tmp_opus_path);
+
+  return ret_code;
 }
