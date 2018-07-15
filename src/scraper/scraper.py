@@ -12,6 +12,7 @@ from collections import namedtuple
 
 USERNAME = os.getenv('BLONDER_TONGUE_USERNAME')
 PASSWORD = os.getenv('BLONDER_TONGUE_PASSWORD')
+INFLUX_PWD = os.getenv('INFLUXDB_PASSWORD')
 
 
 SESSION_ID_REGEX = re.compile(r'<input type="hidden" name="session_id" value="(\d+)">')
@@ -34,11 +35,12 @@ def send_to_influx(statuses):
     cur_time = str(int(time.time()))
     for status in statuses:
         data_string_snr = 'curl -i -XPOST "http://localhost:8086/write?db' \
-        '=collectd&precision=s" --data-binary "rf_status,rf_channel=' + \
-        str(status.rf_channel).split(" ")[0] + ' snrval=' + \
-        str(status.snr) + ' ' + cur_time + '"'
+            '=collectd&u=admin&p=' + INFLUX_PWD + \
+            '&precision=s" --data-binary "rf_status,rf_channel=' + \
+            str(status.rf_channel).split(" ")[0] + ' snrval=' + \
+            str(status.snr) + ' ' + cur_time + '"'
 
-        print(subprocess.call(data_string_snr, shell=True))
+        subprocess.call(data_string_snr, shell=True)
 
 
 def get_args():
@@ -75,10 +77,20 @@ def post_login(http, host_and_port, session_id):
         'btnSubmit': 'Submit'
     }
     post_params_str = '&'.join('{}={}'.format(k, v) for k, v in post_params.items())
-    r = http.request('POST', 'http://{}/cgi-bin/login.cgi'.format(host_and_port),
-                     body=post_params_str, headers=headers)
-    if r.status != 200 or LOGGED_IN_STR not in str(r.data):
-        raise RuntimeError('Failed to post login credentials')
+    # Below code handles occasional exceptions which occur during the request
+    retry_count = 0
+    while True:
+        try:
+            r = http.request('POST', 'http://{}/cgi-bin/login.cgi'.format(host_and_port),
+                             body=post_params_str, headers=headers)
+            if r.status != 200 or LOGGED_IN_STR not in str(r.data):
+                raise RuntimeError('Failed to post login credentials')
+        except:
+            time.sleep(10)
+            retry_count += 1
+            if retry_count >= 2:
+                continue
+        break
 
 
 def get_status_page(http, host_and_port, session_id):
@@ -103,18 +115,15 @@ def parse_status_html(html):
 
 
 def main(host_and_port):
-    # Loop endlessly and report results to influxdb
-    while True:
-        http = urllib3.PoolManager()
+    http = urllib3.PoolManager()
 
-        session_id = get_session_id(http, host_and_port)
-        post_login(http, host_and_port, session_id)
-        status_html = get_status_page(http, host_and_port, session_id)
-        statuses = parse_status_html(status_html)
+    session_id = get_session_id(http, host_and_port)
+    post_login(http, host_and_port, session_id)
+    status_html = get_status_page(http, host_and_port, session_id)
+    statuses = parse_status_html(status_html)
 
-        # Below sends snr info to influxdb
-        send_to_influx(statuses)
-        time.sleep(60)
+    # send snr info to influxdb
+    send_to_influx(statuses)
 
 
 if __name__ == '__main__':
