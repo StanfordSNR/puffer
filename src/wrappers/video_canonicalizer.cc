@@ -36,24 +36,21 @@ int main(int argc, char * argv[])
   /* parse header of the input Y4M */
   Y4MParser y4m_parser(input_path);
 
-  /* canonicalize video */
-  vector<string> args {
-    "ffmpeg", "-nostdin", "-hide_banner", "-loglevel", "panic", "-y",
-    "-i", input_path };
+  if (not y4m_parser.is_interlaced()) {
+    /* simply move video from input_path to output_path if not interlaced */
+    fs::rename(input_path, output_path);
+    return EXIT_SUCCESS;
+  } else {
+    /* canonicalize video */
+    vector<string> args {
+      "ffmpeg", "-nostdin", "-hide_banner", "-loglevel", "panic", "-y",
+      "-i", input_path, "-vf", "bwdif", output_path };
 
-  /* deinterlace only if Y4M is interlaced */
-  if (y4m_parser.is_interlaced()) {
-    args.emplace_back("-vf");
-    args.emplace_back("bwdif");
+    ProcessManager proc_manager;
+    int ret_code = proc_manager.run("ffmpeg", args);
+
+    /* remove the input raw video */
+    fs::remove(input_path);
+    return ret_code;
   }
-
-  args.emplace_back(output_path);
-
-  ProcessManager proc_manager;
-  int ret_code = proc_manager.run("ffmpeg", args);
-
-  /* remove the input raw video */
-  fs::remove(input_path);
-
-  return ret_code;
 }
