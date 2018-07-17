@@ -1,4 +1,5 @@
 #include <cstdint>
+#include <cstdlib>
 #include <cmath>
 
 #include <iostream>
@@ -591,7 +592,15 @@ int main(int argc, char * argv[])
   // server.ssl_context().use_certificate_file(config["certificate"].as<string>());
 
   /* connect to database */
-  pqxx::connection db_conn(config["db_connection"].as<string>());
+  string db_conn_str = config["db_connection"].as<string>();
+  if (const char * db_key = getenv("PUFFER_PORTAL_DB_KEY")) {
+    db_conn_str += " password=" + string(db_key);
+  } else {
+    cerr << "No PUFFER_PORTAL_DB_KEY in environment variables" << endl;
+    return EXIT_FAILURE;
+  }
+
+  pqxx::connection db_conn(db_conn_str);
   if (not db_conn.is_open()) {
     cerr << "Failed to connect to database" << endl;
     return EXIT_FAILURE;

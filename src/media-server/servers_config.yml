@@ -3,7 +3,7 @@ port: 9361
 # certificate:
 db_connection: >-
   host=puffer-dev.c78hjwwa209d.us-west-1.rds.amazonaws.com port=5432
-  dbname=puffer user=puffer password=
+  dbname=puffer user=puffer
 channel:
   - fox
 fox:
