@@ -20,7 +20,7 @@ def link_dist(base_dir, static_dir):
     if not path.islink(dst_dist) or os.readlink(dst_dist) != src_dist:
         os.symlink(src_dist, dst_dist)
         sys.stderr.write('Created symlink {} -> {}\n'
-                         .format(src_dist, dst_dist))
+                         .format(dst_dist, src_dist))
 
 
 def link_media(base_dir, static_dir, src_media):
@@ -35,7 +35,7 @@ def link_media(base_dir, static_dir, src_media):
         if not path.islink(dst_media) or os.readlink(dst_media) != src_media:
             os.symlink(src_media, dst_media)
             sys.stderr.write('Created symlink {} -> {}\n'
-                             .format(src_media, dst_media))
+                             .format(dst_media, src_media))
 
 
 def run_servers_in_pensieve(pensieve_dir, procs):
