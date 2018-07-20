@@ -57,6 +57,7 @@ function setup_control_bar() {
   const mute_button = document.getElementById('mute-button');
   const volume_bar = document.getElementById('volume-bar');
   const full_screen_button = document.getElementById('full-screen-button');
+  const tv_container = document.getElementById('tv-container');
 
   video.volume = 0;
   mute_button.muted = true;
@@ -95,12 +96,12 @@ function setup_control_bar() {
   };
 
   full_screen_button.onclick = function() {
-    if (video.requestFullscreen) {
-      video.requestFullscreen();
-    } else if (video.mozRequestFullScreen) {
-      video.mozRequestFullScreen();
-    } else if (video.webkitRequestFullscreen) {
-      video.webkitRequestFullscreen();
+    if (tv_container.requestFullscreen) {
+      tv_container.requestFullscreen();
+    } else if (tv_container.mozRequestFullScreen) {
+      tv_container.mozRequestFullScreen();
+    } else if (tv_container.webkitRequestFullscreen) {
+      tv_container.webkitRequestFullscreen();
     }
   };
 }

@@ -35,7 +35,14 @@
   background-color: #FFFFFF;
 }
 
-#tv-container:hover #tv-controls {
+#tv-controls-background {
+  position: absolute;
+  height: 50%;
+  top: 50%;
+  width: 100%;
+}
+
+#tv-controls-background:hover #tv-controls {
   opacity: 0.8;
 }
 
