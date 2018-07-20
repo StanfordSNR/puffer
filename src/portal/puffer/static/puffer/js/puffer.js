@@ -414,13 +414,13 @@ function WebSocketClient(video, audio, session_key) {
     ws.binaryType = 'arraybuffer';
     ws.onmessage = handle_msg;
 
-    ws.onopen = function (e) {
+    ws.onopen = function(e) {
       console.log('WebSocket open, sending client-init');
       send_client_init(ws, channel);
       rc_backoff = BASE_RECONNECT_BACKOFF;
     };
 
-    ws.onclose = function (e) {
+    ws.onclose = function(e) {
       console.log('WebSocket closed');
       ws = null;
 
@@ -436,7 +436,7 @@ function WebSocketClient(video, audio, session_key) {
       }
     };
 
-    ws.onerror = function (e) {
+    ws.onerror = function(e) {
       console.log('WebSocket error:', e);
       ws = null;
     };
@@ -471,6 +471,32 @@ function WebSocketClient(video, audio, session_key) {
   timer_helper();
 }
 
+
+function setup_channel_bar(client){
+  const channel_list = document.getElementById('channel-list')
+                               .getElementsByClassName('li_channel');
+
+  for (var i = 0; i < channel_list.length; i++) {
+    channel_list[i].onclick = function() {
+      const checked_channel_list = document.getElementById('channel-list')
+                                   .getElementsByClassName('li_channel_checked');
+
+      for (var j = 0; j < checked_channel_list.length; j++) {
+        checked_channel_list[j].classList.add('li_channel');
+        checked_channel_list[j].classList.remove('li_channel_checked');
+      }
+
+      this.classList.add('li_channel_checked');
+      this.classList.remove('li_channel');
+
+      var value = this.innerHTML;
+      console.log('set channel:', value);
+      client.set_channel(value);
+    }
+  }
+}
+
+
 function start_puffer(session_key) {
   const video = document.getElementById('tv-player');
   const audio = document.getElementById('tv-audio');
@@ -482,13 +508,9 @@ function start_puffer(session_key) {
     }
   });
 
-  const channel_select = document.getElementById('channel-select');
   const client = new WebSocketClient(video, audio, session_key);
 
-  channel_select.onchange = function() {
-    console.log('set channel:', channel_select.value);
-    client.set_channel(channel_select.value);
-  };
+  setup_channel_bar(client);
 
-  client.connect(channel_select.value);
+  client.connect("Unknown");
 }

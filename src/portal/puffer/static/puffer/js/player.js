@@ -118,7 +118,7 @@ function init_player(params_json) {
     return;
   }
 
-  /* Set up the player control bar */
+  /* Set up the player control bar*/
   setup_control_bar();
 
   if (aid === 1) {  // puffer
