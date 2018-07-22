@@ -62,7 +62,7 @@ AC_CONFIG_FILES([
     src/ssim/Makefile
     src/cleaner/Makefile
     src/time/Makefile
-    src/reporter/Makefile
+    src/monitoring/Makefile
     src/wrappers/Makefile
     src/media-server/Makefile
     src/tests/Makefile

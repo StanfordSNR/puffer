@@ -1,6 +1,4 @@
-# Use c++14 here to fix an error with pqxx in c++17.
-# error: ISO C++1z does not allow dynamic exception specifications
-AM_CPPFLAGS = $(CXX14_FLAGS) -I$(srcdir)/../util
+AM_CPPFLAGS = $(CXX17_FLAGS) -I$(srcdir)/../util
 AM_CXXFLAGS = $(PICKY_CXXFLAGS) $(EXTRA_CXXFLAGS)
 
 bin_PROGRAMS = file_reporter ssim_reporter
