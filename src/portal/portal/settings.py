@@ -80,7 +80,7 @@ DATABASES = {
         'ENGINE': 'django.db.backends.postgresql',
         'NAME': 'puffer',
         'USER': 'puffer',
-        'PASSWORD': os.environ['PUFFER_PORTAL_DB_KEY_DEV'],
+        'PASSWORD': os.environ['PUFFER_PORTAL_DB_KEY'],
         'HOST': 'puffer-dev.c78hjwwa209d.us-west-1.rds.amazonaws.com',
         'PORT': '5432',
     }
