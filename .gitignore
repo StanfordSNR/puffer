@@ -3,6 +3,7 @@
 *.m4a
 *.mpd
 *.log
+*.log.old
 *.trs
 *.pyc
 *.ts

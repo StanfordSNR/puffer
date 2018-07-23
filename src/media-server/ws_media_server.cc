@@ -1,6 +1,8 @@
 #include <cstdint>
 #include <cstdlib>
 #include <cmath>
+#include <ctime>
+#include <fcntl.h>
 
 #include <iostream>
 #include <string>
@@ -36,10 +38,13 @@ static size_t max_ws_frame_len;
 static size_t max_ws_queue_len;
 
 static map<string, Channel> channels;  /* key: channel name */
-
 static map<uint64_t, WebSocketClient> clients;  /* key: connection ID */
 
 static Timerfd global_timer;  /* non-blocking global timer fd for scheduling */
+
+static fs::path log_dir;  /* parent directory for logging */
+static map<string, FileDescriptor> log_fds;  /* map log name to fd */
+static const unsigned int MAX_LOG_FILESIZE = 10 * 1024 * 1024;  /* 10 MB */
 
 static bool debug = false;
 
@@ -389,7 +394,7 @@ void start_global_timer(WebSocketServer & server)
     )
   );
 
-  /* the timer fires every 100 ms */
+  /* this timer fires every 100 ms */
   global_timer.start(100, 100);
 }
 
@@ -565,6 +570,37 @@ bool auth_client(const string & session_key, pqxx::connection & db_conn)
   return r[0][0].as<bool>();
 }
 
+void append_to_log(const string & log_name, const string & log_line)
+{
+  string log_path = log_dir / log_name;
+
+  /* find or create a file descriptor for the log */
+  auto log_it = log_fds.find(log_name);
+  if (log_it == log_fds.end()) {
+    log_it = log_fds.emplace(log_name, FileDescriptor(CheckSystemCall(
+        "open (" + log_path + ")",
+        open(log_path.c_str(), O_WRONLY | O_CREAT | O_APPEND, 0644)))).first;
+  }
+
+  /* append a line to log */
+  FileDescriptor & fd = log_it->second;
+  fd.write(log_line);
+
+  /* rotate log if filesize is too large */
+  if (fd.curr_offset() > MAX_LOG_FILESIZE) {
+    fs::rename(log_path, log_path + ".old");
+    cerr << "Renamed " << log_path << " to " << log_path + ".old" << endl;
+
+    /* create new fd before closing old one */
+    FileDescriptor new_fd(CheckSystemCall(
+        "open (" + log_path + ")",
+        open(log_path.c_str(), O_WRONLY | O_CREAT | O_APPEND, 0644)));
+    fd.close();  /* reader is notified and safe to open new fd immediately */
+
+    log_it->second = move(new_fd);
+  }
+}
+
 int main(int argc, char * argv[])
 {
   if (argc < 1) {
@@ -583,6 +619,7 @@ int main(int argc, char * argv[])
   /* load YAML settings */
   YAML::Node config = YAML::LoadFile(argv[1]);
   load_global_settings(config);
+  log_dir = fs::path(config["log_dir"].as<string>());
 
   /* create a WebSocketServer instance */
   const string ip = "0.0.0.0";
@@ -657,6 +694,10 @@ int main(int argc, char * argv[])
       clients.emplace(piecewise_construct,
                       forward_as_tuple(connection_id),
                       forward_as_tuple(connection_id)); /* WebSocketClient */
+
+      string log_line = to_string(time(nullptr)) + " " +
+                        to_string(clients.size()) + "\n";
+      append_to_log("active_streams.log", log_line);
     }
   );
 
@@ -665,6 +706,10 @@ int main(int argc, char * argv[])
     {
       cerr << connection_id << ": connection closed" << endl;
       clients.erase(connection_id);
+
+      string log_line = to_string(time(nullptr)) + " " +
+                        to_string(clients.size()) + "\n";
+      append_to_log("active_streams.log", log_line);
     }
   );
 

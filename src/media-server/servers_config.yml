@@ -4,6 +4,7 @@ port: 9361
 db_connection: >-
   host=puffer-dev.c78hjwwa209d.us-west-1.rds.amazonaws.com port=5432
   dbname=puffer user=puffer
+log_dir: # change this to a desired folder for logging
 channel:
   - fox
 fox:
