@@ -21,16 +21,43 @@
   background-color: #134123;
 }
 
+#tv-container-fs {
+  height: 100%;
+  width: 100%;
+  background-color: #000000;
+}
+
 #tv-container {
   top: 0;
   width: 48vw;
-  height: 27vw;
-  max-width: 64vw;
-  max-height: 36vw;
-  position: absolute;
-  margin: 0;
-  background-color: #000000;
+  height: 100%;
+  position: relative;
 }
+
+/* Chrome, Safari and Opera syntax */
+:-webkit-full-screen {
+  height: 100%;
+  width: 100%;
+}
+
+/* Firefox syntax */
+#tv-container:-moz-full-screen {
+  height: 100%;
+  width: 100%;
+}
+
+/* IE/Edge syntax */
+#tv-container:-ms-fullscreen {
+  height: 100%;
+  width: 100%;
+}
+
+/* Standard syntax */
+#tv-container:fullscreen {
+  height: 100%;
+  width: 100%;
+}
+
 
 #tv-player {
   width: 100%;

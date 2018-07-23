@@ -57,7 +57,7 @@ function setup_control_bar() {
   const mute_button = document.getElementById('mute-button');
   const volume_bar = document.getElementById('volume-bar');
   const full_screen_button = document.getElementById('full-screen-button');
-  const tv_container = document.getElementById('tv-container');
+  const tv_container = document.getElementById('tv-container-fs');
 
   video.volume = 0;
   mute_button.muted = true;
@@ -102,6 +102,8 @@ function setup_control_bar() {
       tv_container.mozRequestFullScreen();
     } else if (tv_container.webkitRequestFullscreen) {
       tv_container.webkitRequestFullscreen();
+    } else if (tv_container.msRequestFullscreen) {
+      tv_container.msRequestFullscreen();
     }
   };
 }
