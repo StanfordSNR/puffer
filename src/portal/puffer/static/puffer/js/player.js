@@ -96,14 +96,31 @@ function setup_control_bar() {
   };
 
   full_screen_button.onclick = function() {
-    if (tv_container.requestFullscreen) {
-      tv_container.requestFullscreen();
-    } else if (tv_container.mozRequestFullScreen) {
-      tv_container.mozRequestFullScreen();
-    } else if (tv_container.webkitRequestFullscreen) {
-      tv_container.webkitRequestFullscreen();
-    } else if (tv_container.msRequestFullscreen) {
-      tv_container.msRequestFullscreen();
+    var isInFullScreen = (document.fullscreenElement && document.fullscreenElement !== null) ||
+        (document.webkitFullscreenElement && document.webkitFullscreenElement !== null) ||
+        (document.mozFullScreenElement && document.mozFullScreenElement !== null) ||
+        (document.msFullscreenElement && document.msFullscreenElement !== null);
+
+    if (!isInFullScreen) {
+      if (tv_container.requestFullscreen) {
+        tv_container.requestFullscreen();
+      } else if (tv_container.mozRequestFullScreen) {
+        tv_container.mozRequestFullScreen();
+      } else if (tv_container.webkitRequestFullScreen) {
+        tv_container.webkitRequestFullScreen();
+      } else if (tv_container.msRequestFullscreen) {
+        tv_container.msRequestFullscreen();
+      }
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen();
+      } else if (document.webkitExitFullscreen) {
+        document.webkitExitFullscreen();
+      } else if (document.mozCancelFullScreen) {
+        document.mozCancelFullScreen();
+      } else if (document.msExitFullscreen) {
+        document.msExitFullscreen();
+      }
     }
   };
 }
