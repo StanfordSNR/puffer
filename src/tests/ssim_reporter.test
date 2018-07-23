@@ -38,7 +38,7 @@ def main():
         fp.write('26.3166')
 
     ssim_reporter = path.abspath(
-        path.join(abs_builddir, os.pardir, 'reporter', 'ssim_reporter'))
+        path.join(abs_builddir, os.pardir, 'monitoring', 'ssim_reporter'))
 
     # The postgres db does not exist, but the command should not fail.
     sql = check_output([ssim_reporter, test_file,

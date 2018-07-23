@@ -31,7 +31,7 @@ def main():
         fp.write('hello world')
 
     file_reporter = path.abspath(
-        path.join(abs_builddir, os.pardir, 'reporter', 'file_reporter'))
+        path.join(abs_builddir, os.pardir, 'monitoring', 'file_reporter'))
 
     # The postgres db does not exist, but the command should not fail.
     sql = check_output([file_reporter, test_file,
