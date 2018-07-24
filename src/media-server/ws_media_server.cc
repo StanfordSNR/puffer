@@ -470,7 +470,8 @@ void handle_client_init(WebSocketServer & server, WebSocketClient & client,
   /* ignore invalid channel request */
   auto it = channels.find(msg.channel);
   if (it == channels.end()) {
-    cerr << client.connection_id() << ": requested channel not found" << endl;
+    cerr << client.connection_id() << ": requested channel "
+         << msg.channel << " not found" << endl;
     return;
   }
 

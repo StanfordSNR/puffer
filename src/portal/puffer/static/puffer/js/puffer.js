@@ -471,7 +471,6 @@ function WebSocketClient(video, audio, session_key) {
   timer_helper();
 }
 
-
 function setup_channel_bar(client){
   const channel_list = document.getElementById('channel-list')
                                .getElementsByClassName('li_channel');
@@ -489,13 +488,14 @@ function setup_channel_bar(client){
       this.classList.add('li_channel_checked');
       this.classList.remove('li_channel');
 
-      var value = this.innerHTML;
+      var value = this.innerHTML.toLowerCase();
       console.log('set channel:', value);
       client.set_channel(value);
     }
   }
-}
 
+  return channel_list[0].innerHTML.toLowerCase();
+}
 
 function start_puffer(session_key) {
   const video = document.getElementById('tv-player');
@@ -510,7 +510,6 @@ function start_puffer(session_key) {
 
   const client = new WebSocketClient(video, audio, session_key);
 
-  setup_channel_bar(client);
-
-  client.connect("Unknown");
+  const default_channel = setup_channel_bar(client);
+  client.connect(default_channel);
 }
