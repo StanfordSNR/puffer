@@ -15,7 +15,7 @@
 
 using namespace std;
 
-static vector<string> tmpl;
+static vector<string> cmd;
 static const string data_binary_placeholder = "{data_binary}";
 static ProcessManager proc_manager;
 
@@ -24,26 +24,31 @@ void print_usage(const string & program_name)
   cerr << program_name << " <log path> <log config>" << endl;
 }
 
-void post_to_db(const vector<string> & logdata, const string & buf)
+void post_to_db(const vector<string> & data, const string & buf)
 {
   vector<string> line = split(buf, " ");
 
-  string data_binary;
-  for (const auto & e : logdata) {
+  string data_str;
+  for (const auto & e : data) {
     if (e.front() == '{' and e.back() == '}') {
       /* fill in with value from corresponding column */
-      int column_no = stoi(e.substr(1));
-      data_binary += line.at(column_no - 1);
+      unsigned int column_idx = stoi(e.substr(1)) - 1;
+      if (column_idx >= line.size()) {
+        cerr << "Silent error: invalid column " << column_idx + 1 << endl;
+        return;
+      }
+
+      data_str += line.at(column_idx);
     } else {
-      data_binary += e;
+      data_str += e;
     }
   }
 
-  tmpl.back() = move(data_binary);
-  proc_manager.run("curl", tmpl);
+  cmd.back() = move(data_str);
+  proc_manager.run("curl", cmd);
 }
 
-int tail_loop(const string & log_path, const vector<string> & logdata)
+int tail_loop(const string & log_path, const vector<string> & data)
 {
   bool new_file = false;
   string buf;
@@ -52,11 +57,13 @@ int tail_loop(const string & log_path, const vector<string> & logdata)
     Poller poller;
     Inotify inotify(poller);
 
+    /* read new lines from the end */
     FileDescriptor fd(CheckSystemCall("open (" + log_path + ")",
                                       open(log_path.c_str(), O_RDONLY)));
+    fd.seek(0, SEEK_END);
 
     inotify.add_watch(log_path, IN_MODIFY | IN_CLOSE_WRITE,
-      [&new_file, &fd, &buf, &logdata]
+      [&new_file, &buf, &fd, &data]
       (const inotify_event & event, const string &) {
         if (event.mask & IN_MODIFY) {
           for (;;) {
@@ -76,7 +83,7 @@ int tail_loop(const string & log_path, const vector<string> & logdata)
               } else {
                 buf += new_content.substr(0, pos);
                 /* buf is a complete line now */
-                post_to_db(logdata, buf);
+                post_to_db(data, buf);
 
                 buf = "";
                 new_content = new_content.substr(pos + 1);
@@ -114,39 +121,46 @@ int main(int argc, char * argv[])
     return EXIT_FAILURE;
   }
 
+  /* create an empty log if it does not exist */
   string log_path = argv[1];
+  FileDescriptor touch(CheckSystemCall("open (" + log_path + ")",
+                       open(log_path.c_str(), O_WRONLY | O_CREAT, 0644)));
+  touch.close();
+
   /* read a line from the config file */
   ifstream config_file(argv[2]);
   string config_line;
   getline(config_file, config_line);
 
-  /* construct a vector filled with string templates */
-  tmpl.emplace_back("curl");
-  tmpl.emplace_back("-i");
-  tmpl.emplace_back("-XPOST");
+  /* construct a command vector */
+  cmd.emplace_back("curl");
+  cmd.emplace_back("-i");
+  cmd.emplace_back("-XPOST");
   if (const char * influx_key = getenv("INFLUXDB_PASSWORD")) {
-    tmpl.emplace_back(
+    cmd.emplace_back(
       "http://localhost:8086/write?db=collectd&u=admin&p="
       + string(influx_key) + "&precision=s");
-    tmpl.emplace_back("--data-binary");
+    cmd.emplace_back("--data-binary");
   } else {
     cerr << "No INFLUXDB_PASSWORD in environment variables" << endl;
     return EXIT_FAILURE;
   }
-  tmpl.emplace_back(data_binary_placeholder);
+  /* push back a placeholder that will be replaced every time */
+  cmd.emplace_back(data_binary_placeholder);
 
-  vector<string> logdata;
+  /* construct and store a "format string" in a vector for "--data-binary" */
+  vector<string> data;
 
   size_t pos = 0;
   while (pos < config_line.size()) {
     size_t left_pos = config_line.find("{", pos);
     if (left_pos == string::npos) {
-      logdata.emplace_back(config_line.substr(pos, config_line.size() - pos));
+      data.emplace_back(config_line.substr(pos, config_line.size() - pos));
       break;
     }
 
     if (left_pos - pos > 0) {
-      logdata.emplace_back(config_line.substr(pos, left_pos - pos));
+      data.emplace_back(config_line.substr(pos, left_pos - pos));
     }
     pos = left_pos + 1;
 
@@ -166,10 +180,10 @@ int main(int argc, char * argv[])
       return EXIT_FAILURE;
     }
 
-    logdata.emplace_back("{" + column_no + "}");
+    data.emplace_back("{" + column_no + "}");
     pos = right_pos + 1;
   }
 
   /* read new lines from log and post to InfluxDB */
-  return tail_loop(log_path, logdata);
+  return tail_loop(log_path, data);
 }
