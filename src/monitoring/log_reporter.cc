@@ -11,13 +11,12 @@
 #include "file_descriptor.hh"
 #include "tokenize.hh"
 #include "exception.hh"
-#include "child_process.hh"
+#include "system_runner.hh"
 
 using namespace std;
 
 static vector<string> cmd;
 static const string data_binary_placeholder = "{data_binary}";
-static ProcessManager proc_manager;
 
 void print_usage(const string & program_name)
 {
@@ -45,7 +44,7 @@ void post_to_db(const vector<string> & data, const string & buf)
   }
 
   cmd.back() = move(data_str);
-  proc_manager.run("curl", cmd);
+  run("curl", cmd);
 }
 
 int tail_loop(const string & log_path, const vector<string> & data)
