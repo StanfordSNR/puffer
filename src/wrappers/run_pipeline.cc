@@ -259,20 +259,19 @@ int main(int argc, char * argv[])
   vector<AudioFormat> aformats = get_audio_formats(config);
 
   /* create output directory */
-  string output_dir = expand_user(config["output"].as<string>());
+  output_path = expand_user(config["output"].as<string>());
 
-  if (fs::exists(output_dir)) {
+  if (fs::exists(output_path)) {
     /* clean up output_dir if overwrite_output is true */
     if (config["overwrite_output"] and config["overwrite_output"].as<bool>()) {
-      fs::remove_all(output_dir);
+      fs::remove_all(output_path);
     } else {
-      cerr << output_dir + " already exists" << endl;
+      cerr << output_path.string() + " already exists" << endl;
       return EXIT_FAILURE;
     }
+  } else {
+    fs::create_directory(output_path);
   }
-
-  output_path = fs::path(output_dir);
-  fs::create_directory(output_path);
 
   /* get the path of wrappers directory and notifier */
   src_path = fs::canonical(fs::path(

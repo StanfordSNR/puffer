@@ -30,7 +30,6 @@ extern "C" {
 #include <a52dec/mm_accel.h>
 }
 
-#include "util.hh"
 #include "file_descriptor.hh"
 #include "exception.hh"
 #include "filesystem.hh"
@@ -1284,7 +1283,7 @@ int main( int argc, char *argv[] )
 
       switch ( opt ) {
       case 't':
-        tmp_dir = expand_user( optarg );
+        tmp_dir = optarg;
         break;
       default:
         print_usage( argv[0] );
@@ -1303,8 +1302,8 @@ int main( int argc, char *argv[] )
     const VideoParameters params { argv[ optind++ ] };
     const unsigned int frames_per_chunk = stoi( argv[ optind++ ] );
     const unsigned int audio_blocks_per_chunk = stoi( argv[ optind++ ] );
-    const string video_directory = expand_user( argv[ optind++ ] );
-    const string audio_directory = expand_user( argv[ optind++ ] );
+    const string video_directory = argv[ optind++ ];
+    const string audio_directory = argv[ optind++ ];
 
     FileDescriptor stdin { 0 };
 

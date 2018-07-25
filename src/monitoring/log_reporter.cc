@@ -121,7 +121,7 @@ int main(int argc, char * argv[])
   }
 
   /* create an empty log if it does not exist */
-  string log_path = expand_user(argv[1]);
+  string log_path = argv[1];
   FileDescriptor touch(CheckSystemCall("open (" + log_path + ")",
                        open(log_path.c_str(), O_WRONLY | O_CREAT, 0644)));
   touch.close();
