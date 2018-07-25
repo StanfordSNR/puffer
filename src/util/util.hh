@@ -5,8 +5,11 @@
 
 #include <string>
 
-std::string safe_getenv( const std::string & key );
+std::string safe_getenv(const std::string & key);
 
-std::string safe_getenv_or( const std::string & key, const std::string & def_val );
+std::string safe_getenv_or(const std::string & key, const std::string & def_val);
+
+/* expand leading tilde */
+std::string expand_user(const std::string & path);
 
 #endif /* UTIL_HH */
