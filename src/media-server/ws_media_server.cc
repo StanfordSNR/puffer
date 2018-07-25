@@ -12,6 +12,7 @@
 #include <algorithm>
 
 #include <pqxx/pqxx>
+#include "util.hh"
 #include "media_formats.hh"
 #include "inotify.hh"
 #include "timerfd.hh"
@@ -631,12 +632,7 @@ int main(int argc, char * argv[])
 
   /* connect to database */
   string db_conn_str = config["db_connection"].as<string>();
-  if (const char * db_key = getenv("PUFFER_PORTAL_DB_KEY")) {
-    db_conn_str += " password=" + string(db_key);
-  } else {
-    cerr << "No PUFFER_PORTAL_DB_KEY in environment variables" << endl;
-    return EXIT_FAILURE;
-  }
+  db_conn_str += " password=" + safe_getenv("PUFFER_PORTAL_DB_KEY");
 
   pqxx::connection db_conn(db_conn_str);
   if (not db_conn.is_open()) {

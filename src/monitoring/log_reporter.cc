@@ -6,6 +6,7 @@
 #include <string>
 #include <fstream>
 
+#include "util.hh"
 #include "inotify.hh"
 #include "poller.hh"
 #include "file_descriptor.hh"
@@ -15,15 +16,13 @@
 
 using namespace std;
 
-static vector<string> cmd;
-static const string data_binary_placeholder = "{data_binary}";
-
 void print_usage(const string & program_name)
 {
   cerr << program_name << " <log path> <log config>" << endl;
 }
 
-void post_to_db(const vector<string> & data, const string & buf)
+void post_to_db(vector<string> & cmd, const vector<string> & data,
+                const string & buf)
 {
   vector<string> line = split(buf, " ");
 
@@ -47,7 +46,8 @@ void post_to_db(const vector<string> & data, const string & buf)
   run("curl", cmd);
 }
 
-int tail_loop(const string & log_path, const vector<string> & data)
+int tail_loop(const string & log_path, vector<string> & cmd,
+              const vector<string> & data)
 {
   bool new_file = false;
   string buf;
@@ -62,7 +62,7 @@ int tail_loop(const string & log_path, const vector<string> & data)
     fd.seek(0, SEEK_END);
 
     inotify.add_watch(log_path, IN_MODIFY | IN_CLOSE_WRITE,
-      [&new_file, &buf, &fd, &data]
+      [&new_file, &buf, &fd, &cmd, &data]
       (const inotify_event & event, const string &) {
         if (event.mask & IN_MODIFY) {
           for (;;) {
@@ -82,7 +82,7 @@ int tail_loop(const string & log_path, const vector<string> & data)
               } else {
                 buf += new_content.substr(0, pos);
                 /* buf is a complete line now */
-                post_to_db(data, buf);
+                post_to_db(cmd, data, buf);
 
                 buf = "";
                 new_content = new_content.substr(pos + 1);
@@ -121,7 +121,7 @@ int main(int argc, char * argv[])
   }
 
   /* create an empty log if it does not exist */
-  string log_path = argv[1];
+  string log_path = expand_user(argv[1]);
   FileDescriptor touch(CheckSystemCall("open (" + log_path + ")",
                        open(log_path.c_str(), O_WRONLY | O_CREAT, 0644)));
   touch.close();
@@ -131,23 +131,13 @@ int main(int argc, char * argv[])
   string config_line;
   getline(config_file, config_line);
 
-  /* construct a command vector */
-  cmd.emplace_back("curl");
-  cmd.emplace_back("-i");
-  cmd.emplace_back("-XPOST");
-  if (const char * influx_key = getenv("INFLUXDB_PASSWORD")) {
-    cmd.emplace_back(
-      "http://localhost:8086/write?db=collectd&u=admin&p="
-      + string(influx_key) + "&precision=s");
-    cmd.emplace_back("--data-binary");
-  } else {
-    cerr << "No INFLUXDB_PASSWORD in environment variables" << endl;
-    return EXIT_FAILURE;
-  }
-  /* push back a placeholder that will be replaced every time */
-  cmd.emplace_back(data_binary_placeholder);
+  /* construct a command vector, with a placeholder to update at the end */
+  vector<string> cmd { "curl", "-i", "-XPOST",
+    "http://localhost:8086/write?db=collectd&u=admin&p="
+    + safe_getenv("INFLUXDB_PASSWORD") + "&precision=s",
+    "--data-binary", "{data_binary}"};
 
-  /* construct and store a "format string" in a vector for "--data-binary" */
+  /* data for "--data-binary": store a "format string" in a vector */
   vector<string> data;
 
   size_t pos = 0;
@@ -184,5 +174,5 @@ int main(int argc, char * argv[])
   }
 
   /* read new lines from log and post to InfluxDB */
-  return tail_loop(log_path, data);
+  return tail_loop(log_path, cmd, data);
 }
