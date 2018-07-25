@@ -471,30 +471,40 @@ function WebSocketClient(video, audio, session_key) {
   timer_helper();
 }
 
-function setup_channel_bar(client){
-  const channel_list = document.getElementById('channel-list')
-                               .getElementsByClassName('li_channel');
+function setup_channel_bar(client) {
+  /* validate checked channel count and find default channel */
+  const init_checked_channel = document.querySelectorAll('.li_channel_checked');
+  if (init_checked_channel.length !== 1) {
+    console.log('Error: only one channel can be selected');
+    return;
+  }
+  const default_channel = init_checked_channel[0].innerHTML.toLowerCase();
 
+  /* set up onclick callbacks for channels */
+  const channel_list = document.querySelectorAll(
+                           '.li_channel_checked, .li_channel');
   for (var i = 0; i < channel_list.length; i++) {
     channel_list[i].onclick = function() {
-      const checked_channel_list = document.getElementById('channel-list')
-                                   .getElementsByClassName('li_channel_checked');
+      const checked_channel = document.querySelectorAll('.li_channel_checked')[0];
 
-      for (var j = 0; j < checked_channel_list.length; j++) {
-        checked_channel_list[j].classList.add('li_channel');
-        checked_channel_list[j].classList.remove('li_channel_checked');
+      if (this.innerHTML === checked_channel.innerHTML) {
+        /* same channel */
+        return;
       }
+
+      checked_channel.classList.add('li_channel');
+      checked_channel.classList.remove('li_channel_checked');
 
       this.classList.add('li_channel_checked');
       this.classList.remove('li_channel');
 
-      var value = this.innerHTML.toLowerCase();
+      const value = this.innerHTML.toLowerCase();
       console.log('set channel:', value);
       client.set_channel(value);
     }
   }
 
-  return channel_list[0].innerHTML.toLowerCase();
+  return default_channel;
 }
 
 function start_puffer(session_key) {
