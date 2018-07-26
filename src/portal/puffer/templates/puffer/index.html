@@ -12,25 +12,27 @@
 <body>
 
 {% if user.is_authenticated %}
-  <h1>Puffer</h1>
-  <h3>Hello {{ user.get_username }}, welcome to Puffer!</h3>
-  <p>
-    <a href="{% url 'logout' %}">Logout</a>
-  </p>
-
-  <button id="play-rand-alg">Begin Streaming</button><br>
-
-  <p>Tokens available to distribute: {{ user.invitationtoken_set.all.count }}</p>
-  {% if user.invitationtoken_set.all %}
-    <p> List of Tokens: </p>
-    <ul>
-    {% for t in user.invitationtoken_set.all %}
-      <li> {{ t.token }}</li>
-    {% endfor %}
-    </ul>
-  {% endif %}
+  <script src="{% static 'puffer/js/index.js' %}"></script>
 
   {% if user.is_superuser %}
+    <h1>Puffer</h1>
+    <h3>Hello {{ user.get_username }}, welcome to Puffer!</h3>
+    <p>
+      <a href="{% url 'logout' %}">Logout</a>
+    </p>
+
+    <button id="play-rand-alg">Begin Streaming</button><br>
+
+    <p>Tokens available to distribute: {{ user.invitationtoken_set.all.count }}</p>
+    {% if user.invitationtoken_set.all %}
+      <p> List of Tokens: </p>
+      <ul>
+      {% for t in user.invitationtoken_set.all %}
+        <li> {{ t.token }}</li>
+      {% endfor %}
+      </ul>
+    {% endif %}
+
     <a href="{% url 'player' aid=1 %}">Puffer</a><br>
     <a href="{% url 'player' aid=2 %}">Default dash.js (abrDynamic)</a><br>
     <a href="{% url 'player' aid=3 %}">BOLA dash.js (abrBola)</a><br>
@@ -41,13 +43,15 @@
     <a href="{% url 'player' aid=8 %}">Festive</a><br>
     <a href="{% url 'player' aid=10 %}">FastMPC</a><br>
     <a href="{% url 'player' aid=11 %}">RobustMPC</a><br>
+
+    <script> window.addEventListener('load', init_app); </script>
+
+  {% else %}
+    <script> rand_alg(); </script>
   {% endif %}
 
-  <script src="{% static 'puffer/js/index.js' %}"></script>
 {% else %}
-  <p>
-  You must <a href="{% url 'login' %}">login</a> to use Puffer.
-  </p>
+  <script> window.location.replace("{% url 'login' %}"); </script>
 {% endif %}
 
 </body>

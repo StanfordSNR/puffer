@@ -49,9 +49,7 @@
   {% endif %}
 
 {% else %}
-  <p>
-  You must <a href="{% url 'login' %}">login</a> to view this page.
-  </p>
+  <script> window.location.replace("{% url 'login' %}"); </script>
 {% endif %}
 
 </body>

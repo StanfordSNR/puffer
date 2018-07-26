@@ -20,5 +20,3 @@ function rand_alg() {
 function init_app() {
   document.getElementById('play-rand-alg').addEventListener('click', rand_alg);
 }
-
-window.addEventListener('load', init_app);
