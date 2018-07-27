@@ -60,6 +60,9 @@ public:
   /* accessors */
   uint64_t connection_id() const { return connection_id_; }
   std::string username() const { return username_; }
+  std::string signature() const {
+    return std::to_string(connection_id_) + "," + username_;
+  }
   std::optional<std::string> channel() const { return channel_; }
 
   std::optional<uint64_t> next_vts() const { return next_vts_; }
