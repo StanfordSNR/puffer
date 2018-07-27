@@ -680,27 +680,32 @@ int main(int argc, char * argv[])
         WebSocketClient & client = clients.at(connection_id);
         ClientMsgParser parser(msg.payload());
 
-        switch (parser.msg_type()) {
-        case ClientMsgParser::Type::Init:
-          {
-            const ClientInitMsg & init_msg = parser.parse_init_msg();
+        if (parser.msg_type() == ClientMsgParser::Type::Init) {
+          const ClientInitMsg & init_msg = parser.parse_init_msg();
 
-            /* user authentication */
-            if (not auth_client(init_msg.session_key, db_conn)) {
-              cerr << connection_id << ": authentication failed" << endl;
-              close_connection(server, connection_id);
-              break;
-            }
-            client.set_username(init_msg.username);
-
-            handle_client_init(server, client, init_msg);
+          /* user authentication */
+          if (not auth_client(init_msg.session_key, db_conn)) {
+            cerr << connection_id << ": authentication failed" << endl;
+            close_connection(server, connection_id);
+            return;
           }
-          break;
-        case ClientMsgParser::Type::Info:
-          handle_client_info(client, parser.parse_info_msg());
-          break;
-        default:
-          break;
+
+          /* set username only if authentication succeeds */
+          client.set_authed_username(init_msg.username);
+
+          handle_client_init(server, client, init_msg);
+        } else {
+          /* parse a message other than client-init only if user is authed */
+          if (not client.is_authenticated()) {
+            cerr << connection_id << ": ignoring messages from a "
+                 << "non-authenticated user" << endl;
+            close_connection(server, connection_id);
+            return;
+          }
+
+          if (parser.msg_type() ==  ClientMsgParser::Type::Info) {
+            handle_client_info(client, parser.parse_info_msg());
+          }
         }
       } catch (const exception & e) {
         cerr << "Warning in message callback: exception in client "

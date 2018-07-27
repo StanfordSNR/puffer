@@ -59,7 +59,10 @@ public:
 
   /* accessors */
   uint64_t connection_id() const { return connection_id_; }
+
   std::string username() const { return username_; }
+  bool is_authenticated() const { return not username_.empty(); }
+
   std::string signature() const {
     return std::to_string(connection_id_) + "," + username_;
   }
@@ -83,7 +86,8 @@ public:
   unsigned int init_id() const { return init_id_; }
 
   /* mutators */
-  void set_username(const std::string & username) { username_ = username; }
+  void set_authed_username(const std::string & username) { username_ = username; }
+
   void set_next_vts(const uint64_t next_vts) { next_vts_ = next_vts; }
   void set_next_ats(const uint64_t next_ats) { next_ats_ = next_ats; }
 
