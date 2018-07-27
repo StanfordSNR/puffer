@@ -508,7 +508,7 @@ void handle_client_init(WebSocketServer & server, WebSocketClient & client,
     return;
   }
 
-  const auto & channel = it->second;
+  auto & channel = it->second;
 
   /* ignore client-init if the channel is not ready */
   if (not channel.init_vts().has_value()) {
@@ -525,9 +525,27 @@ void handle_client_init(WebSocketServer & server, WebSocketClient & client,
   uint64_t init_vts = channel.init_vts().value();
   uint64_t init_ats = channel.find_ats(init_vts);
 
+  /* Save old channel for use in updating view count */
+  const string old_channel_string = client.channel().has_value() ?
+                                    client.channel().value() : "";
   client.init(channel.name(), init_vts, init_ats);
 
   send_server_init(server, client, false /* initialize rather than resume */);
+
+  /* Increment/decrement viewer counts for new/old channel respectively */
+  auto curtime = time(nullptr);
+  channel.set_viewer_count(channel.viewer_count() + 1);
+  string log_line1 = to_string(curtime) + " " + channel.name() + " " +
+                     to_string(channel.viewer_count()) + "\n";
+  append_to_log("active_streams.log", log_line1);
+
+  if (not old_channel_string.empty()) {
+    Channel & old_channel = channels.at(old_channel_string);
+    old_channel.set_viewer_count(old_channel.viewer_count() - 1);
+    string log_line2 = to_string(curtime) + " " + old_channel.name() + " " +
+                       to_string(old_channel.viewer_count()) + "\n";
+    append_to_log("active_streams.log", log_line2);
+  }
 
   cerr << client.signature() << ": connection initialized" << endl;
 }
@@ -722,10 +740,6 @@ int main(int argc, char * argv[])
       clients.emplace(piecewise_construct,
                       forward_as_tuple(connection_id),
                       forward_as_tuple(connection_id)); /* WebSocketClient */
-
-      string log_line = to_string(time(nullptr)) + " " +
-                        to_string(clients.size()) + "\n";
-      append_to_log("active_streams.log", log_line);
     }
   );
 
@@ -733,16 +747,23 @@ int main(int argc, char * argv[])
     [](const uint64_t connection_id)
     {
       cerr << connection_id << ": connection closed" << endl;
-      clients.erase(connection_id);
+      try {
+        Channel & closing_channel = channels.at(clients.at(connection_id)
+                                                .channel().value());
+        closing_channel.set_viewer_count(closing_channel.viewer_count() - 1);
+        string log_line = to_string(time(nullptr)) + " " +
+                          closing_channel.name() + " " +
+                          to_string(closing_channel.viewer_count()) + "\n";
+        append_to_log("active_streams.log", log_line);
+      } catch (const exception & e) {
+        cerr << "Warning in closing connection " << connection_id << endl;
+      }
 
-      string log_line = to_string(time(nullptr)) + " " +
-                        to_string(clients.size()) + "\n";
-      append_to_log("active_streams.log", log_line);
+      clients.erase(connection_id);
     }
   );
 
   /* start a global timer to serve media to clients */
   start_global_timer(server);
-
   return server.loop();
 }
