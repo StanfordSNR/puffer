@@ -7,7 +7,7 @@ function load_script(script_path) {
   return new_script;
 }
 
-function start_dashjs(aid, session_key) {
+function start_dashjs(aid, session_key, username) {
   const channel_select = document.getElementById('channel-select');
   var manifest_url = '/static/puffer/media/' + channel_select.value + '/ready/live.mpd';
 
@@ -130,10 +130,11 @@ function init_player(params_json) {
 
   var aid = Number(params.aid);
   var session_key = params.session_key;
+  var username = params.username;
 
-  /* assert that session_key is not null */
-  if (!session_key) {
-    console.log('Error: no session key')
+  /* assert that session_key and username exist */
+  if (!session_key || !username) {
+    console.log('Error: no session key or username')
     return;
   }
 
@@ -142,7 +143,7 @@ function init_player(params_json) {
 
   if (aid === 1) {  // puffer
     load_script('/static/puffer/js/puffer.js').onload = function() {
-      start_puffer(session_key);  // start_puffer is defined in puffer.js
+      start_puffer(session_key, username);  // start_puffer is defined in puffer.js
     }
   } else {
     /* All the other algorithms are based on dash.js */
@@ -155,7 +156,7 @@ function init_player(params_json) {
     }
 
     new_script.onload = function() {
-      start_dashjs(aid, session_key);
+      start_dashjs(aid, session_key, username);
     }
   }
 }

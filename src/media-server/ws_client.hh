@@ -59,6 +59,7 @@ public:
 
   /* accessors */
   uint64_t connection_id() const { return connection_id_; }
+  std::string username() const { return username_; }
   std::optional<std::string> channel() const { return channel_; }
 
   std::optional<uint64_t> next_vts() const { return next_vts_; }
@@ -79,6 +80,7 @@ public:
   unsigned int init_id() const { return init_id_; }
 
   /* mutators */
+  void set_username(const std::string & username) { username_ = username; }
   void set_next_vts(const uint64_t next_vts) { next_vts_ = next_vts; }
   void set_next_ats(const uint64_t next_ats) { next_ats_ = next_ats; }
 
@@ -100,6 +102,7 @@ public:
   void set_client_next_ats(const uint64_t ats) { client_next_ats_ = ats; }
 
 private:
+  std::string username_ {};
   uint64_t connection_id_ {};
 
   /* Fields set in init */

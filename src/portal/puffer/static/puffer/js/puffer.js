@@ -1,6 +1,6 @@
 const WS_OPEN = 1;
 
-const TIMER_INTERVAL = 1000;
+const TIMER_INTERVAL = 2000;
 const BASE_RECONNECT_BACKOFF = 100;
 const MAX_RECONNECT_BACKOFF = 30000;
 
@@ -301,7 +301,7 @@ function AVSource(video, audio, options) {
   };
 }
 
-function WebSocketClient(video, audio, session_key) {
+function WebSocketClient(video, audio, session_key, username) {
   var ws = null;
   var av_source = null;
 
@@ -315,6 +315,7 @@ function WebSocketClient(video, audio, session_key) {
       try {
         var msg = {
           sessionKey: session_key,
+          userName: username,
           playerWidth: video.videoWidth,
           playerHeight: video.videoHeight,
           channel: channel
@@ -507,7 +508,7 @@ function setup_channel_bar(client) {
   return default_channel;
 }
 
-function start_puffer(session_key) {
+function start_puffer(session_key, username) {
   const video = document.getElementById('tv-player');
   const audio = document.getElementById('tv-audio');
 
@@ -518,7 +519,7 @@ function start_puffer(session_key) {
     }
   });
 
-  const client = new WebSocketClient(video, audio, session_key);
+  const client = new WebSocketClient(video, audio, session_key, username);
 
   const default_channel = setup_channel_bar(client);
   client.connect(default_channel);

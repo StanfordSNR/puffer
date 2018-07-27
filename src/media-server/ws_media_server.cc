@@ -1,4 +1,5 @@
 #include <cstdint>
+#include <cstdio>
 #include <cstdlib>
 #include <cmath>
 #include <ctime>
@@ -182,6 +183,37 @@ const AudioFormat & select_audio_quality(WebSocketClient & client)
 
   assert(ret_idx < MAX_AFORMATS);
   return channel.aformats()[ret_idx];
+}
+
+void append_to_log(const string & log_name, const string & log_line)
+{
+  string log_path = log_dir / log_name;
+
+  /* find or create a file descriptor for the log */
+  auto log_it = log_fds.find(log_name);
+  if (log_it == log_fds.end()) {
+    log_it = log_fds.emplace(log_name, FileDescriptor(CheckSystemCall(
+        "open (" + log_path + ")",
+        open(log_path.c_str(), O_WRONLY | O_CREAT | O_APPEND, 0644)))).first;
+  }
+
+  /* append a line to log */
+  FileDescriptor & fd = log_it->second;
+  fd.write(log_line);
+
+  /* rotate log if filesize is too large */
+  if (fd.curr_offset() > MAX_LOG_FILESIZE) {
+    fs::rename(log_path, log_path + ".old");
+    cerr << "Renamed " << log_path << " to " << log_path + ".old" << endl;
+
+    /* create new fd before closing old one */
+    FileDescriptor new_fd(CheckSystemCall(
+        "open (" + log_path + ")",
+        open(log_path.c_str(), O_WRONLY | O_CREAT | O_APPEND, 0644)));
+    fd.close();  /* reader is notified and safe to open new fd immediately */
+
+    log_it->second = move(new_fd);
+  }
 }
 
 void serve_video_to_client(WebSocketServer & server, WebSocketClient & client)
@@ -511,6 +543,29 @@ void handle_client_info(WebSocketClient & client, const ClientInfoMsg & msg)
   client.set_video_playback_buf(msg.video_buffer_len);
   client.set_client_next_vts(msg.next_video_timestamp);
   client.set_client_next_ats(msg.next_audio_timestamp);
+
+  /* only interested in logging the events below */
+  if (msg.event != ClientInfoMsg::PlayerEvent::Timer and
+      msg.event != ClientInfoMsg::PlayerEvent::Rebuffer and
+      msg.event != ClientInfoMsg::PlayerEvent::CanPlay) {
+    return;
+  }
+
+  /* convert video playback buffer to string (%.1f) */
+  assert(msg.video_buffer_len < 100);
+  const size_t buf_size = 5;
+  char buf[buf_size];
+  int n = snprintf(buf, buf_size, "%.1f", msg.video_buffer_len);
+  if (n < 0 or n >= static_cast<int>(buf_size)) {
+    cerr << "Warning in recording video playback buffer: error occurred or "
+         << "the converted string is truncated" << endl;
+    return;
+  }
+
+  string log_line = to_string(time(nullptr)) + " "
+      + to_string(client.connection_id()) + " " + client.username() + " "
+      + to_string(static_cast<int>(msg.event)) + " " + buf + "\n";
+  append_to_log("client_info.log", log_line);
 }
 
 void load_global_settings(const YAML::Node & config)
@@ -572,37 +627,6 @@ bool auth_client(const string & session_key, pqxx::connection & db_conn)
   return r[0][0].as<bool>();
 }
 
-void append_to_log(const string & log_name, const string & log_line)
-{
-  string log_path = log_dir / log_name;
-
-  /* find or create a file descriptor for the log */
-  auto log_it = log_fds.find(log_name);
-  if (log_it == log_fds.end()) {
-    log_it = log_fds.emplace(log_name, FileDescriptor(CheckSystemCall(
-        "open (" + log_path + ")",
-        open(log_path.c_str(), O_WRONLY | O_CREAT | O_APPEND, 0644)))).first;
-  }
-
-  /* append a line to log */
-  FileDescriptor & fd = log_it->second;
-  fd.write(log_line);
-
-  /* rotate log if filesize is too large */
-  if (fd.curr_offset() > MAX_LOG_FILESIZE) {
-    fs::rename(log_path, log_path + ".old");
-    cerr << "Renamed " << log_path << " to " << log_path + ".old" << endl;
-
-    /* create new fd before closing old one */
-    FileDescriptor new_fd(CheckSystemCall(
-        "open (" + log_path + ")",
-        open(log_path.c_str(), O_WRONLY | O_CREAT | O_APPEND, 0644)));
-    fd.close();  /* reader is notified and safe to open new fd immediately */
-
-    log_it->second = move(new_fd);
-  }
-}
-
 int main(int argc, char * argv[])
 {
   if (argc < 1) {
@@ -661,11 +685,13 @@ int main(int argc, char * argv[])
           {
             const ClientInitMsg & init_msg = parser.parse_init_msg();
 
+            /* user authentication */
             if (not auth_client(init_msg.session_key, db_conn)) {
               cerr << connection_id << ": authentication failed" << endl;
               close_connection(server, connection_id);
               break;
             }
+            client.set_username(init_msg.username);
 
             handle_client_init(server, client, init_msg);
           }

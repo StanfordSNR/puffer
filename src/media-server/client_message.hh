@@ -14,6 +14,7 @@ class ClientInitMsg
 {
 public:
   std::string session_key {};
+  std::string username {};
 
   int player_width {};
   int player_height {};
@@ -28,12 +29,12 @@ class ClientInfoMsg
 {
 public:
   enum class PlayerEvent {
-    Unknown,
-    Timer,
-    Rebuffer,
-    CanPlay,
-    AudioAck,
-    VideoAck
+    Unknown = 0,
+    Timer = 1,
+    Rebuffer = 2,
+    CanPlay = 3,
+    AudioAck = 4,
+    VideoAck = 5
   };
 
   enum class PlayerReadyState {
