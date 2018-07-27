@@ -293,6 +293,7 @@ void Channel::mmap_video_files(Inotify & inotify)
 
     /* watch new files only on live */
     if (live_) {
+      cerr << "Channel: inotify watching " << video_dir << endl;
       inotify.add_watch(video_dir, IN_MOVED_TO,
         [this, &vf, video_dir](const inotify_event & event,
                                const string & path) {
@@ -350,6 +351,7 @@ void Channel::mmap_audio_files(Inotify & inotify)
 
     /* watch new files only on live */
     if (live_) {
+      cerr << "Channel: inotify watching " << audio_dir << endl;
       inotify.add_watch(audio_dir, IN_MOVED_TO,
         [this, &af, audio_dir](const inotify_event & event,
                                const string & path) {
@@ -395,6 +397,7 @@ void Channel::load_ssim_files(Inotify & inotify)
 
     /* watch new files only on live */
     if (live_) {
+      cerr << "Channel: inotify watching " << ssim_dir << endl;
       inotify.add_watch(ssim_dir, IN_MOVED_TO,
         [this, &vf, ssim_dir](const inotify_event & event,
                               const string & path) {
