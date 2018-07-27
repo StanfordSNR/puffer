@@ -39,10 +39,12 @@ def send_to_influx(statuses):
     for status in statuses:
         rf_channel = str(status.rf_channel).split(" ")[0]
         snr = str(status.snr)
+        bitrate = str(status.data_rate)
         data_string_snr = 'curl -i -XPOST "http://localhost:8086/write?db' \
             '=collectd&u=admin&p=' + INFLUX_PWD + \
             '&precision=s" --data-binary "rf_status,rf_channel=' + \
-            rf_channel + ' snrval=' + snr + ' ' + cur_time + '"'
+            rf_channel + ' snrval=' + snr + ',bitrate=' + bitrate + \
+            ' ' + cur_time + '"'
 
         sys.stderr.write('channel {}, SNR {}\n'.format(rf_channel, snr))
         subprocess.call(data_string_snr, shell=True,
