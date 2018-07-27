@@ -81,7 +81,7 @@ int main(int argc, char * argv[])
   vector<string> args2 {
     "ffmpeg", "-nostdin", "-hide_banner", "-loglevel", "panic", "-y",
     "-i", tmp_opus_path, "-c:a", "libopus", "-b:a", bitrate,
-    "-avoid_negative_ts", "make_zero", output_path };
+    "-avoid_negative_ts", "make_zero", "-threads", "1", output_path };
 
   ret_code = proc_manager.run("ffmpeg", args2);
 

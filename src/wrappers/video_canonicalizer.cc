@@ -44,7 +44,7 @@ int main(int argc, char * argv[])
     /* canonicalize video */
     vector<string> args {
       "ffmpeg", "-nostdin", "-hide_banner", "-loglevel", "panic", "-y",
-      "-i", input_path, "-vf", "bwdif", output_path };
+      "-i", input_path, "-vf", "bwdif", "-threads", "1", output_path };
 
     ProcessManager proc_manager;
     int ret_code = proc_manager.run("ffmpeg", args);

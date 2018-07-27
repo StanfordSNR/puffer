@@ -41,7 +41,7 @@ int main(int argc, char * argv[])
   /* run FFmpeg's SSIM calculation and read from stderr */
   vector<string> cmd {
     "ffmpeg", "-nostdin", "-hide_banner", "-i", video1, "-i", video2,
-    "-lavfi", "ssim", "-f", "null", "-" };
+    "-lavfi", "ssim", "-threads", "1", "-f", "null", "-" };
   string output = run("ffmpeg", cmd, false, true).second;
 
   /* the overall SSIM should appear within the last pair of parentheses */

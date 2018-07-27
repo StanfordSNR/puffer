@@ -75,7 +75,7 @@ int main(int argc, char * argv[])
   vector<string> args {
     "ffmpeg", "-nostdin", "-hide_banner", "-loglevel", "panic", "-y",
     "-i", input_path, "-c:v", "libx264", "-s", resolution, "-crf", crf,
-    "-preset", "veryfast", output_path };
+    "-preset", "veryfast", "-threads", "1", output_path };
 
   ProcessManager proc_manager;
   return proc_manager.run("ffmpeg", args);

@@ -84,7 +84,7 @@ int main(int argc, char * argv[])
   string scale = to_string(width) + ":" + to_string(height);
   vector<string> ffmpeg_args {
     "ffmpeg", "-nostdin", "-hide_banner", "-loglevel", "panic", "-y",
-    "-i", input_path, "-vf", "scale=" + scale, scaled_y4m };
+    "-i", input_path, "-vf", "scale=" + scale, "-threads", "1", scaled_y4m };
 
   ProcessManager proc_manager;
   int ret_code = proc_manager.run("ffmpeg", ffmpeg_args);

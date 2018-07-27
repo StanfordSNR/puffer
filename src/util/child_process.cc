@@ -267,8 +267,8 @@ Result ProcessManager::handle_signal(const signalfd_siginfo & sig)
    * to notify ProcessManager's parent process if there is */
   case SIGCHLD:
     if (child_processes_.empty()) {
-      throw runtime_error("ProcessManager: received SIGCHLD without "
-                          "any children");
+      cerr << "ProcessManager: received SIGCHLD without any children" << endl;
+      break;
     }
 
     for (auto it = child_processes_.begin(); it != child_processes_.end();) {
