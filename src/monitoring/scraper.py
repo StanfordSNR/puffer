@@ -4,6 +4,7 @@ import argparse
 import os
 import urllib3
 import re
+import sys
 import time
 import subprocess
 
@@ -32,15 +33,22 @@ InputStatus = namedtuple('InputStatus',
 
 # Sends snr info and more to influxdb for monitoring
 def send_to_influx(statuses):
+    DEVNULL = open(os.devnull, 'w')
+
     cur_time = str(int(time.time()))
     for status in statuses:
+        rf_channel = str(status.rf_channel).split(" ")[0]
+        snr = str(status.snr)
         data_string_snr = 'curl -i -XPOST "http://localhost:8086/write?db' \
             '=collectd&u=admin&p=' + INFLUX_PWD + \
             '&precision=s" --data-binary "rf_status,rf_channel=' + \
-            str(status.rf_channel).split(" ")[0] + ' snrval=' + \
-            str(status.snr) + ' ' + cur_time + '"'
+            rf_channel + ' snrval=' + snr + ' ' + cur_time + '"'
 
-        subprocess.call(data_string_snr, shell=True)
+        sys.stderr.write('channel {}, SNR {}\n'.format(rf_channel, snr))
+        subprocess.call(data_string_snr, shell=True,
+                        stdout=DEVNULL, stderr=DEVNULL)
+
+    DEVNULL.close()
 
 
 def get_args():
