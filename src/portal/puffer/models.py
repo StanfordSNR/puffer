@@ -2,12 +2,31 @@ from django.db import models
 from django.contrib.sessions.models import Session
 from django.contrib.auth.models import User
 from django.contrib.auth.signals import user_logged_in
+from django.core.validators import MaxValueValidator, MinValueValidator
 
 
 class UserProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE,
                                 primary_key=True)
     last_session_key = models.CharField(max_length=64, default='')
+
+
+class Comment(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    comment_text = models.CharField(max_length=500)
+    pub_date = models.DateTimeField('date published')
+
+    def __str__(self):
+        return self.comment_text
+
+
+class StarRating(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    rating = models.IntegerField(validators=[MinValueValidator(1), MaxValueValidator(5)])
+    pub_date = models.DateTimeField('date published')
+
+    def __str__(self):
+        return str(self.user) + '-' + str(self.rating)
 
 
 def user_logged_in_handler(sender, request, user, **kwargs):

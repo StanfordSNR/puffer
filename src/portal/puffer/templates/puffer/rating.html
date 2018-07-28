@@ -1,0 +1,63 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <title>Puffer</title>
+  <link rel="stylesheet" href="{% static 'puffer/css/star_rating.css' %}">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+  <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
+</head>
+
+<body>
+
+{% if user.is_authenticated %}
+  <div class="container">
+    <h2>What do you think of our TV?</h2>
+
+    {% if error_message %}
+      <div class="alert alert-danger">
+        <strong>Error!</strong> {{ error_message }}
+      </div>
+    {% endif %}
+
+    {% if success_message %}
+      <div class="alert alert-success">
+        <strong>Success!</strong> {{ success_message }}
+      </div>
+    {% endif %}
+
+    <form action="{% url 'rating' %}" method="post">
+    {% csrf_token %}
+      <div class=rating>
+      {% with 'x xx xxx xxxx xxxxx' as list %}
+        {% for i in list.split %}
+          <label>
+            <input type="radio" name="rating-star" value="{{ forloop.counter }}" />
+          {% for j in i %}
+            <span class="glyphicon glyphicon-star"></span>
+          {% endfor %}
+          </label>
+        {% endfor %}
+      {% endwith %}
+      </div>
+
+      <div class="form-group">
+        <textarea class="form-control" rows="2" name="rating-comment" id="rating-comment"
+                  placeholder="Any comments?"></textarea>
+      </div>
+      <input type="submit" value="Submit" class="btn btn-default"/>
+    </form>
+  </div>
+
+{% else %}
+  <script> window.location.replace("{% url 'login' %}"); </script>
+{% endif %}
+
+</body>
+
+</html>
