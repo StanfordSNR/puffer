@@ -563,27 +563,35 @@ void handle_client_info(WebSocketClient & client, const ClientInfoMsg & msg)
   client.set_client_next_ats(msg.next_audio_timestamp);
 
   /* only interested in logging the events below */
-  if (msg.event != ClientInfoMsg::PlayerEvent::Timer and
-      msg.event != ClientInfoMsg::PlayerEvent::Rebuffer and
-      msg.event != ClientInfoMsg::PlayerEvent::CanPlay) {
-    return;
-  }
+  if (msg.event == ClientInfoMsg::PlayerEvent::Timer or
+      msg.event == ClientInfoMsg::PlayerEvent::Rebuffer or
+      msg.event == ClientInfoMsg::PlayerEvent::CanPlay) {
+    /* convert video playback buffer to string (%.1f) */
+    assert(msg.video_buffer_len < 100);
+    const size_t buf_size = 5;
+    char buf[buf_size];
+    int n = snprintf(buf, buf_size, "%.1f", msg.video_buffer_len);
+    if (n < 0 or n >= static_cast<int>(buf_size)) {
+      cerr << "Warning in recording video playback buffer: error occurred or "
+           << "the converted string is truncated" << endl;
+      return;
+    }
 
-  /* convert video playback buffer to string (%.1f) */
-  assert(msg.video_buffer_len < 100);
-  const size_t buf_size = 5;
-  char buf[buf_size];
-  int n = snprintf(buf, buf_size, "%.1f", msg.video_buffer_len);
-  if (n < 0 or n >= static_cast<int>(buf_size)) {
-    cerr << "Warning in recording video playback buffer: error occurred or "
-         << "the converted string is truncated" << endl;
-    return;
-  }
+    string log_line = to_string(time(nullptr)) + " " + client.username() + " "
+        + *client.channel() + " " + to_string(static_cast<int>(msg.event))
+        + " " + buf + "\n";
+    append_to_log("playback_buffer.log", log_line);
+  } else if (msg.event == ClientInfoMsg::PlayerEvent::VideoAck) {
+    if (not msg.quality or not msg.timestamp) {
+      cerr << "Received a VideoAck of invalid format" << endl;
+      return;
+    }
 
-  string log_line = to_string(time(nullptr)) + " "
-      + to_string(client.connection_id()) + " " + client.username() + " "
-      + to_string(static_cast<int>(msg.event)) + " " + buf + "\n";
-  append_to_log("client_info.log", log_line);
+    string log_line = to_string(time(nullptr)) + " " + client.username() + " "
+        + *client.channel() + " " + to_string(*msg.timestamp) + " "
+        + *msg.quality + "\n";
+    append_to_log("video_quality.log", log_line);
+  }
 }
 
 void load_global_settings(const YAML::Node & config)
