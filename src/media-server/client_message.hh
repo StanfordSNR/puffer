@@ -55,12 +55,17 @@ public:
   uint64_t next_video_timestamp {};
   uint64_t next_audio_timestamp {};
 
-  int player_width {};
-  int player_height {};
-
   PlayerReadyState player_ready_state {PlayerReadyState::HaveNothing};
 
   unsigned int init_id {};
+
+  /* extra metadata payload */
+  std::optional<std::string> type {};
+  std::optional<std::string> quality {};
+  std::optional<uint64_t> timestamp {};
+  std::optional<unsigned int> duration {};
+  std::optional<unsigned int> byte_offset {};
+  std::optional<unsigned int> total_byte_length {};
 };
 
 class ClientMsgParser

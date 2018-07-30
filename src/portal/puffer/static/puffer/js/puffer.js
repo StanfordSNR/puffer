@@ -334,25 +334,29 @@ function WebSocketClient(video, audio, session_key, username) {
     }
   }
 
-  function send_client_info(event) {
+  function send_client_info(event, extra_payload = {}) {
     if (debug && av_source && av_source.isOpen()) {
       av_source.logBufferInfo();
     }
     if (ws && ws.readyState === WS_OPEN && av_source && av_source.isOpen()) {
       try {
-        ws.send(format_client_msg('client-info',
-          {
-            event: event,
-            videoBufferLen: av_source.getVideoBufferLen(),
-            audioBufferLen: av_source.getAudioBufferLen(),
-            nextVideoTimestamp: av_source.getNextVideoTimestamp(),
-            nextAudioTimestamp: av_source.getNextAudioTimestamp(),
-            playerWidth: video.videoWidth,
-            playerHeight: video.videoHeight,
-            playerReadyState: video.readyState,
-            initId: av_source.getInitId()
+        var payload = {
+          event: event,
+          videoBufferLen: av_source.getVideoBufferLen(),
+          audioBufferLen: av_source.getAudioBufferLen(),
+          nextVideoTimestamp: av_source.getNextVideoTimestamp(),
+          nextAudioTimestamp: av_source.getNextAudioTimestamp(),
+          playerReadyState: video.readyState,
+          initId: av_source.getInitId()
+        };
+
+        if (extra_payload) {
+          for (var ele in extra_payload) {
+            payload[ele] = extra_payload[ele];
           }
-        ));
+        }
+
+        ws.send(format_client_msg('client-info', payload));
       } catch (e) {
         console.log('Failed to send client info', e);
       }
@@ -386,7 +390,7 @@ function WebSocketClient(video, audio, session_key, username) {
       /* ignore chunks from wrong channels */
       if (av_source && av_source.getChannel() === message.metadata.channel) {
         av_source.handleAudio(message.data, message.metadata);
-        send_client_info('audack');
+        send_client_info('audack', message.metadata);
       }
     } else if (message.metadata.type === 'server-video') {
       if (debug) {
@@ -398,7 +402,7 @@ function WebSocketClient(video, audio, session_key, username) {
       /* ignore chunks from wrong channels */
       if (av_source && av_source.getChannel() === message.metadata.channel) {
         av_source.handleVideo(message.data, message.metadata);
-        send_client_info('vidack');
+        send_client_info('vidack', message.metadata);
       }
     } else {
       console.log('received unknown message', message.metadata.type);

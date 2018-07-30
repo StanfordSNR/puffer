@@ -73,8 +73,6 @@ ClientInfoMsg ClientMsgParser::parse_info_msg()
   ret.audio_buffer_len = msg_.at("audioBufferLen").get<double>();
   ret.next_video_timestamp = msg_.at("nextVideoTimestamp").get<uint64_t>();
   ret.next_audio_timestamp = msg_.at("nextAudioTimestamp").get<uint64_t>();
-  ret.player_width = msg_.at("playerWidth").get<int>();
-  ret.player_height = msg_.at("playerHeight").get<int>();
 
   int player_ready_state = msg_.at("playerReadyState").get<int>();
   if (player_ready_state < 0 || player_ready_state > 4) {
@@ -82,6 +80,17 @@ ClientInfoMsg ClientMsgParser::parse_info_msg()
   }
   ret.player_ready_state = static_cast<ClientInfoMsg::PlayerReadyState>
                                       (player_ready_state);
+
+  /* extra metadata payload */
+  if (ret.event == ClientInfoMsg::PlayerEvent::AudioAck or
+      ret.event == ClientInfoMsg::PlayerEvent::VideoAck) {
+    ret.type = msg_.at("type").get<string>();
+    ret.quality = msg_.at("quality").get<string>();
+    ret.timestamp = msg_.at("timestamp").get<uint64_t>();
+    ret.duration = msg_.at("duration").get<unsigned int>();
+    ret.byte_offset = msg_.at("byteOffset").get<unsigned int>();
+    ret.total_byte_length = msg_.at("totalByteLength").get<unsigned int>();
+  }
 
   return ret;
 }
