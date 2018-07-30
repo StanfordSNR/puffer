@@ -270,7 +270,7 @@ int main(int argc, char * argv[])
       return EXIT_FAILURE;
     }
   } else {
-    fs::create_directory(output_path);
+    fs::create_directories(output_path);
   }
 
   /* get the path of wrappers directory and notifier */
