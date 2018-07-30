@@ -1,9 +1,9 @@
 import json
 
 from django.shortcuts import render, redirect
-from django.utils import timezone
+import datetime
 
-from .models import Comment, StarRating
+from .models import Rating
 
 def index(request):
     return render(request, 'puffer/index.html')
@@ -24,51 +24,32 @@ def player(request, aid):
 
 
 def rating(request):
-    if request.method != 'POST':
-        return render(request, 'puffer/rating.html')
-
-    cur_date=timezone.now()
-    flag_comment = 0
-    flag_star = 0
-    if request.POST['rating-comment'] != '':
-        try:
-            new_comment = Comment(user=request.user, comment_text=request.POST['rating-comment'],
-                                  pub_date=cur_date)
-            new_comment.save()
-        except:
-            return redirect('rating-m', id=0)
-        flag_comment = 1
+    new_star = 0
+    new_comment = request.POST['rating-comment']
 
     if 'rating-star' in request.POST:
         try:
-            new_star = StarRating(user=request.user, rating=int(request.POST['rating-star']),
-                               pub_date=cur_date)
-            new_star.save()
+            new_star = request.POST['rating-star']
         except:
             return redirect('rating-m', id=1)
-        flag_star = 1
 
-    if flag_comment == 1 or flag_star == 1:
-        return redirect('rating-m', id=flag_comment * 2 + flag_star + 1)
-    else:
-        return redirect('rating')
+    if new_star == 0 and new_comment == '':
+        return redirect('rating-m', id=0)
+
+    try:
+        Rating.objects.create(user=request.user, comment_text=new_comment,
+                              stars = new_star, pub_date=datetime.datetime.utcnow())
+        return redirect('rating-m', id=2)
+    except:
+        return redirect('rating-m', id=1)
 
 
 def rating_m(request, id):
-    if id == 0:
-        return render(request, 'puffer/rating.html',
-                      {'error_message': 'Something going wrong when submit the comment.'})
+    context = {'star_pattern': ['x' * i for i in range(1, 6)]}
+
     if id == 1:
-        return render(request, 'puffer/rating.html',
-                      {'error_message': 'Something going wrong when submit the rating.'})
+        context['error_message'] = 'Try rating again?'
     if id == 2:
-        return render(request, 'puffer/rating.html',
-                      {'success_message': 'You submited a rating.'})
-    if id == 3:
-        return render(request, 'puffer/rating.html',
-                      {'success_message': 'You submited a comment.'})
-    if id == 4:
-        return render(request, 'puffer/rating.html',
-                      {'success_message': 'You submited a rating and a comment.'})
-    return render(request, 'puffer/rating.html',
-                      {'error_message': 'Wrong page.'})
+        context['success_message'] = 'Thank you for rating us!'
+
+    return render(request, 'puffer/rating.html', context)

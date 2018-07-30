@@ -11,22 +11,15 @@ class UserProfile(models.Model):
     last_session_key = models.CharField(max_length=64, default='')
 
 
-class Comment(models.Model):
+class Rating(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
-    comment_text = models.CharField(max_length=500)
+    comment_text = models.CharField(max_length=500, default='')
+    stars = models.IntegerField(validators=[MinValueValidator(0), MaxValueValidator(5)],
+                                 default=0)
     pub_date = models.DateTimeField('date published')
 
     def __str__(self):
-        return self.comment_text
-
-
-class StarRating(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
-    rating = models.IntegerField(validators=[MinValueValidator(1), MaxValueValidator(5)])
-    pub_date = models.DateTimeField('date published')
-
-    def __str__(self):
-        return str(self.user) + '-' + str(self.rating)
+        return str(self.user) + '-' + str(self.stars) + '-' + str(self.comment_text)
 
 
 def user_logged_in_handler(sender, request, user, **kwargs):

@@ -1,9 +1,9 @@
 .rating {
   display: inline-block;
   position: relative;
-  height: 50px;
+  height: 35px;
   line-height: 50px;
-  font-size: 40px;
+  font-size: 30px;
 }
 
 .rating label {
@@ -47,7 +47,7 @@
 
 .rating label span {
   float: left;
-  width: 45px;
+  width: 30px;
   color: transparent;
 }
 
