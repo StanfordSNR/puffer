@@ -481,9 +481,15 @@ function WebSocketClient(video, audio, session_key, username) {
 
   function debug_timer_helper() {
     if (av_source) {
-      document.getElementById("vidPBuf").innerHTML = parseFloat(av_source.getVideoBufferLen()).toFixed(1);
-      document.getElementById("audPBuf").innerHTML = parseFloat(av_source.getAudioBufferLen()).toFixed(1);
-      document.getElementById("vidQual").innerHTML = av_source.getVideoQuality();
+      var vidPBuf = document.getElementById("vidPBuf");
+      vidPBuf.innerHTML = parseFloat(av_source.getVideoBufferLen()).toFixed(1);
+
+      var audPBuf = document.getElementById("audPBuf");
+      audPBuf.innerHTML = parseFloat(av_source.getAudioBufferLen()).toFixed(1);
+
+      var vidQual = document.getElementById("vidQual");
+      const video_quality = av_source.getVideoQuality();
+      vidQual.innerHTML = video_quality ? video_quality : "none";
     }
     setTimeout(debug_timer_helper, DEBUG_TIMER_INTERVAL);
   }
