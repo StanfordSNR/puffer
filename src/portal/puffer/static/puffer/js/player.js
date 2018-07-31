@@ -125,6 +125,20 @@ function setup_control_bar() {
   };
 }
 
+function init_debug_button() {
+  const debug_button = document.getElementById('debug-button');
+  const debug_info = document.getElementById('debug-info');
+  debug_button.onclick = function() {
+    if (debug_info.hidden) {
+      debug_info.hidden = false;
+      debug_button.innerText = 'Hide Debug Info';
+    } else {
+      debug_info.hidden = true;
+      debug_button.innerText = 'Show Debug Info';
+    }
+  };
+}
+
 function init_player(params_json) {
   var params = JSON.parse(params_json);
 
@@ -137,6 +151,9 @@ function init_player(params_json) {
     console.log('Error: no session key or username')
     return;
   }
+
+  /* Set up the debug Button */
+  init_debug_button();
 
   /* Set up the player control bar*/
   setup_control_bar();

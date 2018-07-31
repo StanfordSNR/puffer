@@ -41,7 +41,14 @@
   </div>
 
   <div>
-    <object type="text/html" data="{% url 'rating-m' id=0 %}" width=730 height=350></object>
+    <object type="text/html" data="{% url 'rating-m' id=0 %}" width=730 height=200></object>
+  </div>
+  <br>
+  <button type="button" id="debug-button">Show Debug Info</button>
+  <div id="debug-info" hidden=true>
+    <h3>Video Playback Buffer: <span id="vidPBuf"></span> seconds</h3>
+    <h3>Audio Playback Buffer: <span id="audPBuf"></span> seconds</h3>
+    <h3>Video quality: <span id="vidQual"></span> </h3>
   </div>
 
   <script src="{% static 'puffer/js/player.js' %}"></script>

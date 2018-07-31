@@ -1,6 +1,7 @@
 const WS_OPEN = 1;
 
 const TIMER_INTERVAL = 2000;
+const DEBUG_TIMER_INTERVAL = 500;
 const BASE_RECONNECT_BACKOFF = 100;
 const MAX_RECONNECT_BACKOFF = 30000;
 
@@ -157,6 +158,9 @@ function AVSource(video, audio, options) {
 
   var partial_video_quality = null;
   var partial_video_chunks = null;
+
+  this.getVideoQuality = function() { return partial_video_quality; };
+
   this.handleVideo = function(data, metadata) {
     /* New segment or server aborted sending */
     if (partial_video_quality !== metadata.quality) {
@@ -474,6 +478,16 @@ function WebSocketClient(video, audio, session_key, username) {
     setTimeout(timer_helper, TIMER_INTERVAL);
   }
   timer_helper();
+
+  function debug_timer_helper() {
+    if (av_source) {
+      document.getElementById("vidPBuf").innerHTML = parseFloat(av_source.getVideoBufferLen()).toFixed(1);
+      document.getElementById("audPBuf").innerHTML = parseFloat(av_source.getAudioBufferLen()).toFixed(1);
+      document.getElementById("vidQual").innerHTML = av_source.getVideoQuality();
+    }
+    setTimeout(debug_timer_helper, DEBUG_TIMER_INTERVAL);
+  }
+  debug_timer_helper();
 }
 
 function setup_channel_bar(client) {
