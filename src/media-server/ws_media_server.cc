@@ -222,7 +222,7 @@ void serve_video_to_client(WebSocketServer & server, WebSocketClient & client)
 
   uint64_t next_vts = client.next_vts().value();
 
-  if (not client.next_vsegment().has_value()) { /* or try a lower quality */
+  if (not client.next_vsegment()) { /* or try a lower quality */
     /* Start new chunk */
     if (not channel.vready(next_vts)) {
       return;
@@ -234,8 +234,7 @@ void serve_video_to_client(WebSocketServer & server, WebSocketClient & client)
          << ", video " << next_vts << " " << next_vq << " " << ssim << endl;
 
     optional<mmap_t> init_mmap;
-    if (not client.curr_vq().has_value() or
-        next_vq != client.curr_vq().value()) {
+    if (not client.curr_vq() or next_vq != client.curr_vq().value()) {
       init_mmap = channel.vinit(next_vq);
     }
     client.set_next_vsegment(next_vq, channel.vdata(next_vq, next_vts),
@@ -271,7 +270,7 @@ void serve_audio_to_client(WebSocketServer & server, WebSocketClient & client)
   Channel & channel = channels.at(client.channel().value());
   uint64_t next_ats = client.next_ats().value();
 
-  if (not client.next_asegment().has_value()) { /* or try a lower quality */
+  if (not client.next_asegment()) { /* or try a lower quality */
     if (not channel.aready(next_ats)) {
       return;
     }
@@ -282,8 +281,7 @@ void serve_audio_to_client(WebSocketServer & server, WebSocketClient & client)
          << ", audio " << next_ats << " " << next_aq << endl;
 
     optional<mmap_t> init_mmap;
-    if (not client.curr_aq().has_value() or
-        next_aq != client.curr_aq().value()) {
+    if (not client.curr_aq() or next_aq != client.curr_aq().value()) {
       init_mmap = channel.ainit(next_aq);
     }
     client.set_next_asegment(next_aq, channel.adata(next_aq, next_ats),
@@ -334,7 +332,7 @@ void reinit_laggy_client(WebSocketServer & server, WebSocketClient & client,
                          const Channel & channel)
 {
   /* return if the channel is not ready */
-  if (not channel.init_vts().has_value()) {
+  if (not channel.init_vts()) {
     cerr << client.signature() << ": cannot reinit laggy client "
          << "(channel is not ready)" << endl;
     return;
@@ -364,9 +362,9 @@ void serve_client(WebSocketServer & server, WebSocketClient & client)
     /* reinitialize very slow clients if the cleaner has caught up */
     auto vclean_frontier = channel.vclean_frontier();
     auto aclean_frontier = channel.aclean_frontier();
-    if ((vclean_frontier.has_value() and
+    if ((vclean_frontier and
          vclean_frontier.value() >= client.next_vts().value()) or
-        (aclean_frontier.has_value() and
+        (aclean_frontier and
          aclean_frontier.value() >= client.next_ats().value())) {
       reinit_laggy_client(server, client, channel);
       return;
@@ -417,7 +415,7 @@ void start_global_timer(WebSocketServer & server)
           /* iterate over all connections */
           for (auto & client_item : clients) {
             WebSocketClient & client = client_item.second;
-            if (client.channel().has_value()) {
+            if (client.channel()) {
               serve_client(server, client);
             }
           }
@@ -452,17 +450,14 @@ void send_server_init(WebSocketServer & server, WebSocketClient & client,
 bool resume_connection(WebSocketServer & server, WebSocketClient & client,
                        const ClientInitMsg & msg, const Channel & channel)
 {
-  /* resume a connection only if client was playing the same channel */
-  if (not client.channel().has_value() or
-      client.channel().value() != channel.name()) {
+  /* don't resume a connection if client is requesting a different channel */
+  if (client.channel() and client.channel().value() != channel.name()) {
     return false;
   }
 
   /* check if the requested timestamps are valid */
-  if (not (msg.next_vts.has_value() and
-           channel.is_valid_vts(msg.next_vts.value()) and
-           msg.next_ats.has_value() and
-           channel.is_valid_ats(msg.next_ats.value()))) {
+  if (not (msg.next_vts and channel.is_valid_vts(msg.next_vts.value()) and
+           msg.next_ats and channel.is_valid_ats(msg.next_ats.value()))) {
     return false;
   }
 
@@ -472,7 +467,7 @@ bool resume_connection(WebSocketServer & server, WebSocketClient & client,
   if (channel.live()) {
     /* live: don't try to resume if the requested video is already behind
      * the live edge */
-    if (not channel.vlive_frontier().has_value() or
+    if (not channel.vlive_frontier() or
         requested_vts < channel.vlive_frontier().value()) {
       return false;
     }
@@ -512,7 +507,7 @@ void handle_client_init(WebSocketServer & server, WebSocketClient & client,
   auto & channel = it->second;
 
   /* ignore client-init if the channel is not ready */
-  if (not channel.init_vts().has_value()) {
+  if (not channel.init_vts()) {
     cerr << client.signature()
          << ": ignored client-init (channel is not ready)" << endl;
     return;
@@ -527,7 +522,7 @@ void handle_client_init(WebSocketServer & server, WebSocketClient & client,
   uint64_t init_ats = channel.find_ats(init_vts);
 
   /* Save old channel for use in updating view count */
-  const string old_channel_string = client.channel().has_value() ?
+  const string old_channel_string = client.channel() ?
                                     client.channel().value() : "";
   client.init(channel.name(), init_vts, init_ats);
 
