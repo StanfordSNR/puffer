@@ -229,8 +229,9 @@ void serve_video_to_client(WebSocketServer & server, WebSocketClient & client)
     }
     const VideoFormat & next_vq = select_video_quality(client);
 
-    cerr << client.signature() << ": serving channel " << channel.name()
-         << ", video " << next_vts << " " << next_vq << endl;
+    double ssim = channel.vssim(next_vts).at(next_vq);
+    cerr << client.signature() << ": channel " << channel.name()
+         << ", video " << next_vts << " " << next_vq << " " << ssim << endl;
 
     optional<mmap_t> init_mmap;
     if (not client.curr_vq().has_value() or
@@ -240,8 +241,8 @@ void serve_video_to_client(WebSocketServer & server, WebSocketClient & client)
     client.set_next_vsegment(next_vq, channel.vdata(next_vq, next_vts),
                              init_mmap);
   } else {
-    cerr << client.signature() << ": continuing video "
-         << next_vts << endl;
+    cerr << client.signature() << ": channel " << channel.name()
+         << ", continuing video " << next_vts << endl;
   }
 
   VideoSegment & next_vsegment = client.next_vsegment().value();
@@ -277,7 +278,7 @@ void serve_audio_to_client(WebSocketServer & server, WebSocketClient & client)
 
     const AudioFormat & next_aq = select_audio_quality(client);
 
-    cerr << client.signature() << ": serving channel " << channel.name()
+    cerr << client.signature() << ": channel " << channel.name()
          << ", audio " << next_ats << " " << next_aq << endl;
 
     optional<mmap_t> init_mmap;
@@ -288,8 +289,8 @@ void serve_audio_to_client(WebSocketServer & server, WebSocketClient & client)
     client.set_next_asegment(next_aq, channel.adata(next_aq, next_ats),
                              init_mmap);
   } else {
-    cerr << client.signature() << ": continuing audio "
-         << next_ats << endl;
+    cerr << client.signature() << ": channel " << channel.name()
+         << ", continuing audio " << next_ats << endl;
   }
 
   AudioSegment & next_asegment = client.next_asegment().value();
