@@ -13,17 +13,17 @@
 
 {% if user.is_authenticated %}
   <h1>Puffer</h1>
-  <p>User: {{ user.get_username }}</p>
-  <p><a href="{% url 'logout' %}">Logout</a></p>
+  <p>User: {{ user.get_username }}. <a href="{% url 'logout' %}">Logout.</a></p>
+  <p>Video is muted by default. Unmute it in the player control bar.</p>
 
   <div id="tv-container-box">
     <ul id="channel-list">
       <li class="li_title">Channel List</li>
-      <li class="li_channel_checked">ABC</li>
-      <li class="li_channel">NBC</li>
-      <li class="li_channel">FOX</li>
-      <li class="li_channel">PBS</li>
-      <li class="li_channel">CW</li>
+      <li data-value="abc" class="li_channel_checked">KGO-TV 7 (ABC)</li>
+      <li data-value="nbc" class="li_channel">KNTV 11 (NBC)</li>
+      <li data-value="fox" class="li_channel">KTVU 2 (Fox)</li>
+      <li data-value="pbs" class="li_channel">KQED 9 (PBS)</li>
+      <li data-value="cw" class="li_channel">KBCW 44 (The CW)</li>
     </ul>
     <div id="tv-container">
       <div id="tv-container-fs">
@@ -46,9 +46,9 @@
   <br>
   <button type="button" id="debug-button">Show Debug Info</button>
   <div id="debug-info" hidden=true>
-    <p>Video playback buffer: <span id="vidPBuf"></span> seconds</p>
-    <p>Audio playback buffer: <span id="audPBuf"></span> seconds</p>
-    <p>Video quality: <span id="vidQual"></span> </p>
+    <p>Video playback buffer (s): <span id="vidPBuf"></span></p>
+    <p>Audio playback buffer (s): <span id="audPBuf"></span></p>
+    <p>Video quality (resolution-CRF): <span id="vidQual"></span></p>
   </div>
 
   <script src="{% static 'puffer/js/player.js' %}"></script>

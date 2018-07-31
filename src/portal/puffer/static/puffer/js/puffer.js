@@ -503,7 +503,7 @@ function setup_channel_bar(client) {
     console.log('Error: only one channel can be selected');
     return;
   }
-  const default_channel = init_checked_channel[0].innerHTML.toLowerCase();
+  const default_channel = init_checked_channel[0].getAttribute('data-value');
 
   /* set up onclick callbacks for channels */
   const channel_list = document.querySelectorAll(
@@ -523,7 +523,7 @@ function setup_channel_bar(client) {
       this.classList.add('li_channel_checked');
       this.classList.remove('li_channel');
 
-      const value = this.innerHTML.toLowerCase();
+      const value = this.getAttribute('data-value');
       console.log('set channel:', value);
       client.set_channel(value);
     }
