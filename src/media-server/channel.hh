@@ -45,8 +45,8 @@ public:
   unsigned int timescale() const { return timescale_; }
   unsigned int vduration() const { return vduration_; }
   unsigned int aduration() const { return aduration_; }
-  unsigned int viewer_count() { return viewer_count_; }
-  void set_viewer_count(unsigned int vc) { viewer_count_ = vc; }
+  int viewer_count() { return viewer_count_; }
+  void set_viewer_count(int viewer_count);
 
   const std::string & vcodec() const { return vcodec_; }
   const std::string & acodec() const { return acodec_; }
@@ -81,7 +81,7 @@ private:
   unsigned int timescale_ {};
   unsigned int vduration_ {};
   unsigned int aduration_ {};
-  unsigned int viewer_count_ {};
+  int viewer_count_ {};
   std::string vcodec_ {};
   std::string acodec_ {};
 
