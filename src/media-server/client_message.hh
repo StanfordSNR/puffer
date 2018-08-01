@@ -21,6 +21,9 @@ public:
 
   std::string channel {};
 
+  std::string os {};
+  std::string browser {};
+
   std::optional<uint64_t> next_vts {};
   std::optional<uint64_t> next_ats {};
 };

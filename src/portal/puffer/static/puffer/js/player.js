@@ -12,7 +12,7 @@ function start_dashjs(aid, session_key, username) {
   var manifest_url = '/static/puffer/media/' + channel_select.value + '/ready/live.mpd';
 
   var player = dashjs.MediaPlayer().create();
-  player.initialize(document.getElementById("tv-video"), manifest_url, true);
+  player.initialize(document.getElementById('tv-video'), manifest_url, true);
   player.clearDefaultUTCTimingSources();
 
   channel_select.onchange = function() {
@@ -71,14 +71,14 @@ function setup_control_bar() {
       mute_button.muted = false;
       video.volume = last_volume_before_mute;
       volume_bar.value = video.volume;
-      mute_button.style.backgroundImage = "url(/static/puffer/images/volume_on.svg)";
+      mute_button.style.backgroundImage = 'url(/static/puffer/images/volume_on.svg)';
     } else {
       last_volume_before_mute = video.volume;
 
       mute_button.muted = true;
       video.volume = 0;
       volume_bar.value = 0;
-      mute_button.style.backgroundImage = "url(/static/puffer/images/volume_off.svg)";
+      mute_button.style.backgroundImage = 'url(/static/puffer/images/volume_off.svg)';
     }
   };
 
@@ -88,10 +88,10 @@ function setup_control_bar() {
     video.volume = volume_bar.value;
     if (video.volume > 0) {
       mute_button.muted = false;
-      mute_button.style.backgroundImage = "url(/static/puffer/images/volume_on.svg)";
+      mute_button.style.backgroundImage = 'url(/static/puffer/images/volume_on.svg)';
     } else {
       mute_button.muted = true;
-      mute_button.style.backgroundImage = "url(/static/puffer/images/volume_off.svg)";
+      mute_button.style.backgroundImage = 'url(/static/puffer/images/volume_off.svg)';
     }
   };
 

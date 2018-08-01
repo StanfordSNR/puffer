@@ -525,6 +525,8 @@ void handle_client_init(WebSocketServer & server, WebSocketClient & client,
   const string old_channel_string = client.channel() ?
                                     client.channel().value() : "";
   client.init(channel.name(), init_vts, init_ats);
+  client.set_browser(msg.browser);
+  client.set_os(msg.os);
 
   send_server_init(server, client, false /* initialize rather than resume */);
 
@@ -543,7 +545,8 @@ void handle_client_init(WebSocketServer & server, WebSocketClient & client,
     append_to_log("active_streams.log", log_line2);
   }
 
-  cerr << client.signature() << ": connection initialized" << endl;
+  cerr << client.signature() << ": connection initialized. " << msg.browser
+       << " on " << msg.os << endl;
 }
 
 void handle_client_info(WebSocketClient & client, const ClientInfoMsg & msg)
