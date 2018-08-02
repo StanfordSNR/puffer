@@ -8,13 +8,14 @@ import sys
 import time
 import subprocess
 
+from datetime import datetime
 from collections import namedtuple
+from influxdb import InfluxDBClient
 
 
 USERNAME = os.getenv('BLONDER_TONGUE_USERNAME')
 PASSWORD = os.getenv('BLONDER_TONGUE_PASSWORD')
 INFLUX_PWD = os.getenv('INFLUXDB_PASSWORD')
-
 
 SESSION_ID_REGEX = re.compile(r'<input type="hidden" name="session_id" value="(\d+)">')
 LOGGED_IN_STR = 'Welcome puffer!  Please wait while retrieving information.'
@@ -26,31 +27,36 @@ INPUT_STATUS_REGEX = re.compile(
     r'<td align="center" bgcolor="#[0-9A-F]+">(?P<ts_rate>[\d.]+)</td>\s+'
     r'<td align="center" bgcolor="#[0-9A-F]+">(?P<data_rate>[\d.]+)</td>\s+'
     r'</tr>')
+OUTPUT_STATUS_REGEX = re.compile(
+    r'<tr>\s+'
+    r'<td bgcolor="#A0A0A0">(?P<input>\d+)</td>\s+'
+    r'<td bgcolor="#A0A0A0">.+?</td>\s+'
+    r'<td bgcolor="#A0A0A0">.+?</td>\s+'
+    r'<td bgcolor="#A0A0A0">.+?</td>\s+'
+    r'<td bgcolor="#A0A0A0">(?P<selected_rate>[\d.]+)</td>\s+'
+    r'.+?\s+'
+    r'</tr>')
 
-InputStatus = namedtuple('InputStatus',
-                         ['input', 'snr', 'rf_channel', 'ts_rate', 'data_rate'])
 
+# Send SNR info and more to InfluxDB for monitoring
+def send_to_influx(status):
+    json_body = []
 
-# Sends snr info and more to influxdb for monitoring
-def send_to_influx(statuses):
-    DEVNULL = open(os.devnull, 'w')
+    curr_time = datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')
+    for k, v in status.items():
+        json_body.append({
+          'measurement': 'channel_status',
+          'tags': {'rf_channel': v['rf_channel']},
+          'time': curr_time,
+          'fields': {'snr': v['snr'],
+                     'selected_rate': v['selected_rate']}
+        })
 
-    cur_time = str(int(time.time()))
-    for status in statuses:
-        rf_channel = str(status.rf_channel).split(" ")[0]
-        snr = str(status.snr)
-        bitrate = str(status.data_rate)
-        data_string_snr = 'curl -i -XPOST "http://localhost:8086/write?db' \
-            '=collectd&u=admin&p=' + INFLUX_PWD + \
-            '&precision=s" --data-binary "rf_status,rf_channel=' + \
-            rf_channel + ' snrval=' + snr + ',bitrate=' + bitrate + \
-            ' ' + cur_time + '"'
+        sys.stderr.write('channel {}, SNR {}\n'.format(
+            v['rf_channel'], v['snr']))
 
-        sys.stderr.write('channel {}, SNR {}\n'.format(rf_channel, snr))
-        subprocess.call(data_string_snr, shell=True,
-                        stdout=DEVNULL, stderr=DEVNULL)
-
-    DEVNULL.close()
+    client = InfluxDBClient('localhost', 8086, 'admin', INFLUX_PWD)
+    client.write_points(json_body, time_precision='s', database='collectd')
 
 
 def get_args():
@@ -112,16 +118,27 @@ def get_status_page(http, host_and_port, session_id):
     return str(r.data).replace('\\n', '\n')
 
 
-def parse_status_html(html):
+def parse_input_status(html, status):
     matches = INPUT_STATUS_REGEX.findall(html)
     if len(matches) == 0:
-        raise RuntimeError('Failed to parse status page')
-    return map(lambda x: InputStatus(
-        input=int(x[0]),
-        snr=float(x[1]),
-        rf_channel=x[2],
-        ts_rate=float(x[3]),
-        data_rate=x[4]), matches)
+        raise RuntimeError('Failed to parse input status')
+
+    for x in matches:
+        input = int(x[0])
+        if input in status:
+            status[input]['snr'] = float(x[1])
+            status[input]['rf_channel'] = int(x[2].split()[0])
+
+
+def parse_output_status(html, status):
+    matches = OUTPUT_STATUS_REGEX.findall(html)
+    if len(matches) == 0:
+        raise RuntimeError('Failed to parse output status')
+
+    for x in matches:
+        input = int(x[0])
+        if input in status:
+            status[input]['selected_rate'] = float(x[1])
 
 
 def main(host_and_port):
@@ -130,10 +147,14 @@ def main(host_and_port):
     session_id = get_session_id(http, host_and_port)
     post_login(http, host_and_port, session_id)
     status_html = get_status_page(http, host_and_port, session_id)
-    statuses = parse_status_html(status_html)
+
+    # only interested in the following 5 inputs and corresponding outputs
+    status = {1:{}, 2:{}, 3:{}, 4:{}, 5:{}}
+    parse_input_status(status_html, status)
+    parse_output_status(status_html, status)
 
     # send snr info to influxdb
-    send_to_influx(statuses)
+    send_to_influx(status)
 
 
 if __name__ == '__main__':
