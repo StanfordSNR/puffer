@@ -100,17 +100,6 @@ function AVSource(video, audio, options) {
     if (pending_audio_chunks.length > 0) {
       that.abuf_update();
     }
-
-    /*
-    var video_play_promise = video.play();
-    if (video_play_promise) {
-      video_play_promise.then(function() {
-        console.log('video.play() succeeded');
-      }).catch(function(error) {
-        that.close();
-      });
-    }
-    */
   }
 
   ms.addEventListener('sourceopen', function(e) {
@@ -227,30 +216,26 @@ function AVSource(video, audio, options) {
 
   /* Log debugging info to console */
   this.logBufferInfo = function() {
-    if (vbuf) {
-      if (vbuf.buffered.length > 1) {
-        console.log('Error: vbuf.buffered.length=' + vbuf.buffered.length +
-                    ', server not sending segments in order?');
-      }
-
-      for (var i = 0; i < vbuf.buffered.length; i++) {
-        // There should only be one range if the server is
-        // sending segments in order
-        console.log('video range:',
-                    vbuf.buffered.start(i), '-', vbuf.buffered.end(i));
-      }
+    if (video.buffered.length > 1) {
+      console.log('Error: video.buffered.length=' + video.buffered.length +
+                  ', server not sending segments in order?');
     }
-    if (abuf) {
-      if (abuf.buffered.length > 1) {
-        console.log('Error: abuf.buffered.length=' + abuf.buffered.length +
-                    ', server not sending segments in order?');
-      }
 
-      for (var i = 0; i < abuf.buffered.length; i++) {
-        // Same comment as above
-        console.log('audio range:',
-                    abuf.buffered.start(i), '-', abuf.buffered.end(i));
-      }
+    for (var i = 0; i < video.buffered.length; i++) {
+      // There should only be one range if the server is sending in order
+      console.log('video range:',
+                  video.buffered.start(i), '-', video.buffered.end(i));
+    }
+
+    if (audio.buffered.length > 1) {
+      console.log('Error: audio.buffered.length=' + audio.buffered.length +
+                  ', server not sending segments in order?');
+    }
+
+    for (var i = 0; i < audio.buffered.length; i++) {
+      // Same comment as above
+      console.log('audio range:',
+                  audio.buffered.start(i), '-', audio.buffered.end(i));
     }
   };
 
@@ -258,8 +243,8 @@ function AVSource(video, audio, options) {
 
   /* Get the number of seconds of video buffered */
   this.getVideoBufferLen = function() {
-    if (vbuf && vbuf.buffered.length > 0) {
-      return vbuf.buffered.end(0) - video.currentTime;
+    if (video.buffered.length > 0) {
+      return video.buffered.end(0) - video.currentTime;
     } else {
       return -1;
     }
@@ -267,8 +252,8 @@ function AVSource(video, audio, options) {
 
   /* Get the number of seconds of audio buffered */
   this.getAudioBufferLen = function() {
-    if (abuf && abuf.buffered.length > 0) {
-      return abuf.buffered.end(0) - video.currentTime;
+    if (audio.buffered.length > 0) {
+      return audio.buffered.end(0) - video.currentTime;
     } else {
       return -1;
     }

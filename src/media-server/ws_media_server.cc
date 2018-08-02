@@ -563,10 +563,10 @@ void handle_client_info(WebSocketClient & client, const ClientInfoMsg & msg)
       msg.event == ClientInfoMsg::PlayerEvent::Rebuffer or
       msg.event == ClientInfoMsg::PlayerEvent::CanPlay) {
     /* convert video playback buffer to string (%.1f) */
-    assert(msg.video_buffer_len < 100);
+    double vbuf_len = min(max(msg.video_buffer_len, 0.0), 99.0);
     const size_t buf_size = 5;
     char buf[buf_size];
-    int n = snprintf(buf, buf_size, "%.1f", msg.video_buffer_len);
+    int n = snprintf(buf, buf_size, "%.1f", vbuf_len);
     if (n < 0 or n >= static_cast<int>(buf_size)) {
       cerr << "Warning in recording video playback buffer: error occurred or "
            << "the converted string is truncated" << endl;
