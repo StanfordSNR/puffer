@@ -1,38 +1,57 @@
-{% block content %}
+{% load static %}
 
-{% if form.errors %}
-<p>Your username and password didn't match. Please try again.</p>
-{% endif %}
+<!DOCTYPE html>
+<html lang="en">
 
-{% if next %}
-  {% if user.is_authenticated %}
-  <p>Your account doesn't have access to this page. To proceed,
-  please login with an account that has access.</p>
-  {% else %}
-  <p>Please login to see this page.</p>
-  {% endif %}
-{% endif %}
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <link rel="stylesheet" href="{% static 'puffer/dist/bootstrap.min.css' %}">
+  <link rel="stylesheet" href="{% static 'puffer/css/style.css' %}">
+  <title>Puffer</title>
+</head>
 
-<form method="post" action="{% url 'login' %}">
-{% csrf_token %}
+<body>
+  <div class="container">
+    <div class="row">
+      <h4>Sign in to Puffer</h4>
+    </div>
+    <br>
 
-<div>
-  <td>{{ form.username.label_tag }}</td>
-  <td>{{ form.username }}</td>
-</div>
-<div>
-  <td>{{ form.password.label_tag }}</td>
-  <td>{{ form.password }}</td>
-</div>
+    {% if form.errors %}
+    <div class="alert alert-danger" role="alert">
+      Your username and password didn't match. Please try again.
+    </div>
+    {% endif %}
 
-<div>
-  <input type="submit" value="login" />
-  <input type="hidden" name="next" value="{{ next }}" />
-</div>
-</form>
+    <form method="post" action="{% url 'login' %}">
+      {% csrf_token %}
 
-<p>Don't have an account?<a href="{% url 'signup' %}"> Sign Up!</a></p>
-{# Assumes you setup the password_reset view in your URLconf #}
-<p><a href="{% url 'password_reset' %}">Lost password?</a></p>
+      <div class="form-group row">
+        <label for="id_username" class="col-1 col-form-label">Username:</label>
+        <div class="col-3">
+          <input type="text" class="form-control" name="username" id="id_username">
+        </div>
+      </div>
 
-{% endblock %}
+      <div class="form-group row">
+        <label for="id_password" class="col-1 col-form-label">Password:</label>
+        <div class="col-3">
+          <input type="password" class="form-control" name="password" id="id_password">
+        </div>
+      </div>
+
+      <button type="submit" class="btn btn-primary">Sign in</button>
+    </form>
+    <br>
+
+    <div class="row">
+      <p>Don't have an account? <a href="{% url 'signup' %}">Sign up!</a></p>
+    </div>
+  </div>
+
+  <script src="{% static 'puffer/dist/jquery-3.3.1.slim.min.js' %}"></script>
+  <script src="{% static 'puffer/dist/bootstrap.min.js' %}"></script>
+</body>
+
+</html>
