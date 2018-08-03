@@ -5,50 +5,64 @@
 
 <head>
   <meta charset="utf-8">
-  <title>Puffer</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <link rel="stylesheet" href="{% static 'puffer/dist/bootstrap.min.css' %}">
   <link rel="stylesheet" href="{% static 'puffer/css/style.css' %}">
+  <title>Puffer</title>
 </head>
 
 <body>
-
 {% if user.is_authenticated %}
-  <h1>Puffer</h1>
-  <p>User: {{ user.get_username }}. <a href="{% url 'logout' %}">Logout.</a></p>
-  <p>Video is muted by default. Unmute it in the player control bar.</p>
+  <div class="container">
+    <div class="row">
+      <h4>Puffer</h4>
+    </div>
 
-  <div id="tv-container-box">
-    <ul id="channel-list">
-      <li class="li_title">Channel List</li>
-      <li data-value="abc" class="li_channel_checked">KGO-TV 7 (ABC)</li>
-      <li data-value="nbc" class="li_channel">KNTV 11 (NBC)</li>
-      <li data-value="fox" class="li_channel">KTVU 2 (Fox)</li>
-      <li data-value="pbs" class="li_channel">KQED 9 (PBS)</li>
-      <li data-value="cw" class="li_channel">KBCW 44 (The CW)</li>
-    </ul>
-    <div id="tv-container">
-      <div id="tv-container-fs">
-        <video id="tv-player" muted="muted"></video>
-        <audio id="tv-audio"></audio>
-        <div id="tv-controls-background">
-          <div id="tv-controls">
-            <button type="button" id="mute-button"></button>
-            <input type="range" id="volume-bar" min="0" max="1" step="0.05" value="0">
-            <button type="button" id="full-screen-button"></button>
+    <div class="row">
+      <p>
+        User {{ user.get_username }}.
+        <a href={% url 'rating-m' id=0 %}>Rating us?</a>
+        <a href="{% url 'logout' %}">Sign out.</a><br>
+        Video is muted by default. Unmute it in the player control bar.
+      </p>
+    </div>
+
+    <div class="row" id="tv-container-box">
+      <ul id="channel-list">
+        <li class="li_title">Channel List</li>
+        <li data-value="abc" class="li_channel_checked">KGO-TV 7 (ABC)</li>
+        <li data-value="nbc" class="li_channel">KNTV 11 (NBC)</li>
+        <li data-value="fox" class="li_channel">KTVU 2 (Fox)</li>
+        <li data-value="pbs" class="li_channel">KQED 9 (PBS)</li>
+        <li data-value="cw" class="li_channel">KBCW 44 (The CW)</li>
+      </ul>
+      <div id="tv-container">
+        <div id="tv-container-fs">
+          <video id="tv-player" muted="muted"></video>
+          <audio id="tv-audio"></audio>
+          <div id="tv-controls-background">
+            <div id="tv-controls">
+              <button type="button" id="mute-button"></button>
+              <input type="range" id="volume-bar" min="0" max="1" step="0.05" value="0">
+              <button type="button" id="full-screen-button"></button>
+            </div>
           </div>
         </div>
       </div>
     </div>
-  </div>
+    <br>
 
-  <div>
-    <object type="text/html" data="{% url 'rating-m' id=0 %}" width=730 height=200></object>
-  </div>
-  <br>
-  <button type="button" id="debug-button">Show Debug Info</button>
-  <div id="debug-info" hidden=true>
-    <p>Video playback buffer (s): <span id="vidPBuf"></span></p>
-    <p>Audio playback buffer (s): <span id="audPBuf"></span></p>
-    <p>Video quality (resolution-CRF): <span id="vidQual"></span></p>
+    <div class="row">
+      <button type="button" class="btn btn-info" id="debug-button">Show Debug Info</button>
+    </div>
+    <div class="row" id="debug-info" hidden=true>
+      <p>
+        Video playback buffer (s): <span id="vidPBuf"></span><br>
+        Audio playback buffer (s): <span id="audPBuf"></span><br>
+        Video quality (resolution-CRF): <span id="vidQual"></span>
+      </p>
+    </div>
+
   </div>
 
   <script src="{% static 'puffer/js/player.js' %}"></script>
@@ -63,6 +77,8 @@
   <script> window.location.replace("{% url 'login' %}"); </script>
 {% endif %}
 
+  <script src="{% static 'puffer/dist/jquery-3.3.1.slim.min.js' %}"></script>
+  <script src="{% static 'puffer/dist/bootstrap.min.js' %}"></script>
 </body>
 
 </html>

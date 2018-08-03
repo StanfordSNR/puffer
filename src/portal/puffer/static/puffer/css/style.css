@@ -13,7 +13,6 @@ body {
   max-width: 85vw;
   max-height: 36vw;
   position: relative;
-  margin: 0;
 }
 
 #channel-list {
@@ -200,7 +199,7 @@ body {
   transition: 0.2s;
 }
 
-.li_title{
+.li_title {
   color: black;
   cursor: pointer;
   position: relative;
@@ -209,4 +208,8 @@ body {
   font-size: 18px;
   background: white;
   text-align: center;
+}
+
+#debug-info {
+  margin-top: 10px;
 }
