@@ -5,16 +5,13 @@
 
 <head>
   <meta charset="utf-8">
-  <title>Puffer</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <link rel="stylesheet" href="{% static 'puffer/dist/bootstrap.min.css' %}">
   <link rel="stylesheet" href="{% static 'puffer/css/star_rating.css' %}">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
-  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
-  <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
+  <title>Puffer</title>
 </head>
 
 <body>
-
 {% if user.is_authenticated %}
   <div class="container">
     <h4>Rating:</h4>
@@ -31,9 +28,10 @@
       </div>
     {% endif %}
 
-    <form action="{% url 'rating' %}" method="post">
-    {% csrf_token %}
-      <div class=rating>
+    <form method="post" action="{% url 'rating' %}">
+      {% csrf_token %}
+
+      <div class="rating">
       {% for i in star_pattern %}
         <label>
           <input type="radio" name="rating-star" value="{{ forloop.counter }}" />
@@ -45,10 +43,10 @@
       </div>
 
       <div class="form-group">
-        <textarea class="form-control" rows="2" name="rating-comment" id="rating-comment"
+        <textarea class="form-control" rows="3" name="rating-comment" id="rating-comment"
                   placeholder="Any comments?"></textarea>
       </div>
-      <input type="submit" value="Submit" class="btn btn-default"/>
+      <button type="submit" class="btn btn-primary">Submit</button>
     </form>
   </div>
 
@@ -56,6 +54,8 @@
   <script> window.location.replace("{% url 'login' %}"); </script>
 {% endif %}
 
+  <script src="{% static 'puffer/dist/jquery-3.3.1.slim.min.js' %}"></script>
+  <script src="{% static 'puffer/dist/bootstrap.min.js' %}"></script>
 </body>
 
 </html>
