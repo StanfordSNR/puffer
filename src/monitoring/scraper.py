@@ -39,9 +39,9 @@ OUTPUT_STATUS_REGEX = re.compile(
 
 # Send SNR info and more to InfluxDB for monitoring
 def send_to_influx(status):
-    json_body = []
-
     curr_time = datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')
+
+    json_body = []
     for k, v in status.items():
         json_body.append({
           'measurement': 'channel_status',
