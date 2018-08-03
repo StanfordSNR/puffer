@@ -6,9 +6,9 @@ body {
 .rating {
   display: inline-block;
   position: relative;
-  height: 35px;
-  line-height: 50px;
-  font-size: 30px;
+  height: 30px;
+  line-height: 30px;
+  font-size: 45px;
 }
 
 .rating label {
@@ -52,7 +52,7 @@ body {
 
 .rating label span {
   float: left;
-  width: 30px;
+  width: 40px;
   color: transparent;
 }
 
