@@ -1,15 +1,14 @@
 #!/usr/bin/env python3
 
-import argparse
 import os
-import urllib3
-import re
 import sys
+import argparse
+import re
 import time
 import subprocess
+import urllib3
 
 from datetime import datetime
-from collections import namedtuple
 from influxdb import InfluxDBClient
 
 
@@ -57,13 +56,6 @@ def send_to_influx(status):
 
     client = InfluxDBClient('localhost', 8086, 'admin', INFLUX_PWD)
     client.write_points(json_body, time_precision='s', database='collectd')
-
-
-def get_args():
-    parser = argparse.ArgumentParser()
-    parser.add_argument('host_and_port', type=str,
-                        help='Host and port of the http server')
-    return parser.parse_args()
 
 
 def make_cookie(session_id):
@@ -141,7 +133,11 @@ def parse_output_status(html, status):
             status[input]['selected_rate'] = float(x[1])
 
 
-def main(host_and_port):
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('host_and_port', help='HOST:PORT of server to scrape')
+    host_and_port = parser.parse_args().host_and_port
+
     http = urllib3.PoolManager()
 
     session_id = get_session_id(http, host_and_port)
@@ -158,4 +154,4 @@ def main(host_and_port):
 
 
 if __name__ == '__main__':
-    main(**vars(get_args()))
+    main()
