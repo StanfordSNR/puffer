@@ -1,28 +1,27 @@
 import json
-
-from django.shortcuts import render, redirect
 import datetime
 
+from django.shortcuts import render, redirect
+from django.contrib.auth.decorators import login_required
+
 from .models import Rating
+
 
 def index(request):
     return render(request, 'puffer/index.html')
 
 
+@login_required(login_url='/accounts/login/')
 def player(request, aid):
     # parameters passed to Javascript stored in JSON
-    if request.user.is_authenticated:
-        params = {'aid': aid,
-                  'session_key': request.session.session_key,
-                  'username': request.user.username}
-    else:
-        params = {'aid': aid}
-
+    params = {'aid': aid,
+              'session_key': request.session.session_key,
+              'username': request.user.username}
     context = {'params_json': json.dumps(params)}
-
     return render(request, 'puffer/player.html', context)
 
 
+@login_required(login_url='/accounts/login/')
 def rating(request):
     new_star = 0
     new_comment = request.POST['rating-comment']
@@ -44,6 +43,7 @@ def rating(request):
         return redirect('rating-m', id=1)
 
 
+@login_required(login_url='/accounts/login/')
 def rating_m(request, id):
     context = {'star_pattern': ['x' * i for i in range(1, 6)]}
 

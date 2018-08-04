@@ -7,27 +7,18 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
   <link rel="stylesheet" href="{% static 'puffer/dist/bootstrap.min.css' %}">
-  <link rel="stylesheet" href="{% static 'puffer/css/style.css' %}">
+  <link rel="stylesheet" href="{% static 'puffer/css/player.css' %}">
   <title>Puffer</title>
 </head>
 
 <body>
-{% if user.is_authenticated %}
+  <!-- Navigation -->
+  {% include "puffer/navigation.html" %}
+
+  <!-- Player -->
   <div class="container">
-    <div class="row">
-      <h4>Puffer</h4>
-    </div>
 
-    <div class="row">
-      <p>
-        User {{ user.get_username }}.
-        <a href={% url 'rating-m' id=0 %}>Rating us?</a>
-        <a href="{% url 'logout' %}">Sign out.</a><br>
-        Video is muted by default. Unmute it in the player control bar.
-      </p>
-    </div>
-
-    <div class="row" id="tv-container-box">
+    <div id="tv-container-box">
       <ul id="channel-list">
         <li class="li_title">Channel List</li>
         <li data-value="abc" class="li_channel_checked">KGO-TV 7 (ABC)</li>
@@ -52,10 +43,8 @@
     </div>
     <br>
 
-    <div class="row">
-      <button type="button" class="btn btn-info" id="debug-button">Show Debug Info</button>
-    </div>
-    <div class="row" id="debug-info" hidden=true>
+    <button type="button" class="btn btn-info" id="debug-button">Show Debug Info</button>
+    <div id="debug-info" hidden=true>
       <p>
         Video playback buffer (s): <span id="vidPBuf"></span><br>
         Audio playback buffer (s): <span id="audPBuf"></span><br>
@@ -65,20 +54,15 @@
 
   </div>
 
-  <script src="{% static 'puffer/js/player.js' %}"></script>
+  <script src="{% static 'puffer/dist/jquery-3.3.1.slim.min.js' %}"></script>
+  <script src="{% static 'puffer/dist/bootstrap.min.js' %}"></script>
 
+  <script src="{% static 'puffer/js/player.js' %}"></script>
   {% if params_json %}
   <script type="text/javascript">
     init_player("{{ params_json|escapejs }}");
   </script>
   {% endif %}
-
-{% else %}
-  <script> window.location.replace("{% url 'login' %}"); </script>
-{% endif %}
-
-  <script src="{% static 'puffer/dist/jquery-3.3.1.slim.min.js' %}"></script>
-  <script src="{% static 'puffer/dist/bootstrap.min.js' %}"></script>
 </body>
 
 </html>

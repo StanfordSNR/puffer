@@ -22,8 +22,10 @@
     <form class="form-signin mx-auto" method="post" action="{% url 'login' %}">
       {% csrf_token %}
 
-      <img class="mb-2" src="{% static 'puffer/images/puffer_logo_full.svg' %}"
-           alt="" height="200">
+      <a href="{% url 'index' %}" >
+        <img class="mb-2" src="{% static 'puffer/images/puffer_logo_full.svg' %}"
+             alt="Puffer" height="200">
+      </a>
 
       <div class="form-group">
         <input class="form-control" type="text" placeholder="Username" required autofocus
@@ -37,6 +39,7 @@
       </div>
 
       <button type="submit" class="btn btn-primary btn-lg btn-block">Sign in</button>
+      <input type="hidden" name="next" value="{{ next }}" />
     </form>
   </div>
 
