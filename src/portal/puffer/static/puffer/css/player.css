@@ -1,7 +1,3 @@
-.hidden {
-  display: none;
-}
-
 #tv-container-box {
   width: 70vw;
   height: 27vw;
@@ -202,8 +198,4 @@
   font-size: 18px;
   background: white;
   text-align: center;
-}
-
-#debug-info {
-  margin-top: 10px;
 }

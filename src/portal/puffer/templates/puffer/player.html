@@ -43,13 +43,16 @@
     </div>
     <br>
 
-    <button type="button" class="btn btn-info" id="debug-button">Show Debug Info</button>
-    <div id="debug-info" hidden=true>
-      <p>
+    <button class="btn btn-info" type="button" data-toggle="collapse"
+            data-target="#debug-info" aria-expanded="false" aria-controls="debug-info">
+      Show debug info
+    </button>
+    <div class="collapse" id="debug-info">
+      <div class="py-3">
         Video playback buffer (s): <span id="vidPBuf"></span><br>
         Audio playback buffer (s): <span id="audPBuf"></span><br>
         Video quality (resolution-CRF): <span id="vidQual"></span>
-      </p>
+      </div>
     </div>
 
   </div>
