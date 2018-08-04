@@ -16,20 +16,19 @@
   {% include "puffer/navigation.html" %}
 
   <!-- Player -->
-  <div class="container">
+  <div class="container py-5">
 
     <div class="row">
-      <div class="col-9" id="tv-container-box">
+      <div class="col-9">
+        <p>Video is muted by default; unmute it using the player control bar.</p>
         <div id="tv-container">
-          <div id="tv-container-fs">
-            <video id="tv-player" muted="muted"></video>
-            <audio id="tv-audio"></audio>
-            <div id="tv-controls-background">
-              <div id="tv-controls">
-                <button type="button" id="mute-button"></button>
-                <input type="range" id="volume-bar" min="0" max="1" step="0.05" value="0">
-                <button type="button" id="full-screen-button"></button>
-              </div>
+          <video id="tv-video" muted="muted"></video>
+          <audio id="tv-audio"></audio>
+          <div id="tv-controls-background">
+            <div id="tv-controls">
+              <button type="button" id="mute-button"></button>
+              <input type="range" id="volume-bar" min="0" max="1" step="0.05" value="0">
+              <button type="button" id="full-screen-button"></button>
             </div>
           </div>
         </div>
@@ -37,8 +36,8 @@
 
       <div class="col-3">
         <div class="list-group" id="channel-list">
-          <div class="py-1 text-center">
-            <h5 class="font-weight-normal">Channel list</h5>
+          <div class="text-center">
+            <p>Channel list</p>
           </div>
           <button type="button" name="abc" class="list-group-item list-group-item-action active">
             KGO-TV 7 (ABC)

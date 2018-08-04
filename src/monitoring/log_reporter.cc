@@ -135,7 +135,7 @@ int main(int argc, char * argv[])
   vector<string> cmd { "curl", "-i", "-XPOST",
     "http://localhost:8086/write?db=collectd&u=admin&p="
     + safe_getenv("INFLUXDB_PASSWORD") + "&precision=s",
-    "--data-binary", "{data_binary}"};
+    "--data-binary", "{data_binary}" };
 
   /* data for "--data-binary": store a "format string" in a vector */
   vector<string> data;

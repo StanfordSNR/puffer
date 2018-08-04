@@ -12,7 +12,7 @@ function start_dashjs(aid, session_key, username) {
   var manifest_url = '/static/puffer/media/' + channel_select.value + '/ready/live.mpd';
 
   var player = dashjs.MediaPlayer().create();
-  player.initialize(document.getElementById("tv-player"), manifest_url, true);
+  player.initialize(document.getElementById("tv-video"), manifest_url, true);
   player.clearDefaultUTCTimingSources();
 
   channel_select.onchange = function() {
@@ -53,11 +53,11 @@ function start_dashjs(aid, session_key, username) {
 }
 
 function setup_control_bar() {
-  const video = document.getElementById('tv-player');
+  const video = document.getElementById('tv-video');
   const mute_button = document.getElementById('mute-button');
   const volume_bar = document.getElementById('volume-bar');
   const full_screen_button = document.getElementById('full-screen-button');
-  const tv_container = document.getElementById('tv-container-fs');
+  const tv_container = document.getElementById('tv-container');
 
   video.volume = 0;
   mute_button.muted = true;

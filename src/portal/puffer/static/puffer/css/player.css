@@ -1,26 +1,5 @@
-#tv-container-box {
-  width: 70vw;
-  height: 27vw;
-  max-width: 85vw;
-  max-height: 36vw;
-  position: relative;
-}
-
-#tv-container-fs {
-  height: 100%;
-  width: 100%;
-  background-color: #000000;
-}
-
-#tv-container {
-  top: 0;
-  width: 48vw;
-  height: 100%;
-  position: relative;
-}
-
 /* Chrome, Safari and Opera syntax */
-:-webkit-full-screen {
+#tv-container:-webkit-full-screen {
   height: 100%;
   width: 100%;
 }
@@ -43,15 +22,12 @@
   width: 100%;
 }
 
-#tv-player {
+#tv-video {
   width: 100%;
   height: 100%;
-  margin-left: auto;
-  margin-right: auto;
-  display: block;
 }
 
-#tv-player::-webkit-media-controls {
+#tv-video::-webkit-media-controls {
   display:none !important;
 }
 

@@ -13,7 +13,7 @@ from influxdb import InfluxDBClient
 
 
 INFLUX_PWD = os.getenv('INFLUXDB_PASSWORD')
-PERIOD = 10  # seconds
+PERIOD = 60  # seconds
 
 scheduler = sched.scheduler(time.time)
 influxdb_client = InfluxDBClient('localhost', 8086, 'admin', INFLUX_PWD)

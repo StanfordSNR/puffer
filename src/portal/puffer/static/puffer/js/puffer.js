@@ -514,7 +514,7 @@ function setup_channel_bar(client) {
 }
 
 function start_puffer(session_key, username) {
-  const video = document.getElementById('tv-player');
+  const video = document.getElementById('tv-video');
   const audio = document.getElementById('tv-audio');
 
   video.addEventListener('loadeddata', function() {
