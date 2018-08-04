@@ -19,7 +19,7 @@
     </div>
     {% endif %}
 
-    <form class="form-signin p-5 mx-auto" method="post" action="{% url 'login' %}">
+    <form class="form-signin mx-auto" method="post" action="{% url 'login' %}">
       {% csrf_token %}
 
       <img class="mb-2" src="{% static 'puffer/images/puffer_logo_full.svg' %}"
