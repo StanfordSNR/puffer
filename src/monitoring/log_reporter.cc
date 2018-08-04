@@ -13,6 +13,8 @@
 #include "tokenize.hh"
 #include "exception.hh"
 #include "system_runner.hh"
+#include "socket.hh"
+#include "http_request.hh"
 
 using namespace std;
 
@@ -21,7 +23,7 @@ void print_usage(const string & program_name)
   cerr << program_name << " <log path> <log config>" << endl;
 }
 
-void post_to_db(vector<string> & cmd, const vector<string> & data,
+void post_to_db(TCPSocket & db_sock, const vector<string> & data,
                 const string & buf)
 {
   vector<string> line = split(buf, " ");
@@ -42,11 +44,22 @@ void post_to_db(vector<string> & cmd, const vector<string> & data,
     }
   }
 
-  cmd.back() = move(data_str);
-  run("curl", cmd);
+  /* send POST request to InfluxDB */
+  HTTPRequest request;
+  request.set_first_line("POST /write?db=collectd&u=admin&p="
+      + safe_getenv("INFLUXDB_PASSWORD") + "&precision=s HTTP/1.1");
+  request.add_header(HTTPHeader{"Host", "localhost:8086"});
+  request.add_header(HTTPHeader{"Accept", "*/*"});
+  request.add_header(HTTPHeader{"Content-Type", "application/x-www-form-urlencoded"});
+  request.add_header(HTTPHeader{"Content-Length", to_string(data_str.length())});
+  request.done_with_headers();
+  request.read_in_body(data_str);
+
+  db_sock.verify_no_errors();
+  db_sock.write(move(request.str()));
 }
 
-int tail_loop(const string & log_path, vector<string> & cmd,
+int tail_loop(const string & log_path, TCPSocket & db_sock,
               const vector<string> & data)
 {
   bool new_file = false;
@@ -62,7 +75,7 @@ int tail_loop(const string & log_path, vector<string> & cmd,
     fd.seek(0, SEEK_END);
 
     inotify.add_watch(log_path, IN_MODIFY | IN_CLOSE_WRITE,
-      [&new_file, &buf, &fd, &cmd, &data]
+      [&new_file, &buf, &fd, &db_sock, &data]
       (const inotify_event & event, const string &) {
         if (event.mask & IN_MODIFY) {
           for (;;) {
@@ -82,7 +95,7 @@ int tail_loop(const string & log_path, vector<string> & cmd,
               } else {
                 buf += new_content.substr(0, pos);
                 /* buf is a complete line now */
-                post_to_db(cmd, data, buf);
+                post_to_db(db_sock, data, buf);
 
                 buf = "";
                 new_content = new_content.substr(pos + 1);
@@ -126,16 +139,15 @@ int main(int argc, char * argv[])
                        open(log_path.c_str(), O_WRONLY | O_CREAT, 0644)));
   touch.close();
 
+  /* create socket connected to influxdb */
+  TCPSocket db_sock;
+  Address influxdb_addr("127.0.0.1", 8086);
+  db_sock.connect(influxdb_addr);
+
   /* read a line from the config file */
   ifstream config_file(argv[2]);
   string config_line;
   getline(config_file, config_line);
-
-  /* construct a command vector, with a placeholder to update at the end */
-  vector<string> cmd { "curl", "-i", "-XPOST",
-    "http://localhost:8086/write?db=collectd&u=admin&p="
-    + safe_getenv("INFLUXDB_PASSWORD") + "&precision=s",
-    "--data-binary", "{data_binary}" };
 
   /* data for "--data-binary": store a "format string" in a vector */
   vector<string> data;
@@ -174,5 +186,5 @@ int main(int argc, char * argv[])
   }
 
   /* read new lines from log and post to InfluxDB */
-  return tail_loop(log_path, cmd, data);
+  return tail_loop(log_path, db_sock, data);
 }
