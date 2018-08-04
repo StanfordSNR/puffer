@@ -7,47 +7,37 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
   <link rel="stylesheet" href="{% static 'puffer/dist/bootstrap.min.css' %}">
-  <link rel="stylesheet" href="{% static 'puffer/css/style.css' %}">
+  <link rel="stylesheet" href="{% static 'puffer/css/signin.css' %}">
   <title>Puffer</title>
 </head>
 
 <body>
-  <div class="container">
-    <div class="row">
-      <h4>Sign in to Puffer</h4>
-    </div>
-    <br>
-
+  <div class="container text-center">
     {% if form.errors %}
     <div class="alert alert-danger" role="alert">
       Your username and password didn't match. Please try again.
     </div>
     {% endif %}
 
-    <form method="post" action="{% url 'login' %}">
+    <form class="form-signin p-5 mx-auto" method="post" action="{% url 'login' %}">
       {% csrf_token %}
 
-      <div class="form-group row">
-        <label for="id_username" class="col-1 col-form-label">Username:</label>
-        <div class="col-3">
-          <input type="text" class="form-control" name="username" id="id_username">
-        </div>
+      <img class="mb-2" src="{% static 'puffer/images/puffer_logo_full.svg' %}"
+           alt="" height="200">
+
+      <div class="form-group">
+        <input class="form-control" type="text" placeholder="Username" required autofocus
+         id="id_username" name="username">
+        <input class="form-control" type="password" placeholder="Password" required
+         id="inputPassword" name="password">
       </div>
 
-      <div class="form-group row">
-        <label for="id_password" class="col-1 col-form-label">Password:</label>
-        <div class="col-3">
-          <input type="password" class="form-control" name="password" id="id_password">
-        </div>
+      <div class="mb-4">
+        <a href="#">Forgot password?</a>
       </div>
 
-      <button type="submit" class="btn btn-primary">Sign in</button>
+      <button type="submit" class="btn btn-primary btn-lg btn-block">Sign in</button>
     </form>
-    <br>
-
-    <div class="row">
-      <p>Don't have an account? <a href="{% url 'signup' %}">Sign up!</a></p>
-    </div>
   </div>
 
   <script src="{% static 'puffer/dist/jquery-3.3.1.slim.min.js' %}"></script>

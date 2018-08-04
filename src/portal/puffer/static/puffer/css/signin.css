@@ -1,0 +1,12 @@
+body {
+  padding: 40px;
+  background-color: #f5f5f5;
+}
+
+.form-signin {
+  max-width: 400px;
+}
+
+.form-signin .form-control {
+  padding: 20px 10px 20px 10px;
+}
