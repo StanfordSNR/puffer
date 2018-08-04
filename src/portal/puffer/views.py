@@ -22,6 +22,11 @@ def player(request, aid):
 
 
 @login_required(login_url='/accounts/login/')
+def profile(request):
+    return render(request, 'puffer/profile.html')
+
+
+@login_required(login_url='/accounts/login/')
 def rating(request):
     new_star = 0
     new_comment = request.POST['rating-comment']

@@ -1,0 +1,45 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <link rel="stylesheet" href="{% static 'puffer/dist/bootstrap.min.css' %}">
+  <title>Puffer</title>
+</head>
+
+<body>
+  <!-- Navigation -->
+  {% include "puffer/navigation.html" %}
+
+  <!-- User Info -->
+  <div class="container mt-5">
+    <p>
+      Username: {{ user.username }}
+    </p>
+    <div>
+      {% if user.invitationtoken_set.all %}
+      <a data-toggle="collapse" href="#collapse-tokens"
+         aria-expanded="false" aria-controls="collapse-tokens">
+        Available invitation tokens: {{ user.invitationtoken_set.all.count }}
+      </a>
+      <div class="collapse" id="collapse-tokens">
+        <ul class="list-group">
+        {% for t in user.invitationtoken_set.all %}
+          <li class="list-group-item">{{ t.token }}</li>
+        {% endfor %}
+        </ul>
+      </div>
+      {% else %}
+      <a href="#">Want to invite your friends to watch Puffer video?</a>
+      {% endif %}
+    </div>
+  </div>
+
+  <script src="{% static 'puffer/dist/jquery-3.3.1.slim.min.js' %}"></script>
+  <script src="{% static 'puffer/dist/bootstrap.min.js' %}"></script>
+</body>
+
+</html>
