@@ -6,16 +6,6 @@
   position: relative;
 }
 
-#channel-list {
-  position: absolute;
-  left: 48vw;
-  right: 0;
-  top: 0;
-  padding: 0;
-  margin: 0;
-  background-color: #134123;
-}
-
 #tv-container-fs {
   height: 100%;
   width: 100%;
@@ -157,45 +147,4 @@
 
 #full-screen-button:hover {
   opacity: 1;
-}
-
-/* Style the list items */
-.li_channel {
-  cursor: pointer;
-  position: relative;
-  padding: 12px 8px 12px 40px;
-  list-style-type: none;
-  background: #eee;
-  font-size: 18px;
-  transition: 0.2s;
-}
-
-/* Set all odd list items to a different color (zebra-stripes) */
-.li_channel:nth-child(odd) {
-  background: #f9f9f9;
-}
-
-.li_channel:hover {
-  background: #ddd;
-}
-
-.li_channel_checked {
-  color: white;
-  cursor: pointer;
-  position: relative;
-  padding: 12px 8px 12px 40px;
-  list-style-type: none;
-  background: black;
-  font-size: 18px;
-  transition: 0.2s;
-}
-
-.li_title {
-  color: black;
-  position: relative;
-  padding: 8px 12px;
-  list-style-type: none;
-  font-size: 18px;
-  background: white;
-  text-align: center;
 }
