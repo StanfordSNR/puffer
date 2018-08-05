@@ -45,8 +45,8 @@
 #tv-controls-background {
   position: absolute;
   height: 50%;
-  top: 50%;
   width: 100%;
+  bottom: 0px;
 }
 
 #tv-controls-background:hover #tv-controls {
