@@ -12,19 +12,17 @@
 </head>
 
 <body>
-{% if user.is_authenticated %}
-  <div class="container">
+  <!-- Navigation -->
+  {% include "puffer/navigation.html" %}
+
+  <!-- Rating -->
+  <div class="container py-5">
+
     <h4>Rating:</h4>
 
     {% if error_message %}
       <div class="alert alert-danger">
         <strong>Error!</strong> {{ error_message }}
-      </div>
-    {% endif %}
-
-    {% if success_message %}
-      <div class="alert alert-success">
-        <strong>Success!</strong> {{ success_message }}
       </div>
     {% endif %}
 
@@ -49,10 +47,6 @@
       <button type="submit" class="btn btn-primary">Submit</button>
     </form>
   </div>
-
-{% else %}
-  <script> window.location.replace("{% url 'login' %}"); </script>
-{% endif %}
 
   <script src="{% static 'puffer/dist/jquery-3.3.1.slim.min.js' %}"></script>
   <script src="{% static 'puffer/dist/bootstrap.min.js' %}"></script>
