@@ -35,7 +35,13 @@
 
     <div class="row">
       <div class="col-md-9">
-        <p>Video is muted by default; unmute it using the player control bar.</p>
+        <div class="alert alert-info" role="alert">
+          Video is muted by default; unmute it using the player control bar.
+          <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </div>
+
         <div class="embed-responsive embed-responsive-16by9" id="tv-container">
           <video id="tv-video" muted="muted"></video>
           <audio id="tv-audio"></audio>
