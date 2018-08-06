@@ -38,19 +38,15 @@
   left: 0;
   right: 0;
   padding: 5px;
-  opacity: 0;
+  opacity: 0.8;
   background-color: #FFFFFF;
 }
 
 #tv-controls-background {
   position: absolute;
-  height: 50%;
+  height: 20%;
   width: 100%;
   bottom: 0px;
-}
-
-#tv-controls-background:hover #tv-controls {
-  opacity: 0.8;
 }
 
 #mute-button {

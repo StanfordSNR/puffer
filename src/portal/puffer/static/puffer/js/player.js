@@ -58,6 +58,8 @@ function setup_control_bar() {
   const volume_bar = document.getElementById('volume-bar');
   const full_screen_button = document.getElementById('full-screen-button');
   const tv_container = document.getElementById('tv-container');
+  const tv_controls_background = document.getElementById('tv-controls-background');
+  const tv_controls = document.getElementById('tv-controls');
 
   video.volume = 0;
   mute_button.muted = true;
@@ -122,6 +124,19 @@ function setup_control_bar() {
         document.msExitFullscreen();
       }
     }
+  };
+
+  control_bar_timeout = setTimeout(function() {
+    tv_controls.setAttribute('style', 'opacity:0');
+  }, 3000);
+
+  tv_controls_background.onmouseover = function() {
+    clearTimeout(control_bar_timeout);
+    tv_controls.setAttribute('style', 'opacity:0.8');
+  };
+
+  tv_controls_background.onmouseout = function() {
+    tv_controls.setAttribute('style', 'opacity:0');
   };
 }
 
