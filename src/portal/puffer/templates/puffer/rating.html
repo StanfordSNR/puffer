@@ -7,7 +7,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
   <link rel="stylesheet" href="{% static 'puffer/dist/bootstrap.min.css' %}">
-  <link rel="stylesheet" href="{% static 'puffer/css/star_rating.css' %}">
+  <link rel="stylesheet" href="{% static 'puffer/css/rating.css' %}">
   <title>Puffer</title>
 </head>
 
@@ -17,14 +17,7 @@
 
   <!-- Rating -->
   <div class="container py-5">
-
-    <h4>Rating:</h4>
-
-    {% if error_message %}
-      <div class="alert alert-danger">
-        <strong>Error!</strong> {{ error_message }}
-      </div>
-    {% endif %}
+    <h4 class="font-weight-normal">Rating:</h4>
 
     <form method="post" action="{% url 'rating' %}">
       {% csrf_token %}
@@ -32,9 +25,10 @@
       <div class="rating">
       {% for i in star_pattern %}
         <label>
-          <input type="radio" name="rating-star" value="{{ forloop.counter }}" />
+          <input type="radio" class="invisible" name="rating-star"
+                 value="{{ forloop.counter }}" />
         {% for j in i %}
-          <span>&#9733</span>
+          <span class="star-icon"></span>
         {% endfor %}
         </label>
       {% endfor %}

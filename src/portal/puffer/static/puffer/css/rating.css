@@ -1,9 +1,5 @@
 .rating {
-  display: inline-block;
   position: relative;
-  height: 30px;
-  line-height: 30px;
-  font-size: 45px;
 }
 
 .rating label {
@@ -14,8 +10,9 @@
   cursor: pointer;
 }
 
-.rating label:last-child {
-  position: static;
+.rating label span {
+  float: left;
+  color: transparent;
 }
 
 .rating label:nth-child(1) {
@@ -38,17 +35,8 @@
   z-index: 1;
 }
 
-.rating label input {
-  position: absolute;
-  top: 0;
-  left: 0;
-  opacity: 0;
-}
-
-.rating label span {
-  float: left;
-  width: 40px;
-  color: transparent;
+.rating label:last-child {
+  position: static;
 }
 
 .rating label:last-child span {
@@ -57,6 +45,11 @@
 
 .rating:not(:hover) label input:checked ~ span,
 .rating:hover label:hover input ~ span {
-  color: #09f;
+  color: green;
 }
 
+.star-icon:before {
+  content: "\2605";
+  width: 40px;
+  font-size: 45px;
+}
