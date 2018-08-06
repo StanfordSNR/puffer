@@ -24,6 +24,9 @@
       <li>
         <div class="alert alert-{{msg.level_tag}}" role="alert">
           {{msg.message}}
+          <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+            <span aria-hidden="true">&times;</span>
+          </button>
         </div>
       </li>
     {% endfor %}

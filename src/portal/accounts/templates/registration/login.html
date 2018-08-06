@@ -16,6 +16,9 @@
     {% if form.errors %}
     <div class="alert alert-danger" role="alert">
       Your username and password didn't match. Please try again.
+      <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+        <span aria-hidden="true">&times;</span>
+      </button>
     </div>
     {% endif %}
 
