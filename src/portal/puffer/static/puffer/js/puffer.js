@@ -474,7 +474,7 @@ function WebSocketClient(video, audio, session_key, username) {
 
       var vidQual = document.getElementById("vidQual");
       const video_quality = av_source.getVideoQuality();
-      vidQual.innerHTML = video_quality ? video_quality : "none";
+      vidQual.innerHTML = video_quality ? video_quality : "not available";
     }
     setTimeout(debug_timer_helper, DEBUG_TIMER_INTERVAL);
   }

@@ -17,6 +17,19 @@
 
   <!-- Rating -->
   <div class="container py-5">
+    <!-- Success or error messages -->
+    {% if messages %}
+    <ul class="list-unstyled mb-3">
+    {% for msg in messages %}
+      <li>
+        <div class="alert alert-{{msg.level_tag}}" role="alert">
+          {{msg.message}}
+        </div>
+      </li>
+    {% endfor %}
+    </ul>
+    {% endif %}
+
     <h4 class="font-weight-normal">Rating:</h4>
 
     <form method="post" action="{% url 'rating' %}">
@@ -38,7 +51,7 @@
         <textarea class="form-control" rows="3" name="rating-comment" id="rating-comment"
                   placeholder="Any comments?"></textarea>
       </div>
-      <button type="submit" class="btn btn-primary">Submit</button>
+      <button type="submit" class="btn btn-primary btn-lg mt-3">Submit</button>
     </form>
   </div>
 

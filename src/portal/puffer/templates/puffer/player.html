@@ -15,15 +15,20 @@
   <!-- Navigation -->
   {% include "puffer/navigation.html" %}
 
-  <!-- Alerts -->
-  {% if rating_message %}
-    <script>
-      alert("Success! Thank you for rating us!");
-    </script>
-  {% endif %}
-
   <!-- Player -->
   <div class="container py-5">
+    <!-- Success or error messages -->
+    {% if messages %}
+    <ul class="list-unstyled mb-3">
+    {% for msg in messages %}
+      <li>
+        <div class="alert alert-{{msg.level_tag}}" role="alert">
+          {{msg.message}}
+        </div>
+      </li>
+    {% endfor %}
+    </ul>
+    {% endif %}
 
     <div class="row">
       <div class="col-md-9">
@@ -61,6 +66,10 @@
           <button type="button" name="cw" class="list-group-item list-group-item-action">
             KBCW 44 (The CW)
           </button>
+        </div>
+
+        <div class="text-center my-4">
+          <a class="btn btn-success" href="{% url 'rating' %}" role="button">Rate us!</a>
         </div>
       </div>
     </div>
