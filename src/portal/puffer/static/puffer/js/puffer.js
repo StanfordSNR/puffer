@@ -469,9 +469,6 @@ function WebSocketClient(video, audio, session_key, username) {
       var vidPBuf = document.getElementById("vidPBuf");
       vidPBuf.innerHTML = parseFloat(av_source.getVideoBufferLen()).toFixed(1);
 
-      var audPBuf = document.getElementById("audPBuf");
-      audPBuf.innerHTML = parseFloat(av_source.getAudioBufferLen()).toFixed(1);
-
       var vidQual = document.getElementById("vidQual");
       const video_quality = av_source.getVideoQuality();
       vidQual.innerHTML = video_quality ? video_quality : "not available";
