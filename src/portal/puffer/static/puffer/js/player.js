@@ -71,14 +71,14 @@ function setup_control_bar() {
       mute_button.muted = false;
       video.volume = last_volume_before_mute;
       volume_bar.value = video.volume;
-      mute_button.style.backgroundImage = 'url(/static/puffer/images/volume_on.svg)';
+      mute_button.style.backgroundImage = 'url(/static/puffer/dist/images/volume-on.svg)';
     } else {
       last_volume_before_mute = video.volume;
 
       mute_button.muted = true;
       video.volume = 0;
       volume_bar.value = 0;
-      mute_button.style.backgroundImage = 'url(/static/puffer/images/volume_off.svg)';
+      mute_button.style.backgroundImage = 'url(/static/puffer/dist/images/volume-off.svg)';
     }
   };
 
@@ -88,10 +88,10 @@ function setup_control_bar() {
     video.volume = volume_bar.value;
     if (video.volume > 0) {
       mute_button.muted = false;
-      mute_button.style.backgroundImage = 'url(/static/puffer/images/volume_on.svg)';
+      mute_button.style.backgroundImage = 'url(/static/puffer/dist/images/volume-on.svg)';
     } else {
       mute_button.muted = true;
-      mute_button.style.backgroundImage = 'url(/static/puffer/images/volume_off.svg)';
+      mute_button.style.backgroundImage = 'url(/static/puffer/dist/images/volume-off.svg)';
     }
   };
 
@@ -150,9 +150,9 @@ function init_player(params_json) {
     var new_script = null;
 
     if (aid === 2 || aid === 3) {  // algorithms available in dash.js
-      new_script = load_script('/static/puffer/dist/dash.all.min.js');
+      new_script = load_script('/static/puffer/dist/js/dash.all.min.js');
     } else if (aid >= 4 && aid <= 11) {  // algorithms available in pensieve
-      new_script = load_script('/static/puffer/dist/pensieve.dash.all.debug.js');
+      new_script = load_script('/static/puffer/dist/js/pensieve.dash.all.js');
     }
 
     new_script.onload = function() {

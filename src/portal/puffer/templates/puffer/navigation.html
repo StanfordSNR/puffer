@@ -1,6 +1,11 @@
+{% load static %}
+
 <nav class="navbar navbar-expand-md navbar-light border-bottom p-3">
   <div class="container d-flex">
-    <a class="navbar-brand" href="{% url 'index' %}">Puffer</a>
+    <a class="navbar-brand" href="{% url 'index' %}">
+      <img src="{% static 'puffer/dist/images/logo-text.svg' %}"
+           alt="Puffer" height="25px">
+    </a>
     <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbar-main"
             aria-controls="navbar-main" aria-expanded="false" aria-label="Toggle navigation">
       <span class="navbar-toggler-icon"></span>

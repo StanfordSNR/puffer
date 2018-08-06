@@ -6,7 +6,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-  <link rel="stylesheet" href="{% static 'puffer/dist/bootstrap.min.css' %}">
+  <link rel="stylesheet" href="{% static 'puffer/dist/css/bootstrap.min.css' %}">
   <link rel="stylesheet" href="{% static 'puffer/css/accounts.css' %}">
   <title>Puffer</title>
 </head>
@@ -24,7 +24,7 @@
 
     <div class="text-center">
       <a href="{% url 'index' %}" >
-        <img class="mb-2" src="{% static 'puffer/images/puffer_logo_full.svg' %}"
+        <img class="mb-4" src="{% static 'puffer/dist/images/logo-full.svg' %}"
              alt="Puffer" height="200px">
       </a>
     </div>
@@ -93,8 +93,8 @@
     </form>
   </div>
 
-  <script src="{% static 'puffer/dist/jquery-3.3.1.slim.min.js' %}"></script>
-  <script src="{% static 'puffer/dist/bootstrap.min.js' %}"></script>
+  <script src="{% static 'puffer/dist/js/jquery-3.3.1.slim.min.js' %}"></script>
+  <script src="{% static 'puffer/dist/js/bootstrap.min.js' %}"></script>
 </body>
 
 </html>
