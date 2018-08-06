@@ -1,8 +1,97 @@
-{% block content %}
-  <h2>Sign up</h2>
-  <form method="post">
-    {% csrf_token %}
-    {{ form.as_p }}
-    <button type="submit">Sign up</button>
-  </form>
-{% endblock %}
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <link rel="stylesheet" href="{% static 'puffer/dist/bootstrap.min.css' %}">
+  <link rel="stylesheet" href="{% static 'puffer/css/accounts.css' %}">
+  <title>Puffer</title>
+</head>
+
+<body>
+  <div class="container">
+    {% if form.errors %}
+    <div class="alert alert-danger text-center" role="alert">
+       Please fix errors in the form and provide a valid token.
+    </div>
+    {% endif %}
+
+    <div class="text-center">
+      <a href="{% url 'index' %}" >
+        <img class="mb-2" src="{% static 'puffer/images/puffer_logo_full.svg' %}"
+             alt="Puffer" height="200px">
+      </a>
+    </div>
+
+    <form class="form-signup" method="post" action="{% url 'signup' %}">
+      {% csrf_token %}
+
+      <div class="form-group row justify-content-center">
+        <label class="col-sm-2 col-form-label" for="id_username">Username</label>
+        <div class="col-sm-4">
+          <input class="form-control" id="id_username" type="text" placeholder="Username"
+                 name="username" required autofocus>
+          {% if form.username.errors %}
+            {{ form.username.errors }}
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="form-group row justify-content-center">
+        <label class="col-sm-2 col-form-label" for="id_email">Email</label>
+        <div class="col-sm-4">
+          <input class="form-control" id="id_email" type="email" placeholder="Email"
+                 name="email" required>
+          {% if form.email.errors %}
+            {{ form.email.errors }}
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="form-group row justify-content-center">
+        <label class="col-sm-2 col-form-label" for="id_password1">Password</label>
+        <div class="col-sm-4">
+          <input class="form-control" id="id_password1" type="password" placeholder="Password"
+                 name="password1" required>
+          {% if form.password1.errors %}
+            {{ form.password1.errors }}
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="form-group row justify-content-center">
+        <label class="col-sm-2 col-form-label" for="id_password2">Confirm password</label>
+        <div class="col-sm-4">
+          <input class="form-control" id="id_password2" type="password" placeholder="Password"
+                 name="password2" required>
+          {% if form.password2.errors %}
+            {{ form.password2.errors }}
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="form-group row justify-content-center">
+        <label class="col-sm-2 col-form-label" for="id_invite_token">Invitation token</label>
+        <div class="col-sm-4">
+          <input class="form-control" id="id_invite_token" type="text" placeholder="Token"
+                 name="invite_token" required>
+          {% if form.token.errors %}
+            {{ form.token.errors }}
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="text-center">
+        <button type="submit" class="btn btn-primary btn-lg mt-4">Sign up</button>
+      </div>
+    </form>
+  </div>
+
+  <script src="{% static 'puffer/dist/jquery-3.3.1.slim.min.js' %}"></script>
+  <script src="{% static 'puffer/dist/bootstrap.min.js' %}"></script>
+</body>
+
+</html>

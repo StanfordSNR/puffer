@@ -7,7 +7,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
   <link rel="stylesheet" href="{% static 'puffer/dist/bootstrap.min.css' %}">
-  <link rel="stylesheet" href="{% static 'puffer/css/signin.css' %}">
+  <link rel="stylesheet" href="{% static 'puffer/css/accounts.css' %}">
   <title>Puffer</title>
 </head>
 
@@ -19,26 +19,29 @@
     </div>
     {% endif %}
 
+    <a href="{% url 'index' %}" >
+      <img class="mb-2" src="{% static 'puffer/images/puffer_logo_full.svg' %}"
+           alt="Puffer" height="200px">
+    </a>
+
     <form class="form-signin mx-auto" method="post" action="{% url 'login' %}">
       {% csrf_token %}
 
-      <a href="{% url 'index' %}" >
-        <img class="mb-2" src="{% static 'puffer/images/puffer_logo_full.svg' %}"
-             alt="Puffer" height="200">
-      </a>
-
       <div class="form-group">
-        <input class="form-control" type="text" placeholder="Username" required autofocus
-         id="id_username" name="username">
-        <input class="form-control" type="password" placeholder="Password" required
-         id="inputPassword" name="password">
+        <input class="form-control" id="id_username" type="text" placeholder="Username"
+               name="username" required autofocus>
       </div>
 
-      <div class="mb-4">
+      <div class="form-group">
+        <input class="form-control" id="inputPassword" type="password" placeholder="Password"
+               name="password" required>
+      </div>
+
+      <div>
         <a href="#">Forgot password?</a>
       </div>
 
-      <button type="submit" class="btn btn-primary btn-lg btn-block">Sign in</button>
+      <button type="submit" class="btn btn-primary btn-lg btn-block mt-4">Sign in</button>
       <input type="hidden" name="next" value="{{ next }}" />
     </form>
   </div>

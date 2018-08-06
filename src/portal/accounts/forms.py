@@ -15,12 +15,10 @@ class InviteTokenField(forms.CharField):
 
 class SignUpForm(UserCreationForm):
     email = forms.EmailField(
-        max_length=254, help_text='Required. Inform a valid email address.')
+        max_length=254, help_text='A valid email address is required.')
     invite_token = InviteTokenField(
-        max_length=64,
-        help_text='A valid invitation token is required for signup.')
+        max_length=64, help_text='A valid invitation token is required.')
 
     class Meta:
         model = User
-        fields = ('username', 'email', 'invite_token', 'password1',
-                  'password2', )
+        fields = ('username', 'email', 'password1', 'password2', 'invite_token')

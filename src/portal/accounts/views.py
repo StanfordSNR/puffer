@@ -5,23 +5,27 @@ from accounts.models import InvitationToken
 from accounts.forms import SignUpForm
 
 
-def SignUp(request):
+def signup(request):
     if request.method == 'POST':
         form = SignUpForm(request.POST)
+
         if form.is_valid():
             form.save()
-            username = form.cleaned_data.get('username')
-            raw_password = form.cleaned_data.get('password1')
-            # form.is_valid() will only ever be true if a valid
-            # token was provided. Thus, a matching_token is guaranteed to exist
 
+            # delete invitation token after the new user is created
             invite_token = form.cleaned_data.get('invite_token')
             matching_token = InvitationToken.objects.filter(token=invite_token)
-            # We have created the new user so we can delete their invite token
-            matching_token.delete()
+            if matching_token:
+                matching_token.delete()
+
+            # log in the new user
+            username = form.cleaned_data.get('username')
+            raw_password = form.cleaned_data.get('password1')
             user = authenticate(username=username, password=raw_password)
             login(request, user)
+
             return redirect('index')
     else:
         form = SignUpForm()
+
     return render(request, 'accounts/signup.html', {'form': form})
