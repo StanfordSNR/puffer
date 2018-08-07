@@ -83,7 +83,7 @@ function setup_control_bar() {
     }
   };
 
-  volume_bar.onchange = function() {
+  volume_bar.oninput = function() {
     video.muted = false;
 
     video.volume = volume_bar.value;
