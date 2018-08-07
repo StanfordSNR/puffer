@@ -25,9 +25,10 @@ def count_backlog(target_dir):
     json_body = []
     for channel_name in os.listdir(target_dir):
         channel_path = path.join(target_dir, channel_name)
-        canonical_path = path.join(channel_path, 'working', 'video-canonical')
+        working_path = path.join(channel_path, 'working')
+        canonical_path = path.join(working_path, 'video-canonical')
 
-        total_cnt = sum([len(files) for _, _, files in os.walk(channel_path)])
+        working_cnt = sum([len(files) for _, _, files in os.walk(working_path)])
         canonical_cnt = len([name for name in os.listdir(canonical_path)
                             if path.join(canonical_path, name)])
 
@@ -35,12 +36,13 @@ def count_backlog(target_dir):
             'measurement': 'backlog',
             'tags': {'channel': channel_name},
             'time': curr_time,
-            'fields': {'total_cnt': total_cnt, 'canonical_cnt': canonical_cnt}
+            'fields': {'working_cnt': working_cnt,
+                       'canonical_cnt': canonical_cnt}
         })
 
         sys.stderr.write(
-            'channel {}, total file count {}, canonical file count {}\n'
-            .format(channel_name, total_cnt, canonical_cnt))
+            'channel {}, working file count {}, canonical file count {}\n'
+            .format(channel_name, working_cnt, canonical_cnt))
 
     influxdb_client.write_points(json_body, time_precision='s',
                                  database='collectd')
@@ -57,7 +59,11 @@ def sanity_check(target_dir):
         if not path.isdir(channel_path):
             sys.exit('{} does not exist'.format(channel_path))
 
-        canonical_path = path.join(channel_path, 'working', 'video-canonical')
+        working_path = path.join(channel_path, 'working')
+        if not path.isdir(working_path):
+            sys.exit('{} does not exist'.format(working_path))
+
+        canonical_path = path.join(working_path, 'video-canonical')
         if not path.isdir(canonical_path):
             sys.exit('{} does not exist'.format(canonical_path))
 
