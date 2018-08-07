@@ -139,10 +139,9 @@ function setup_control_bar() {
     }, 3000);
   };
 
-  tv_container.onmouseout = function() {
+  tv_container.onmouseleave = function() {
     tv_controls.style.opacity = '0';
   };
-
 }
 
 function init_player(params_json) {
