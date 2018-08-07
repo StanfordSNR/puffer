@@ -61,6 +61,7 @@ class ServerVideoMsg : public ServerMsg
 public:
   ServerVideoMsg(const std::string & channel,
                  const std::string & quality,
+                 const double ssim,
                  const uint64_t timestamp,
                  const unsigned int duration,
                  const unsigned int byte_offset,

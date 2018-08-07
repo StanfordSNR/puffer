@@ -147,10 +147,14 @@ function AVSource(video, audio, options) {
 
   var partial_video_quality = null;
   var partial_video_chunks = null;
+  var curr_ssim = null;
 
   this.getVideoQuality = function() { return partial_video_quality; };
+  this.getSSIM = function() { return curr_ssim; };
 
   this.handleVideo = function(data, metadata) {
+    curr_ssim = metadata.ssim;
+
     /* New segment or server aborted sending */
     if (partial_video_quality !== metadata.quality) {
       partial_video_quality = metadata.quality;
@@ -473,14 +477,28 @@ function WebSocketClient(video, audio, session_key, username) {
   }
   timer_helper();
 
+  const na = 'N/A';
   function debug_timer_helper() {
     if (av_source) {
-      var vidPBuf = document.getElementById('vidPBuf');
-      vidPBuf.innerHTML = parseFloat(av_source.getVideoBufferLen()).toFixed(1);
+      var video_buf = document.getElementById('video-buf');
+      const vbuf_val = av_source.getVideoBufferLen();
+      video_buf.innerHTML = vbuf_val >= 0 ? vbuf_val.toFixed(1) : na;
 
-      var vidQual = document.getElementById('vidQual');
-      const video_quality = av_source.getVideoQuality();
-      vidQual.innerHTML = video_quality ? video_quality : 'not available';
+      var video_res = document.getElementById('video-res');
+      var video_crf = document.getElementById('video-crf');
+      var vqual_val = av_source.getVideoQuality();
+      if (vqual_val) {
+        const [vres_val, vcrf_val] = vqual_val.split('-');
+        video_res.innerHTML = vres_val;
+        video_crf.innerHTML = vcrf_val;
+      } else {
+        video_res.innerHTML = na;
+        video_crf.innerHTML = na;
+      }
+
+      var video_ssim = document.getElementById('video-ssim');
+      const vssim_val = av_source.getSSIM();
+      video_ssim.innerHTML = vssim_val ? vssim_val.toFixed(2) : na;
     }
     setTimeout(debug_timer_helper, DEBUG_TIMER_INTERVAL);
   }

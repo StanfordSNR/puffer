@@ -62,12 +62,13 @@ ServerInitMsg::ServerInitMsg(const string & channel,
     {"initVideoTimestamp", init_vts},
     {"initAudioTimestamp", init_ats},
     {"initId", init_id},
-    {"canResume", can_resume},
+    {"canResume", can_resume}
   });
 }
 
 ServerVideoMsg::ServerVideoMsg(const string & channel,
                                const string & quality,
+                               const double ssim,
                                const uint64_t timestamp,
                                const unsigned int duration,
                                const unsigned int byte_offset,
@@ -78,6 +79,7 @@ ServerVideoMsg::ServerVideoMsg(const string & channel,
     {"type", type_str()},
     {"channel", channel},
     {"quality", quality},
+    {"ssim", ssim},
     {"timestamp", timestamp},
     {"duration", duration},
     {"byteOffset", byte_offset},

@@ -225,6 +225,7 @@ void serve_video_to_client(WebSocketServer & server, WebSocketClient & client)
   Channel & channel = channels.at(client.channel().value());
 
   uint64_t next_vts = client.next_vts().value();
+  double ssim;
 
   if (not client.next_vsegment()) { /* or try a lower quality */
     /* Start new chunk */
@@ -233,7 +234,7 @@ void serve_video_to_client(WebSocketServer & server, WebSocketClient & client)
     }
     const VideoFormat & next_vq = select_video_quality(client);
 
-    double ssim = channel.vssim(next_vts).at(next_vq);
+    ssim = channel.vssim(next_vts).at(next_vq);
     cerr << client.signature() << ": channel " << channel.name()
          << ", video " << next_vts << " " << next_vq << " " << ssim << endl;
 
@@ -244,6 +245,7 @@ void serve_video_to_client(WebSocketServer & server, WebSocketClient & client)
     client.set_next_vsegment(next_vq, channel.vdata(next_vq, next_vts),
                              init_mmap);
   } else {
+    ssim = channel.vssim(next_vts).at(client.curr_vq().value());
     cerr << client.signature() << ": channel " << channel.name()
          << ", continuing video " << next_vts << endl;
   }
@@ -252,6 +254,7 @@ void serve_video_to_client(WebSocketServer & server, WebSocketClient & client)
 
   ServerVideoMsg video_msg(channel.name(),
                            next_vsegment.format().to_string(),
+                           ssim,
                            next_vts,
                            channel.vduration(),
                            next_vsegment.offset(),
