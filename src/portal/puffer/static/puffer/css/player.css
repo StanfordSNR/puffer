@@ -42,13 +42,6 @@
   background-color: #FFFFFF;
 }
 
-#tv-controls-background {
-  position: absolute;
-  height: 20%;
-  width: 100%;
-  bottom: 0px;
-}
-
 #mute-button {
   background-image: url(/static/puffer/dist/images/volume-off.svg);
   background-size: 25px;
