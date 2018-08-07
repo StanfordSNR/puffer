@@ -411,8 +411,8 @@ function WebSocketClient(video, audio, session_key, username) {
     const ws_host_and_port = location.hostname + ':9361';
     console.log('WS(S) at', ws_host_and_port);
 
-    ws = new WebSocket('ws://' + ws_host_and_port);
-    // ws = new WebSocket('wss://' + ws_host_and_port);
+    // ws = new WebSocket('ws://' + ws_host_and_port);
+    ws = new WebSocket('wss://' + ws_host_and_port);
 
     ws.binaryType = 'arraybuffer';
     ws.onmessage = handle_msg;
