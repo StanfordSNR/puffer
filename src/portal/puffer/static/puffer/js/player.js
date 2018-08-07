@@ -125,23 +125,24 @@ function setup_control_bar() {
     }
   };
 
-  var control_bar_timeout = null;
-  window.onload = function(e) {
+  control_bar_timeout = setTimeout(function() {
+    tv_controls.style.opacity = '0';
+  }, 3000);
+
+  tv_container.onmousemove = function() {
+    clearTimeout(control_bar_timeout);
+    tv_controls.style.opacity = '0.8';
+    tv_container.style.cursor = 'default';
     control_bar_timeout = setTimeout(function() {
-      tv_controls.setAttribute('style', 'opacity:0');
+      tv_controls.style.opacity = '0';
+      tv_container.style.cursor = 'none';
     }, 3000);
   };
 
-  tv_container.onmouseover = function() {
-    if (control_bar_timeout) {
-      clearTimeout(control_bar_timeout);
-    }
-    tv_controls.setAttribute('style', 'opacity:0.8');
+  tv_container.onmouseout = function() {
+    tv_controls.style.opacity = '0';
   };
 
-  tv_container.onmouseout = function() {
-    tv_controls.setAttribute('style', 'opacity:0');
-  };
 }
 
 function init_player(params_json) {
