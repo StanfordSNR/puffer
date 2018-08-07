@@ -35,14 +35,7 @@
 
     <div class="row">
       <div class="col-md-9">
-        <div class="alert alert-info" role="alert">
-          Video is muted by default; unmute it using the player control bar.
-          <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-            <span aria-hidden="true">&times;</span>
-          </button>
-        </div>
-
-        <div class="embed-responsive embed-responsive-16by9" id="tv-container">
+        <div class="embed-responsive embed-responsive-16by9 my-4" id="tv-container">
           <video id="tv-video" muted="muted"></video>
           <audio id="tv-audio"></audio>
           <div id="tv-controls">
@@ -50,6 +43,14 @@
             <input type="range" id="volume-bar" min="0" max="1" step="0.05" value="0">
             <button type="button" id="full-screen-button"></button>
           </div>
+        </div>
+
+        <div class="alert alert-info" role="alert">
+          Video is muted by default; <u id="unmute-here">unmute here</u></span>
+          or use the player control bar.
+          <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+            <span aria-hidden="true">&times;</span>
+          </button>
         </div>
       </div>
 
@@ -75,14 +76,13 @@
           </button>
         </div>
 
-        <div class="text-center my-4">
+        <div class="text-center my-3">
           <a class="btn btn-success" href="{% url 'rating' %}" role="button">Rate us!</a>
         </div>
       </div>
     </div>
-    <br>
 
-    <button class="btn btn-info" type="button" data-toggle="collapse"
+    <button class="btn btn-info mt-1" type="button" data-toggle="collapse"
             data-target="#debug-info" aria-expanded="false" aria-controls="debug-info">
       Show debug info
     </button>

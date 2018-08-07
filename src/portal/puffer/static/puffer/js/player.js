@@ -59,11 +59,15 @@ function setup_control_bar() {
   const full_screen_button = document.getElementById('full-screen-button');
   const tv_container = document.getElementById('tv-container');
   const tv_controls = document.getElementById('tv-controls');
+  const unmute_here = document.getElementById('unmute-here');
+
+  const volume_on_img = 'url(/static/puffer/dist/images/volume-on.svg)';
+  const volume_off_img = 'url(/static/puffer/dist/images/volume-off.svg)';
 
   video.volume = 0;
   mute_button.muted = true;
   volume_bar.value = video.volume;
-  var last_volume_before_mute = 1.0;
+  var last_volume_before_mute = 1;
 
   mute_button.onclick = function() {
     video.muted = false;
@@ -72,14 +76,14 @@ function setup_control_bar() {
       mute_button.muted = false;
       video.volume = last_volume_before_mute;
       volume_bar.value = video.volume;
-      mute_button.style.backgroundImage = 'url(/static/puffer/dist/images/volume-on.svg)';
+      mute_button.style.backgroundImage = volume_on_img;
     } else {
       last_volume_before_mute = video.volume;
 
       mute_button.muted = true;
       video.volume = 0;
       volume_bar.value = 0;
-      mute_button.style.backgroundImage = 'url(/static/puffer/dist/images/volume-off.svg)';
+      mute_button.style.backgroundImage = volume_off_img;
     }
   };
 
@@ -89,10 +93,10 @@ function setup_control_bar() {
     video.volume = volume_bar.value;
     if (video.volume > 0) {
       mute_button.muted = false;
-      mute_button.style.backgroundImage = 'url(/static/puffer/dist/images/volume-on.svg)';
+      mute_button.style.backgroundImage = volume_on_img;
     } else {
       mute_button.muted = true;
-      mute_button.style.backgroundImage = 'url(/static/puffer/dist/images/volume-off.svg)';
+      mute_button.style.backgroundImage = volume_off_img;
     }
   };
 
@@ -141,6 +145,13 @@ function setup_control_bar() {
 
   tv_container.onmouseleave = function() {
     tv_controls.style.opacity = '0';
+  };
+
+  unmute_here.onclick = function() {
+    video.volume = 1;
+    volume_bar.value = 1;
+    mute_button.muted = false;
+    mute_button.style.backgroundImage = volume_on_img;
   };
 }
 

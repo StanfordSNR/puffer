@@ -113,3 +113,7 @@
 #full-screen-button:hover {
   opacity: 1;
 }
+
+#unmute-here {
+  cursor: pointer;
+}
