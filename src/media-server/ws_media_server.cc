@@ -25,8 +25,12 @@
 
 using namespace std;
 using namespace PollerShortNames;
+
+#ifdef NONSECURE
 using WebSocketServer = WebSocketTCPServer;
-// using WebSocketServer = WebSocketSecureServer;
+#else
+using WebSocketServer = WebSocketSecureServer;
+#endif
 
 /* global settings */
 static const unsigned int DEFAULT_MAX_BUFFER_S = 60;
@@ -676,8 +680,16 @@ int main(int argc, char * argv[])
   const string ip = "0.0.0.0";
   const uint16_t port = config["port"].as<uint16_t>();
   WebSocketServer server {{ip, port}};
-  // server.ssl_context().use_private_key_file(config["private_key"].as<string>());
-  // server.ssl_context().use_certificate_file(config["certificate"].as<string>());
+
+  #ifdef NONSECURE
+  cerr << "Launching non-secure WebSocket server" << endl;
+  #else
+  server.ssl_context().use_private_key_file(
+      expand_user(config["private_key"].as<string>()));
+  server.ssl_context().use_certificate_file(
+      expand_user(config["certificate"].as<string>()));
+  cerr << "Launching secure WebSocket server" << endl;
+  #endif
 
   /* connect to database */
   string db_conn_str = config["db_connection"].as<string>();

@@ -1,6 +1,6 @@
 port: 9361
-# private_key:
-# certificate:
+private_key: ~/.ssl/puffer.stanford.edu/puffer_stanford_edu.key
+certificate: ~/.ssl/puffer.stanford.edu/puffer_stanford_edu_interm.crt
 db_connection: >-
   host=puffer-dev.c78hjwwa209d.us-west-1.rds.amazonaws.com port=5432
   dbname=puffer user=puffer
