@@ -2,24 +2,28 @@
 #tv-container:-webkit-full-screen {
   height: 100%;
   width: 100%;
+  background: black;
 }
 
 /* Firefox syntax */
 #tv-container:-moz-full-screen {
   height: 100%;
   width: 100%;
+  background: black;
 }
 
 /* IE/Edge syntax */
 #tv-container:-ms-fullscreen {
   height: 100%;
   width: 100%;
+  background: black;
 }
 
 /* Standard syntax */
 #tv-container:fullscreen {
   height: 100%;
   width: 100%;
+  background: black;
 }
 
 #tv-video {
