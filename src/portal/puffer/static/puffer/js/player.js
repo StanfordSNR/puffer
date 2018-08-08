@@ -162,6 +162,7 @@ function init_player(params_json) {
   var aid = Number(params.aid);
   var session_key = params.session_key;
   var username = params.username;
+  const settings_debug = params.debug;
 
   /* assert that session_key and username exist */
   if (!session_key || !username) {
@@ -174,7 +175,8 @@ function init_player(params_json) {
 
   if (aid === 1) {  // puffer
     load_script('/static/puffer/js/puffer.js').onload = function() {
-      start_puffer(session_key, username);  // start_puffer is defined in puffer.js
+      // start_puffer is defined in puffer.js
+      start_puffer(session_key, username, settings_debug);
     }
   } else {
     /* All the other algorithms are based on dash.js */

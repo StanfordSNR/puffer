@@ -4,6 +4,7 @@ from datetime import datetime
 from django.shortcuts import render, redirect
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.conf import settings
 
 from .models import Rating
 
@@ -17,7 +18,8 @@ def player(request, aid):
     # parameters passed to Javascript stored in JSON
     params = {'aid': aid,
               'session_key': request.session.session_key,
-              'username': request.user.username}
+              'username': request.user.username,
+              'debug': settings.DEBUG}
     context = {'params_json': json.dumps(params)}
 
     return render(request, 'puffer/player.html', context)

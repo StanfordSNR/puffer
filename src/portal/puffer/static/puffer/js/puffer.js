@@ -5,7 +5,7 @@ const DEBUG_TIMER_INTERVAL = 500;
 const BASE_RECONNECT_BACKOFF = 100;
 const MAX_RECONNECT_BACKOFF = 30000;
 
-const debug = false;
+var debug = false;
 
 /* Server messages are of the form: "short_metadata_len|metadata_json|data" */
 function parse_server_msg(data) {
@@ -415,8 +415,11 @@ function WebSocketClient(video, audio, session_key, username) {
     const ws_host_and_port = location.hostname + ':9361';
     console.log('WS(S) at', ws_host_and_port);
 
-    // ws = new WebSocket('ws://' + ws_host_and_port);
-    ws = new WebSocket('wss://' + ws_host_and_port);
+    if (debug) {
+      ws = new WebSocket('ws://' + ws_host_and_port);
+    } else {
+      ws = new WebSocket('wss://' + ws_host_and_port);
+    }
 
     ws.binaryType = 'arraybuffer';
     ws.onmessage = handle_msg;
@@ -627,7 +630,9 @@ function get_client_system_info() {
   };
 }
 
-function start_puffer(session_key, username) {
+function start_puffer(session_key, username, settings_debug) {
+  debug = settings_debug;
+
   const video = document.getElementById('tv-video');
   const audio = document.getElementById('tv-audio');
 
