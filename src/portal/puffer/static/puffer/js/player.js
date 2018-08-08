@@ -148,6 +148,7 @@ function setup_control_bar() {
   };
 
   unmute_here.onclick = function() {
+    video.muted = false;
     video.volume = 1;
     volume_bar.value = 1;
     mute_button.muted = false;
