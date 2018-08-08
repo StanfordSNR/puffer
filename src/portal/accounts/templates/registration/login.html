@@ -13,6 +13,17 @@
 
 <body>
   <div class="container text-center">
+    {% if messages %}
+      <div class="alert alert-danger" role="alert">
+        {% for message in messages %}
+          {{ message }}
+        {% endfor %}
+        <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+    {% endif %}
+
     {% if form.errors %}
     <div class="alert alert-danger" role="alert">
       Your username and password didn't match. Please try again.
@@ -38,6 +49,12 @@
       <div class="form-group">
         <input class="form-control" id="inputPassword" type="password" placeholder="Password"
                name="password" required>
+      </div>
+
+      <div class="custom-control custom-checkbox form-group">
+        <input type="checkbox" class="custom-control-input" id="locationCert" name="america">
+        <label class="custom-control-label" for="locationCert">I am currently located
+                                                               in the United States</label>
       </div>
 
       <div>
