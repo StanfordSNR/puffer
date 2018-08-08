@@ -2,6 +2,7 @@ from django.contrib.auth import login, authenticate, REDIRECT_FIELD_NAME
 from django.contrib.auth import views as auth_views
 from django.shortcuts import render, redirect
 from django.contrib import messages
+from django.urls import reverse
 from accounts.models import InvitationToken
 from accounts.forms import SignUpForm
 
@@ -9,16 +10,15 @@ from accounts.forms import SignUpForm
 def my_login(request):
     if request.method == 'POST':
         if 'america' not in request.POST:
-            messages.warning(request, 'Puffer is only available \
-                                       in the United States')
-            # Next few lines ensure redirect path is not lost
-            redirect_to = request.POST.get(
-                REDIRECT_FIELD_NAME,
-                request.GET.get(REDIRECT_FIELD_NAME, '')
-            )
-            response = redirect('login')
-            response['Location'] += '?next=' + str(redirect_to)
-            return response
+            messages.error(
+                request, 'Puffer is only available in the United States.')
+
+            redirect_to = request.POST.get('next')
+            if redirect_to:
+                return redirect(reverse('login') + '?next=' + redirect_to)
+            else:
+                return redirect('login')
+
     return auth_views.login(request)
 
 

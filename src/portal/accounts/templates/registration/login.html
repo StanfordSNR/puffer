@@ -38,7 +38,11 @@
            alt="Puffer" height="200px">
     </a>
 
+    {% if next %}
+    <form class="form-signin mx-auto" method="post" action="{% url 'login' %}?next={{next}}">
+    {% else %}
     <form class="form-signin mx-auto" method="post" action="{% url 'login' %}">
+    {% endif %}
       {% csrf_token %}
 
       <div class="form-group">
@@ -52,9 +56,10 @@
       </div>
 
       <div class="custom-control custom-checkbox form-group">
-        <input type="checkbox" class="custom-control-input" id="locationCert" name="america">
-        <label class="custom-control-label" for="locationCert">I am currently located
-                                                               in the United States</label>
+        <input type="checkbox" class="custom-control-input" id="location-cert" name="america">
+        <label class="custom-control-label" for="location-cert">
+          I am currently located in the United States.
+        </label>
       </div>
 
       <div>
