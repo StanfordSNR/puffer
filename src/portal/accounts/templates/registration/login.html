@@ -46,17 +46,18 @@
       {% csrf_token %}
 
       <div class="form-group">
-        <input class="form-control" id="id_username" type="text" placeholder="Username"
+        <input class="form-control" type="text" placeholder="Username"
                name="username" required autofocus>
       </div>
 
       <div class="form-group">
-        <input class="form-control" id="inputPassword" type="password" placeholder="Password"
+        <input class="form-control" type="password" placeholder="Password"
                name="password" required>
       </div>
 
       <div class="custom-control custom-checkbox form-group">
-        <input type="checkbox" class="custom-control-input" id="location-cert" name="america">
+        <input type="checkbox" class="custom-control-input" id="location-cert"
+               name="america" required>
         <label class="custom-control-label" for="location-cert">
           I am currently located in the United States.
         </label>
@@ -67,7 +68,7 @@
       </div>
 
       <button type="submit" class="btn btn-primary btn-lg btn-block mt-4">Sign in</button>
-      <input type="hidden" name="next" value="{{ next }}" />
+      <input type="hidden" name="next" value="{{ next }}">
     </form>
   </div>
 
