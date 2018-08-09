@@ -35,13 +35,7 @@ def signup(request):
             if matching_token:
                 matching_token.delete()
 
-            # log in the new user
-            username = form.cleaned_data.get('username')
-            raw_password = form.cleaned_data.get('password1')
-            user = authenticate(username=username, password=raw_password)
-            login(request, user)
-
-            return redirect('index')
+            return redirect('login')
     else:
         form = SignUpForm()
 
