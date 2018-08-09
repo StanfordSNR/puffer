@@ -342,6 +342,14 @@ void WSServer<SocketType>::close_connection(const uint64_t connection_id)
   conn.state = Connection::State::Closing;
 }
 
+template<class SocketType>
+Address WSServer<SocketType>::peer_addr(const uint64_t connection_id) const
+{
+  const Connection & conn = connections_.at(connection_id);
+
+  return conn.socket.peer_address();
+}
+
 template<>
 unsigned int WSServer<TCPSocket>::buffer_bytes(const uint64_t conn_id) const
 {

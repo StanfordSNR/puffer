@@ -89,6 +89,7 @@ public:
   void set_authed_username(const std::string & username) { username_ = username; }
   void set_browser(const std::string & browser) { browser_ = browser; }
   void set_os(const std::string & os) { os_ = os; }
+  void set_ip(const std::string & ip) { ip_ = ip; }
 
   void set_next_vts(const uint64_t next_vts) { next_vts_ = next_vts; }
   void set_next_ats(const uint64_t next_ats) { next_ats_ = next_ats; }
@@ -118,6 +119,7 @@ private:
   std::optional<std::string> channel_ {};
   std::optional<std::string> browser_ {};
   std::optional<std::string> os_ {};
+  std::optional<std::string> ip_  {};
   std::optional<uint64_t> next_vts_ {};
   std::optional<uint64_t> next_ats_ {};
 

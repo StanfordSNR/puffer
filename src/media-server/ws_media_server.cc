@@ -730,8 +730,9 @@ int main(int argc, char * argv[])
             return;
           }
 
-          /* set username only if authentication succeeds */
+          /* set username and ip only if authentication succeeds */
           client.set_authed_username(init_msg.username);
+          client.set_ip(server.peer_addr(connection_id).ip());
 
           handle_client_init(server, client, init_msg);
         } else {
