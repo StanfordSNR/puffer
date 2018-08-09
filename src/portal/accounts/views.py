@@ -35,6 +35,8 @@ def signup(request):
             if matching_token:
                 matching_token.delete()
 
+            messages.success(request,
+                'Your account has been created successfully! Please log in.')
             return redirect('login')
     else:
         form = SignUpForm()
