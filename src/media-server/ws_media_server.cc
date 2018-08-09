@@ -528,16 +528,18 @@ void handle_client_init(WebSocketServer & server, WebSocketClient & client,
   uint64_t init_vts = channel.init_vts().value();
   uint64_t init_ats = channel.find_ats(init_vts);
 
-  /* Save old channel for use in updating view count */
+  /* save old channel for use in updating view count */
   const string old_channel_string = client.channel() ?
                                     client.channel().value() : "";
   client.init(channel.name(), init_vts, init_ats);
+
+  /* set client's browser and system info */
   client.set_browser(msg.browser);
   client.set_os(msg.os);
 
   send_server_init(server, client, false /* initialize rather than resume */);
 
-  /* Increment/decrement viewer counts for new/old channel respectively */
+  /* increment/decrement viewer counts for new/old channel respectively */
   auto curtime = time(nullptr);
   channel.set_viewer_count(channel.viewer_count() + 1);
   string log_line1 = to_string(curtime) + " " + channel.name() + " " +
@@ -583,6 +585,7 @@ void handle_client_info(WebSocketClient & client, const ClientInfoMsg & msg)
       return;
     }
 
+    /* record playback buffer occupancy */
     string log_line = to_string(time(nullptr)) + " " + client.username() + " "
         + *client.channel() + " " + to_string(static_cast<int>(msg.event))
         + " " + buf + "\n";
@@ -593,6 +596,7 @@ void handle_client_info(WebSocketClient & client, const ClientInfoMsg & msg)
       return;
     }
 
+    /* record video quality */
     string log_line = to_string(time(nullptr)) + " " + client.username() + " "
         + *client.channel() + " " + to_string(*msg.timestamp) + " "
         + *msg.quality + "\n";
@@ -723,17 +727,19 @@ int main(int argc, char * argv[])
         if (parser.msg_type() == ClientMsgParser::Type::Init) {
           const ClientInitMsg & init_msg = parser.parse_init_msg();
 
-          /* user authentication */
-          if (not auth_client(init_msg.session_key, db_conn)) {
-            cerr << connection_id << ": authentication failed" << endl;
-            close_connection(server, connection_id);
-            return;
+          if (not client.is_authenticated()) {
+            /* user authentication */
+            if (not auth_client(init_msg.session_key, db_conn)) {
+              cerr << connection_id << ": authentication failed" << endl;
+              close_connection(server, connection_id);
+              return;
+            }
+
+            /* set username only if authentication succeeds */
+            client.set_authed_username(init_msg.username);
           }
 
-          /* set username and ip only if authentication succeeds */
-          client.set_authed_username(init_msg.username);
           client.set_ip(server.peer_addr(connection_id).ip());
-
           handle_client_init(server, client, init_msg);
         } else {
           /* parse a message other than client-init only if user is authed */
@@ -773,6 +779,8 @@ int main(int argc, char * argv[])
       try {
         Channel & closing_channel = channels.at(clients.at(connection_id)
                                                 .channel().value());
+
+        /* update and record viewer count */
         closing_channel.set_viewer_count(closing_channel.viewer_count() - 1);
         string log_line = to_string(time(nullptr)) + " " +
                           closing_channel.name() + " " +
