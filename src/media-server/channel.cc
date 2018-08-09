@@ -179,7 +179,7 @@ mmap_t mmap_file(const string & filepath)
 
 void Channel::munmap_video(const uint64_t newest_ts)
 {
-  assert(clean_window_s_.has_value());
+  assert(clean_window_s_);
 
   uint64_t clean_window_ts = clean_window_s_.value() * timescale_;
   if (newest_ts < clean_window_ts) return;
@@ -197,9 +197,9 @@ void Channel::munmap_video(const uint64_t newest_ts)
     }
   }
 
-  if (not cleaned_ts.has_value()) return;
+  if (not cleaned_ts) return;
 
-  if (not vclean_frontier_.has_value() or
+  if (not vclean_frontier_ or
       vclean_frontier_.value() < cleaned_ts.value()) {
     vclean_frontier_ = cleaned_ts.value();
   }
@@ -207,7 +207,7 @@ void Channel::munmap_video(const uint64_t newest_ts)
 
 void Channel::munmap_audio(const uint64_t newest_ts)
 {
-  assert(clean_window_s_.has_value());
+  assert(clean_window_s_);
 
   uint64_t clean_window_ts = clean_window_s_.value() * timescale_;
   if (newest_ts < clean_window_ts) return;
@@ -224,9 +224,9 @@ void Channel::munmap_audio(const uint64_t newest_ts)
     }
   }
 
-  if (not cleaned_ts.has_value()) return;
+  if (not cleaned_ts) return;
 
-  if (not aclean_frontier_.has_value() or
+  if (not aclean_frontier_ or
       aclean_frontier_.value() < cleaned_ts) {
     aclean_frontier_ = cleaned_ts.value();
   }
@@ -234,7 +234,7 @@ void Channel::munmap_audio(const uint64_t newest_ts)
 
 void Channel::update_live_edge(const uint64_t ts)
 {
-  assert(presentation_delay_s_.has_value());
+  assert(presentation_delay_s_);
 
   /* round up presentation delay to a multiple of video duration */
   uint64_t delay_vts = presentation_delay_s_.value() * timescale_;
@@ -248,7 +248,7 @@ void Channel::update_live_edge(const uint64_t ts)
   if (not vready(live_vts)) return;
   if (not aready(live_ats)) return;
 
-  if (not vlive_frontier_.has_value()) {
+  if (not vlive_frontier_) {
     cerr << "Channel " << name_ << " becomes ready" << endl;
 
     vlive_frontier_ = live_vts;
@@ -265,11 +265,9 @@ void Channel::do_mmap_video(const fs::path & filepath, const VideoFormat & vf)
   string filestem = filepath.stem();
 
   if (filestem == "init") {
-    // cerr << "video init: " << filepath << endl;
     vinit_.emplace(vf, data_size);
   } else {
     if (filepath.extension() == ".m4s") {
-      // cerr << "video chunk: " << filepath << endl;
       uint64_t ts = stoull(filestem);
       vdata_[ts][vf] = data_size;
 
@@ -278,8 +276,9 @@ void Channel::do_mmap_video(const fs::path & filepath, const VideoFormat & vf)
         munmap_video(ts);
 
         /* assert that clean frontier < live frontier */
-        if (vclean_frontier_.has_value() and vlive_frontier_.has_value()) {
-          assert(vclean_frontier_.value() < vlive_frontier_.value());
+        if (vclean_frontier_ and vlive_frontier_ and
+            vclean_frontier_.value() >= vlive_frontier_.value()) {
+          throw runtime_error("Video cleaner has caught up");
         }
       }
     }
@@ -324,11 +323,9 @@ void Channel::do_mmap_audio(const fs::path & filepath, const AudioFormat & af)
   string filestem = filepath.stem();
 
   if (filestem == "init") {
-    // cerr << "audio init: " << filepath << endl;
     ainit_.emplace(af, data_size);
   } else {
     if (filepath.extension() == ".chk") {
-      // cerr << "audio chunk: " << filepath << endl;
       uint64_t ts = stoull(filestem);
       adata_[ts][af] = data_size;
 
@@ -336,8 +333,9 @@ void Channel::do_mmap_audio(const fs::path & filepath, const AudioFormat & af)
         munmap_audio(ts);
 
         /* assert that clean frontier < live frontier */
-        if (aclean_frontier_.has_value() and alive_frontier_.has_value()) {
-          assert(aclean_frontier_.value() < alive_frontier_.value());
+        if (aclean_frontier_ and alive_frontier_ and
+            aclean_frontier_.value() >= alive_frontier_.value()) {
+          throw runtime_error("Audio cleaner has caught up");
         }
       }
     }

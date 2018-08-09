@@ -2,8 +2,8 @@ const WS_OPEN = 1;
 
 const TIMER_INTERVAL = 2000;
 const DEBUG_TIMER_INTERVAL = 500;
-const BASE_RECONNECT_BACKOFF = 100;
-const MAX_RECONNECT_BACKOFF = 30000;
+const BASE_RECONNECT_BACKOFF = 1000;
+const MAX_RECONNECT_BACKOFF = 15000;
 
 var debug = false;
 var non_secure = false;

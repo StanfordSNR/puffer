@@ -627,12 +627,18 @@ void load_channels(const YAML::Node & config, Inotify & inotify)
       throw runtime_error("Cannot find details of channel: " + channel_name);
     }
 
-    auto ret = channels.emplace(
-        piecewise_construct,
-        forward_as_tuple(channel_name),
-        forward_as_tuple(channel_name, config[channel_name], inotify));
-    if (not ret.second) {
-      throw runtime_error("Duplicate channels found: " + channel_name);
+    try {
+      auto ret = channels.emplace(
+          piecewise_construct,
+          forward_as_tuple(channel_name),
+          forward_as_tuple(channel_name, config[channel_name], inotify));
+      if (not ret.second) {
+        cerr << "Warning: tried to create a duplicate channel "
+             << channel_name << endl;
+      }
+    } catch (const exception & e) {
+      cerr << "Error: exceptions in channel " << channel_name
+           << ": " << e.what() << endl;
     }
   }
 }
