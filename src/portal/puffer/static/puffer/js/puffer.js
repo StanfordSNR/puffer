@@ -6,6 +6,7 @@ const BASE_RECONNECT_BACKOFF = 100;
 const MAX_RECONNECT_BACKOFF = 30000;
 
 var debug = false;
+var non_secure = false;
 
 /* Server messages are of the form: "short_metadata_len|metadata_json|data" */
 function parse_server_msg(data) {
@@ -66,29 +67,30 @@ function AVSource(video, audio, options) {
 
   /* Initialize video and audio source buffers, and set the initial offset */
   function init_source_buffers() {
-    console.log('Initializing new AV source');
+    console.log('Initializing new media source buffer');
+
     video.currentTime = init_seek_ts / timescale;
     audio.currentTime = video.currentTime;
 
     vbuf = ms.addSourceBuffer(video_codec);
     vbuf.addEventListener('updateend', that.vbuf_update);
     vbuf.addEventListener('error', function(e) {
-      console.log('vbuf error:', e);
+      console.log('video source buffer error:', e);
       that.close();
     });
     vbuf.addEventListener('abort', function(e) {
-      console.log('vbuf abort:', e);
+      console.log('video source buffer abort:', e);
       that.close();
     });
 
     abuf = ms.addSourceBuffer(audio_codec);
     abuf.addEventListener('updateend', that.abuf_update);
     abuf.addEventListener('error', function(e) {
-      console.log('abuf error:', e);
+      console.log('audio source buffer error:', e);
       that.close();
     });
     abuf.addEventListener('abort', function(e) {
-      console.log('abuf abort:', e);
+      console.log('audio source buffer abort:', e);
       that.close();
     });
 
@@ -103,14 +105,20 @@ function AVSource(video, audio, options) {
   }
 
   ms.addEventListener('sourceopen', function(e) {
-    console.log('sourceopen: ' + ms.readyState, e);
+    if (debug) {
+      console.log('sourceopen: ' + ms.readyState, e);
+    }
     init_source_buffers();
   });
   ms.addEventListener('sourceended', function(e) {
-    console.log('sourceended: ' + ms.readyState, e);
+    if (debug) {
+      console.log('sourceended: ' + ms.readyState, e);
+    }
   });
   ms.addEventListener('sourceclose', function(e) {
-    console.log('sourceclose: ' + ms.readyState, e);
+    if (debug) {
+      console.log('sourceclose: ' + ms.readyState, e);
+    }
     that.close();
   });
   ms.addEventListener('error', function(e) {
@@ -138,7 +146,10 @@ function AVSource(video, audio, options) {
 
   /* Close the AV source, presumably it is being replaced */
   this.close = function() {
-    console.log('Closing AV source');
+    if (vbuf || abuf) {
+      console.log('Closing media source buffer');
+    }
+
     pending_audio_chunks = [];
     pending_video_chunks = [];
     abuf = null;
@@ -254,13 +265,10 @@ function AVSource(video, audio, options) {
     }
   };
 
-  /* Get the number of seconds of audio buffered */
+  /* TODO: audio.buffered does not contain a correct length;
+   * use video buffer length for now */
   this.getAudioBufferLen = function() {
-    if (audio.buffered.length > 0) {
-      return audio.buffered.end(0) - video.currentTime;
-    } else {
-      return -1;
-    }
+    return that.getVideoBufferLen();
   };
 
   /* Get the expected timestamp of the next video chunk */
@@ -329,7 +337,10 @@ function WebSocketClient(video, audio, session_key, username) {
         }
 
         ws.send(format_client_msg('client-init', msg));
-        console.log('sent client-init');
+
+        if (debug) {
+          console.log('sent client-init');
+        }
       } catch (e) {
         console.log(e);
       }
@@ -370,9 +381,14 @@ function WebSocketClient(video, audio, session_key, username) {
     var message = parse_server_msg(e.data);
 
     if (message.metadata.type === 'server-hello') {
-      console.log(message.metadata.type, message.metadata);
+      if (debug) {
+        console.log(message.metadata.type, message.metadata);
+      }
     } else if (message.metadata.type === 'server-init') {
-      console.log(message.metadata.type, message.metadata);
+      if (debug) {
+        console.log(message.metadata.type, message.metadata);
+      }
+
       if (av_source && av_source.canResume(message.metadata)) {
         console.log('Resuming playback');
         av_source.resume(message.metadata);
@@ -412,26 +428,23 @@ function WebSocketClient(video, audio, session_key, username) {
   }
 
   this.connect = function(channel) {
-    const ws_host_and_port = location.hostname + ':9361';
-    console.log('WS(S) at', ws_host_and_port);
-
-    if (debug) {
-      ws = new WebSocket('ws://' + ws_host_and_port);
-    } else {
-      ws = new WebSocket('wss://' + ws_host_and_port);
-    }
+    const ws_host_port = location.hostname + ':9361';
+    const ws_addr = non_secure ? 'ws://' + ws_host_port
+                               : 'wss://' + ws_host_port;
+    ws = new WebSocket(ws_addr);
 
     ws.binaryType = 'arraybuffer';
     ws.onmessage = handle_msg;
 
     ws.onopen = function(e) {
-      console.log('WebSocket open, sending client-init');
+      console.log('Connected to', ws_addr);
+
       send_client_init(ws, channel);
       rc_backoff = BASE_RECONNECT_BACKOFF;
     };
 
     ws.onclose = function(e) {
-      console.log('WebSocket closed');
+      console.log('Closed connection to', ws_addr);
       ws = null;
 
       if (av_source && rc_backoff <= MAX_RECONNECT_BACKOFF) {
@@ -457,12 +470,12 @@ function WebSocketClient(video, audio, session_key, username) {
   };
 
   video.oncanplay = function() {
-    console.log('video canplay');
+    console.log('Video can play');
     send_client_info('canplay');
   };
 
   video.onwaiting = function() {
-    console.log('video is rebuffering');
+    console.log('Video is rebuffering');
     send_client_info('rebuffer');
   };
 
@@ -516,6 +529,7 @@ function setup_channel_bar(client) {
     return;
   }
   const default_channel = init_active_channel[0].getAttribute('name');
+  console.log('Default channel:', init_active_channel[0].innerText);
 
   /* set up onclick callbacks for channels */
   const channel_list = document.querySelectorAll('#channel-list .list-group-item');
@@ -532,7 +546,7 @@ function setup_channel_bar(client) {
       active_channel.className = active_channel.className.replace(' active', '');
       this.className += ' active';
 
-      console.log('set channel:', this_value);
+      console.log('Set channel:', this.innerText);
       client.set_channel(this_value);
     }
   }
@@ -631,14 +645,15 @@ function get_client_system_info() {
 }
 
 function start_puffer(session_key, username, settings_debug) {
-  debug = settings_debug;
+  /* if DEBUG = True in settings.py, connect to non-secure WebSocket server */
+  non_secure = settings_debug;
 
   const video = document.getElementById('tv-video');
   const audio = document.getElementById('tv-audio');
 
+  /* decide when to start playing based on readyState */
   video.addEventListener('loadeddata', function() {
     if (video.readyState >= 2) {
-      console.log('Start playing video');
       video.play();
     }
   });
