@@ -79,7 +79,7 @@ int main(int argc, char * argv[])
 
   /* encode audio */
   vector<string> args2 {
-    "ffmpeg", "-nostdin", "-hide_banner", "-loglevel", "panic", "-y",
+    "ffmpeg", "-nostdin", "-hide_banner", "-loglevel", "warning", "-y",
     "-i", tmp_opus_path, "-c:a", "libopus", "-b:a", bitrate,
     "-avoid_negative_ts", "make_zero", "-threads", "1", output_path };
 

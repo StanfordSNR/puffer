@@ -36,7 +36,7 @@ def main():
 
     # run ffmpeg
     ffmpeg_cmd = (
-        'ffmpeg -nostdin -hide_banner -loglevel panic -y -i ' + input_media +
+        'ffmpeg -nostdin -hide_banner -loglevel warning -y -i ' + input_media +
         pid_str + ' -an -f segment -segment_time 2.002 ' +
         '-segment_format yuv4mpegpipe ' + path.join(tmp_dir, '%d.y4m') +
         ' -vn -af aresample=async=48000 -f segment -segment_time 4.8 ' +

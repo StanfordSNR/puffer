@@ -73,7 +73,7 @@ int main(int argc, char * argv[])
 
   /* encode video */
   vector<string> args {
-    "ffmpeg", "-nostdin", "-hide_banner", "-loglevel", "panic", "-y",
+    "ffmpeg", "-nostdin", "-hide_banner", "-loglevel", "warning", "-y",
     "-i", input_path, "-c:v", "libx264", "-s", resolution, "-crf", crf,
     "-preset", "veryfast", "-threads", "1", output_path };
 
