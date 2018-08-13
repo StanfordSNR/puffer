@@ -8,6 +8,10 @@ from accounts.forms import SignUpForm
 
 
 def my_login(request):
+    # prevent logged in user from logging in
+    if request.user.is_authenticated:
+        return redirect('index')
+
     if request.method == 'POST':
         if 'america' not in request.POST:
             messages.error(
@@ -23,6 +27,10 @@ def my_login(request):
 
 
 def signup(request):
+    # prevent logged in user from signing up
+    if request.user.is_authenticated:
+        return redirect('index')
+
     if request.method == 'POST':
         form = SignUpForm(request.POST)
 
