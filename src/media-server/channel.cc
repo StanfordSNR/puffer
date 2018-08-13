@@ -376,7 +376,6 @@ void Channel::mmap_audio_files(Inotify & inotify)
 
 void Channel::do_read_ssim(const fs::path & filepath, const VideoFormat & vf) {
   if (filepath.extension() == ".ssim") {
-    // cerr << "ssim file: " << filepath << endl;
     string filestem = filepath.stem();
     uint64_t ts = stoull(filestem);
 
@@ -384,7 +383,12 @@ void Channel::do_read_ssim(const fs::path & filepath, const VideoFormat & vf) {
     string line;
     getline(ssim_file, line);
 
-    vssim_[ts][vf] = stod(line);
+    try {
+      vssim_[ts][vf] = stod(line);
+    } catch (const exception & e) {
+      cerr << "Invalid SSIM file: " + line << ": " << e.what() << endl;
+      vssim_[ts][vf] = -1;
+    }
   }
 }
 

@@ -1,4 +1,5 @@
 #include <fcntl.h>
+#include <cmath>
 
 #include <iostream>
 #include <string>
@@ -69,10 +70,20 @@ int main(int argc, char * argv[])
   int cnt = last_right_parenthesis - last_left_parenthesis - 1;
   string ssim_str = output.substr(last_left_parenthesis + 1, cnt);
 
-	/* check if ssim_str is a valid double */
-  stod(ssim_str);
-  cerr << "SSIM = " + ssim_str + " between " + video1 + " and " + video2
-       << endl;
+  try {
+    /* check if ssim_str is a valid */
+    double ssim_val = stod(ssim_str);
+    if (not isfinite(ssim_val)) {
+      cerr << "Invalid SSIM value: " + ssim_str << endl;
+      ssim_str = "-1";
+    } else {
+      cerr << "SSIM = " + ssim_str + " between " + video1 + " and " + video2
+           << endl;
+    }
+  } catch (const exception & e) {
+    cerr << "Error in converting " + ssim_str + ": " + e.what() << endl;
+    ssim_str = "-1";
+  }
 
   /* write the SSIM value to output_path */
   write_to_file(output_path, ssim_str);
