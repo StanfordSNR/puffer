@@ -637,9 +637,20 @@ void load_channels(const YAML::Node & config, Inotify & inotify)
              << channel_name << endl;
       }
     } catch (const exception & e) {
-      cerr << "Error: exceptions in channel " << channel_name
-           << ": " << e.what() << endl;
+      cerr << "Error: exceptions in channel " << channel_name << ": "
+           << e.what() << endl;
     }
+  }
+}
+
+/* return "connection_id,username" or "connection_id," (unknown username) */
+string client_signature(const uint64_t connection_id)
+{
+  const auto client_it = clients.find(connection_id);
+  if (client_it != clients.end()) {
+    return client_it->second.signature();
+  } else {
+    return to_string(connection_id) + ",";
   }
 }
 
@@ -648,7 +659,8 @@ void close_connection(WebSocketServer & server, const uint64_t connection_id)
   try {
     server.close_connection(connection_id);
   } catch (const exception & e) {
-    cerr << "Warning: cannot close the connection " << connection_id << endl;
+    cerr << client_signature(connection_id) << ": failed to close connection: "
+         << e.what() << endl;
   }
 
   clients.erase(connection_id);
@@ -761,8 +773,8 @@ int main(int argc, char * argv[])
           }
         }
       } catch (const exception & e) {
-        cerr << "Warning in message callback: exception in client "
-             << connection_id << ": " << e.what() << endl;
+        cerr << client_signature(connection_id)
+             << ": warning in message callback: " << e.what() << endl;
         close_connection(server, connection_id);
       }
     }
@@ -782,18 +794,26 @@ int main(int argc, char * argv[])
     [](const uint64_t connection_id)
     {
       cerr << connection_id << ": connection closed" << endl;
-      try {
-        Channel & closing_channel = channels.at(clients.at(connection_id)
-                                                .channel().value());
 
-        /* update and record viewer count */
-        closing_channel.set_viewer_count(closing_channel.viewer_count() - 1);
-        string log_line = to_string(time(nullptr)) + " " +
-                          closing_channel.name() + " " +
-                          to_string(closing_channel.viewer_count()) + "\n";
-        append_to_log("active_streams.log", log_line);
+      try {
+        const auto client_it = clients.find(connection_id);
+        if (client_it != clients.end()) {
+          const auto & client = client_it->second;
+
+          if (client.channel()) {
+            auto & close_channel = channels.at(client.channel().value());
+
+            /* update and record viewer count */
+            close_channel.set_viewer_count(close_channel.viewer_count() - 1);
+            string log_line = to_string(time(nullptr)) + " " +
+                              close_channel.name() + " " +
+                              to_string(close_channel.viewer_count()) + "\n";
+            append_to_log("active_streams.log", log_line);
+          }
+        }
       } catch (const exception & e) {
-        cerr << "Warning in closing connection " << connection_id << endl;
+        cerr << client_signature(connection_id)
+             << ": warning in close callback: " << e.what() << endl;
       }
 
       clients.erase(connection_id);
