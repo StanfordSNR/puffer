@@ -8,13 +8,7 @@ class InvitationToken(models.Model):
                                null=True, blank=True)
 
     def __str__(self):
-        holder = "Unassigned"
-        admin = ""
         if self.holder:
-            holder = self.holder.email
-            admin = self.holder.is_superuser
-            if admin:
-                return self.token + " (" + holder + " - admin)"
-            else:
-                return self.token + " (" + holder + " - non-admin)"
-        return self.token + " (" + holder + ")"
+            return self.token + " (" + self.holder.username + ")"
+        else:
+            return self.token + " (unassigned)"
