@@ -1,6 +1,7 @@
 const WS_OPEN = 1;
+const GLOBAL_TIMESCALE = 90000;
 
-const TIMER_INTERVAL = 2000;
+const TIMER_INTERVAL = 1000;
 const DEBUG_TIMER_INTERVAL = 500;
 const BASE_RECONNECT_BACKOFF = 1000;
 const MAX_RECONNECT_BACKOFF = 15000;
@@ -159,9 +160,11 @@ function AVSource(video, audio, options) {
   var partial_video_quality = null;
   var partial_video_chunks = null;
   var curr_ssim = null;
+  var curr_video_bitrate = null;
 
   this.getVideoQuality = function() { return partial_video_quality; };
   this.getSSIM = function() { return curr_ssim; };
+  this.getVideoBitrate = function() { return curr_video_bitrate; };
 
   this.handleVideo = function(data, metadata) {
     curr_ssim = metadata.ssim;
@@ -178,6 +181,7 @@ function AVSource(video, audio, options) {
       if (debug) {
         console.log('video: done receiving', metadata.timestamp);
       }
+
       pending_video_chunks.push({
         ts: metadata.timestamp,
         data: concat_arraybuffers(partial_video_chunks,
@@ -191,6 +195,9 @@ function AVSource(video, audio, options) {
 
       partial_video_chunks = [];
       next_video_timestamp = metadata.timestamp + metadata.duration;
+
+      curr_video_bitrate = 8 * 1e-6 * metadata.totalByteLength /
+                           (metadata.duration / GLOBAL_TIMESCALE);
     } else if (debug) {
       console.log('video: not done receiving', metadata.timestamp);
     }
@@ -211,6 +218,7 @@ function AVSource(video, audio, options) {
       if (debug) {
         console.log('audio: done receiving', metadata.timestamp);
       }
+
       pending_audio_chunks.push({
         ts: metadata.timestamp,
         data: concat_arraybuffers(partial_audio_chunks,
@@ -522,6 +530,10 @@ function WebSocketClient(video, audio, session_key, username) {
       var video_ssim = document.getElementById('video-ssim');
       const vssim_val = av_source.getSSIM();
       video_ssim.innerHTML = vssim_val ? vssim_val.toFixed(2) : na;
+
+      var video_bitrate = document.getElementById('video-bitrate');
+      const vbitrate_val = av_source.getVideoBitrate();
+      video_bitrate.innerHTML = vbitrate_val ? vbitrate_val.toFixed(2) : na;
     }
     setTimeout(debug_timer_helper, DEBUG_TIMER_INTERVAL);
   }

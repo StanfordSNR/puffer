@@ -33,8 +33,8 @@ using WebSocketServer = WebSocketSecureServer;
 #endif
 
 /* global settings */
-static const unsigned int DEFAULT_MAX_BUFFER_S = 60;
-static const unsigned int DEFAULT_MAX_INFLIGHT_S = 30;
+static const unsigned int DEFAULT_MAX_BUFFER_S = 15;
+static const unsigned int DEFAULT_MAX_INFLIGHT_S = 10;
 static const size_t DEFAULT_MAX_WS_FRAME_LEN = 5000000;
 static const size_t DEFAULT_MAX_WS_QUEUE_LEN = 30 * DEFAULT_MAX_WS_FRAME_LEN;
 
@@ -674,7 +674,7 @@ bool auth_client(const string & session_key, pqxx::nontransaction & db_work)
     /* returned record is valid containing only true or false */
     return r[0][0].as<bool>();
   } else {
-    cerr << "Authentication failed due to invalid returned record" << endl;;
+    cerr << "Authentication failed due to invalid returned record" << endl;
     return false;
   }
 }
