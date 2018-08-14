@@ -666,19 +666,17 @@ void close_connection(WebSocketServer & server, const uint64_t connection_id)
   clients.erase(connection_id);
 }
 
-bool auth_client(const string & session_key, pqxx::connection & db_conn)
+bool auth_client(const string & session_key, pqxx::nontransaction & db_work)
 {
-  pqxx::nontransaction n(db_conn);
+  pqxx::result r = db_work.prepared("auth")(session_key).exec();
 
-  /* safely check if session_key exists and is not expired yet */
-  db_conn.prepare("auth", "SELECT EXISTS(SELECT 1 FROM django_session WHERE "
-    "session_key = $1 AND expire_date > now());");
-  pqxx::result r = n.prepared("auth")(session_key).exec();
-
-  /* ensure there is only one returned record containing true or false */
-  assert(r.size() == 1 and r[0].size() == 1);
-
-  return r[0][0].as<bool>();
+  if (r.size() == 1 and r[0].size() == 1) {
+    /* returned record is valid containing only true or false */
+    return r[0][0].as<bool>();
+  } else {
+    cerr << "Authentication failed due to invalid returned record" << endl;;
+    return false;
+  }
 }
 
 int main(int argc, char * argv[])
@@ -721,10 +719,14 @@ int main(int argc, char * argv[])
   db_conn_str += " password=" + safe_getenv("PUFFER_PORTAL_DB_KEY");
 
   pqxx::connection db_conn(db_conn_str);
-  if (not db_conn.is_open()) {
-    cerr << "Failed to connect to database" << endl;
-    return EXIT_FAILURE;
-  }
+  cerr << "Connected to " << db_conn.dbname() << endl;
+
+  /* reuse the same nontransaction */
+  pqxx::nontransaction db_work(db_conn);
+
+  /* prepare a statement to check if session_key is valid */
+  db_conn.prepare("auth", "SELECT EXISTS(SELECT 1 FROM django_session WHERE "
+    "session_key = $1 AND expire_date > now());");
 
   /* load channels and mmap (existing and new) media files */
   Inotify inotify(server.poller());
@@ -732,7 +734,7 @@ int main(int argc, char * argv[])
 
   /* set server callbacks */
   server.set_message_callback(
-    [&server, &db_conn](const uint64_t connection_id, const WSMessage & msg)
+    [&server, &db_work](const uint64_t connection_id, const WSMessage & msg)
     {
       if (debug) {
         cerr << connection_id << ": message " << msg.payload() << endl;
@@ -747,7 +749,7 @@ int main(int argc, char * argv[])
 
           if (not client.is_authenticated()) {
             /* user authentication */
-            if (not auth_client(init_msg.session_key, db_conn)) {
+            if (not auth_client(init_msg.session_key, db_work)) {
               cerr << connection_id << ": authentication failed" << endl;
               close_connection(server, connection_id);
               return;
