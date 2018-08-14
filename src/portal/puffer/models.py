@@ -11,6 +11,11 @@ class UserProfile(models.Model):
     last_session_key = models.CharField(max_length=64, default='')
 
 
+class GrafanaSnapshot(models.Model):
+    url = models.URLField()
+    created_on = models.DateTimeField()
+
+
 class Rating(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     comment_text = models.CharField(max_length=500, default='')

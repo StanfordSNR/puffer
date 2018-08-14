@@ -6,7 +6,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.conf import settings
 
-from .models import Rating
+from .models import Rating, GrafanaSnapshot
 
 
 def index(request):
@@ -39,7 +39,7 @@ def rating(request):
     new_star = 0
     new_comment = request.POST['rating-comment']
     if 'rating-star' in request.POST:
-      new_star = request.POST['rating-star']
+        new_star = request.POST['rating-star']
 
     if new_star == 0 and new_comment == '':
         messages.info(request, 'Please tell us about our service.')
@@ -53,3 +53,8 @@ def rating(request):
     except:
         messages.error(request, 'Try rating again?')
         return redirect('rating')
+
+
+def monitoring(request):
+    url = GrafanaSnapshot.objects.all().order_by('-created_on')[0].url
+    return redirect(url)
