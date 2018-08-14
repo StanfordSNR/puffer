@@ -51,8 +51,8 @@ def send_to_influx(status):
                      'selected_rate': v['selected_rate']}
         })
 
-        sys.stderr.write('channel {}, SNR {}\n'.format(
-            v['rf_channel'], v['snr']))
+        sys.stderr.write('channel {}, SNR {}, bitrate {}\n'.format(
+            v['rf_channel'], v['snr'], v['selected_rate']))
 
     client = InfluxDBClient('localhost', 8086, 'admin', INFLUX_PWD)
     client.write_points(json_body, time_precision='s', database='collectd')
@@ -144,8 +144,8 @@ def main():
     post_login(http, host_and_port, session_id)
     status_html = get_status_page(http, host_and_port, session_id)
 
-    # only interested in the following 5 inputs and corresponding outputs
-    status = {1:{}, 2:{}, 3:{}, 4:{}, 5:{}}
+    # interested in all inputs and corresponding outputs
+    status = {i:{} for i in range(1, 9)}
     parse_input_status(status_html, status)
     parse_output_status(status_html, status)
 
