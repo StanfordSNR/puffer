@@ -719,7 +719,7 @@ int main(int argc, char * argv[])
   db_conn_str += " password=" + safe_getenv("PUFFER_PORTAL_DB_KEY");
 
   pqxx::connection db_conn(db_conn_str);
-  cerr << "Connected to " << db_conn.dbname() << endl;
+  cerr << "Connected to database: " << db_conn.dbname() << endl;
 
   /* reuse the same nontransaction */
   pqxx::nontransaction db_work(db_conn);
