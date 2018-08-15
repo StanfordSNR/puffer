@@ -56,5 +56,8 @@ def rating(request):
 
 
 def monitoring(request):
-    url = GrafanaSnapshot.objects.all().order_by('-created_on')[0].url
-    return redirect(url)
+    snapshot = GrafanaSnapshot.objects.order_by('-created_on').first()
+    if snapshot:
+        return redirect(snapshot.url)
+    else:
+        return redirect('index')

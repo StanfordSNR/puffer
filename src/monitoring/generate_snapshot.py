@@ -19,7 +19,9 @@ from datetime import datetime
 INFLUX_PWD = os.getenv("INFLUXDB_PASSWORD")
 GRAFANA_PWD = os.getenv("GRAFANA_PASSWORD")
 
-driver = webdriver.Firefox()
+options = Options()
+options.set_headless(headless=True)
+driver = webdriver.Firefox(firefox_options=options)
 driver.implicitly_wait(30)
 driver.get("https://puffer.stanford.edu/grafana/login")
 driver.find_element_by_name("username").click()
