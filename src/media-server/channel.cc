@@ -273,7 +273,9 @@ void Channel::do_mmap_video(const fs::path & filepath, const VideoFormat & vf)
 
       if (live_) {
         update_live_edge(ts);
-        munmap_video(ts);
+        if (vlive_frontier_) {
+          munmap_video(vlive_frontier_.value());
+        }
 
         /* assert that clean frontier < live frontier */
         if (vclean_frontier_ and vlive_frontier_ and
@@ -330,7 +332,9 @@ void Channel::do_mmap_audio(const fs::path & filepath, const AudioFormat & af)
       adata_[ts][af] = data_size;
 
       if (live_) {
-        munmap_audio(ts);
+        if (alive_frontier_) {
+          munmap_audio(alive_frontier_.value());
+        }
 
         /* assert that clean frontier < live frontier */
         if (aclean_frontier_ and alive_frontier_ and
