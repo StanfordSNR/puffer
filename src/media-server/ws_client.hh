@@ -85,11 +85,19 @@ public:
 
   unsigned int init_id() const { return init_id_; }
 
+  bool is_format_capable(const VideoFormat & format) const {
+    return (not max_video_width_ or format.width <= max_video_width_) and
+           (not max_video_height_ or format.height <= max_video_height_);
+  }
+
   /* mutators */
   void set_authed_username(const std::string & username) { username_ = username; }
   void set_browser(const std::string & browser) { browser_ = browser; }
   void set_os(const std::string & os) { os_ = os; }
   void set_ip(const std::string & ip) { ip_ = ip; }
+  void set_screen_height(const int screen_height) { screen_height_ = screen_height; }
+  void set_screen_width(const int screen_width) { screen_width_ = screen_width; }
+  void set_max_video_size(const std::vector<VideoFormat> & vfs);
 
   void set_next_vts(const uint64_t next_vts) { next_vts_ = next_vts; }
   void set_next_ats(const uint64_t next_ats) { next_ats_ = next_ats; }
@@ -120,6 +128,10 @@ private:
   std::optional<std::string> browser_ {};
   std::optional<std::string> os_ {};
   std::optional<std::string> ip_  {};
+  std::optional<int> screen_height_ {};
+  std::optional<int> screen_width_ {};
+  std::optional<int> max_video_height_ {};
+  std::optional<int> max_video_width_ {};
   std::optional<uint64_t> next_vts_ {};
   std::optional<uint64_t> next_ats_ {};
 

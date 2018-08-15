@@ -34,6 +34,8 @@ ClientInitMsg ClientMsgParser::parse_init_msg()
   ret.channel = msg_.at("channel").get<string>();
   ret.os = msg_.at("os").get<string>();
   ret.browser = msg_.at("browser").get<string>();
+  ret.screen_height = msg_.at("screenHeight").get<int>();
+  ret.screen_width = msg_.at("screenWidth").get<int>();
 
   auto it = msg_.find("nextVideoTimestamp");
   if (it != msg_.end()) {

@@ -338,7 +338,9 @@ function WebSocketClient(video, audio, session_key, username) {
           playerHeight: video.videoHeight,
           channel: channel,
           browser: browser,
-          os: os
+          os: os,
+          screenHeight: screen.height,
+          screenWidth: screen.width
         };
 
         if (av_source && av_source.getChannel() === channel) {

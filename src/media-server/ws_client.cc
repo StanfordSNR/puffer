@@ -86,3 +86,20 @@ void WebSocketClient::set_next_asegment(const AudioFormat & format,
 {
   next_asegment_ = {format, data, init};
 }
+
+void WebSocketClient::set_max_video_size(const std::vector<VideoFormat> & vfs)
+{
+  max_video_height_ = {};
+  max_video_width_ = {};
+  for (auto & vf : vfs) {
+    /* set max video height and width according to the given video formats. */
+    if (screen_height_ and vf.height >= screen_height_ and
+        (not max_video_height_ or vf.height < max_video_height_) ) {
+        max_video_height_ = vf.height;
+    }
+    if (screen_width_ and vf.width >= screen_width_ and
+        (not max_video_width_ or vf.width < max_video_width_) ) {
+        max_video_width_ = vf.width;
+    }
+  }
+}

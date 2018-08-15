@@ -23,6 +23,8 @@ public:
 
   std::string os {};
   std::string browser {};
+  int screen_height {};
+  int screen_width {};
 
   std::optional<uint64_t> next_vts {};
   std::optional<uint64_t> next_ats {};

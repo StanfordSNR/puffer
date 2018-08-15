@@ -79,6 +79,8 @@ const VideoFormat & select_video_quality(WebSocketClient & client)
 
   for (size_t i = 0; i < channel.vformats().size(); i++) {
     const auto & vf = channel.vformats()[i];
+    if (not client.is_format_capable(vf)) continue;
+
     size_t chunk_size = get<1>(data_map.at(vf));
 
     if (chunk_size > max_size) {
@@ -108,6 +110,8 @@ const VideoFormat & select_video_quality(WebSocketClient & client)
 
   for (size_t i = 0; i < channel.vformats().size(); i++) {
     const auto & vf = channel.vformats()[i];
+    if (not client.is_format_capable(vf)) continue;
+
     size_t chunk_size = get<1>(data_map.at(vf));
 
     if (chunk_size > max_serve_size) {
@@ -536,6 +540,11 @@ void handle_client_init(WebSocketServer & server, WebSocketClient & client,
   /* set client's browser and system info */
   client.set_browser(msg.browser);
   client.set_os(msg.os);
+
+  /* set client's screen info */
+  client.set_screen_height(msg.screen_height);
+  client.set_screen_width(msg.screen_width);
+  client.set_max_video_size(channel.vformats());
 
   send_server_init(server, client, false /* initialize rather than resume */);
 
