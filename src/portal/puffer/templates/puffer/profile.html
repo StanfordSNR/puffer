@@ -28,7 +28,13 @@
       <div class="collapse" id="collapse-tokens">
         <ul class="list-group">
         {% for t in user.invitationtoken_set.all %}
+          {% if t.addon_cnt %}
+          <li class="list-group-item">
+            {{ t.token }} (will be expanded into {{ t.addon_cnt }} tokens when registered with)
+          </li>
+          {% else %}
           <li class="list-group-item">{{ t.token }}</li>
+          {% endif %}
         {% endfor %}
         </ul>
       </div>
