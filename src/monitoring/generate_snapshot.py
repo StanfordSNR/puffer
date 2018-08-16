@@ -51,9 +51,9 @@ def main():
              "='Expire'])[1]/following::select[1]")
     driver.find_element_by_xpath(xpath).click()
     xpath = ("(.//*[normalize-space(text()) and normalize-space(.)"
-             "='Timeout (seconds)'])[1]/following::button[1]")
+             "='Timeout (seconds)'])[1]/following::button[2]")
     driver.find_element_by_xpath(xpath).click()
-    prefix = "https://puffer.stanford.edu/grafana/dashboard/snapshot/"
+    prefix = "https://snapshot.raintank.io/dashboard/snapshot/"
     snapshot_url = driver.find_element_by_partial_link_text(prefix).text
     driver.quit()
 
