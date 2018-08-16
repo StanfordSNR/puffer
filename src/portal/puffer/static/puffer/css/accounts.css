@@ -6,13 +6,3 @@ body {
 .form-signin {
   max-width: 400px;
 }
-
-.errorlist {
-  margin-top: 0.5rem;
-  padding: .5rem 0rem .5rem 2rem;
-  color: #721c24;
-  background-color: #f8d7da;
-  border-color: #f5c6cb;
-  border: 1px solid transparent;
-  border-radius: .25rem;
-}

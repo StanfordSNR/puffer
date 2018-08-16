@@ -7,12 +7,29 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
   <link rel="stylesheet" href="{% static 'puffer/dist/css/bootstrap.min.css' %}">
+  <link rel="stylesheet" href="{% static 'puffer/css/common.css' %}">
   <link rel="stylesheet" href="{% static 'puffer/css/accounts.css' %}">
   <title>Puffer</title>
 </head>
 
 <body>
   <div class="container">
+    <!-- Success or error messages -->
+    {% if messages %}
+    <ul class="list-unstyled mb-3">
+    {% for msg in messages %}
+      <li>
+        <div class="alert alert-{{msg.level_tag}}" role="alert">
+          {{msg.message}}
+          <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </div>
+      </li>
+    {% endfor %}
+    </ul>
+    {% endif %}
+
     {% if form.errors %}
     <div class="alert alert-danger text-center" role="alert">
        Please fix errors in the form and provide a valid token.
