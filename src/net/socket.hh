@@ -43,6 +43,7 @@ public:
 
     /* allow local address to be reused sooner, at the cost of some robustness */
     void set_reuseaddr( void );
+    void set_reuseport( void );
 };
 
 /* UDP socket */

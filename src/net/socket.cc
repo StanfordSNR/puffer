@@ -146,6 +146,11 @@ void Socket::set_reuseaddr( void )
     setsockopt( SOL_SOCKET, SO_REUSEADDR, int( true ) );
 }
 
+void Socket::set_reuseport( void )
+{
+    setsockopt( SOL_SOCKET, SO_REUSEPORT, int( true ) );
+}
+
 /* turn on timestamps on receipt */
 void UDPSocket::set_timestamps( void )
 {
