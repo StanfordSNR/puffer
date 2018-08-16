@@ -80,9 +80,15 @@ DATABASES = {
         'ENGINE': 'django.db.backends.postgresql',
         'NAME': 'puffer',
         'USER': 'puffer',
-        'PASSWORD': os.environ['PUFFER_PORTAL_DB_KEY'],
-        'HOST': 'puffer-dev.c78hjwwa209d.us-west-1.rds.amazonaws.com',
+        'PASSWORD': os.environ['PUFFER_DB_PASSWORD'],
+        'HOST': '35.236.47.112',
         'PORT': '5432',
+        'OPTIONS': {
+            'sslmode': 'verify-ca',
+            'sslrootcert': '/home/puffer/.ssl/puffer-postgres/server-ca.pem',
+            'sslcert': '/home/puffer/.ssl/puffer-postgres/client-cert.pem',
+            'sslkey': '/home/puffer/.ssl/puffer-postgres/client-key.pem',
+        },
     }
 }
 
