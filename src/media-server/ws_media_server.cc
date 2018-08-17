@@ -579,6 +579,8 @@ void handle_client_info(WebSocketClient & client, const ClientInfoMsg & msg)
   client.set_client_next_vts(msg.next_video_timestamp);
   client.set_client_next_ats(msg.next_audio_timestamp);
 
+  uint64_t cur_time = time(nullptr);
+
   /* only interested in logging the events below */
   if (msg.event == ClientInfoMsg::PlayerEvent::Timer or
       msg.event == ClientInfoMsg::PlayerEvent::Rebuffer or
@@ -595,21 +597,57 @@ void handle_client_info(WebSocketClient & client, const ClientInfoMsg & msg)
     }
 
     /* record playback buffer occupancy */
-    string log_line = to_string(time(nullptr)) + " " + client.username() + " "
+    string log_line = to_string(cur_time) + " " + client.username() + " "
         + *client.channel() + " " + to_string(static_cast<int>(msg.event))
         + " " + buf + "\n";
     append_to_log("playback_buffer.log", log_line);
   } else if (msg.event == ClientInfoMsg::PlayerEvent::VideoAck) {
-    if (not msg.quality or not msg.timestamp) {
+    if (not msg.quality or not msg.timestamp or not msg.ssim) {
       cerr << "Received a VideoAck of invalid format" << endl;
       return;
     }
 
     /* record video quality */
-    string log_line = to_string(time(nullptr)) + " " + client.username() + " "
+    string log_line = to_string(cur_time) + " " + client.username() + " "
         + *client.channel() + " " + to_string(*msg.timestamp) + " "
         + *msg.quality + "\n";
     append_to_log("video_quality.log", log_line);
+
+    /* record video average ssim */
+    client.set_cur_ssim(msg.ssim.value());
+    double cur_ssim_sum = 0;
+    int cur_ssim_num = 0;
+    for (auto & client_: clients) {
+      if (client_.second.cur_ssim() > 0) {
+        cur_ssim_sum += client_.second.cur_ssim();
+        cur_ssim_num += 1;
+      }
+    }
+    log_line = to_string(cur_time) + " "
+        + to_string(cur_ssim_sum / cur_ssim_num) + "\n";
+    append_to_log("average_video_ssim.log", log_line);
+  }
+
+  /* record rebuffer event and rebuffer rate */
+  if (msg.event == ClientInfoMsg::PlayerEvent::Rebuffer or
+      msg.event == ClientInfoMsg::PlayerEvent::CanPlay) {
+    if (msg.event == ClientInfoMsg::PlayerEvent::Rebuffer) {
+      client.set_rebuffer(true);
+      string log_line = to_string(cur_time) + " " + client.username() + " "
+        + *client.channel() + "\n";
+      append_to_log("rebuffer_event.log", log_line);
+    } else {
+      client.set_rebuffer(false);
+    }
+
+    double cur_rebuffer_num = 0;
+    for (auto & client_: clients) {
+      if (client_.second.rebuffer()) cur_rebuffer_num += 1;
+    }
+
+    string log_line = to_string(cur_time) + " "
+        + to_string(cur_rebuffer_num / clients.size()) + "\n";
+    append_to_log("rebuffer_rate.log", log_line);
   }
 }
 

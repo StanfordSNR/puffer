@@ -85,6 +85,9 @@ public:
 
   unsigned int init_id() const { return init_id_; }
 
+  bool rebuffer() const { return rebuffer_; }
+  double cur_ssim() const { return cur_ssim_ ; }
+
   bool is_format_capable(const VideoFormat & format) const {
     return (not max_video_width_ or format.width <= max_video_width_) and
            (not max_video_height_ or format.height <= max_video_height_);
@@ -119,6 +122,9 @@ public:
   void set_client_next_vts(const uint64_t vts) { client_next_vts_ = vts; }
   void set_client_next_ats(const uint64_t ats) { client_next_ats_ = ats; }
 
+  void set_rebuffer(const bool rebuffer) { rebuffer_ = rebuffer; }
+  void set_cur_ssim(const double cur_ssim) { cur_ssim_ = cur_ssim; }
+
 private:
   std::string username_ {};
   uint64_t connection_id_ {};
@@ -147,6 +153,8 @@ private:
   double audio_playback_buf_ {};
   std::optional<uint64_t> client_next_vts_ {};
   std::optional<uint64_t> client_next_ats_ {};
+  double cur_ssim_ {};
+  bool rebuffer_ {};
 
   unsigned int init_id_ {0};
 };

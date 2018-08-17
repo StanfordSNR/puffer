@@ -94,6 +94,9 @@ ClientInfoMsg ClientMsgParser::parse_info_msg()
     ret.duration = msg_.at("duration").get<unsigned int>();
     ret.byte_offset = msg_.at("byteOffset").get<unsigned int>();
     ret.total_byte_length = msg_.at("totalByteLength").get<unsigned int>();
+    if (ret.event == ClientInfoMsg::PlayerEvent::VideoAck) {
+      ret.ssim = msg_.at("ssim").get<double>();
+    }
   }
 
   return ret;
