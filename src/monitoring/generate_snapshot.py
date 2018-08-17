@@ -18,7 +18,7 @@ from selenium.webdriver.support.ui import Select
 from selenium.webdriver.firefox.options import Options
 
 
-INFLUX_PWD = os.getenv("INFLUXDB_PASSWORD")
+PUFFER_DB_PASSWORD = os.getenv("PUFFER_DB_PASSWORD")
 GRAFANA_PWD = os.getenv("GRAFANA_PASSWORD")
 
 
@@ -55,13 +55,18 @@ def main():
     driver.find_element_by_xpath(xpath).click()
     prefix = "https://snapshot.raintank.io/dashboard/snapshot/"
     snapshot_url = driver.find_element_by_partial_link_text(prefix).text
+    print(snapshot_url)
     driver.quit()
 
     # Now, add this link to postgres, and delete old links from the table
     time = datetime.utcnow()
-    conn = psycopg2.connect(database="puffer", user="puffer", password=INFLUX_PWD,
-                            host="puffer-dev.c78hjwwa209d.us-west-1.rds.amazonaws.com",
-                            port="5432", sslmode="require")
+    conn = psycopg2.connect(
+        host="35.236.47.112", port="5432", database="puffer",
+        user="puffer", password=PUFFER_DB_PASSWORD,
+        sslmode="verify-ca",
+        sslrootcert="/home/puffer/.ssl/puffer-postgres/server-ca.pem",
+        sslcert="/home/puffer/.ssl/puffer-postgres/client-cert.pem",
+        sslkey="/home/puffer/.ssl/puffer-postgres/client-key.pem")
     cur = conn.cursor()
     add_snap_cmd = ("INSERT INTO puffer_grafanasnapshot "
                     "(url, created_on) VALUES (%s, %s)")
