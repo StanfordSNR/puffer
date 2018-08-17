@@ -12,7 +12,7 @@ from datetime import datetime
 from influxdb import InfluxDBClient
 
 
-INFLUX_PWD = os.getenv('INFLUXDB_PASSWORD')
+INFLUX_PWD = os.environ['INFLUXDB_PASSWORD']
 PERIOD = 60  # seconds
 
 scheduler = sched.scheduler(time.time)

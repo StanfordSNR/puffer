@@ -12,9 +12,9 @@ from datetime import datetime
 from influxdb import InfluxDBClient
 
 
-USERNAME = os.getenv('BLONDER_TONGUE_USERNAME')
-PASSWORD = os.getenv('BLONDER_TONGUE_PASSWORD')
-INFLUX_PWD = os.getenv('INFLUXDB_PASSWORD')
+USERNAME = os.environ['BLONDER_TONGUE_USERNAME']
+PASSWORD = os.environ['BLONDER_TONGUE_PASSWORD']
+INFLUX_PWD = os.environ['INFLUXDB_PASSWORD']
 
 SESSION_ID_REGEX = re.compile(r'<input type="hidden" name="session_id" value="(\d+)">')
 LOGGED_IN_STR = 'Welcome puffer!  Please wait while retrieving information.'

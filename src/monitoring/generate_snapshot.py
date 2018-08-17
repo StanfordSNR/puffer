@@ -18,8 +18,8 @@ from selenium.webdriver.support.ui import Select
 from selenium.webdriver.firefox.options import Options
 
 
-PUFFER_DB_PASSWORD = os.getenv("PUFFER_DB_PASSWORD")
-GRAFANA_PWD = os.getenv("GRAFANA_PASSWORD")
+PUFFER_DB_PASSWORD = os.environ["PUFFER_DB_PASSWORD"]
+GRAFANA_PWD = os.environ["GRAFANA_PASSWORD"]
 
 
 def main():
