@@ -549,39 +549,6 @@ function WebSocketClient(video, audio, session_key, username) {
   debug_timer_helper();
 }
 
-function setup_channel_bar(client) {
-  /* validate checked channel count and find default channel */
-  const init_active_channel = document.querySelectorAll('#channel-list .active');
-  if (init_active_channel.length !== 1) {
-    console.log('Error: only one channel can be selected');
-    return;
-  }
-  const default_channel = init_active_channel[0].getAttribute('name');
-  console.log('Default channel:', init_active_channel[0].innerText);
-
-  /* set up onclick callbacks for channels */
-  const channel_list = document.querySelectorAll('#channel-list .list-group-item');
-  for (var i = 0; i < channel_list.length; i++) {
-    channel_list[i].onclick = function() {
-      const active_channel = document.querySelectorAll('#channel-list .active')[0];
-      const this_value = this.getAttribute('name');
-
-      if (this_value === active_channel.getAttribute('name')) {
-        /* same channel */
-        return;
-      }
-
-      active_channel.className = active_channel.className.replace(' active', '');
-      this.className += ' active';
-
-      console.log('Set channel:', this.innerText);
-      client.set_channel(this_value);
-    }
-  }
-
-  return default_channel;
-}
-
 function get_client_system_info() {
   /* Below code adapted from https://github.com/keithws/browser-report */
   var nAgt = navigator.userAgent;
@@ -688,6 +655,5 @@ function start_puffer(session_key, username, settings_debug) {
 
   const client = new WebSocketClient(video, audio, session_key, username);
 
-  const default_channel = setup_channel_bar(client);
-  client.connect(default_channel);
+  return client;
 }
