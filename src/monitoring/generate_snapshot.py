@@ -27,7 +27,7 @@ def main():
     options.set_headless(headless=True)
     driver = webdriver.Firefox(firefox_options=options)
     driver.implicitly_wait(30)
-    driver.get("http://localhost:3000/login/")
+    driver.get("https://puffer.stanford.edu/grafana/login/")
     driver.find_element_by_name("username").click()
     driver.find_element_by_name("username").clear()
     driver.find_element_by_name("username").send_keys("admin")
@@ -51,9 +51,10 @@ def main():
              "='Expire'])[1]/following::select[1]")
     driver.find_element_by_xpath(xpath).click()
     xpath = ("(.//*[normalize-space(text()) and normalize-space(.)"
-             "='Timeout (seconds)'])[1]/following::button[2]")
+             "='Timeout (seconds)'])[1]/following::button[1]")
     driver.find_element_by_xpath(xpath).click()
-    prefix = "https://snapshot.raintank.io/dashboard/snapshot/"
+    #prefix = "https://snapshot.raintank.io/dashboard/snapshot/"
+    prefix = "https://puffer.stanford.edu/grafana/dashboard/snapshot/"
     snapshot_url = driver.find_element_by_partial_link_text(prefix).text
     print(snapshot_url)
     driver.quit()
