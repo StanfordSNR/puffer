@@ -100,7 +100,7 @@ function setup_control_bar() {
     }
   };
 
-  full_screen_button.onclick = function() {
+  function toggle_full() {
     var isInFullScreen = (document.fullscreenElement && document.fullscreenElement !== null) ||
         (document.webkitFullscreenElement && document.webkitFullscreenElement !== null) ||
         (document.mozFullScreenElement && document.mozFullScreenElement !== null) ||
@@ -128,6 +128,96 @@ function setup_control_bar() {
       }
     }
   };
+
+  /* Full Screen toggling, and key based volume/channel selection */
+
+  const LOWERCASE_F = 70;
+  const UPPERCASE_F = 102;
+  const LEFT_ARROW = 37
+  const RIGHT_ARROW = 39
+  const UP_ARROW = 38
+  const DOWN_ARROW = 40
+  const channel_list = document.querySelectorAll('#channel-list .list-group-item');
+
+  video.ondblclick = toggle_full;
+  document.onkeydown = function(e) {
+    e = e || window.event;
+    if (e.keyCode === LOWERCASE_F || e.keyCode === UPPERCASE_F) {
+      /* Fullscreen */
+      toggle_full();
+    } else if (e.keyCode === LEFT_ARROW) {
+      /* Volume down */
+      clearTimeout(control_bar_timeout);
+      tv_controls.style.opacity = '0.8';
+      control_bar_timeout = setTimeout(function() {
+        tv_controls.style.opacity = '0';
+        tv_container.style.cursor = 'none';
+      }, 3000);
+      control_bar_timeout;
+      if (video.volume >= 0.1) {
+          video.volume -= 0.1;
+      } else {
+        video.volume = 0;
+        mute_button.muted = true;
+        mute_button.style.backgroundImage = volume_off_img;
+      }
+      volume_bar.value = video.volume;
+    } else if (e.keyCode === RIGHT_ARROW) {
+      /* Volume up */
+      clearTimeout(control_bar_timeout);
+      tv_controls.style.opacity = '0.8';
+      control_bar_timeout = setTimeout(function() {
+        tv_controls.style.opacity = '0';
+        tv_container.style.cursor = 'none';
+      }, 3000);
+      video.muted = false;
+      mute_button.muted = false;
+      mute_button.style.backgroundImage = volume_on_img;
+      if (video.volume <= 0.9) {
+          video.volume += 0.1;
+      } else {
+        video.volume = 1;
+      }
+      volume_bar.value = video.volume;
+    } else if (e.keyCode === DOWN_ARROW) {
+      /* Change Channel up */
+      var active_channel = document.querySelectorAll('#channel-list .active')[0];
+      var active_channel_name = active_channel.getAttribute('name');
+      for (var i = 0; i < channel_list.length; i++) {
+        this_value = channel_list[i]
+        if (this_value === active_channel) {
+          /* Match */
+          if (i < channel_list.length - 1) {
+            new_channel = channel_list[i+1];
+            active_channel.className = active_channel.className.replace(' active', '');
+            new_channel.className += ' active';
+            console.log('Set channel:', new_channel.innerText);
+            console.log(channel_list);
+            ws_client.set_channel(new_channel.getAttribute('name'));
+          }
+        }
+      }
+    } else if (e.keyCode === UP_ARROW) {
+      /* Change Channel down */
+      var active_channel = document.querySelectorAll('#channel-list .active')[0];
+      var active_channel_name = active_channel.getAttribute('name');
+      for (var i = 0; i < channel_list.length; i++) {
+        this_value = channel_list[i]
+        if (this_value === active_channel) {
+          /* Match */
+          if (i > 0) {
+            new_channel = channel_list[i-1];
+            active_channel.className = active_channel.className.replace(' active', '');
+            new_channel.className += ' active';
+            console.log('Set channel:', new_channel.innerText);
+            ws_client.set_channel(new_channel.getAttribute('name'));
+          }
+        }
+      }
+    }
+  };
+
+  full_screen_button.onclick = toggle_full;
 
   control_bar_timeout = setTimeout(function() {
     tv_controls.style.opacity = '0';
