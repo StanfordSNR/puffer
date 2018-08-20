@@ -122,6 +122,11 @@
   cursor: pointer;
 }
 
-.list-group .list-group-item {
+.list-group p {
+  color: #212529;
+}
+
+.list-group button:not([disabled]).list-group-item {
+  color: #212529;
   cursor: pointer;
 }
