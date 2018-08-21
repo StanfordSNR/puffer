@@ -16,15 +16,15 @@ public:
   std::string session_key {};
   std::string username {};
 
-  int player_width {};
-  int player_height {};
+  uint16_t player_width {};
+  uint16_t player_height {};
 
   std::string channel {};
 
   std::string os {};
   std::string browser {};
-  int screen_height {};
-  int screen_width {};
+  uint16_t screen_height {};
+  uint16_t screen_width {};
 
   std::optional<uint64_t> next_vts {};
   std::optional<uint64_t> next_ats {};
@@ -65,8 +65,8 @@ public:
   unsigned int init_id {};
 
   /* Current screen size */
-  int screen_height {};
-  int screen_width {};
+  uint16_t screen_height {};
+  uint16_t screen_width {};
 
   /* extra metadata payload */
   std::optional<std::string> type {};

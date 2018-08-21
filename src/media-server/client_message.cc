@@ -28,14 +28,14 @@ ClientInitMsg ClientMsgParser::parse_init_msg()
   ret.session_key = msg_.at("sessionKey").get<string>();
   ret.username = msg_.at("userName").get<string>();
 
-  ret.player_width = msg_.at("playerWidth").get<int>();
-  ret.player_height = msg_.at("playerHeight").get<int>();
+  ret.player_width = msg_.at("playerWidth").get<uint16_t>();
+  ret.player_height = msg_.at("playerHeight").get<uint16_t>();
 
   ret.channel = msg_.at("channel").get<string>();
   ret.os = msg_.at("os").get<string>();
   ret.browser = msg_.at("browser").get<string>();
-  ret.screen_height = msg_.at("screenHeight").get<int>();
-  ret.screen_width = msg_.at("screenWidth").get<int>();
+  ret.screen_height = msg_.at("screenHeight").get<uint16_t>();
+  ret.screen_width = msg_.at("screenWidth").get<uint16_t>();
 
   auto it = msg_.find("nextVideoTimestamp");
   if (it != msg_.end()) {
@@ -77,8 +77,8 @@ ClientInfoMsg ClientMsgParser::parse_info_msg()
   ret.audio_buffer_len = msg_.at("audioBufferLen").get<double>();
   ret.next_video_timestamp = msg_.at("nextVideoTimestamp").get<uint64_t>();
   ret.next_audio_timestamp = msg_.at("nextAudioTimestamp").get<uint64_t>();
-  ret.screen_height = msg_.at("screenHeight").get<int>();
-  ret.screen_width = msg_.at("screenWidth").get<int>();
+  ret.screen_height = msg_.at("screenHeight").get<uint16_t>();
+  ret.screen_width = msg_.at("screenWidth").get<uint16_t>();
 
   int player_ready_state = msg_.at("playerReadyState").get<int>();
   if (player_ready_state < 0 || player_ready_state > 4) {

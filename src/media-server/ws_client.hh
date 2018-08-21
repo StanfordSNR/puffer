@@ -87,8 +87,8 @@ public:
 
   bool rebuffer() const { return rebuffer_; }
   double cur_ssim() const { return cur_ssim_ ; }
-  std::optional<int> screen_height() const { return screen_height_; }
-  std::optional<int> screen_width() const { return screen_width_; }
+  std::optional<uint16_t> screen_height() const { return screen_height_; }
+  std::optional<uint16_t> screen_width() const { return screen_width_; }
 
   bool is_format_capable(const VideoFormat & format) const {
     return (not max_video_width_ or format.width <= max_video_width_) and
@@ -100,8 +100,8 @@ public:
   void set_browser(const std::string & browser) { browser_ = browser; }
   void set_os(const std::string & os) { os_ = os; }
   void set_ip(const std::string & ip) { ip_ = ip; }
-  void set_screen_height(const int screen_height) { screen_height_ = screen_height; }
-  void set_screen_width(const int screen_width) { screen_width_ = screen_width; }
+  void set_screen_height(const uint16_t screen_height) { screen_height_ = screen_height; }
+  void set_screen_width(const uint16_t screen_width) { screen_width_ = screen_width; }
   void set_max_video_size(const std::vector<VideoFormat> & vfs);
 
   void set_next_vts(const uint64_t next_vts) { next_vts_ = next_vts; }
@@ -136,10 +136,10 @@ private:
   std::optional<std::string> browser_ {};
   std::optional<std::string> os_ {};
   std::optional<std::string> ip_  {};
-  std::optional<int> screen_height_ {};
-  std::optional<int> screen_width_ {};
-  std::optional<int> max_video_height_ {};
-  std::optional<int> max_video_width_ {};
+  std::optional<uint16_t> screen_height_ {};
+  std::optional<uint16_t> screen_width_ {};
+  std::optional<uint16_t> max_video_height_ {};
+  std::optional<uint16_t> max_video_width_ {};
   std::optional<uint64_t> next_vts_ {};
   std::optional<uint64_t> next_ats_ {};
 
