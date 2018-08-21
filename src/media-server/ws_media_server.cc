@@ -54,6 +54,11 @@ static const unsigned int MAX_LOG_FILESIZE = 10 * 1024 * 1024;  /* 10 MB */
 
 static bool debug = false;
 
+/* log data */
+static double log_video_ssim_sum;
+static unsigned int log_video_ssim_num;
+static unsigned int log_rebuffer_num;
+
 void print_usage(const string & program_name)
 {
   cerr << program_name << " <YAML configuration> [debug]" << endl;
@@ -222,6 +227,44 @@ void append_to_log(const string & log_name, const string & log_line)
 
     log_it->second = move(new_fd);
   }
+}
+
+void append_log_average_video_ssim(uint64_t cur_time)
+{
+  string log_line = to_string(cur_time) + " "
+      + to_string(log_video_ssim_sum / log_video_ssim_num) + "\n";
+  append_to_log("average_video_ssim.log", log_line);
+}
+
+void append_log_rebuffer_rate(uint64_t cur_time)
+{
+  string log_line = to_string(cur_time) + " "
+      + to_string((double) log_rebuffer_num / clients.size()) + "\n";
+  append_to_log("rebuffer_rate.log", log_line);
+}
+
+void reinit_log_data()
+{
+  /* reinit average_ssim */
+  log_video_ssim_sum = 0;
+  log_video_ssim_num = 0;
+  for (auto & client_: clients) {
+    if (client_.second.cur_ssim() > 0) {
+      log_video_ssim_sum += client_.second.cur_ssim();
+      log_video_ssim_num++;
+    }
+  }
+
+  /* reinit rebuffer_rate */
+  log_rebuffer_num = 0;
+  for (auto & client_: clients) {
+    if (client_.second.rebuffer()) log_rebuffer_num++;
+  }
+
+  /* update corresponding logs */
+  uint64_t cur_time = time(nullptr);
+  append_log_average_video_ssim(cur_time);
+  append_log_rebuffer_rate(cur_time);
 }
 
 void serve_video_to_client(WebSocketServer & server, WebSocketClient & client)
@@ -546,6 +589,9 @@ void handle_client_init(WebSocketServer & server, WebSocketClient & client,
   client.set_screen_width(msg.screen_width);
   client.set_max_video_size(channel.vformats());
 
+  /* reinit the log data */
+  reinit_log_data();
+
   send_server_init(server, client, false /* initialize rather than resume */);
 
   /* increment/decrement viewer counts for new/old channel respectively */
@@ -630,41 +676,44 @@ void handle_client_info(WebSocketClient & client, const ClientInfoMsg & msg)
         + *msg.quality + "\n";
     append_to_log("video_quality.log", log_line);
 
-    /* record video average ssim */
-    client.set_cur_ssim(msg.ssim.value());
-    double cur_ssim_sum = 0;
-    int cur_ssim_num = 0;
-    for (auto & client_: clients) {
-      if (client_.second.cur_ssim() > 0) {
-        cur_ssim_sum += client_.second.cur_ssim();
-        cur_ssim_num += 1;
+    /* record average video ssim */
+    if (msg.ssim.value() > 0) {
+      log_video_ssim_sum += msg.ssim.value() - client.cur_ssim();
+      if (client.cur_ssim() <= 0) {
+        log_video_ssim_num++;
       }
+      client.set_cur_ssim(msg.ssim.value());
+    } else {
+      log_video_ssim_sum -= client.cur_ssim();
+      if (client.cur_ssim() > 0) {
+        log_video_ssim_num--;
+      }
+      client.set_cur_ssim(0);
     }
-    log_line = to_string(cur_time) + " "
-        + to_string(cur_ssim_sum / cur_ssim_num) + "\n";
-    append_to_log("average_video_ssim.log", log_line);
+    append_log_average_video_ssim(cur_time);
   }
 
   /* record rebuffer event and rebuffer rate */
   if (msg.event == ClientInfoMsg::PlayerEvent::Rebuffer or
       msg.event == ClientInfoMsg::PlayerEvent::CanPlay) {
     if (msg.event == ClientInfoMsg::PlayerEvent::Rebuffer) {
-      client.set_rebuffer(true);
       string log_line = to_string(cur_time) + " " + client.username() + " "
         + *client.channel() + "\n";
       append_to_log("rebuffer_event.log", log_line);
-    } else {
+    }
+
+    if (not client.rebuffer() and
+        msg.event == ClientInfoMsg::PlayerEvent::Rebuffer) {
+      log_rebuffer_num++;
+      client.set_rebuffer(true);
+      append_log_rebuffer_rate(cur_time);
+    }
+    if (client.rebuffer() and
+        msg.event == ClientInfoMsg::PlayerEvent::CanPlay) {
+      log_rebuffer_num--;
       client.set_rebuffer(false);
+      append_log_rebuffer_rate(cur_time);
     }
-
-    double cur_rebuffer_num = 0;
-    for (auto & client_: clients) {
-      if (client_.second.rebuffer()) cur_rebuffer_num += 1;
-    }
-
-    string log_line = to_string(cur_time) + " "
-        + to_string(cur_rebuffer_num / clients.size()) + "\n";
-    append_to_log("rebuffer_rate.log", log_line);
   }
 }
 
@@ -883,6 +932,7 @@ int main(int argc, char * argv[])
       }
 
       clients.erase(connection_id);
+      reinit_log_data();
     }
   );
 
