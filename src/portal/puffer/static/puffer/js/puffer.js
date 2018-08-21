@@ -316,7 +316,6 @@ function WebSocketClient(video, audio, session_key, username) {
 
   /* Exponential backoff to reconnect */
   var rc_backoff = BASE_RECONNECT_BACKOFF;
-  var date = new Date();
   var last_open = null;
 
   var that = this;
@@ -452,7 +451,7 @@ function WebSocketClient(video, audio, session_key, username) {
 
     ws.onopen = function(e) {
       console.log('Connected to', ws_addr);
-      last_open = date.getTime();
+      last_open = Date.now();
 
       send_client_init(ws, channel);
     };
@@ -462,16 +461,22 @@ function WebSocketClient(video, audio, session_key, username) {
       ws = null;
 
       /* reset rc_backoff if WebSocket has been open for a while */
-      if (last_open && date.getTime() - last_open > MAX_RECONNECT_BACKOFF) {
+      if (last_open && Date.now() - last_open > MAX_RECONNECT_BACKOFF) {
         rc_backoff = BASE_RECONNECT_BACKOFF;
       }
 
-      if (av_source && rc_backoff <= MAX_RECONNECT_BACKOFF) {
+      last_open = null;
+
+      if (rc_backoff <= MAX_RECONNECT_BACKOFF) {
         /* Try to reconnect */
         console.log('Reconnecting in ' + rc_backoff + 'ms');
 
         setTimeout(function() {
-          that.connect(av_source.getChannel());
+          if (av_source){
+            that.connect(av_source.getChannel());
+          } else {
+            that.connect(channel);
+          }
         }, rc_backoff);
 
         rc_backoff = rc_backoff * 2;
