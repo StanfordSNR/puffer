@@ -77,6 +77,8 @@ ClientInfoMsg ClientMsgParser::parse_info_msg()
   ret.audio_buffer_len = msg_.at("audioBufferLen").get<double>();
   ret.next_video_timestamp = msg_.at("nextVideoTimestamp").get<uint64_t>();
   ret.next_audio_timestamp = msg_.at("nextAudioTimestamp").get<uint64_t>();
+  ret.screen_height = msg_.at("screenHeight").get<int>();
+  ret.screen_width = msg_.at("screenWidth").get<int>();
 
   int player_ready_state = msg_.at("playerReadyState").get<int>();
   if (player_ready_state < 0 || player_ready_state > 4) {

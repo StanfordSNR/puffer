@@ -64,6 +64,10 @@ public:
 
   unsigned int init_id {};
 
+  /* Current screen size */
+  int screen_height {};
+  int screen_width {};
+
   /* extra metadata payload */
   std::optional<std::string> type {};
   std::optional<std::string> quality {};

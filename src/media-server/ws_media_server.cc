@@ -579,6 +579,23 @@ void handle_client_info(WebSocketClient & client, const ClientInfoMsg & msg)
   client.set_client_next_vts(msg.next_video_timestamp);
   client.set_client_next_ats(msg.next_audio_timestamp);
 
+  /* reset the max video size in case that the screen size was changed */
+  if (msg.screen_height != client.screen_height() or
+      msg.screen_width != client.screen_width()) {
+    client.set_screen_height(msg.screen_height);
+    client.set_screen_width(msg.screen_width);
+
+    /* throw an error if the client current channel doesn't exist in channels */
+    try {
+      if (client.channel()) {
+        client.set_max_video_size(channels.at(client.channel().value()).vformats());
+      }
+    } catch (const out_of_range & e) {
+      cerr << client.signature() << "the current channel doesn't exist: "
+           << e.what() << '\n';
+    }
+  }
+
   uint64_t cur_time = time(nullptr);
 
   /* only interested in logging the events below */

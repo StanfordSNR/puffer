@@ -372,7 +372,9 @@ function WebSocketClient(video, audio, session_key, username) {
           nextVideoTimestamp: av_source.getNextVideoTimestamp(),
           nextAudioTimestamp: av_source.getNextAudioTimestamp(),
           playerReadyState: video.readyState,
-          initId: av_source.getInitId()
+          initId: av_source.getInitId(),
+          screenHeight: screen.height,
+          screenWidth: screen.width
         };
 
         if (extra_payload) {

@@ -87,6 +87,8 @@ public:
 
   bool rebuffer() const { return rebuffer_; }
   double cur_ssim() const { return cur_ssim_ ; }
+  std::optional<int> screen_height() const { return screen_height_; }
+  std::optional<int> screen_width() const { return screen_width_; }
 
   bool is_format_capable(const VideoFormat & format) const {
     return (not max_video_width_ or format.width <= max_video_width_) and
