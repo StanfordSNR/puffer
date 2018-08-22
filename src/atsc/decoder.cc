@@ -44,13 +44,6 @@ static const unsigned int audio_block_duration = 144000;
 /* units -v '(256 / (48 kHz)) * (27 megahertz)' -> 144000 */
 static const unsigned int audio_samples_per_block = 256;
 
-/* max gap between two PES packet timestamps */
-static const unsigned int PES_timestamp_max_gap = 90000 * 60;  // 1 minute
-static const int64_t max_PES_timestamp = 0x1FFFFFFFF;  // 2^33
-
-static int64_t PES_timestamp_offset = 0;
-static int64_t last_PES_timestamp = -1;
-
 /* if tmp_dir is not empty, output to tmp_dir first and move output chunks
  * to video_output_dir or audio_output_dir */
 static string tmp_dir = "";
@@ -73,9 +66,12 @@ inline T * notnull( const string & context, T * const x )
   return x ? x : throw runtime_error( context + ": returned null pointer" );
 }
 
-int64_t timestamp_difference( const uint64_t ts1, const uint64_t ts2 )
+int64_t timestamp_difference( const uint64_t ts_64, const uint64_t ts_33 )
 {
-  return static_cast<int64_t>( ts1 ) - static_cast<int64_t>( ts2 );
+  const uint64_t ts_33_unwrapped = 300 *
+    (((ts_64 / 300) & 0xfffffffe00000000) | ((ts_33 / 300) & 0x1ffffffff));
+
+  return static_cast<int64_t>(ts_64) - static_cast<int64_t>(ts_33_unwrapped);
 }
 
 struct Raster
@@ -847,33 +843,7 @@ public:
       if ( not PES_packet_.empty() ) {
         PESPacketHeader pes_header { PES_packet_, is_video_ };
 
-        /* adjust PES presentation timestamp */
-        int64_t curr_PES_timestamp = pes_header.presentation_time_stamp;
-
-        if ( last_PES_timestamp != -1 ) {
-          int64_t diff = curr_PES_timestamp - last_PES_timestamp;
-          if ( abs( diff ) > PES_timestamp_max_gap ) {
-            if ( diff + max_PES_timestamp <= PES_timestamp_max_gap ) {
-              /* check if huge difference is caused by rollover */
-              cerr << "PES timestamp rollover detected: "
-                   << "last timestamp = " << last_PES_timestamp
-                   << ", current timestamp = " << curr_PES_timestamp << endl;
-              PES_timestamp_offset += max_PES_timestamp;
-            } else {
-              /* discontinuity detected */
-              cerr << "PES timestamp discontinuity detected: "
-                   << "last timestamp = " << last_PES_timestamp
-                   << ", current timestamp = " << curr_PES_timestamp << endl;
-              /* TODO: recover from discontinuity */
-              throw runtime_error( "PES timestamp discontinuity detected" );
-            }
-          }
-        }
-
-        last_PES_timestamp = curr_PES_timestamp;
-        int64_t adjusted_timestamp = curr_PES_timestamp + PES_timestamp_offset;
-
-        PES_packets.emplace( adjusted_timestamp,
+        PES_packets.emplace( pes_header.presentation_time_stamp,
                              pes_header.payload_start,
                              pes_header.PES_packet_length,
                              move( PES_packet_ ) );
