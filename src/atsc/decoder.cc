@@ -1045,12 +1045,14 @@ public:
     const int64_t diff = timestamp_difference( expected_inner_timestamp_,
                                                field.presentation_time_stamp );
 
-    /* field's moment has passed -> ignore (or bomb out) */
+    /* gap is too big -> bomb out and force reinitialization */
+    if ( abs( diff ) > frame_interval_ * 60 * 60 ) {
+      throw HugeTimestampDifference( "huge video timestamp difference" );
+    }
+
+    /* field's moment has passed -> ignore */
     if ( diff > 0 ) {
       cerr << "Warning, ignoring field whose timestamp has already passed (diff = " << diff / double( frame_interval_ ) << " frames).\n";
-      if ( diff > frame_interval_ * 60 * 60 ) {
-        throw HugeTimestampDifference( "huge video timestamp difference" );
-      }
       return;
     }
 
@@ -1228,12 +1230,14 @@ public:
     const int64_t diff = timestamp_difference( expected_inner_timestamp_,
                                                audio_block.presentation_time_stamp );
 
-    /* block's moment has passed -> ignore (or bomb out) */
+    /* gap is too big -> bomb out and force reinitialization */
+    if ( abs( diff ) > audio_block_duration * 187 * 60 ) {
+      throw HugeTimestampDifference( "huge audio timestamp difference" );
+    }
+
+    /* block's moment has passed -> ignore */
     if ( diff > 0 ) {
       cerr << "Warning, ignoring audio whose timestamp has already passed (diff = " << diff / double( audio_block_duration ) << " blocks).\n";
-      if ( diff > audio_block_duration * 187 * 60 ) {
-        throw HugeTimestampDifference( "huge audio timestamp difference" );
-      }
       return;
     }
 
