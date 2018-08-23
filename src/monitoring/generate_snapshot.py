@@ -53,7 +53,6 @@ def main():
     xpath = ("(.//*[normalize-space(text()) and normalize-space(.)"
              "='Timeout (seconds)'])[1]/following::button[1]")
     driver.find_element_by_xpath(xpath).click()
-    #prefix = "https://snapshot.raintank.io/dashboard/snapshot/"
     prefix = "https://puffer.stanford.edu/grafana/dashboard/snapshot/"
     snapshot_url = driver.find_element_by_partial_link_text(prefix).text
     print(snapshot_url)
