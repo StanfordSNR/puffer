@@ -55,8 +55,6 @@ static const unsigned int MAX_LOG_FILESIZE = 10 * 1024 * 1024;  /* 10 MB */
 static bool debug = false;
 
 /* log data */
-static double log_video_ssim_sum;
-static unsigned int log_video_ssim_num;
 static unsigned int log_rebuffer_num;
 
 void print_usage(const string & program_name)
@@ -229,13 +227,6 @@ void append_to_log(const string & log_name, const string & log_line)
   }
 }
 
-void append_log_average_video_ssim(uint64_t cur_time)
-{
-  string log_line = to_string(cur_time) + " "
-      + to_string(log_video_ssim_sum / log_video_ssim_num) + "\n";
-  append_to_log("average_video_ssim.log", log_line);
-}
-
 void append_log_rebuffer_rate(uint64_t cur_time)
 {
   string log_line = to_string(cur_time) + " "
@@ -245,16 +236,6 @@ void append_log_rebuffer_rate(uint64_t cur_time)
 
 void reinit_log_data()
 {
-  /* reinit average_ssim */
-  log_video_ssim_sum = 0;
-  log_video_ssim_num = 0;
-  for (auto & client_: clients) {
-    if (client_.second.cur_ssim() > 0) {
-      log_video_ssim_sum += client_.second.cur_ssim();
-      log_video_ssim_num++;
-    }
-  }
-
   /* reinit rebuffer_rate */
   log_rebuffer_num = 0;
   for (auto & client_: clients) {
@@ -262,9 +243,7 @@ void reinit_log_data()
   }
 
   /* update corresponding logs */
-  uint64_t cur_time = time(nullptr);
-  append_log_average_video_ssim(cur_time);
-  append_log_rebuffer_rate(cur_time);
+  append_log_rebuffer_rate(time(nullptr));
 }
 
 void serve_video_to_client(WebSocketServer & server, WebSocketClient & client)
@@ -678,19 +657,10 @@ void handle_client_info(WebSocketClient & client, const ClientInfoMsg & msg)
 
     /* record average video ssim */
     if (msg.ssim.value() > 0) {
-      log_video_ssim_sum += msg.ssim.value() - client.cur_ssim();
-      if (client.cur_ssim() <= 0) {
-        log_video_ssim_num++;
-      }
-      client.set_cur_ssim(msg.ssim.value());
-    } else {
-      log_video_ssim_sum -= client.cur_ssim();
-      if (client.cur_ssim() > 0) {
-        log_video_ssim_num--;
-      }
-      client.set_cur_ssim(0);
+      log_line = to_string(cur_time) + " " + client.username() + " "
+        + *client.channel() + " " + to_string(msg.ssim.value()) + "\n";
+      append_to_log("average_video_ssim.log", log_line);
     }
-    append_log_average_video_ssim(cur_time);
   }
 
   /* record rebuffer event and rebuffer rate */

@@ -86,7 +86,6 @@ public:
   unsigned int init_id() const { return init_id_; }
 
   bool rebuffer() const { return rebuffer_; }
-  double cur_ssim() const { return cur_ssim_ ; }
   std::optional<uint16_t> screen_height() const { return screen_height_; }
   std::optional<uint16_t> screen_width() const { return screen_width_; }
 
@@ -125,7 +124,6 @@ public:
   void set_client_next_ats(const uint64_t ats) { client_next_ats_ = ats; }
 
   void set_rebuffer(const bool rebuffer) { rebuffer_ = rebuffer; }
-  void set_cur_ssim(const double cur_ssim) { cur_ssim_ = cur_ssim; }
 
 private:
   std::string username_ {};
@@ -155,7 +153,6 @@ private:
   double audio_playback_buf_ {};
   std::optional<uint64_t> client_next_vts_ {};
   std::optional<uint64_t> client_next_ats_ {};
-  double cur_ssim_ {};
   bool rebuffer_ {};
 
   unsigned int init_id_ {0};
