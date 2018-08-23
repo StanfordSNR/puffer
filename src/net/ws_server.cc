@@ -16,6 +16,7 @@ using namespace PollerShortNames;
 using namespace CryptoPP;
 
 static string WS_MAGIC_STRING = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
+static unsigned int MAX_CONNECTION_NUM = 60;
 
 HTTPResponse create_handshake_response(const HTTPRequest & request)
 {
@@ -114,15 +115,16 @@ unsigned int WSServer<SocketType>::Connection::buffer_bytes() const
 }
 
 template<class SocketType>
-WSServer<SocketType>::WSServer(const Address & listener_addr)
-  : listener_socket_()
+void WSServer<SocketType>::init_listener_socket()
 {
+  listener_socket_ = TCPSocket();
   listener_socket_.set_blocking(false);
   listener_socket_.set_reuseaddr();
   listener_socket_.set_reuseport();
-  listener_socket_.bind(listener_addr);
+  listener_socket_.bind(listener_addr_);
   listener_socket_.listen();
 
+  active_ = true;
   poller_.add_action(Poller::Action(listener_socket_, Direction::In,
     [this] () -> ResultType
     {
@@ -291,9 +293,22 @@ WSServer<SocketType>::WSServer(const Address & listener_addr)
         }
       ));
 
+      if (connections_.size() >= MAX_CONNECTION_NUM) {
+        listener_socket_.close();
+        active_ = false;
+        return ResultType::CancelAll;
+      }
+
       return ResultType::Continue;
     }
   ));
+}
+
+template<class SocketType>
+WSServer<SocketType>::WSServer(const Address & listener_addr)
+{
+  listener_addr_ = listener_addr;
+  init_listener_socket();
 }
 
 template<class SocketType>
@@ -381,6 +396,10 @@ Poller::Result WSServer<SocketType>::loop_once()
   }
 
   closed_connections_.clear();
+
+  if (not active_ and connections_.size() < MAX_CONNECTION_NUM) {
+    init_listener_socket();
+  }
 
   return result;
 }

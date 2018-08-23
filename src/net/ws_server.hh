@@ -57,7 +57,8 @@ private:
 
   SSLContext ssl_context_ {};
 
-  TCPSocket listener_socket_;
+  TCPSocket listener_socket_ {};
+  Address listener_addr_ {};
   std::map<uint64_t, Connection> connections_ {};
   Poller poller_ {};
 
@@ -66,6 +67,10 @@ private:
   CloseCallback close_callback_ {};
 
   std::set<uint64_t> closed_connections_ {};
+
+  bool active_ {};
+
+  void init_listener_socket();
 
 public:
   WSServer(const Address & listener_addr);
