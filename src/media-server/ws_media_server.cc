@@ -548,6 +548,11 @@ void handle_client_init(WebSocketServer & server, WebSocketClient & client,
 
   /* check if the streaming can be resumed */
   if (resume_connection(server, client, msg, channel)) {
+    auto curtime = time(nullptr);
+    channel.set_viewer_count(channel.viewer_count() + 1);
+    string log_line1 = to_string(curtime) + " " + channel.name() + " " +
+                       to_string(channel.viewer_count()) + "\n";
+    append_to_log("active_streams.log", log_line1);
     return;
   }
 
