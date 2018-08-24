@@ -1,3 +1,5 @@
+'use strict';
+
 const WS_OPEN = 1;
 const GLOBAL_TIMESCALE = 90000;
 
@@ -319,13 +321,13 @@ function WebSocketClient(video, audio, session_key, username) {
   var last_open = null;
 
   var that = this;
-  var browser = null;
   var os = null;
+  var browser = null;
 
   function send_client_init(ws, channel) {
     if (ws && ws.readyState === WS_OPEN) {
       if (browser === null) {
-        client_info = get_client_system_info();
+        const client_info = get_client_system_info();
         os = client_info.os;
         browser = client_info.browser;
       }
@@ -336,8 +338,8 @@ function WebSocketClient(video, audio, session_key, username) {
           playerWidth: video.videoWidth,
           playerHeight: video.videoHeight,
           channel: channel,
-          browser: browser,
           os: os,
+          browser: browser,
           screenHeight: screen.height,
           screenWidth: screen.width
         };

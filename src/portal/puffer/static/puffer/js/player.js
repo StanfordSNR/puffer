@@ -1,3 +1,5 @@
+'use strict';
+
 function load_script(script_path) {
   /* Create and append a new script */
   var new_script = document.createElement('script');
@@ -52,55 +54,90 @@ function start_dashjs(aid, session_key, username) {
   }
 }
 
-function setup_control_bar() {
-  const video = document.getElementById('tv-video');
-  const mute_button = document.getElementById('mute-button');
-  const volume_bar = document.getElementById('volume-bar');
-  const full_screen_button = document.getElementById('full-screen-button');
-  const tv_container = document.getElementById('tv-container');
-  const tv_controls = document.getElementById('tv-controls');
-  const unmute_here = document.getElementById('unmute-here');
+function setup_control_bar(ws_client) {
+  var video = document.getElementById('tv-video');
+  var tv_container = document.getElementById('tv-container');
+  var tv_controls = document.getElementById('tv-controls');
 
+  var volume_bar = document.getElementById('volume-bar');
+  var mute_button = document.getElementById('mute-button');
+  var unmute_here = document.getElementById('unmute-here');
   const volume_on_img = 'url(/static/puffer/dist/images/volume-on.svg)';
   const volume_off_img = 'url(/static/puffer/dist/images/volume-off.svg)';
 
-  video.volume = 0;
-  mute_button.muted = true;
-  volume_bar.value = video.volume;
-  var last_volume_before_mute = 1;
+  /* don't manually set video.volume; call this function instead */
+  function set_video_volume(new_volume) {
+    new_volume = Math.min(Math.max(0, new_volume.toPrecision(2)), 1);
 
-  mute_button.onclick = function() {
-    video.muted = false;
+    video.muted = false;  // allow unmuting and use video.volume to control
+    video.volume = new_volume;
 
-    if (mute_button.muted) {
+    /* change volume bar and mute button */
+    volume_bar.value = new_volume;
+    if (new_volume > 0) {
       mute_button.muted = false;
-      video.volume = last_volume_before_mute;
-      volume_bar.value = video.volume;
       mute_button.style.backgroundImage = volume_on_img;
     } else {
-      last_volume_before_mute = video.volume;
-
       mute_button.muted = true;
-      video.volume = 0;
-      volume_bar.value = 0;
       mute_button.style.backgroundImage = volume_off_img;
     }
-  };
+  }
+
+  /* video is muted by default */
+  var last_volume_before_mute = 1;
+  set_video_volume(0);
 
   volume_bar.oninput = function() {
-    video.muted = false;
+    set_video_volume(Number(volume_bar.value));
+  };
 
-    video.volume = volume_bar.value;
-    if (video.volume > 0) {
-      mute_button.muted = false;
-      mute_button.style.backgroundImage = volume_on_img;
+  mute_button.onclick = function() {
+    if (mute_button.muted) {
+      set_video_volume(last_volume_before_mute);
     } else {
-      mute_button.muted = true;
-      mute_button.style.backgroundImage = volume_off_img;
+      last_volume_before_mute = video.volume;
+      set_video_volume(0);
     }
   };
 
-  function toggle_full() {
+  unmute_here.onclick = function() {
+    set_video_volume(1);
+  };
+
+  function show_control_bar() {
+    tv_controls.style.opacity = '0.8';
+    tv_container.style.cursor = 'default';
+  }
+
+  function hide_control_bar() {
+    tv_controls.style.opacity = '0';
+    tv_container.style.cursor = 'none';
+  }
+
+  /* initialize opacity and cursor control bar and cursor */
+  show_control_bar();
+  var control_bar_timeout = setTimeout(hide_control_bar, 3000);
+
+  function show_control_bar_briefly() {
+    clearTimeout(control_bar_timeout);
+    show_control_bar();
+
+    control_bar_timeout = setTimeout(function() {
+      hide_control_bar();
+    }, 3000);
+  }
+
+  tv_container.onmousemove = function() {
+    show_control_bar_briefly();
+  };
+
+  tv_container.onmouseleave = function() {
+    tv_controls.style.opacity = '0';
+  };
+
+  function toggle_full_screen() {
+    show_control_bar_briefly();
+
     var isInFullScreen = (document.fullscreenElement && document.fullscreenElement !== null) ||
         (document.webkitFullscreenElement && document.webkitFullscreenElement !== null) ||
         (document.mozFullScreenElement && document.mozFullScreenElement !== null) ||
@@ -127,126 +164,70 @@ function setup_control_bar() {
         document.msExitFullscreen();
       }
     }
-  };
+  }
+
+  var full_screen_button = document.getElementById('full-screen-button');
+  full_screen_button.onclick = toggle_full_screen;
+  video.ondblclick = toggle_full_screen;
 
   /* Full Screen toggling, and key based volume/channel selection */
-
   const LOWERCASE_F = 70;
   const UPPERCASE_F = 102;
-  const LEFT_ARROW = 37
-  const RIGHT_ARROW = 39
-  const UP_ARROW = 38
-  const DOWN_ARROW = 40
-  const channel_list = document.querySelectorAll('#channel-list .list-group-item');
+  const LEFT_ARROW = 37;
+  const RIGHT_ARROW = 39;
+  const UP_ARROW = 38;
+  const DOWN_ARROW = 40;
+  var channel_list = document.querySelectorAll('#channel-list .list-group-item');
 
-  video.ondblclick = toggle_full;
   document.onkeydown = function(e) {
     e = e || window.event;
+
     if (e.keyCode === LOWERCASE_F || e.keyCode === UPPERCASE_F) {
       /* Fullscreen */
-      toggle_full();
-    } else if (e.keyCode === LEFT_ARROW) {
-      /* Volume down */
-      clearTimeout(control_bar_timeout);
-      tv_controls.style.opacity = '0.8';
-      control_bar_timeout = setTimeout(function() {
-        tv_controls.style.opacity = '0';
-        tv_container.style.cursor = 'none';
-      }, 3000);
-      control_bar_timeout;
-      if (video.volume >= 0.1) {
-          video.volume -= 0.1;
-      } else {
-        video.volume = 0;
-        mute_button.muted = true;
-        mute_button.style.backgroundImage = volume_off_img;
+      toggle_full_screen();
+    } else if (e.keyCode === LEFT_ARROW || e.keyCode === RIGHT_ARROW) {
+      show_control_bar_briefly();
+
+      if (e.keyCode === LEFT_ARROW) {
+        set_video_volume(video.volume - 0.05);
+      } else if (e.keyCode === RIGHT_ARROW) {
+        set_video_volume(video.volume + 0.05);
       }
-      volume_bar.value = video.volume;
-    } else if (e.keyCode === RIGHT_ARROW) {
-      /* Volume up */
-      clearTimeout(control_bar_timeout);
-      tv_controls.style.opacity = '0.8';
-      control_bar_timeout = setTimeout(function() {
-        tv_controls.style.opacity = '0';
-        tv_container.style.cursor = 'none';
-      }, 3000);
-      video.muted = false;
-      mute_button.muted = false;
-      mute_button.style.backgroundImage = volume_on_img;
-      if (video.volume <= 0.9) {
-          video.volume += 0.1;
-      } else {
-        video.volume = 1;
-      }
-      volume_bar.value = video.volume;
-    } else if (e.keyCode === DOWN_ARROW) {
-      /* Change Channel up */
+    } else if (e.keyCode === DOWN_ARROW || e.keyCode === UP_ARROW) {
       var active_channel = document.querySelectorAll('#channel-list .active')[0];
       var active_channel_name = active_channel.getAttribute('name');
+
       for (var i = 0; i < channel_list.length; i++) {
-        this_value = channel_list[i]
-        if (this_value === active_channel) {
-          /* Match */
+        var this_value = channel_list[i];
+        if (this_value !== active_channel) {
+          continue;
+        }
+
+        var new_channel = null;
+        if (e.keyCode === DOWN_ARROW) {
           if (i < channel_list.length - 1) {
-            new_channel = channel_list[i+1];
-            active_channel.className = active_channel.className.replace(' active', '');
-            new_channel.className += ' active';
-            console.log('Set channel:', new_channel.innerText);
-            console.log(channel_list);
-            ws_client.set_channel(new_channel.getAttribute('name'));
+            new_channel = channel_list[i + 1];
           }
-        }
-      }
-    } else if (e.keyCode === UP_ARROW) {
-      /* Change Channel down */
-      var active_channel = document.querySelectorAll('#channel-list .active')[0];
-      var active_channel_name = active_channel.getAttribute('name');
-      for (var i = 0; i < channel_list.length; i++) {
-        this_value = channel_list[i]
-        if (this_value === active_channel) {
-          /* Match */
+        } else if (e.keyCode === UP_ARROW) {
           if (i > 0) {
-            new_channel = channel_list[i-1];
-            active_channel.className = active_channel.className.replace(' active', '');
-            new_channel.className += ' active';
-            console.log('Set channel:', new_channel.innerText);
-            ws_client.set_channel(new_channel.getAttribute('name'));
+            new_channel = channel_list[i - 1];
           }
         }
+
+        if (!new_channel) {
+          continue;
+        }
+
+        active_channel.className = active_channel.className.replace(' active', '');
+        new_channel.className += ' active';
+        console.log('Set channel:', new_channel.innerText);
+        ws_client.set_channel(new_channel.getAttribute('name'));
       }
     }
   };
-
-  full_screen_button.onclick = toggle_full;
-
-  control_bar_timeout = setTimeout(function() {
-    tv_controls.style.opacity = '0';
-  }, 3000);
-
-  tv_container.onmousemove = function() {
-    clearTimeout(control_bar_timeout);
-    tv_controls.style.opacity = '0.8';
-    tv_container.style.cursor = 'default';
-    control_bar_timeout = setTimeout(function() {
-      tv_controls.style.opacity = '0';
-      tv_container.style.cursor = 'none';
-    }, 3000);
-  };
-
-  tv_container.onmouseleave = function() {
-    tv_controls.style.opacity = '0';
-  };
-
-  unmute_here.onclick = function() {
-    video.muted = false;
-    video.volume = 1;
-    volume_bar.value = 1;
-    mute_button.muted = false;
-    mute_button.style.backgroundImage = volume_on_img;
-  };
 }
 
-function setup_channel_bar(client) {
+function setup_channel_bar(ws_client) {
   /* validate checked channel count and find default channel */
   const init_active_channel = document.querySelectorAll('#channel-list .active');
   if (init_active_channel.length !== 1) {
@@ -272,7 +253,7 @@ function setup_channel_bar(client) {
       this.className += ' active';
 
       console.log('Set channel:', this.innerText);
-      client.set_channel(this_value);
+      ws_client.set_channel(this_value);
     }
   }
 
@@ -293,13 +274,14 @@ function init_player(params_json) {
     return;
   }
 
-  /* Set up the player control bar*/
-  setup_control_bar();
-
   if (aid === 1) {  // puffer
     load_script('/static/puffer/js/puffer.js').onload = function() {
       // start_puffer is defined in puffer.js
-      ws_client = start_puffer(session_key, username, settings_debug);
+      var ws_client = start_puffer(session_key, username, settings_debug);
+
+      /* Set up the player control bar */
+      setup_control_bar(ws_client);
+
       const default_channel = setup_channel_bar(ws_client);
       ws_client.connect(default_channel);
     }
