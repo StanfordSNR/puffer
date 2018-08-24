@@ -656,6 +656,5 @@ function start_puffer(session_key, username, settings_debug) {
   });
 
   const client = new WebSocketClient(video, audio, session_key, username);
-
   return client;
 }

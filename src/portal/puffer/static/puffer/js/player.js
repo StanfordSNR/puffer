@@ -9,7 +9,7 @@ function load_script(script_path) {
   return new_script;
 }
 
-function setup_control_bar(ws_client) {
+function ControlBar() {
   var video = document.getElementById('tv-video');
   var tv_container = document.getElementById('tv-container');
   var tv_controls = document.getElementById('tv-controls');
@@ -125,18 +125,12 @@ function setup_control_bar(ws_client) {
   full_screen_button.onclick = toggle_full_screen;
   video.ondblclick = toggle_full_screen;
 
-  /* Full Screen toggling, and key based volume/channel selection */
   const LOWERCASE_F = 70;
   const UPPERCASE_F = 102;
   const LEFT_ARROW = 37;
   const RIGHT_ARROW = 39;
-  const UP_ARROW = 38;
-  const DOWN_ARROW = 40;
-  var channel_list = document.querySelectorAll('#channel-list .list-group-item');
 
-  document.onkeydown = function(e) {
-    e = e || window.event;
-
+  this.onkeydown = function(e) {
     if (e.keyCode === LOWERCASE_F || e.keyCode === UPPERCASE_F) {
       /* Fullscreen */
       toggle_full_screen();
@@ -148,71 +142,76 @@ function setup_control_bar(ws_client) {
       } else if (e.keyCode === RIGHT_ARROW) {
         set_video_volume(video.volume + 0.05);
       }
-    } else if (e.keyCode === DOWN_ARROW || e.keyCode === UP_ARROW) {
-      var active_channel = document.querySelectorAll('#channel-list .active')[0];
-      var active_channel_name = active_channel.getAttribute('name');
-
-      for (var i = 0; i < channel_list.length; i++) {
-        var this_value = channel_list[i];
-        if (this_value !== active_channel) {
-          continue;
-        }
-
-        var new_channel = null;
-        if (e.keyCode === DOWN_ARROW) {
-          if (i < channel_list.length - 1) {
-            new_channel = channel_list[i + 1];
-          }
-        } else if (e.keyCode === UP_ARROW) {
-          if (i > 0) {
-            new_channel = channel_list[i - 1];
-          }
-        }
-
-        if (!new_channel) {
-          continue;
-        }
-
-        active_channel.className = active_channel.className.replace(' active', '');
-        new_channel.className += ' active';
-        console.log('Set channel:', new_channel.innerText);
-        ws_client.set_channel(new_channel.getAttribute('name'));
-      }
     }
   };
 }
 
-function setup_channel_bar(ws_client) {
-  /* validate checked channel count and find default channel */
-  const init_active_channel = document.querySelectorAll('#channel-list .active');
-  if (init_active_channel.length !== 1) {
-    console.log('Error: only one channel can be selected');
-    return;
-  }
-  const default_channel = init_active_channel[0].getAttribute('name');
-  console.log('Default channel:', init_active_channel[0].innerText);
+function ChannelBar() {
+  var that = this;
+  /* callback function to be defined when channel is changed */
+  this.on_channel_change = null;
 
-  /* set up onclick callbacks for channels */
-  const channel_list = document.querySelectorAll('#channel-list .list-group-item');
+  /* find initial channel */
+  var channel_list = document.querySelectorAll('#channel-list .list-group-item');
+  var active_idx = null;
+  var init_channel_name = null;
   for (var i = 0; i < channel_list.length; i++) {
-    channel_list[i].onclick = function() {
-      const active_channel = document.querySelectorAll('#channel-list .active')[0];
-      const this_value = this.getAttribute('name');
-
-      if (this_value === active_channel.getAttribute('name')) {
-        /* same channel */
-        return;
-      }
-
-      active_channel.className = active_channel.className.replace(' active', '');
-      this.className += ' active';
-
-      console.log('Set channel:', this.innerText);
-      ws_client.set_channel(this_value);
+    if (channel_list[i].classList.contains('active')) {
+      active_idx = i;
+      init_channel_name = channel_list[i].getAttribute('name');
+      break;
     }
   }
 
-  return default_channel;
+  console.log('Initial channel:', init_channel_name);
+  this.get_init_channel = function() {
+    return init_channel_name;
+  };
+
+  function change_channel(new_channel_idx) {
+    if (new_channel_idx >= channel_list.length || new_channel_idx < 0) {
+      return;  // invalid channel index
+    }
+
+    if (active_idx === new_channel_idx) {
+      return;  // same channel
+    }
+
+    var old_channel = channel_list[active_idx];
+    var new_channel = channel_list[new_channel_idx];
+
+    old_channel.classList.remove('active');
+    new_channel.classList.add('active');
+
+    console.log('Set channel:', new_channel.innerText);
+    if (that.on_channel_change) {
+      /* call on_channel_change callback */
+      that.on_channel_change(new_channel.getAttribute('name'));
+    } else {
+      console.log('Warning: on_channel_change callback has not been defined');
+    }
+
+    active_idx = new_channel_idx;
+  }
+
+  /* set up onclick callbacks for channels */
+  for (var i = 0; i < channel_list.length; i++) {
+    channel_list[i].onclick = (function(i) {
+      return function() {
+        change_channel(i);
+      };
+    })(i);
+  }
+
+  const UP_ARROW = 38;
+  const DOWN_ARROW = 40;
+  this.onkeydown = function(e) {
+    if (e.keyCode === DOWN_ARROW) {
+      change_channel(active_idx + 1);
+    } else if (e.keyCode === UP_ARROW) {
+      change_channel(active_idx - 1);
+    }
+  };
 }
 
 function init_player(params_json) {
@@ -228,14 +227,23 @@ function init_player(params_json) {
     return;
   }
 
+  var control_bar = new ControlBar();
+  var channel_bar = new ChannelBar();
+
+  document.onkeydown = function(e) {
+    e = e || window.event;
+    control_bar.onkeydown(e);
+    channel_bar.onkeydown(e);
+  };
+
   load_script('/static/puffer/js/puffer.js').onload = function() {
     /* start_puffer is defined in puffer.js */
     var ws_client = start_puffer(session_key, username, settings_debug);
 
-    /* set up the player control bar */
-    setup_control_bar(ws_client);
+    channel_bar.on_channel_change = function(new_channel) {
+      ws_client.set_channel(new_channel);
+    };
 
-    const default_channel = setup_channel_bar(ws_client);
-    ws_client.connect(default_channel);
+    ws_client.connect(channel_bar.get_init_channel());
   }
 }
