@@ -548,6 +548,11 @@ void handle_client_init(WebSocketServer & server, WebSocketClient & client,
 
   /* check if the streaming can be resumed */
   if (resume_connection(server, client, msg, channel)) {
+    auto curtime = time(nullptr);
+    channel.set_viewer_count(channel.viewer_count() + 1);
+    string log_line = to_string(curtime) + " " + channel.name() + " " +
+                      to_string(channel.viewer_count()) + "\n";
+    append_to_log("active_streams.log", log_line);
     return;
   }
 
@@ -576,16 +581,16 @@ void handle_client_init(WebSocketServer & server, WebSocketClient & client,
   /* increment/decrement viewer counts for new/old channel respectively */
   auto curtime = time(nullptr);
   channel.set_viewer_count(channel.viewer_count() + 1);
-  string log_line1 = to_string(curtime) + " " + channel.name() + " " +
-                     to_string(channel.viewer_count()) + "\n";
-  append_to_log("active_streams.log", log_line1);
+  string log_line = to_string(curtime) + " " + channel.name() + " " +
+                    to_string(channel.viewer_count()) + "\n";
+  append_to_log("active_streams.log", log_line);
 
   if (not old_channel_string.empty()) {
     Channel & old_channel = channels.at(old_channel_string);
     old_channel.set_viewer_count(old_channel.viewer_count() - 1);
-    string log_line2 = to_string(curtime) + " " + old_channel.name() + " " +
-                       to_string(old_channel.viewer_count()) + "\n";
-    append_to_log("active_streams.log", log_line2);
+    log_line = to_string(curtime) + " " + old_channel.name() + " " +
+               to_string(old_channel.viewer_count()) + "\n";
+    append_to_log("active_streams.log", log_line);
   }
 
   cerr << client.signature() << ": connection initialized. " << msg.browser
