@@ -2,8 +2,9 @@ const WS_OPEN = 1;
 const GLOBAL_TIMESCALE = 90000;
 
 const TIMER_INTERVAL = 1000;
+const RECONNECT_INTERVAL = 5000;
 const DEBUG_TIMER_INTERVAL = 500;
-const BASE_RECONNECT_BACKOFF = 1000;
+const BASE_RECONNECT_BACKOFF = 100;
 const MAX_RECONNECT_BACKOFF = 15000;
 
 var debug = false;
@@ -321,6 +322,7 @@ function WebSocketClient(video, audio, session_key, username) {
   var that = this;
   var browser = null;
   var os = null;
+  var last_rcvd_chunk_ts = Date.now();
 
   function send_client_init(ws, channel) {
     if (ws && ws.readyState === WS_OPEN) {
@@ -433,6 +435,7 @@ function WebSocketClient(video, audio, session_key, username) {
       /* ignore chunks from wrong channels */
       if (av_source && av_source.getChannel() === message.metadata.channel) {
         av_source.handleVideo(message.data, message.metadata);
+        last_rcvd_chunk_ts = Date.now();
         send_client_info('vidack', message.metadata);
       }
     } else {
@@ -510,6 +513,12 @@ function WebSocketClient(video, audio, session_key, username) {
     if (debug) {
       console.log('video.currentTime', video.currentTime,
                   'audio.currentTime', audio.currentTime);
+    }
+    if (Date.now() - last_rcvd_chunk_ts > RECONNECT_INTERVAL) {
+        // Too long without receiving video: Close WS, reconnect
+        last_rcvd_chunk_ts = Date.now();
+        if (ws)
+          ws.close();
     }
 
     send_client_info('timer');
