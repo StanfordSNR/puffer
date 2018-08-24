@@ -14,10 +14,9 @@ def index(request):
 
 
 @login_required(login_url='/accounts/login/')
-def player(request, aid):
+def player(request):
     # parameters passed to Javascript stored in JSON
-    params = {'aid': aid,
-              'session_key': request.session.session_key,
+    params = {'session_key': request.session.session_key,
               'username': request.user.username,
               'debug': settings.DEBUG}
     context = {'params_json': json.dumps(params)}
@@ -49,7 +48,7 @@ def rating(request):
         Rating.objects.create(user=request.user, comment_text=new_comment,
                               stars=new_star, pub_date=datetime.utcnow())
         messages.success(request, 'Thank you for rating us!')
-        return redirect('player', aid=1)
+        return redirect('player')
     except:
         messages.error(request, 'Try rating again?')
         return redirect('rating')

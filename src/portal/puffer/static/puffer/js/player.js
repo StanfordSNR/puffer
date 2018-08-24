@@ -9,51 +9,6 @@ function load_script(script_path) {
   return new_script;
 }
 
-function start_dashjs(aid, session_key, username) {
-  const channel_select = document.getElementById('channel-select');
-  var manifest_url = '/static/puffer/media/' + channel_select.value + '/ready/live.mpd';
-
-  var player = dashjs.MediaPlayer().create();
-  player.initialize(document.getElementById('tv-video'), manifest_url, true);
-  player.clearDefaultUTCTimingSources();
-
-  channel_select.onchange = function() {
-    console.log('set channel:', channel_select.value);
-    player.attachSource('/static/puffer/media/' + channel_select.value + '/ready/live.mpd');
-  };
-
-  if (aid === 2) {  // default dash.js
-  } else if (aid === 3) {  // BOLA dash.js
-    player.setABRStrategy('abrBola');
-  } else {
-    /* Uncomment this block if you want to change the buffer size
-       that dash.js tries to maintain */
-    /*
-    player.setBufferTimeAtTopQuality(60);
-    player.setStableBufferTime(60);
-    player.setBufferToKeep(60);
-    player.setBufferPruningInterval(60);
-    */
-
-    /* algorithm IDs in pensieve:
-      1: 'Fixed Rate'
-      2: 'Buffer Based'
-      3: 'Rate Based'
-      4: 'Pensieve'
-      5: 'Festive'
-      6: (occupied)
-      7: 'FastMPC
-      8: 'RobustMPC' */
-    pensieve_abr_id = aid - 3;
-
-    if (pensieve_abr_id > 1) {
-      player.enablerlABR(true);
-    }
-
-    player.setAbrAlgorithm(pensieve_abr_id);
-  }
-}
-
 function setup_control_bar(ws_client) {
   var video = document.getElementById('tv-video');
   var tv_container = document.getElementById('tv-container');
@@ -263,7 +218,6 @@ function setup_channel_bar(ws_client) {
 function init_player(params_json) {
   var params = JSON.parse(params_json);
 
-  var aid = Number(params.aid);
   var session_key = params.session_key;
   var username = params.username;
   const settings_debug = params.debug;
@@ -274,29 +228,14 @@ function init_player(params_json) {
     return;
   }
 
-  if (aid === 1) {  // puffer
-    load_script('/static/puffer/js/puffer.js').onload = function() {
-      // start_puffer is defined in puffer.js
-      var ws_client = start_puffer(session_key, username, settings_debug);
+  load_script('/static/puffer/js/puffer.js').onload = function() {
+    /* start_puffer is defined in puffer.js */
+    var ws_client = start_puffer(session_key, username, settings_debug);
 
-      /* Set up the player control bar */
-      setup_control_bar(ws_client);
+    /* set up the player control bar */
+    setup_control_bar(ws_client);
 
-      const default_channel = setup_channel_bar(ws_client);
-      ws_client.connect(default_channel);
-    }
-  } else {
-    /* All the other algorithms are based on dash.js */
-    var new_script = null;
-
-    if (aid === 2 || aid === 3) {  // algorithms available in dash.js
-      new_script = load_script('/static/puffer/dist/js/dash.all.min.js');
-    } else if (aid >= 4 && aid <= 11) {  // algorithms available in pensieve
-      new_script = load_script('/static/puffer/dist/js/pensieve.dash.all.js');
-    }
-
-    new_script.onload = function() {
-      start_dashjs(aid, session_key, username);
-    }
+    const default_channel = setup_channel_bar(ws_client);
+    ws_client.connect(default_channel);
   }
 }
