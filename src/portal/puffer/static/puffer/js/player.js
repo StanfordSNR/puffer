@@ -20,7 +20,14 @@ function ControlBar() {
   const volume_on_img = 'url(/static/puffer/dist/images/volume-on.svg)';
   const volume_off_img = 'url(/static/puffer/dist/images/volume-off.svg)';
 
-  /* don't manually set video.volume; call this function instead */
+  /* video is muted by default */
+  video.volume = 0;
+  mute_button.muted = true;
+  mute_button.style.backgroundImage = volume_off_img;
+  var last_volume_before_mute = 1;
+
+  /* after setting the initial volume, don't manually set video.volume anymore;
+   * call the function below instead */
   function set_video_volume(new_volume) {
     new_volume = Math.min(Math.max(0, new_volume.toPrecision(2)), 1);
 
@@ -37,10 +44,6 @@ function ControlBar() {
       mute_button.style.backgroundImage = volume_off_img;
     }
   }
-
-  /* video is muted by default */
-  var last_volume_before_mute = 1;
-  set_video_volume(0);
 
   volume_bar.oninput = function() {
     set_video_volume(Number(volume_bar.value));

@@ -648,13 +648,6 @@ function start_puffer(session_key, username, settings_debug) {
   const video = document.getElementById('tv-video');
   const audio = document.getElementById('tv-audio');
 
-  /* decide when to start playing based on readyState */
-  video.addEventListener('loadeddata', function() {
-    if (video.readyState >= 2) {
-      video.play();
-    }
-  });
-
   const client = new WebSocketClient(video, audio, session_key, username);
   return client;
 }
