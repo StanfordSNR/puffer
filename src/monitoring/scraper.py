@@ -6,7 +6,7 @@ import argparse
 import re
 import time
 import subprocess
-import urllib3
+import requests
 
 from datetime import datetime
 from influxdb import InfluxDBClient
@@ -62,52 +62,45 @@ def make_cookie(session_id):
     return 'session_id={}'.format(session_id)
 
 
-def get_session_id(http, host_and_port):
-    r = http.request('GET', 'http://{}/cgi-bin/login.cgi'.format(host_and_port))
-    if r.status != 200:
+def get_session_id(client, login_url):
+    r = client.get(login_url)
+    if r.status_code != 200:
         raise RuntimeError('Failed to get login page')
-    match_object = SESSION_ID_REGEX.search(str(r.data))
+    match_object = SESSION_ID_REGEX.search(str(r.text))
     if not match_object:
         raise RuntimeError('Failed to parse session_id from login page')
-    return int(match_object.group(1))
+    return match_object.group(1)
 
 
-def post_login(http, host_and_port, session_id):
-    headers = {
-        'Cookie': make_cookie(session_id),
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'Referrer': 'http://{}/cgi-bin/status.cgi?session_id={}'.format(host_and_port, session_id),
-    }
+def post_login(client, login_url, session_id):
     post_params = {
         'txtUserName': USERNAME,
         'txtPassword': PASSWORD,
         'session_id': session_id,
         'btnSubmit': 'Submit'
     }
-    post_params_str = '&'.join('{}={}'.format(k, v) for k, v in post_params.items())
+
     # Below code handles occasional exceptions which occur during the request
     retry_count = 0
     while True:
+        retry_count += 1
+        if retry_count >= 2:
+            break
+
         try:
-            r = http.request('POST', 'http://{}/cgi-bin/login.cgi'.format(host_and_port),
-                             body=post_params_str, headers=headers)
-            if r.status != 200 or LOGGED_IN_STR not in str(r.data):
+            r = client.post(login_url, data=post_params,
+                            headers=dict(Referer=login_url))
+            if r.status_code != 200 or LOGGED_IN_STR not in str(r.text):
                 raise RuntimeError('Failed to post login credentials')
         except:
             time.sleep(10)
-            retry_count += 1
-            if retry_count >= 2:
-                continue
-        break
 
 
-def get_status_page(http, host_and_port, session_id):
-    r = http.request('GET', 'http://{}/cgi-bin/status.cgi?session_id={}'.format(
-                     host_and_port, session_id),
-                     headers={'Cookie': make_cookie(session_id)})
-    if r.status != 200:
+def get_status_page(client, status_url):
+    r = client.get(status_url)
+    if r.status_code != 200:
         raise RuntimeError('Failed to load information page')
-    return str(r.data).replace('\\n', '\n')
+    return str(r.text).replace('\\n', '\n')
 
 
 def parse_input_status(html, status):
@@ -137,12 +130,16 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('host_and_port', help='HOST:PORT of server to scrape')
     host_and_port = parser.parse_args().host_and_port
+    login_url = 'http://{}/cgi-bin/login.cgi'.format(host_and_port)
 
-    http = urllib3.PoolManager()
+    client = requests.session()
 
-    session_id = get_session_id(http, host_and_port)
-    post_login(http, host_and_port, session_id)
-    status_html = get_status_page(http, host_and_port, session_id)
+    session_id = get_session_id(client, login_url)
+    post_login(client, login_url, session_id)
+
+    status_url = 'http://{}/cgi-bin/status.cgi?session_id={}'.format(
+            host_and_port, session_id)
+    status_html = get_status_page(client, status_url)
 
     # interested in all inputs and corresponding outputs
     status = {i:{} for i in range(1, 9)}

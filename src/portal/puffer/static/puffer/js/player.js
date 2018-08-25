@@ -245,5 +245,5 @@ function init_player(params_json) {
     };
 
     ws_client.connect(channel_bar.get_init_channel());
-  }
+  };
 }
