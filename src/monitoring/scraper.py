@@ -54,7 +54,7 @@ def send_to_influx(status):
         sys.stderr.write('channel {}, SNR {}, bitrate {}\n'.format(
             v['rf_channel'], v['snr'], v['selected_rate']))
 
-    client = InfluxDBClient('localhost', 8086, 'admin', INFLUX_PWD)
+    client = InfluxDBClient('localhost', 8086, 'puffer', INFLUX_PWD)
     client.write_points(json_body, time_precision='s', database='collectd')
 
 

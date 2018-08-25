@@ -18,7 +18,7 @@ from selenium.webdriver.support.ui import Select
 from selenium.webdriver.firefox.options import Options
 
 
-PUFFER_DB_PASSWORD = os.environ["PUFFER_DB_PASSWORD"]
+PUFFER_PORTAL_DB_KEY = os.environ["PUFFER_PORTAL_DB_KEY"]
 GRAFANA_PWD = os.environ["GRAFANA_PASSWORD"]
 
 
@@ -30,7 +30,7 @@ def main():
     driver.get("https://puffer.stanford.edu/grafana/login/")
     driver.find_element_by_name("username").click()
     driver.find_element_by_name("username").clear()
-    driver.find_element_by_name("username").send_keys("admin")
+    driver.find_element_by_name("username").send_keys("puffer")
     driver.find_element_by_id("inputPassword").click()
     driver.find_element_by_id("inputPassword").clear()
     driver.find_element_by_id("inputPassword").send_keys(GRAFANA_PWD)
@@ -62,7 +62,7 @@ def main():
     time = datetime.utcnow()
     conn = psycopg2.connect(
         host="35.236.47.112", port="5432", database="puffer",
-        user="puffer", password=PUFFER_DB_PASSWORD,
+        user="puffer", password=PUFFER_PORTAL_DB_KEY,
         sslmode="verify-ca",
         sslrootcert="/home/puffer/.ssl/puffer-postgres/server-ca.pem",
         sslcert="/home/puffer/.ssl/puffer-postgres/client-cert.pem",

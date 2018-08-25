@@ -46,7 +46,7 @@ void post_to_db(TCPSocket & db_sock, const vector<string> & data,
 
   /* send POST request to InfluxDB */
   HTTPRequest request;
-  request.set_first_line("POST /write?db=collectd&u=admin&p="
+  request.set_first_line("POST /write?db=collectd&u=puffer&p="
       + safe_getenv("INFLUXDB_PASSWORD") + "&precision=s HTTP/1.1");
   request.add_header(HTTPHeader{"Host", "localhost:8086"});
   request.add_header(HTTPHeader{"Accept", "*/*"});

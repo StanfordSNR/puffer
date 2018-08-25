@@ -16,7 +16,7 @@ INFLUX_PWD = os.environ['INFLUXDB_PASSWORD']
 PERIOD = 60  # seconds
 
 scheduler = sched.scheduler(time.time)
-influxdb_client = InfluxDBClient('localhost', 8086, 'admin', INFLUX_PWD)
+influxdb_client = InfluxDBClient('localhost', 8086, 'puffer', INFLUX_PWD)
 
 
 def count_backlog(target_dir):
