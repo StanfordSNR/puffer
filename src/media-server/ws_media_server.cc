@@ -85,6 +85,7 @@ const VideoFormat & select_video_quality(WebSocketClient & client)
     if (not client.is_format_capable(vf)) continue;
 
     size_t chunk_size = get<1>(data_map.at(vf));
+    if (chunk_size <= 0) continue;
 
     if (chunk_size > max_size) {
       max_size = chunk_size;
@@ -116,8 +117,7 @@ const VideoFormat & select_video_quality(WebSocketClient & client)
     if (not client.is_format_capable(vf)) continue;
 
     size_t chunk_size = get<1>(data_map.at(vf));
-
-    if (chunk_size > max_serve_size) {
+    if (chunk_size <= 0 or chunk_size > max_serve_size) {
       continue;
     }
 
@@ -152,6 +152,7 @@ const AudioFormat & select_audio_quality(WebSocketClient & client)
   for (size_t i = 0; i < channel.aformats().size(); i++) {
     const auto & af = channel.aformats()[i];
     size_t chunk_size = get<1>(data_map.at(af));
+    if (chunk_size <= 0) continue;
 
     if (chunk_size > max_size) {
       max_size = chunk_size;
@@ -182,7 +183,7 @@ const AudioFormat & select_audio_quality(WebSocketClient & client)
     const auto & af = channel.aformats()[i];
     size_t chunk_size = get<1>(data_map.at(af));
 
-    if (chunk_size > max_serve_size) {
+    if (chunk_size <= 0 or chunk_size > max_serve_size) {
       continue;
     }
 

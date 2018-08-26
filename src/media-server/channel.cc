@@ -14,8 +14,7 @@ static const unsigned int DEFAULT_AUDIO_DURATION = 432000;
 static const string DEFAULT_VIDEO_CODEC = "video/mp4; codecs=\"avc1.42E020\"";
 static const string DEFAULT_AUDIO_CODEC = "audio/webm; codecs=\"opus\"";
 static const unsigned int DEFAULT_PRESENTATION_DELAY = 10;
-static const unsigned int DEFAULT_CLEAN_WINDOW = 60;
-static const unsigned int DEFAULT_INIT_VTS = 0;
+static const unsigned int DEFAULT_CLEAN_WINDOW = 30;
 
 Channel::Channel(const string & name, YAML::Node config, Inotify & inotify)
 {
@@ -52,19 +51,7 @@ Channel::Channel(const string & name, YAML::Node config, Inotify & inotify)
       throw runtime_error("clean_window_s should be larger enough "
                           "(5 video durations) than presentation_delay_s_");
     }
-
-    if (config["init_vts"]) {
-      throw runtime_error("init_vts cannot be specified if live is true");
-    }
   } else {
-    init_vts_ = config["init_vts"] ?
-        config["init_vts"].as<uint64_t>() : DEFAULT_INIT_VTS;
-
-    if (not is_valid_vts(init_vts_.value())) {
-      throw runtime_error("invalid init_vts: should be a multiple of video "
-                          "duration");
-    }
-
     if (config["presentation_delay_s"] or config["clean_window_s"]) {
       throw runtime_error("presentation_delay_s_ or clean_window_s cannot be "
                           "specified if live is false");
@@ -75,12 +62,26 @@ Channel::Channel(const string & name, YAML::Node config, Inotify & inotify)
   mmap_audio_files(inotify);
   load_ssim_files(inotify);
 
-  /* update live edge after processing existing files if there are */
-  if (live_ and vdata_.crbegin() != vdata_.crend()) {
-    uint64_t newest_ts = vdata_.crbegin()->first;
-    cerr << "Update live edge based on existing files: "
-            "the newest video timestamp is " << newest_ts << endl;
-    update_live_edge(newest_ts);
+  if (not live_) {
+    /* set init_vts_ to be the first ready timestamp */
+    if (vdata_.cbegin() != vdata_.cend()) {
+      uint64_t oldest_vts = vdata_.cbegin()->first;
+      uint64_t oldest_ats = find_ats(oldest_vts);
+
+      if (not vready(oldest_vts) or not aready(oldest_ats)) {
+        throw runtime_error("VoD streaming is not ready");
+      }
+
+      init_vts_ = vdata_.cbegin()->first;
+      cerr << "Channel " << name_ << ": ready to stream on demand" << endl;
+    }
+  } else {
+    /* required to run update_live_edge again after all video files are mmaped;
+     * would not be required if video files were mmapped in ascending order */
+    if (vdata_.crbegin() != vdata_.crend()) {
+      uint64_t newest_vts = vdata_.crbegin()->first;
+      update_live_edge(newest_vts);
+    }
   }
 }
 
@@ -169,12 +170,17 @@ map<AudioFormat, mmap_t> & Channel::adata(const uint64_t ts)
 
 mmap_t mmap_file(const string & filepath)
 {
-  FileDescriptor fd(CheckSystemCall("open (" + filepath + ")",
-                    open(filepath.c_str(), O_RDONLY)));
-  size_t size = fd.filesize();
-  shared_ptr<void> data = mmap_shared(nullptr, size, PROT_READ,
-                                      MAP_PRIVATE, fd.fd_num(), 0);
-  return {static_pointer_cast<char>(data), size};
+  try {
+    FileDescriptor fd(CheckSystemCall("open (" + filepath + ")",
+                      open(filepath.c_str(), O_RDONLY)));
+    size_t size = fd.filesize();
+    shared_ptr<void> data = mmap_shared(nullptr, size, PROT_READ,
+                                        MAP_PRIVATE, fd.fd_num(), 0);
+    return {static_pointer_cast<char>(data), size};
+  } catch (const exception & e) {
+    print_exception("mmap_file", e);
+    return {nullptr, 0};
+  }
 }
 
 void Channel::munmap_video(const uint64_t newest_ts)
@@ -249,7 +255,7 @@ void Channel::update_live_edge(const uint64_t ts)
   if (not aready(live_ats)) return;
 
   if (not vlive_frontier_) {
-    cerr << "Channel " << name_ << " becomes ready" << endl;
+    cerr << "Channel " << name_ << ": ready to live stream" << endl;
 
     vlive_frontier_ = live_vts;
     alive_frontier_ = live_ats;
@@ -289,10 +295,10 @@ void Channel::mmap_video_files(Inotify & inotify)
 {
   for (const auto & vf : vformats_) {
     string video_dir = input_path_ / "ready" / vf.to_string();
+    cerr << "Channel " << name_ << ": serve videos in " << video_dir << endl;
 
     /* watch new files only on live */
     if (live_) {
-      cerr << "Channel: inotify watching " << video_dir << endl;
       inotify.add_watch(video_dir, IN_MOVED_TO,
         [this, &vf, video_dir](const inotify_event & event,
                                const string & path) {
@@ -346,10 +352,10 @@ void Channel::mmap_audio_files(Inotify & inotify)
 {
   for (const auto & af : aformats_) {
     string audio_dir = input_path_ / "ready" / af.to_string();
+    cerr << "Channel " << name_ << ": serve audios in " << audio_dir << endl;
 
     /* watch new files only on live */
     if (live_) {
-      cerr << "Channel: inotify watching " << audio_dir << endl;
       inotify.add_watch(audio_dir, IN_MOVED_TO,
         [this, &af, audio_dir](const inotify_event & event,
                                const string & path) {
@@ -386,7 +392,7 @@ void Channel::do_read_ssim(const fs::path & filepath, const VideoFormat & vf) {
     try {
       vssim_[ts][vf] = stod(line);
     } catch (const exception & e) {
-      cerr << "Invalid SSIM file: " + line << ": " << e.what() << endl;
+      print_exception("invalid SSIM file", e);
       vssim_[ts][vf] = -1;
     }
   }
@@ -396,10 +402,10 @@ void Channel::load_ssim_files(Inotify & inotify)
 {
   for (const auto & vf : vformats_) {
     string ssim_dir = input_path_ / "ready" / (vf.to_string() + "-ssim");
+    cerr << "Channel " << name_ << ": serve SSIMs in " << ssim_dir << endl;
 
     /* watch new files only on live */
     if (live_) {
-      cerr << "Channel: inotify watching " << ssim_dir << endl;
       inotify.add_watch(ssim_dir, IN_MOVED_TO,
         [this, &vf, ssim_dir](const inotify_event & event,
                               const string & path) {
