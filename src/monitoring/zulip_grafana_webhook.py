@@ -18,8 +18,6 @@ PUFFER_LOCNET = 'puffer.stanford.edu'
 
 @app.route('/', methods=['POST'])
 def webhook():
-    print('webhook')
-    sys.stdout.flush()
     if request.method != 'POST':
         abort(400)
 
@@ -42,8 +40,6 @@ def webhook():
     details_url = urlparse(hook_data['ruleUrl'])._replace(netloc=PUFFER_LOCNET)
     details = '[details](' + details_url.geturl() + ')'
 
-    print('Hook data:', hook_data)
-
     data = [
         ('type', 'stream'),
         ('to', 'puffer-alert'),
@@ -53,7 +49,12 @@ def webhook():
 
     response = requests.post(ZULIP_URL, data=data,
                              auth=(ZULIP_BOT_EMAIL, ZULIP_BOT_TOKEN))
-    print(response)
+
+    if response.status_code == requests.codes.ok:
+        print('Posted an alert successfully')
+    else:
+        print('Failed to post the alert')
+
     return '', 200
 
 
