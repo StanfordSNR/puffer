@@ -60,45 +60,63 @@ WSServer<NBSecureSocket>::Connection::Connection(TCPSocket && sock,
 template<>
 string WSServer<TCPSocket>::Connection::read()
 {
-  return socket.read();
+  try {
+    return socket.read();
+  } catch (const exception & e) {
+    print_exception("WSServer<TCPSocket>::Connection::read()", e);
+    return {};
+  }
 }
 
 template<>
 string WSServer<NBSecureSocket>::Connection::read()
 {
-  return socket.ezread();
+  try {
+    return socket.ezread();
+  } catch (const exception & e) {
+    print_exception("WSServer<NBSecureSocket>::Connection::read()", e);
+    return {};
+  }
 }
 
 template<>
 void WSServer<TCPSocket>::Connection::write()
 {
-  while (not send_buffer.empty()) {
-    string & buffer = send_buffer.front();
+  try {
+    while (not send_buffer.empty()) {
+      string & buffer = send_buffer.front();
 
-    /* set write_all to false because socket might be unable to write all */
-    /* need to convert to and from string_view iterator for new write method */
-    /* XXX ideally send_buffer would simply maintain a string_view of the'
-       remaining portion of each string -- but seems unnecessary when NBSecureSocket
-       is the preferred implementation anyway */
-    string_view buffer_as_view = buffer;
-    const auto view_iterator = socket.write(buffer_as_view, false);
-    const auto it = send_buffer.front().cbegin() + (view_iterator - buffer_as_view.cbegin());
+      /* set write_all to false because socket might be unable to write all */
+      /* need to convert to and from string_view iterator for new write method */
+      /* XXX ideally send_buffer would simply maintain a string_view of the'
+         remaining portion of each string -- but seems unnecessary when NBSecureSocket
+         is the preferred implementation anyway */
+      string_view buffer_as_view = buffer;
+      const auto view_iterator = socket.write(buffer_as_view, false);
+      const auto it = send_buffer.front().cbegin() + (view_iterator - buffer_as_view.cbegin());
 
-    if (it != buffer.cend()) {
-      buffer.erase(0, it - buffer.cbegin());
-      break;
-    } else {
-      send_buffer.pop_front();
+      if (it != buffer.cend()) {
+        buffer.erase(0, it - buffer.cbegin());
+        break;
+      } else {
+        send_buffer.pop_front();
+      }
     }
+  } catch (const exception & e) {
+    print_exception("WSServer<TCPSocket>::Connection::write()", e);
   }
 }
 
 template<>
 void WSServer<NBSecureSocket>::Connection::write()
 {
-  while (not send_buffer.empty()) {
-    socket.ezwrite(move(send_buffer.front()));
-    send_buffer.pop_front();
+  try {
+    while (not send_buffer.empty()) {
+      socket.ezwrite(move(send_buffer.front()));
+      send_buffer.pop_front();
+    }
+  } catch (const exception & e) {
+    print_exception("WSServer<NBSecureSocket>::Connection::write()", e);
   }
 }
 
