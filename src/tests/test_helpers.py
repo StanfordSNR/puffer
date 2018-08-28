@@ -9,7 +9,8 @@ import signal
 import uuid
 from functools import wraps
 import tempfile
-from shutil import copyfile, move
+from shutil import copyfile
+
 
 def get_open_port():
     sock = socket.socket(socket.AF_INET)
@@ -85,14 +86,20 @@ def timeout(seconds=10, error_message=os.strerror(errno.ETIME)):
     return decorator
 
 
-def create_tmp_and_move_to(directory, ext='.ext'):
-    fd, tmp_filepath = tempfile.mkstemp()
-    os.close(fd)
+def touch(file_path, times=None):
+    with open(file_path, 'a'):
+        os.utime(file_path, times)
 
-    tmp_filename = path.basename(tmp_filepath) + ext
 
-    new_filepath = path.join(directory, tmp_filename)
-    move(tmp_filepath, new_filepath)
+def create_tmp_and_move_to(tmp_dir, dst_dir, ext='.ext'):
+    # create a unique temporary file in tmp_dir
+    tmp_filename = str(uuid.uuid4()) + ext
+    tmp_filepath = path.join(tmp_dir, tmp_filename)
+    touch(tmp_filepath)
+
+    # move the created temporary file to dst_dir
+    new_filepath = path.join(dst_dir, tmp_filename)
+    os.rename(tmp_filepath, new_filepath)
 
     return tmp_filename
 
@@ -100,9 +107,4 @@ def create_tmp_and_move_to(directory, ext='.ext'):
 def copy_move(src_path, dst_path):
     tmp_path = path.join(tempfile.gettempdir(), path.basename(src_path))
     copyfile(src_path, tmp_path)
-    move(tmp_path, dst_path)
-
-
-def touch(filename, times=None):
-    with open(filename, 'a'):
-        os.utime(filename, times)
+    os.rename(tmp_path, dst_path)

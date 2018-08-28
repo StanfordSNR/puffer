@@ -3,8 +3,7 @@
 import os
 from os import path
 import sys
-from test_helpers import (check_call, Popen, create_tmp_and_move_to,
-                          make_sure_path_exists)
+from test_helpers import Popen, create_tmp_and_move_to, make_sure_path_exists
 
 
 def main():
@@ -14,21 +13,20 @@ def main():
 
     notifier_srcdir = path.join(test_tmpdir, 'notifier_bad_srcdir')
     notifier_dstdir = path.join(test_tmpdir, 'notifier_bad_dstdir')
-
     for directory in [notifier_srcdir, notifier_dstdir]:
         make_sure_path_exists(directory)
 
     notifier = path.abspath(
         path.join(abs_builddir, os.pardir, 'notifier', 'notifier'))
 
-    # run a notifier that will call the "bad" program
-    bad_prog = path.join(abs_srcdir, 'notified_bad_prog.sh')
-    cmd = [notifier, notifier_srcdir, '.ext', '--check',
-           notifier_dstdir, '.ext', '--exec', bad_prog]
+    # run a notifier that will call the "bad" program (echo)
+    bad_prog = path.join(abs_srcdir, '/bin/echo')
+    cmd = [notifier, notifier_srcdir, '.ext1', '--check',
+           notifier_dstdir, '.ext2', '--tmp', test_tmpdir, '--exec', bad_prog]
     notifier_proc = Popen(cmd)
 
-    # create and move a tmp file; expect it not to be processed (copied)
-    tmp_filename = create_tmp_and_move_to(notifier_srcdir, '.ext')
+    # create and move a tmp file; expect it not to be processed
+    tmp_filename = create_tmp_and_move_to(test_tmpdir, notifier_srcdir, '.ext1')
 
     # the notifier process should exit with error
     if notifier_proc:
@@ -37,8 +35,8 @@ def main():
             sys.exit('the notifier should exit with error')
 
     tmp_filepath = path.join(notifier_dstdir, tmp_filename)
-    if path.isfile(tmp_filepath):
-        sys.exit('bad program should not process (copy) the test file')
+    if path.exists(tmp_filepath):
+        sys.exit('bad program should not process the test file')
 
 
 if __name__ == '__main__':
