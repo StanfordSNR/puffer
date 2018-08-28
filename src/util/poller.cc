@@ -183,22 +183,30 @@ Poller::Result Poller::poll( const int timeout_ms )
         the event we asked for */
       const auto count_before = it_action->service_count();
 
-      auto result = it_action->callback();
+      try {
+        auto result = it_action->callback();
 
-      switch ( result.result ) {
-      case ResultType::Exit:
-        return Result( Result::Type::Exit, result.exit_status );
+        switch ( result.result ) {
+        case ResultType::Exit:
+          return Result( Result::Type::Exit, result.exit_status );
 
-      case ResultType::Cancel:
-        it_action->active = false;
-        break;
+        case ResultType::Cancel:
+          it_action->active = false;
+          break;
 
-      case ResultType::CancelAll:
+        case ResultType::CancelAll:
+          fds_to_remove.insert( it_pollfd->fd );
+          break;
+
+        case ResultType::Continue:
+          break;
+        }
+      } catch ( const exception & e ) {
+        print_exception( "Poller: error in callback", e );
+
+        it_action->fderror_callback();
         fds_to_remove.insert( it_pollfd->fd );
-        break;
-
-      case ResultType::Continue:
-        break;
+        continue;
       }
 
       if ( count_before == it_action->service_count() ) {
