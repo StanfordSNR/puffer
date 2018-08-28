@@ -15,9 +15,11 @@ Poller::Action::Action( NBSecureSocket & s_socket,
                         const PollDirection & s_direction,
                         const CallbackType & s_callback,
                         const std::function<bool(void)> & s_when_interested,
-                        const std::function<void(void)> & fderror_callback )
+                        const std::function<void(void)> & s_fderror_callback,
+                        const bool s_fail_poller )
   : fd( s_socket ), direction( s_direction ), callback(), when_interested(),
-    fderror_callback( fderror_callback ), active( true )
+    fderror_callback( s_fderror_callback ), fail_poller ( s_fail_poller ),
+    active( true )
 {
   if ( direction == Out ) { /* write */
     callback =
@@ -202,11 +204,17 @@ Poller::Result Poller::poll( const int timeout_ms )
           break;
         }
       } catch ( const exception & e ) {
-        print_exception( "Poller: error in callback", e );
+        if ( it_action->fail_poller ) {
+          /* throw only if the action is intended to fail the entire poller */
+          throw;
+        } else {
+          /* simply remove the fd from poller and keep the poller running */
+          print_exception( "Poller: error in callback", e );
 
-        it_action->fderror_callback();
-        fds_to_remove.insert( it_pollfd->fd );
-        continue;
+          it_action->fderror_callback();
+          fds_to_remove.insert( it_pollfd->fd );
+          continue;
+        }
       }
 
       if ( count_before == it_action->service_count() ) {

@@ -34,23 +34,31 @@ public:
     enum PollDirection : short { In = POLLIN, Out = POLLOUT } direction;
     CallbackType callback;
     std::function<bool(void)> when_interested;
+
     std::function<void(void)> fderror_callback;
+    /* whether an error in this action's callback will fail the entire poller
+     * set to false by default for NBSecureSocket and true for other fds */
+    bool fail_poller;
+
     bool active;
 
     Action( FileDescriptor & s_fd,
             const PollDirection & s_direction,
             const CallbackType & s_callback,
             const std::function<bool(void)> & s_when_interested = [] () { return true; },
-            const std::function<void(void)> & fderror_callback = [] () {} )
+            const std::function<void(void)> & s_fderror_callback = [] () {},
+            const bool s_fail_poller = true )
       : fd( s_fd ), direction( s_direction ), callback( s_callback ),
         when_interested( s_when_interested ),
-        fderror_callback( fderror_callback ), active( true ) {}
+        fderror_callback( s_fderror_callback ), fail_poller( s_fail_poller ),
+        active( true ) {}
 
     Action( NBSecureSocket & s_socket,
             const PollDirection & s_direction,
             const CallbackType & s_callback,
             const std::function<bool(void)> & s_when_interested = [] () { return true; },
-            const std::function<void(void)> & fderror_callback = [] () {} );
+            const std::function<void(void)> & s_fderror_callback = [] () {},
+            const bool s_fail_poller = false );
 
     unsigned int service_count( void ) const;
   };
