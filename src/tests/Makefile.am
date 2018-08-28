@@ -9,7 +9,7 @@ AM_TESTS_ENVIRONMENT = \
 	export test_tmpdir=$(abs_builddir)/test_tmpdir; \
 	mkdir -p $$test_tmpdir;
 
-EXTRA_DIST = test_helpers.py notified_good_prog.sh notified_bad_prog.sh
+EXTRA_DIST = test_helpers.py
 
 dist_check_SCRIPTS = fetch_vectors.test forwarder.test notify_good_prog.test \
 	notify_bad_prog.test cleaner.test ssim.test mpd.test time.test cleanup.test \
