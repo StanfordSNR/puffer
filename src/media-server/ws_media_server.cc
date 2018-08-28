@@ -661,15 +661,8 @@ void handle_client_info(WebSocketClient & client, const ClientInfoMsg & msg)
     /* record video quality */
     string log_line = to_string(cur_time) + " " + client.username() + " "
         + *client.channel() + " " + to_string(*msg.timestamp) + " "
-        + *msg.quality + "\n";
+        + *msg.quality + " " + to_string(*msg.ssim) + "\n";
     append_to_log("video_quality.log", log_line);
-
-    /* record average video ssim */
-    if (msg.ssim.value() > 0) {
-      log_line = to_string(cur_time) + " " + client.username() + " "
-        + *client.channel() + " " + to_string(msg.ssim.value()) + "\n";
-      append_to_log("average_video_ssim.log", log_line);
-    }
   }
 
   /* record rebuffer event and rebuffer rate */
