@@ -230,8 +230,11 @@ void append_to_log(const string & log_name, const string & log_line)
 
 void append_log_rebuffer_rate(uint64_t cur_time)
 {
-  string log_line = to_string(cur_time) + " "
-      + to_string((double) log_rebuffer_num / clients.size()) + "\n";
+  double rebuffer_rate = 0;
+  if (clients.size() > 0) {
+    rebuffer_rate = (double) log_rebuffer_num / clients.size();
+  }
+  string log_line = to_string(cur_time) + " " + to_string(rebuffer_rate) + "\n";
   append_to_log("rebuffer_rate.log", log_line);
 }
 
