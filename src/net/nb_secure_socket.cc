@@ -111,7 +111,7 @@ void NBSecureSocket::continue_SSL_write()
       break;
 
     default:
-      cerr << "NBSecureSocket::continue_SSL_write: ignored a ssl_error" << endl;
+      throw;
     }
 
     return;
@@ -137,7 +137,7 @@ void NBSecureSocket::continue_SSL_read()
       break;
 
     default:
-      cerr << "NBSecureSocket::continue_SSL_read: ignored a ssl_error" << endl;
+      throw;
     }
 
     return;
