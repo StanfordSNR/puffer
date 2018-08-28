@@ -753,13 +753,18 @@ void close_connection(WebSocketServer & server, const uint64_t connection_id)
 
 bool auth_client(const string & session_key, pqxx::nontransaction & db_work)
 {
-  pqxx::result r = db_work.prepared("auth")(session_key).exec();
+  try {
+    pqxx::result r = db_work.prepared("auth")(session_key).exec();
 
-  if (r.size() == 1 and r[0].size() == 1) {
-    /* returned record is valid containing only true or false */
-    return r[0][0].as<bool>();
-  } else {
-    cerr << "Authentication failed due to invalid returned record" << endl;
+    if (r.size() == 1 and r[0].size() == 1) {
+      /* returned record is valid containing only true or false */
+      return r[0][0].as<bool>();
+    } else {
+      cerr << "Authentication failed due to invalid returned record" << endl;
+      return false;
+    }
+  } catch (const exception & e) {
+    print_exception("auth_client", e);
     return false;
   }
 }
@@ -804,7 +809,7 @@ int main(int argc, char * argv[])
   db_conn_str += " password=" + safe_getenv("PUFFER_PORTAL_DB_KEY");
 
   pqxx::connection db_conn(db_conn_str);
-  cerr << "Connected to database: " << db_conn.dbname() << endl;
+  cerr << "Connected to database: " << db_conn.hostname() << endl;
 
   /* reuse the same nontransaction */
   pqxx::nontransaction db_work(db_conn);
