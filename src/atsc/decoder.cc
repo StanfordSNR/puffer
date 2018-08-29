@@ -68,10 +68,7 @@ inline T * notnull( const string & context, T * const x )
 
 int64_t timestamp_difference( const uint64_t ts_64, const uint64_t ts_33 )
 {
-  const uint64_t ts_33_unwrapped = 300 *
-    (((ts_64 / 300) & 0xfffffffe00000000) | ((ts_33 / 300) & 0x1ffffffff));
-
-  return static_cast<int64_t>(ts_64) - static_cast<int64_t>(ts_33_unwrapped);
+  return static_cast<int64_t>(ts_64) - static_cast<int64_t>(ts_33);
 }
 
 struct Raster
