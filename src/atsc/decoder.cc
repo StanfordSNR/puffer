@@ -872,12 +872,14 @@ private:
 
   uint64_t outer_timestamp_ {};
 
+  optional<int64_t> last_offset_ {};
+
   Raster & pending_frame()
   {
     return pending_chunk_.at( pending_chunk_index_ );
   }
 
-  void write_frame_to_disk()
+  void write_frame_to_disk( const uint64_t first_field_presentation_time_stamp )
   {
     if ( pending_chunk_index_ == 0 ) {
       pending_chunk_outer_timestamp_ = outer_timestamp_ / 300;
@@ -925,8 +927,8 @@ private:
     }
 
     /* advance virtual clock */
+    last_offset_ = first_field_presentation_time_stamp - outer_timestamp_;
     outer_timestamp_ += frame_interval_;
-
     pending_chunk_index_ = (pending_chunk_index_ + 1) % pending_chunk_.size();
   }
 
@@ -987,9 +989,15 @@ public:
 
     if ( next_field_is_top_ ) {
       /* print out frame */
-      write_frame_to_disk();
+      write_frame_to_disk( field.presentation_time_stamp - frame_interval_ / 2 );
     }
   }
+
+  /* get last outer-inner timestamp offset (for verifying a/v sync) */
+  optional<int64_t> last_offset() const { return last_offset_; }
+
+  /* need to reset tracking after a resync */
+  void reset_sync_tracking() { last_offset_.reset(); }
 };
 
 class VideoOutput
@@ -1075,6 +1083,8 @@ private:
   string wav_header_;
 
   uint64_t outer_timestamp_ {};
+
+  optional<int64_t> last_offset_ {};
 
 public:
   WavWriter( const string directory,
@@ -1169,9 +1179,16 @@ public:
     }
 
     /* advance virtual clock */
+    last_offset_ = audio_block.presentation_time_stamp - outer_timestamp_;
     outer_timestamp_ += audio_block_duration;
     pending_chunk_index_ = (pending_chunk_index_ + 1) % pending_chunk_.size();
   }
+
+  /* get last outer-inner timestamp offset (for verifying a/v sync) */
+  optional<int64_t> last_offset() const { return last_offset_; }
+
+  /* need to reset tracking after a resync */
+  void reset_sync_tracking() { last_offset_.reset(); }
 };
 
 class AudioOutput
@@ -1347,6 +1364,15 @@ int main( int argc, char *argv[] )
         while ( not decoded_samples.empty() ) {
           audio_output.value().write( decoded_samples.front(), wav_writer );
           decoded_samples.pop();
+        }
+      }
+
+      /* check a/v sync */
+      if ( y4m_writer.last_offset() and wav_writer.last_offset() ) {
+        uint64_t diff = abs( *y4m_writer.last_offset() - *wav_writer.last_offset() );
+        if ( diff > 540000 /* 20 ms */ ) {
+          cerr << "Warning: a/v sync is off by " << (diff / 27000.0) << " ms\n";
+          throw runtime_error( "BUG: a/v sync failure" );
         }
       }
     }
