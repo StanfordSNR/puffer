@@ -1,6 +1,6 @@
 AM_CPPFLAGS = $(CXX17_FLAGS) $(SSL_CFLAGS) -I$(srcdir)/../util \
 	-I$(srcdir)/../net -I$(srcdir)/../notifier -I$(srcdir)/../wrappers \
-	-isystem$(srcdir)/../../third_party/json.upstream/single_include/nlohmann
+	-isystem$(srcdir)/../../third_party/json.upstream/single_include/nlohmann $(POSTGRES_CFLAGS)
 AM_CXXFLAGS = $(PICKY_CXXFLAGS) $(EXTRA_CXXFLAGS)
 
 bin_PROGRAMS = ws_media_server

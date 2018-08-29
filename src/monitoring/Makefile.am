@@ -1,5 +1,5 @@
 AM_CPPFLAGS = $(CXX17_FLAGS) -I$(srcdir)/../util -I$(srcdir)/../notifier \
-  -I$(srcdir)/../net
+  -I$(srcdir)/../net $(POSTGRES_CFLAGS)
 AM_CXXFLAGS = $(PICKY_CXXFLAGS) $(EXTRA_CXXFLAGS)
 
 bin_PROGRAMS = file_reporter ssim_reporter log_reporter
