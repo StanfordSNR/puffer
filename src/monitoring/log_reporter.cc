@@ -17,6 +17,7 @@
 #include "http_request.hh"
 
 using namespace std;
+using namespace PollerShortNames;
 
 void print_usage(const string & program_name)
 {
@@ -55,27 +56,55 @@ void post_to_db(TCPSocket & db_sock, const vector<string> & data,
   request.done_with_headers();
   request.read_in_body(data_str);
 
-  db_sock.verify_no_errors();
   db_sock.write(move(request.str()));
 }
 
 int tail_loop(const string & log_path, TCPSocket & db_sock,
               const vector<string> & data)
 {
-  bool new_file = false;
-  string buf;
+  bool log_rotated = false;  /* whether log rotation happened */
+  string buf;  /* buffer to assemble lines read from the log */
+  vector<string> lines;  /* lines waiting to be posted to InfluxDB */
+
+  Poller poller;
+
+  poller.add_action(Poller::Action(db_sock, Direction::In,
+    [&db_sock]()->Result {
+      /* read but ignore HTTP responses from InfluxDB */
+      const string response = db_sock.read();
+      if (response.empty()) {
+        throw runtime_error("Peer socket in InfluxDB has closed");
+      }
+
+      return ResultType::Continue;
+    }
+  ));
+
+  poller.add_action(Poller::Action(db_sock, Direction::Out,
+    [&db_sock, &lines, &data]()->Result {
+      /* post each line to InfluxDB */
+      for (const string & line : lines) {
+        post_to_db(db_sock, data, line);
+      }
+      lines.clear();
+
+      return ResultType::Continue;
+    },
+    [&lines]()->bool {
+      return not lines.empty();
+    }
+  ));
+
+  Inotify inotify(poller);
 
   for (;;) {
-    Poller poller;
-    Inotify inotify(poller);
-
     /* read new lines from the end */
     FileDescriptor fd(CheckSystemCall("open (" + log_path + ")",
                                       open(log_path.c_str(), O_RDONLY)));
     fd.seek(0, SEEK_END);
 
-    inotify.add_watch(log_path, IN_MODIFY | IN_CLOSE_WRITE,
-      [&new_file, &buf, &fd, &db_sock, &data]
+    int wd = inotify.add_watch(log_path, IN_MODIFY | IN_CLOSE_WRITE,
+      [&log_rotated, &buf, &fd, &db_sock, &data, &lines]
       (const inotify_event & event, const string &) {
         if (event.mask & IN_MODIFY) {
           for (;;) {
@@ -95,7 +124,7 @@ int tail_loop(const string & log_path, TCPSocket & db_sock,
               } else {
                 buf += new_content.substr(0, pos);
                 /* buf is a complete line now */
-                post_to_db(db_sock, data, buf);
+                lines.emplace_back(move(buf));
 
                 buf = "";
                 new_content = new_content.substr(pos + 1);
@@ -104,19 +133,20 @@ int tail_loop(const string & log_path, TCPSocket & db_sock,
           }
         } else if (event.mask & IN_CLOSE_WRITE) {
           /* old log has been closed; open recreated log in next loop */
-          new_file = true;
+          log_rotated = true;
         }
       }
     );
 
-    while (not new_file) {
+    while (not log_rotated) {
       auto ret = poller.poll(-1);
       if (ret.result != Poller::Result::Type::Success) {
         return ret.exit_status;
       }
     }
 
-    new_file = false;
+    inotify.rm_watch(wd);
+    log_rotated = false;
   }
 
   return EXIT_SUCCESS;

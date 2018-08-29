@@ -77,16 +77,14 @@ Result Inotify::handle_events()
     event = reinterpret_cast<const inotify_event *>(ptr);
 
     auto map_it = map_.find(event->wd);
-    if (map_it == map_.end()) {
-      throw runtime_error(
-        "inotify event returns a nonexistent watch descriptor");
-    }
+    /* ignore events from an unwatched descriptor */
+    if (map_it != map_.end()) {
+      const auto & [path, mask, callback] = map_it->second;
 
-    const auto & [path, mask, callback] = map_it->second;
-
-    /* ignore events not interested in */
-    if ((event->mask & mask) != 0) {
-      callback(*event, path);
+      /* ignore events not interested in */
+      if ((event->mask & mask) != 0) {
+        callback(*event, path);
+      }
     }
 
     ptr += sizeof(inotify_event) + event->len;
