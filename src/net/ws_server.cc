@@ -18,29 +18,86 @@ using namespace CryptoPP;
 static string WS_MAGIC_STRING = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 static unsigned int MAX_CONNECTION_NUM = 60;
 
+bool is_valid_handshake_request(const HTTPRequest & request)
+{
+  string first_line = request.first_line();
+
+  if (first_line.substr(0, 3) != "GET") {
+    cerr << "Invalid WebSocket request: method must be GET" << endl;
+    return false;
+  }
+
+  auto last_space = first_line.rfind(" ");
+  if (last_space == string::npos) { return false; }
+
+  if (first_line.substr(last_space + 1) != "HTTP/1.1" and
+      first_line.substr(last_space + 1) != "HTTP/2") {
+    cerr << "Invalid WebSocket request: only allow HTTP/1.1 and HTTP/2" << endl;
+    return false;
+  }
+
+  if (not request.has_header("Connection") or
+      request.get_header_value("Connection") != "Upgrade") {
+    cerr << "Invalid WebSocket request: 'Connection: Upgrade' is required" << endl;
+    return false;
+  }
+
+  if (not request.has_header("Upgrade") or
+      request.get_header_value("Upgrade") != "websocket") {
+    cerr << "Invalid WebSocket request: 'Upgrade: websocket' is required" << endl;
+    return false;
+  }
+
+  /* require Sec-WebSocket-Key to protect against abuse */
+  if (not request.has_header("Sec-WebSocket-Key")) {
+    cerr << "Invalid WebSocket request: 'Sec-WebSocket-Key' is required" << endl;
+    return false;
+  }
+
+  return true;
+}
+
 HTTPResponse create_handshake_response(const HTTPRequest & request)
 {
-  /* TODO check if it is really a websocket connection */
+  HTTPResponse response;
+  response.set_request(request);
+
+  /* send "400 Bad Request" for invalid WebSocket handshake request */
+  if (not is_valid_handshake_request(request)) {
+    response.set_first_line("HTTP/1.1 400 Bad Request");
+    response.add_header(HTTPHeader{"Content-Length", "0"});
+    response.add_header(HTTPHeader{"Connection", "close"});
+    response.done_with_headers();
+    response.read_in_body("");
+    return response;
+  }
+
+  /* reject requests without Origin (maybe check for same origin later) */
+  if (not request.has_header("Origin")) {
+    response.set_first_line("HTTP/1.1 403 Forbidden");
+    response.add_header(HTTPHeader{"Content-Length", "0"});
+    response.add_header(HTTPHeader{"Connection", "close"});
+    response.done_with_headers();
+    response.read_in_body("");
+    return response;
+  }
+
+  /* compute the value of Sec-WebSocket-Accept based on Sec-WebSocket-Key */
   string sec_key = request.get_header_value("Sec-WebSocket-Key");
-  string sec_version = request.get_header_value("Sec-WebSocket-Version");
   string sec_accept;
-
   CryptoPP::SHA1 sha1_function;
-
   StringSource s( sec_key + WS_MAGIC_STRING, true,
                   new HashFilter( sha1_function,
                                   new Base64Encoder( new StringSink( sec_accept ),
                                                      false ) ) );
 
-
-  HTTPResponse response;
+  /* accept WebSocket request */
   response.set_first_line("HTTP/1.1 101 Switching Protocols");
-  response.add_header(HTTPHeader{"Upgrade", "websocket"});
   response.add_header(HTTPHeader{"Connection", "Upgrade"});
+  response.add_header(HTTPHeader{"Upgrade", "websocket"});
   response.add_header(HTTPHeader{"Sec-WebSocket-Accept", sec_accept});
   response.done_with_headers();
   response.read_in_body("");
-
   return response;
 }
 
@@ -156,13 +213,15 @@ void WSServer<SocketType>::init_listener_socket()
               auto request = move(conn.ws_handshake_parser.front());
               conn.ws_handshake_parser.pop();
 
-              try {
-                auto response = create_handshake_response(request).str();
-                conn.send_buffer.emplace_back(move(response));
-              } catch (const exception & e) {
-                /* ignore invalid requests */
-                print_exception("ws_server", e);
-                return ResultType::Continue;
+              const auto & response = create_handshake_response(request);
+              conn.send_buffer.emplace_back(response.str());
+
+              /* only continue with status code of 101 */
+              if (response.status_code() != "101") {
+                /* TODO: response will not reach the client side currently */
+                close_callback_(conn_id);
+                closed_connections_.insert(conn_id);
+                return ResultType::CancelAll;
               }
 
               conn.state = Connection::State::Connecting;
