@@ -793,7 +793,7 @@ public:
         break;
       case STATE_INVALID:
       case STATE_INVALID_END:
-        cerr << "libmpeg2 is in STATE_INVALID\n";
+        throw InvalidMPEG( "libmpeg2 is in STATE_INVALID" );
         break;
       case STATE_PICTURE:
         break;
@@ -1383,6 +1383,7 @@ int main( int argc, char *argv[] )
           video_decoder.decode_frame( PES_packet, decoded_fields );
         } catch ( const non_fatal_exception & e ) {
           print_exception( "video decode", e );
+          video_decoder = MPEG2VideoDecoder( params );
         }
       }
 
@@ -1394,6 +1395,7 @@ int main( int argc, char *argv[] )
           audio_decoder.decode_frames( PES_packet, decoded_samples );
         } catch ( const non_fatal_exception & e ) {
           print_exception( "audio decode", e );
+          audio_decoder = A52AudioDecoder();
         }
       }
 
