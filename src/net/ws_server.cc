@@ -37,7 +37,7 @@ bool is_valid_handshake_request(const HTTPRequest & request)
   }
 
   if (not request.has_header("Connection") or
-      request.get_header_value("Connection") != "Upgrade") {
+      request.get_header_value("Connection").find("Upgrade") == string::npos) {
     cerr << "Invalid WebSocket request: 'Connection: Upgrade' is required" << endl;
     return false;
   }
