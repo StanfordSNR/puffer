@@ -1004,6 +1004,8 @@ public:
 
   /* need to reset tracking after a resync */
   void reset_sync_tracking() { last_offset_.reset(); }
+
+  uint64_t outer_timestamp() const { return outer_timestamp_; }
 };
 
 class VideoOutput
@@ -1199,6 +1201,8 @@ public:
 
   /* need to reset tracking after a resync */
   void reset_sync_tracking() { last_offset_.reset(); }
+
+  uint64_t outer_timestamp() const { return outer_timestamp_; }
 };
 
 class AudioOutput
@@ -1330,6 +1334,21 @@ int main( int argc, char *argv[] )
                              Y4M_Writer & y,
                              WavWriter & w,
                              bool & initialized ) {
+      /* synchronize the outputs before the resync */
+
+      /* first: advance video to go just beyond audio */
+      while ( y.outer_timestamp() < w.outer_timestamp() ) {
+        v->write_filler_field( y );
+      }
+
+      /* second: advance audio to go just beyond video */
+      while ( w.outer_timestamp() < y.outer_timestamp() ) {
+        a->write_silence( w );
+      }
+
+      /* because the audio blocks are shorter than video fields, this will get us the closest sync */
+
+      /* next: reset everything and let it resync on next video field */
       v.reset();
       a.reset();
       y.reset_sync_tracking();
