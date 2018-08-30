@@ -1039,11 +1039,6 @@ public:
          << timestamp_difference( expected_inner_timestamp_, field.presentation_time_stamp ) << "\n";
     */
 
-    if ( field.top_field != writer.next_field_is_top() ) {
-      cerr << "ignoring field with mismatched cadence\n";
-      return;
-    }
-
     const int64_t diff = timestamp_difference( expected_inner_timestamp_,
                                                field.presentation_time_stamp );
 
@@ -1061,19 +1056,20 @@ public:
     /* field's moment is in the future -> insert filler fields */
     while ( timestamp_difference( expected_inner_timestamp_,
                                   field.presentation_time_stamp )
-            < -9 * int64_t( frame_interval_ ) / 8 ) {
-      cerr << "Generating replacement fields to fill in gap (diff now "
+            < -5 * int64_t( frame_interval_ ) / 8 ) {
+      cerr << "Generating replacement field to fill in gap (diff now "
            << timestamp_difference( expected_inner_timestamp_,
                                     field.presentation_time_stamp ) / double( frame_interval_ ) << " frames)\n";
-
-      /* first field */
-      write_filler_field( writer );
-      /* second field */
       write_filler_field( writer );
     }
 
     /* write the originally requested field */
-    write_single_field( field, writer );
+    if ( field.top_field == writer.next_field_is_top() ) {
+      write_single_field( field, writer );
+    } else {
+      cerr << "ignoring field with mismatched cadence\n";
+      write_filler_field( writer );
+    }
   }
 
   void write_filler_field( Y4M_Writer & writer )
@@ -1338,6 +1334,11 @@ int main( int argc, char *argv[] )
 
       /* first: advance video to go just beyond audio */
       while ( y.outer_timestamp() < w.outer_timestamp() ) {
+        v->write_filler_field( y );
+      }
+
+      /* step 1.5: make sure we end on a bottom field */
+      if ( not y.next_field_is_top() ) {
         v->write_filler_field( y );
       }
 
