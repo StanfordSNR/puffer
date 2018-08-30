@@ -122,6 +122,12 @@ public:
   using non_fatal_exception::non_fatal_exception;
 };
 
+class HugeTimestampDifference : public non_fatal_exception
+{
+public:
+  using non_fatal_exception::non_fatal_exception;
+};
+
 struct FieldBuffer : public Raster
 {
   using Raster::Raster;
@@ -1069,7 +1075,7 @@ public:
     if ( diff > 0 ) {
       cerr << "Warning, ignoring field whose timestamp has already passed (diff = " << diff / double( frame_interval_ ) << " frames).\n";
       if ( diff > frame_interval_ * 60 * 60 ) {
-        throw runtime_error( "BUG: huge video difference (need to reinitialize inner timestamp)" );
+        throw HugeTimestampDifference( "huge video timestamp difference" );
       }
       return;
     }
@@ -1243,7 +1249,7 @@ public:
     if ( diff > 0 ) {
       cerr << "Warning, ignoring audio whose timestamp has already passed (diff = " << diff / double( audio_block_duration ) << " blocks).\n";
       if ( diff > audio_block_duration * 187 * 60 ) {
-        throw runtime_error( "BUG: huge audio difference (need to reinitialize inner timestamp)" );
+        throw HugeTimestampDifference( "huge audio timestamp difference" );
       }
       return;
     }
@@ -1372,16 +1378,36 @@ int main( int argc, char *argv[] )
           audio_output.emplace( decoded_fields.front().presentation_time_stamp );
           outputs_initialized = true;
         }
-        video_output.value().write( decoded_fields.front(), y4m_writer );
+
+        try {
+          video_output.value().write( decoded_fields.front(), y4m_writer );
+        } catch ( const HugeTimestampDifference & e ) {
+          /* need to reinitialize inner timestamps */
+          print_exception( "video output", e );
+          video_output.reset();
+          audio_output.reset();
+          outputs_initialized = false;
+        }
         decoded_fields.pop();
       }
 
       /* output audio? */
-      if ( outputs_initialized ) {
-        while ( not decoded_samples.empty() ) {
-          audio_output.value().write( decoded_samples.front(), wav_writer );
-          decoded_samples.pop();
+      while ( not decoded_samples.empty() ) {
+        /* only initialize timestamps on valid video */
+        if ( not outputs_initialized ) {
+          break;
         }
+
+        try {
+          audio_output.value().write( decoded_samples.front(), wav_writer );
+        } catch ( const HugeTimestampDifference & e ) {
+          /* need to reinitialize inner timestamps */
+          print_exception( "audio output", e );
+          video_output.reset();
+          audio_output.reset();
+          outputs_initialized = false;
+        }
+        decoded_samples.pop();
       }
     }
   } catch ( const exception & e ) {
