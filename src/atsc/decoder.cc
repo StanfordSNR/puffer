@@ -1374,6 +1374,10 @@ int main( int argc, char *argv[] )
       while ( not decoded_fields.empty() ) {
         /* initialize audio and video outputs with earliest video field as first timestamp */
         if ( not outputs_initialized ) {
+          if ( decoded_fields.front().top_field != y4m_writer.next_field_is_top() ) {
+            decoded_fields.pop();
+            continue;
+          }
           video_output.emplace( params, decoded_fields.front().presentation_time_stamp );
           audio_output.emplace( decoded_fields.front().presentation_time_stamp );
           outputs_initialized = true;
