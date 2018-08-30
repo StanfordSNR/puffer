@@ -83,6 +83,7 @@ public:
   std::optional<uint64_t> client_next_vts() const { return client_next_vts_; }
   std::optional<uint64_t> client_next_ats() const { return client_next_ats_; }
 
+  std::optional<time_t> get_last_msg_time() const { return last_msg_time_; }
   unsigned int init_id() const { return init_id_; }
 
   bool rebuffer() const { return rebuffer_; }
@@ -124,6 +125,7 @@ public:
   void set_client_next_ats(const uint64_t ats) { client_next_ats_ = ats; }
 
   void set_rebuffer(const bool rebuffer) { rebuffer_ = rebuffer; }
+  void set_last_msg_time(const time_t t) { last_msg_time_ = t; }
 
 private:
   std::string username_ {};
@@ -155,6 +157,7 @@ private:
   std::optional<uint64_t> client_next_ats_ {};
   bool rebuffer_ {};
 
+  std::optional<time_t> last_msg_time_ {};
   unsigned int init_id_ {0};
 };
 

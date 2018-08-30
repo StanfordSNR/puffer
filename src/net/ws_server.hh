@@ -87,7 +87,12 @@ public:
   void set_close_callback(CloseCallback func) { close_callback_ = func; }
 
   bool queue_frame(const uint64_t connection_id, const WSFrame & frame);
+
+  /* gracefully close the connection */
   void close_connection(const uint64_t connection_id);
+  /* force drop a connection */
+  void drop_connection(const uint64_t connection_id);
+
   Address peer_addr(const uint64_t connection_id) const;
 
   unsigned int buffer_bytes(const uint64_t connection_id) const;

@@ -326,12 +326,13 @@ function WebSocketClient(video, audio, session_key, username) {
 
   function send_client_init(ws, channel) {
     if (ws && ws.readyState === WS_OPEN) {
-      if (browser === null) {
-        const client_info = get_client_system_info();
-        os = client_info.os;
-        browser = client_info.browser;
-      }
       try {
+        if (browser === null) {
+          const client_info = get_client_system_info();
+          os = client_info.os;
+          browser = client_info.browser;
+        }
+
         var msg = {
           sessionKey: session_key,
           userName: username,
@@ -352,7 +353,7 @@ function WebSocketClient(video, audio, session_key, username) {
         ws.send(format_client_msg('client-init', msg));
 
         if (debug) {
-          console.log('sent client-init');
+          console.log('sent client-init', msg);
         }
       } catch (e) {
         console.log(e);
@@ -361,9 +362,10 @@ function WebSocketClient(video, audio, session_key, username) {
   }
 
   function send_client_info(event, extra_payload = {}) {
-    if (debug && av_source && av_source.isOpen()) {
+    /* if (debug && av_source && av_source.isOpen()) {
       av_source.logBufferInfo();
-    }
+    } */
+
     if (ws && ws.readyState === WS_OPEN && av_source && av_source.isOpen()) {
       try {
         var payload = {
@@ -508,11 +510,6 @@ function WebSocketClient(video, audio, session_key, username) {
   // Start sending status updates to the server
   function timer_helper() {
     audio.currentTime = video.currentTime;
-
-    if (debug) {
-      console.log('video.currentTime', video.currentTime,
-                  'audio.currentTime', audio.currentTime);
-    }
 
     send_client_info('timer');
     setTimeout(timer_helper, TIMER_INTERVAL);

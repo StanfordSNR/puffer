@@ -201,8 +201,7 @@ void WSServer<SocketType>::init_listener_socket()
           const string data = conn.read();
 
           if (data.empty()) {
-            close_callback_(conn_id);
-            closed_connections_.insert(conn_id);
+            drop_connection(conn_id);
             return ResultType::CancelAll;
           }
 
@@ -219,8 +218,7 @@ void WSServer<SocketType>::init_listener_socket()
               /* only continue with status code of 101 */
               if (response.status_code() != "101") {
                 /* TODO: response will not reach the client side currently */
-                close_callback_(conn_id);
-                closed_connections_.insert(conn_id);
+                drop_connection(conn_id);
                 return ResultType::CancelAll;
               }
 
@@ -290,8 +288,7 @@ void WSServer<SocketType>::init_listener_socket()
                 conn.send_buffer.clear();
 
                 /* we don't want to poll on this socket anymore */
-                close_callback_(conn_id);
-                closed_connections_.insert(conn_id);
+                drop_connection(conn_id);
                 return ResultType::CancelAll;
 
               default:
@@ -335,8 +332,7 @@ void WSServer<SocketType>::init_listener_socket()
 
           if (conn.state == Connection::State::Closed and
               not conn.data_to_send()) {
-            close_callback_(conn_id);
-            closed_connections_.insert(conn_id);
+            drop_connection(conn_id);
             return ResultType::CancelAll;
           }
 
@@ -415,6 +411,21 @@ void WSServer<SocketType>::close_connection(const uint64_t connection_id)
   WSFrame close_frame { true, WSFrame::OpCode::Close, "" };
   queue_frame(connection_id, close_frame);
   conn.state = Connection::State::Closing;
+}
+
+template<class SocketType>
+void WSServer<SocketType>::drop_connection(const uint64_t connection_id)
+{
+  auto conn_it = connections_.find(connection_id);
+  if (conn_it == connections_.end()) {
+    /* connection does not exist any longer */
+    return;
+  }
+
+  auto & conn = conn_it->second;
+  conn.state = Connection::State::Closed;
+  close_callback_(connection_id);
+  closed_connections_.insert(connection_id);
 }
 
 template<class SocketType>
