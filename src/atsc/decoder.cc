@@ -1056,10 +1056,11 @@ public:
     /* field's moment is in the future -> insert filler fields */
     while ( timestamp_difference( expected_inner_timestamp_,
                                   field.presentation_time_stamp )
-            < -5 * int64_t( frame_interval_ ) / 8 ) {
-      cerr << "Generating replacement field to fill in gap (diff now "
+            < -9 * int64_t( frame_interval_ ) / 8 ) {
+      cerr << "Generating replacement fields to fill in gap (diff now "
            << timestamp_difference( expected_inner_timestamp_,
                                     field.presentation_time_stamp ) / double( frame_interval_ ) << " frames)\n";
+      write_filler_field( writer );
       write_filler_field( writer );
     }
 
@@ -1068,7 +1069,6 @@ public:
       write_single_field( field, writer );
     } else {
       cerr << "ignoring field with mismatched cadence\n";
-      write_filler_field( writer );
     }
   }
 
@@ -1442,7 +1442,7 @@ int main( int argc, char *argv[] )
       /* check a/v sync */
       if ( y4m_writer.last_offset() and wav_writer.last_offset() ) {
         uint64_t diff = abs( *y4m_writer.last_offset() - *wav_writer.last_offset() );
-        if ( diff > 540000 /* 20 ms */ ) {
+        if ( diff > 1080000 /* 40 ms */ ) {
           cerr << "Warning: a/v sync is off by " << (diff / 27000.0) << " ms\n";
           throw runtime_error( "BUG: a/v sync failure" );
         }
