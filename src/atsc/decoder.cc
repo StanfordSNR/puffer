@@ -1065,18 +1065,20 @@ public:
                                     field.presentation_time_stamp ) / double( frame_interval_ ) << " frames)\n";
 
       /* first field */
-      missing_field_.presentation_time_stamp = expected_inner_timestamp_;
-      missing_field_.top_field = writer.next_field_is_top();
-      write_single_field( missing_field_, writer );
-
+      write_filler_field( writer );
       /* second field */
-      missing_field_.presentation_time_stamp = expected_inner_timestamp_;
-      missing_field_.top_field = writer.next_field_is_top();
-      write_single_field( missing_field_, writer );
+      write_filler_field( writer );
     }
 
     /* write the originally requested field */
     write_single_field( field, writer );
+  }
+
+  void write_filler_field( Y4M_Writer & writer )
+  {
+    missing_field_.presentation_time_stamp = expected_inner_timestamp_;
+    missing_field_.top_field = writer.next_field_is_top();
+    write_single_field( missing_field_, writer );
   }
 };
 
@@ -1248,11 +1250,16 @@ public:
       cerr << "Generating silent blocks to fill in gap (diff now "
            << timestamp_difference( expected_inner_timestamp_,
                                     audio_block.presentation_time_stamp ) / double( audio_block_duration ) << " blocks)\n";
-      silence_.presentation_time_stamp = expected_inner_timestamp_;
-      write_block( silence_, writer );
+      write_silence( writer );
     }
 
     write_block( audio_block, writer );
+  }
+
+  void write_silence( WavWriter & writer )
+  {
+    silence_.presentation_time_stamp = expected_inner_timestamp_;
+    write_block( silence_, writer );
   }
 };
 
