@@ -5,7 +5,6 @@
 
 #include "filesystem.hh"
 #include "path.hh"
-#include "util.hh"
 #include "child_process.hh"
 #include "media_formats.hh"
 
@@ -259,7 +258,7 @@ int main(int argc, char * argv[])
   vector<AudioFormat> aformats = get_audio_formats(config);
 
   /* create output directory */
-  output_path = expand_user(config["output"].as<string>());
+  output_path = config["output"].as<string>();
 
   if (fs::exists(output_path)) {
     /* clean up output_dir if overwrite_output is true */

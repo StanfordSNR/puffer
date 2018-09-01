@@ -1,9 +1,0 @@
-output: test/
-overwrite_output: true
-video:
-  1280x720: [23]
-  854x480: [18]
-audio:
-  - 64k
-  - 32k
-clean_window_s: 60

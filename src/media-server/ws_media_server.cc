@@ -817,7 +817,7 @@ int main(int argc, char * argv[])
   /* load YAML settings */
   YAML::Node config = YAML::LoadFile(argv[1]);
   load_global_settings(config);
-  log_dir = expand_user(config["log_dir"].as<string>());
+  log_dir = config["log_dir"].as<string>();
 
   /* create a WebSocketServer instance */
   const string ip = "0.0.0.0";
@@ -827,10 +827,8 @@ int main(int argc, char * argv[])
   #ifdef NONSECURE
   cerr << "Launching non-secure WebSocket server" << endl;
   #else
-  server.ssl_context().use_private_key_file(
-      expand_user(config["private_key"].as<string>()));
-  server.ssl_context().use_certificate_file(
-      expand_user(config["certificate"].as<string>()));
+  server.ssl_context().use_private_key_file(config["private_key"].as<string>());
+  server.ssl_context().use_certificate_file(config["certificate"].as<string>());
   cerr << "Launching secure WebSocket server" << endl;
   #endif
 
