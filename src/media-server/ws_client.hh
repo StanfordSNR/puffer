@@ -90,6 +90,8 @@ public:
   std::optional<uint16_t> screen_height() const { return screen_height_; }
   std::optional<uint16_t> screen_width() const { return screen_width_; }
 
+  std::optional<double> curr_tput() const { return curr_tput_; }
+
   bool is_format_capable(const VideoFormat & format) const {
     return (not max_video_width_ or format.width <= max_video_width_) and
            (not max_video_height_ or format.height <= max_video_height_);
@@ -126,6 +128,7 @@ public:
 
   void set_rebuffer(const bool rebuffer) { rebuffer_ = rebuffer; }
   void set_last_msg_time(const time_t t) { last_msg_time_ = t; }
+  void set_curr_tput(const double curr_tput) { curr_tput_ = curr_tput; }
 
 private:
   std::string username_ {};
@@ -156,6 +159,7 @@ private:
   std::optional<uint64_t> client_next_vts_ {};
   std::optional<uint64_t> client_next_ats_ {};
   bool rebuffer_ {};
+  std::optional<double> curr_tput_ {};
 
   std::optional<time_t> last_msg_time_ {};
   unsigned int init_id_ {0};

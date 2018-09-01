@@ -36,7 +36,7 @@ using WebSocketServer = WebSocketSecureServer;
 /* global settings */
 static const unsigned int DEFAULT_MAX_BUFFER_S = 15;
 static const unsigned int DEFAULT_MAX_INFLIGHT_S = 10;
-static const size_t DEFAULT_MAX_WS_FRAME_LEN = 5000000;
+static const size_t DEFAULT_MAX_WS_FRAME_LEN = 100000;
 static const size_t DEFAULT_MAX_WS_QUEUE_LEN = 30 * DEFAULT_MAX_WS_FRAME_LEN;
 static const unsigned int MAX_IDLE_S = 10;  /* max client idle time (seconds) */
 
@@ -739,6 +739,11 @@ void handle_client_info(WebSocketClient & client, const ClientInfoMsg & msg)
       client.set_rebuffer(false);
       append_log_rebuffer_rate(cur_time);
     }
+  }
+
+  /* get current throughput of the client */
+  if (msg.curr_tput and msg.curr_tput.value() > 0) {
+    client.set_curr_tput(msg.curr_tput.value());
   }
 }
 

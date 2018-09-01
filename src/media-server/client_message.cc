@@ -99,6 +99,7 @@ ClientInfoMsg ClientMsgParser::parse_info_msg()
     if (ret.event == ClientInfoMsg::PlayerEvent::VideoAck) {
       ret.ssim = msg_.at("ssim").get<double>();
     }
+    ret.curr_tput = msg_.at("curr_tput").get<double>();
   }
 
   return ret;
