@@ -301,7 +301,7 @@ void serve_video_to_client(WebSocketServer & server, WebSocketClient & client)
     client.set_next_vsegment(next_vq, channel.vdata(next_vq, next_vts),
                              init_mmap);
   } else {
-    ssim = channel.vssim(next_vts).at(client.curr_vq().value());
+    ssim = channel.vssim(next_vts).at(client.next_vsegment().value().format());
     cerr << client.signature() << ": channel " << channel.name()
          << ", continuing video " << next_vts << endl;
   }
