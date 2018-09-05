@@ -37,7 +37,7 @@ function concat_arraybuffers(arr, len) {
   return tmp.buffer;
 }
 
-function AVSource(video, audio, options) {
+function AVSource(video, options) {
   /* SourceBuffers for audio and video */
   var vbuf = null, abuf = null;
 
@@ -61,10 +61,7 @@ function AVSource(video, audio, options) {
   var ms = new MediaSource();
 
   video.src = URL.createObjectURL(ms);
-  audio.src = URL.createObjectURL(ms);
-
   video.load();
-  audio.load();
 
   var that = this;
 
@@ -73,7 +70,6 @@ function AVSource(video, audio, options) {
     console.log('Initializing new media source buffer');
 
     video.currentTime = init_seek_ts / timescale;
-    audio.currentTime = video.currentTime;
 
     vbuf = ms.addSourceBuffer(video_codec);
     vbuf.addEventListener('updateend', that.vbuf_update);
@@ -251,17 +247,6 @@ function AVSource(video, audio, options) {
       console.log('video range:',
                   video.buffered.start(i), '-', video.buffered.end(i));
     }
-
-    if (audio.buffered.length > 1) {
-      console.log('Error: audio.buffered.length=' + audio.buffered.length +
-                  ', server not sending segments in order?');
-    }
-
-    for (var i = 0; i < audio.buffered.length; i++) {
-      // Same comment as above
-      console.log('audio range:',
-                  audio.buffered.start(i), '-', audio.buffered.end(i));
-    }
   };
 
   this.getChannel = function() { return channel; }
@@ -312,7 +297,7 @@ function AVSource(video, audio, options) {
   };
 }
 
-function WebSocketClient(video, audio, session_key, username) {
+function WebSocketClient(video, session_key, username) {
   var ws = null;
   var av_source = null;
 
@@ -413,7 +398,7 @@ function WebSocketClient(video, audio, session_key, username) {
         if (av_source) {
           av_source.close();
         }
-        av_source = new AVSource(video, audio, message.metadata);
+        av_source = new AVSource(video, message.metadata);
       }
     } else if (message.metadata.type === 'server-audio') {
       if (debug) {
@@ -509,8 +494,6 @@ function WebSocketClient(video, audio, session_key, username) {
 
   // Start sending status updates to the server
   function timer_helper() {
-    audio.currentTime = video.currentTime;
-
     send_client_info('timer');
     setTimeout(timer_helper, TIMER_INTERVAL);
   }
@@ -643,8 +626,7 @@ function start_puffer(session_key, username, settings_debug) {
   non_secure = settings_debug;
 
   const video = document.getElementById('tv-video');
-  const audio = document.getElementById('tv-audio');
 
-  const client = new WebSocketClient(video, audio, session_key, username);
+  const client = new WebSocketClient(video, session_key, username);
   return client;
 }
