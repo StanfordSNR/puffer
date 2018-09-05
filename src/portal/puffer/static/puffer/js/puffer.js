@@ -260,8 +260,7 @@ function AVSource(video, options) {
     }
   };
 
-  /* TODO: audio.buffered does not contain a correct length;
-   * use video buffer length for now */
+  /* Use video buffer length for the audio */
   this.getAudioBufferLen = function() {
     return that.getVideoBufferLen();
   };
@@ -331,7 +330,8 @@ function WebSocketClient(video, session_key, username) {
           screenWidth: screen.width
         };
 
-        if (av_source && av_source.getChannel() === channel) {
+        if (av_source && av_source.isOpen() &&
+            av_source.getChannel() === channel) {
           msg.nextAudioTimestamp = av_source.getNextAudioTimestamp();
           msg.nextVideoTimestamp = av_source.getNextVideoTimestamp();
         }
@@ -402,11 +402,12 @@ function WebSocketClient(video, session_key, username) {
         console.log(message.metadata.type, message.metadata);
       }
 
-      if (av_source && av_source.canResume(message.metadata)) {
+      if (av_source && av_source.isOpen() &&
+          av_source.canResume(message.metadata)) {
         console.log('Resuming playback');
         av_source.resume(message.metadata);
       } else {
-        if (av_source) {
+        if (av_source && av_source.isOpen()) {
           av_source.close();
         }
         av_source = new AVSource(video, message.metadata);
@@ -419,7 +420,8 @@ function WebSocketClient(video, session_key, username) {
       }
 
       /* ignore chunks from wrong channels */
-      if (av_source && av_source.getChannel() === message.metadata.channel) {
+      if (av_source && av_source.isOpen() &&
+          av_source.getChannel() === message.metadata.channel) {
         av_source.handleAudio(message.data, message.metadata);
         send_client_info('audack', {...message.metadata, curr_tput});
       }
@@ -431,7 +433,8 @@ function WebSocketClient(video, session_key, username) {
       }
 
       /* ignore chunks from wrong channels */
-      if (av_source && av_source.getChannel() === message.metadata.channel) {
+      if (av_source && av_source.isOpen() &&
+          av_source.getChannel() === message.metadata.channel) {
         av_source.handleVideo(message.data, message.metadata);
         send_client_info('vidack', {...message.metadata, curr_tput});
       }
@@ -472,7 +475,7 @@ function WebSocketClient(video, session_key, username) {
         console.log('Reconnecting in ' + rc_backoff + 'ms');
 
         setTimeout(function() {
-          if (av_source){
+          if (av_source && av_source.isOpen()) {
             that.connect(av_source.getChannel());
           } else {
             that.connect(channel);
@@ -512,7 +515,7 @@ function WebSocketClient(video, session_key, username) {
 
   const na = 'N/A';
   function debug_timer_helper() {
-    if (av_source) {
+    if (av_source && av_source.isOpen()) {
       var video_buf = document.getElementById('video-buf');
       const vbuf_val = av_source.getVideoBufferLen();
       video_buf.innerHTML = vbuf_val >= 0 ? vbuf_val.toFixed(1) : na;
