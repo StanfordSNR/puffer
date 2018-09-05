@@ -37,6 +37,7 @@ using WebSocketServer = WebSocketSecureServer;
 static const unsigned int DEFAULT_MAX_BUFFER_S = 15;
 static const unsigned int DEFAULT_MAX_INFLIGHT_S = 10;
 static const size_t DEFAULT_MAX_WS_FRAME_LEN = 100000;
+static const size_t DEFAULT_MAX_WS_FRAME_NUM = 10;
 static const size_t DEFAULT_MAX_WS_QUEUE_LEN = 30 * DEFAULT_MAX_WS_FRAME_LEN;
 static const unsigned int MAX_IDLE_S = 10;  /* max client idle time (seconds) */
 
@@ -312,25 +313,28 @@ void serve_video_to_client(WebSocketServer & server, WebSocketClient & client)
          << ", continuing video " << next_vts << endl;
   }
 
-  VideoSegment & next_vsegment = client.next_vsegment().value();
+  for (size_t num = 0; num < DEFAULT_MAX_WS_FRAME_NUM; num++) {
+    VideoSegment & next_vsegment = client.next_vsegment().value();
 
-  ServerVideoMsg video_msg(channel.name(),
-                           next_vsegment.format().to_string(),
-                           ssim,
-                           next_vts,
-                           channel.vduration(),
-                           next_vsegment.offset(),
-                           next_vsegment.length());
-  string frame_payload = video_msg.to_string();
-  next_vsegment.read(frame_payload, max_ws_frame_len);
+    ServerVideoMsg video_msg(channel.name(),
+                             next_vsegment.format().to_string(),
+                             ssim,
+                             next_vts,
+                             channel.vduration(),
+                             next_vsegment.offset(),
+                             next_vsegment.length());
+    string frame_payload = video_msg.to_string();
+    next_vsegment.read(frame_payload, max_ws_frame_len);
 
-  WSFrame frame {true, WSFrame::OpCode::Binary, move(frame_payload)};
-  server.queue_frame(client.connection_id(), frame);
+    WSFrame frame {true, WSFrame::OpCode::Binary, move(frame_payload)};
+    server.queue_frame(client.connection_id(), frame);
 
-  if (next_vsegment.done()) {
-    client.set_next_vts(next_vts + channel.vduration());
-    client.set_curr_vq(next_vsegment.format());
-    client.clear_next_vsegment();
+    if (next_vsegment.done()) {
+      client.set_next_vts(next_vts + channel.vduration());
+      client.set_curr_vq(next_vsegment.format());
+      client.clear_next_vsegment();
+      return;
+    }
   }
 }
 
