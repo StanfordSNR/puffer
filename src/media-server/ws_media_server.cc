@@ -53,6 +53,7 @@ static Timerfd global_timer;  /* non-blocking global timer fd for scheduling */
 static fs::path log_dir;  /* parent directory for logging */
 static map<string, FileDescriptor> log_fds;  /* map log name to fd */
 static const unsigned int MAX_LOG_FILESIZE = 10 * 1024 * 1024;  /* 10 MB */
+static const unsigned int MAX_ATOMIC_APPEND_SIZE = 4096;  /* on Linux */
 
 static bool debug = false;
 
@@ -223,6 +224,11 @@ const AudioFormat & select_audio_quality(WebSocketClient & client)
 
 void append_to_log(const string & log_name, const string & log_line)
 {
+  if (log_line.size() > MAX_ATOMIC_APPEND_SIZE) {
+    cerr << "Warning: appending " << log_line.size()
+         << " bytes is not atomic" << endl;
+  }
+
   string log_path = log_dir / log_name;
 
   /* find or create a file descriptor for the log */
