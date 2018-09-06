@@ -746,7 +746,8 @@ void handle_client_info(WebSocketClient & client, const ClientInfoMsg & msg)
   }
 
   /* get current throughput of the client */
-  if (msg.curr_tput and msg.curr_tput.value() > 0) {
+  if (msg.event == ClientInfoMsg::PlayerEvent::VideoAck and
+      msg.curr_tput and msg.curr_tput.value() > 0) {
     client.set_curr_tput(msg.curr_tput.value());
   }
 }

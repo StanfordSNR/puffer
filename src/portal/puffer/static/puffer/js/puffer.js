@@ -194,8 +194,8 @@ function AVSource(video, options) {
       partial_video_chunks = [];
       next_video_timestamp = metadata.timestamp + metadata.duration;
 
-      curr_video_bitrate = 8 * 1e-6 * metadata.totalByteLength /
-                           (metadata.duration / GLOBAL_TIMESCALE);
+      curr_video_bitrate = 0.001 * 8 * metadata.totalByteLength /
+                           (metadata.duration / GLOBAL_TIMESCALE);  // kbps
     } else if (debug) {
       console.log('video: not done receiving', metadata.timestamp);
     }
@@ -303,7 +303,7 @@ function WebSocketClient(video, session_key, username) {
   /* Exponential backoff to reconnect */
   var rc_backoff = BASE_RECONNECT_BACKOFF;
   var last_open = null;
-  var last_received_vts = null;
+  var last_received_ts = null;
 
   var that = this;
   var os = null;
@@ -382,16 +382,6 @@ function WebSocketClient(video, session_key, username) {
   /* Handle a websocket message from the server */
   function handle_msg(e) {
     var message = parse_server_msg(e.data);
-    var received_data_size = message.data.byteLength / 1024;
-    var received_ts = e.timeStamp;
-    var curr_tput = -1;
-    if (last_received_vts) {
-        var receiving_time = received_ts - last_received_vts;
-        if (receiving_time < 3000) {
-          curr_tput = received_data_size / receiving_time * 1000;
-        }
-    }
-    last_received_vts = e.timeStamp;
 
     if (message.metadata.type === 'server-hello') {
       if (debug) {
@@ -423,7 +413,7 @@ function WebSocketClient(video, session_key, username) {
       if (av_source && av_source.isOpen() &&
           av_source.getChannel() === message.metadata.channel) {
         av_source.handleAudio(message.data, message.metadata);
-        send_client_info('audack', {...message.metadata, curr_tput});
+        send_client_info('audack', message.metadata);
       }
     } else if (message.metadata.type === 'server-video') {
       if (debug) {
@@ -436,11 +426,24 @@ function WebSocketClient(video, session_key, username) {
       if (av_source && av_source.isOpen() &&
           av_source.getChannel() === message.metadata.channel) {
         av_source.handleVideo(message.data, message.metadata);
+
+        /* estimate throughput */
+        var received_data_size = message.data.byteLength * 8;
+        var curr_tput = -1;
+        if (last_received_ts) {
+          var receiving_time = e.timeStamp - last_received_ts;
+          if (receiving_time < 3000 && receiving_time > 0) {
+            curr_tput = received_data_size / receiving_time;  // kbps
+          }
+        }
+
         send_client_info('vidack', {...message.metadata, curr_tput});
       }
     } else {
       console.log('received unknown message', message.metadata.type);
     }
+
+    last_received_ts = e.timeStamp;
   }
 
   this.connect = function(channel) {
