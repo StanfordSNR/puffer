@@ -38,8 +38,11 @@ function concat_arraybuffers(arr, len) {
 }
 
 function AVSource(video, options) {
+  var that = this;
+
   /* SourceBuffers for audio and video */
   var vbuf = null, abuf = null;
+  var error_handler = null;
 
   var channel = options.channel;
   var video_codec = options.videoCodec;
@@ -63,8 +66,6 @@ function AVSource(video, options) {
   video.src = URL.createObjectURL(ms);
   video.load();
 
-  var that = this;
-
   /* Initialize video and audio source buffers, and set the initial offset */
   function init_source_buffers() {
     console.log('Initializing new media source buffer');
@@ -76,10 +77,10 @@ function AVSource(video, options) {
     vbuf.addEventListener('error', function(e) {
       console.log('video source buffer error:', e);
       that.close();
+      if (that.error_handler) { that.error_handler(); }
     });
     vbuf.addEventListener('abort', function(e) {
       console.log('video source buffer abort:', e);
-      that.close();
     });
 
     abuf = ms.addSourceBuffer(audio_codec);
@@ -87,10 +88,10 @@ function AVSource(video, options) {
     abuf.addEventListener('error', function(e) {
       console.log('audio source buffer error:', e);
       that.close();
+      if (that.error_handler) { that.error_handler(); }
     });
     abuf.addEventListener('abort', function(e) {
       console.log('audio source buffer abort:', e);
-      that.close();
     });
 
     /* check if there are already pending media chunks */
@@ -123,6 +124,7 @@ function AVSource(video, options) {
   ms.addEventListener('error', function(e) {
     console.log('media source error: ' + ms.readyState, e);
     that.close();
+    if (that.error_handler) { that.error_handler(); }
   });
 
   this.canResume = function(options) {
@@ -297,6 +299,8 @@ function AVSource(video, options) {
 }
 
 function WebSocketClient(video, session_key, username) {
+  var that = this;
+
   var ws = null;
   var av_source = null;
 
@@ -305,7 +309,6 @@ function WebSocketClient(video, session_key, username) {
   var last_open = null;
   var last_received_ts = null;
 
-  var that = this;
   var os = null;
   var browser = null;
 
@@ -392,16 +395,22 @@ function WebSocketClient(video, session_key, username) {
         console.log(message.metadata.type, message.metadata);
       }
 
+      /* return if client is able to resume */
       if (av_source && av_source.isOpen() &&
           av_source.canResume(message.metadata)) {
         console.log('Resuming playback');
         av_source.resume(message.metadata);
-      } else {
-        if (av_source && av_source.isOpen()) {
-          av_source.close();
-        }
-        av_source = new AVSource(video, message.metadata);
+        return;
       }
+
+      /* client is unable to resume */
+      if (av_source) { av_source.close(); }
+      av_source = new AVSource(video, message.metadata);
+
+      /* restart on (mysterious) errors */
+      av_source.error_handler = function() {
+        send_client_init(ws, message.metadata.channel);
+      };
     } else if (message.metadata.type === 'server-audio') {
       if (debug) {
         console.log('received', message.metadata.type,
@@ -437,6 +446,7 @@ function WebSocketClient(video, session_key, username) {
           }
         }
 
+        const curr_tput_str = curr_tput.toFixed(2);
         send_client_info('vidack', {...message.metadata, curr_tput});
       }
     } else {

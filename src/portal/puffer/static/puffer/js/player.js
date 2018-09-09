@@ -29,7 +29,7 @@ function ControlBar() {
   /* after setting the initial volume, don't manually set video.volume anymore;
    * call the function below instead */
   function set_video_volume(new_volume) {
-    new_volume = Math.min(Math.max(0, new_volume.toPrecision(2)), 1);
+    new_volume = Math.min(Math.max(0, new_volume.toFixed(2)), 1);
 
     video.muted = false;  // allow unmuting and use video.volume to control
     video.volume = new_volume;
