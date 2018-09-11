@@ -1047,7 +1047,7 @@ public:
                                                field.presentation_time_stamp );
 
     /* gap is too big -> bomb out and force reinitialization */
-    if ( abs( diff ) > frame_interval_ * 60 * 60 ) {
+    if ( abs( diff ) > frame_interval_ * 60 * 3 ) {
       throw HugeTimestampDifference( "huge video timestamp difference" );
     }
 
@@ -1237,7 +1237,7 @@ public:
                                                audio_block.presentation_time_stamp );
 
     /* gap is too big -> bomb out and force reinitialization */
-    if ( abs( diff ) > audio_block_duration * 187 * 60 ) {
+    if ( abs( diff ) > audio_block_duration * 187 * 3 ) {
       throw HugeTimestampDifference( "huge audio timestamp difference" );
     }
 
