@@ -431,6 +431,12 @@ void serve_client(WebSocketServer & server, WebSocketClient & client)
 {
   const Channel & channel = channels.at(client.channel().value());
 
+  if (not channel.ready()) {
+    cerr << client.signature()
+         << ": cannot serve because channel is not available anymore" << endl;
+    return;
+  }
+
   if (channel.live()) {
     /* reinitialize very slow clients if the cleaner has caught up */
     auto vclean_frontier = channel.vclean_frontier();
@@ -600,7 +606,7 @@ void handle_client_init(WebSocketServer & server, WebSocketClient & client,
   auto & channel = it->second;
 
   /* ignore client-init if the channel is not ready */
-  if (not channel.init_vts()) {
+  if (not channel.ready()) {
     cerr << client.signature()
          << ": ignored client-init (channel is not ready)" << endl;
     return;

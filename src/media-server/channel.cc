@@ -284,7 +284,9 @@ void Channel::do_mmap_video(const fs::path & filepath, const VideoFormat & vf)
         /* assert that clean frontier < live frontier */
         if (vclean_frontier_ and vlive_frontier_ and
             vclean_frontier_.value() >= vlive_frontier_.value()) {
-          throw runtime_error("Video cleaner has caught up");
+          cerr << "Error: video cleaner has caught up" << endl;
+          vlive_frontier_.reset();
+          alive_frontier_.reset();
         }
       }
     }
@@ -341,7 +343,9 @@ void Channel::do_mmap_audio(const fs::path & filepath, const AudioFormat & af)
         /* assert that clean frontier < live frontier */
         if (aclean_frontier_ and alive_frontier_ and
             aclean_frontier_.value() >= alive_frontier_.value()) {
-          throw runtime_error("Audio cleaner has caught up");
+          cerr << "Error: audio cleaner has caught up" << endl;
+          vlive_frontier_.reset();
+          alive_frontier_.reset();
         }
       }
     }
