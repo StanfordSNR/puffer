@@ -844,13 +844,17 @@ public:
 
       /* step 1: parse and decode old PES packet if there is one */
       if ( not PES_packet_.empty() ) {
-        PESPacketHeader pes_header { PES_packet_, is_video_ };
+        /* make sure PES_packet_ is cleared even if header parsers subsequently throw an exception */
+        string PES_packet = move( PES_packet_ );
+        PES_packet_.clear();
+
+        /* now, attempt to parse the accumulated payload as a PES packet */
+        PESPacketHeader pes_header { PES_packet, is_video_ };
 
         PES_packets.emplace( pes_header.presentation_time_stamp,
                              pes_header.payload_start,
                              pes_header.PES_packet_length,
-                             move( PES_packet_ ) );
-        PES_packet_.clear();
+                             move( PES_packet ) );
       }
 
       /* step 2: start a new PES packet */
