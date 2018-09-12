@@ -32,9 +32,6 @@ def main():
 
         (header, type_names, watch_path, filename) = event
 
-        if 'IN_CREATE' in type_names:
-            print(filename, 'is created')
-
         if 'IN_CLOSE_WRITE' not in type_names:
             continue
 

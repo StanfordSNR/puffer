@@ -721,11 +721,13 @@ void handle_client_info(WebSocketClient & client, const ClientInfoMsg & msg)
       return;
     }
 
-    /* record video quality */
-    string log_line = to_string(cur_time) + " " + client.username() + " "
-        + *client.channel() + " " + to_string(*msg.timestamp) + " "
-        + *msg.quality + " " + to_string(*msg.ssim) + "\n";
-    append_to_log("video_quality.log", log_line);
+    /* record video quality on every VideoAck for the first video segment */
+    if (msg.byte_offset == 0) {
+      string log_line = to_string(cur_time) + " " + client.username() + " "
+          + *client.channel() + " " + to_string(*msg.timestamp) + " "
+          + *msg.quality + " " + to_string(*msg.ssim) + "\n";
+      append_to_log("video_quality.log", log_line);
+    }
   }
 
   /* record rebuffer event and rebuffer rate */
