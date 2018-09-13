@@ -36,7 +36,7 @@ int main(int argc, char * argv[])
 
   /* run multiple instances of ws_media_server */
   for (int i = 1; i <= num_servers; i++) {
-    vector<string> args { ws_media_server, argv[1] };
+    vector<string> args { ws_media_server, argv[1], to_string(i) };
     proc_manager.run_as_child(ws_media_server, args);
   }
 

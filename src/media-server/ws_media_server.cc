@@ -54,8 +54,8 @@ static Timerfd global_timer;  /* non-blocking global timer fd for scheduling */
 static fs::path log_dir;  /* parent directory for logging */
 static map<string, FileDescriptor> log_fds;  /* map log name to fd */
 static const unsigned int MAX_LOG_FILESIZE = 10 * 1024 * 1024;  /* 10 MB */
-static const unsigned int MAX_ATOMIC_APPEND_SIZE = 4096;  /* on Linux */
 
+static string server_id;
 static bool debug = false;
 
 /* log data */
@@ -63,7 +63,7 @@ static unsigned int log_rebuffer_num;
 
 void print_usage(const string & program_name)
 {
-  cerr << program_name << " <YAML configuration> [debug]" << endl;
+  cerr << program_name << " <YAML configuration> <server ID> [debug]" << endl;
 }
 
 /* return "connection_id,username" or "connection_id," (unknown username) */
@@ -223,13 +223,9 @@ const AudioFormat & select_audio_quality(WebSocketClient & client)
   return channel.aformats()[ret_idx];
 }
 
-void append_to_log(const string & log_name, const string & log_line)
+void append_to_log(const string & log_stem, const string & log_line)
 {
-  if (log_line.size() > MAX_ATOMIC_APPEND_SIZE) {
-    cerr << "Warning: appending " << log_line.size()
-         << " bytes is not atomic" << endl;
-  }
-
+  string log_name = log_stem + "." + server_id + ".log";
   string log_path = log_dir / log_name;
 
   /* find or create a file descriptor for the log */
@@ -242,7 +238,7 @@ void append_to_log(const string & log_name, const string & log_line)
 
   /* append a line to log */
   FileDescriptor & fd = log_it->second;
-  fd.write(log_line);
+  fd.write(log_line + " " + server_id + "\n");
 
   /* rotate log if filesize is too large */
   if (fd.curr_offset() > MAX_LOG_FILESIZE) {
@@ -265,8 +261,8 @@ void append_log_rebuffer_rate(uint64_t cur_time)
   if (clients.size() > 0) {
     rebuffer_rate = (double) log_rebuffer_num / clients.size();
   }
-  string log_line = to_string(cur_time) + " " + to_string(rebuffer_rate) + "\n";
-  append_to_log("rebuffer_rate.log", log_line);
+  string log_line = to_string(cur_time) + " " + to_string(rebuffer_rate);
+  append_to_log("rebuffer_rate", log_line);
 }
 
 void reinit_log_data()
@@ -617,8 +613,8 @@ void handle_client_init(WebSocketServer & server, WebSocketClient & client,
     auto curtime = time(nullptr);
     channel.set_viewer_count(channel.viewer_count() + 1);
     string log_line = to_string(curtime) + " " + channel.name() + " " +
-                      to_string(channel.viewer_count()) + "\n";
-    append_to_log("active_streams.log", log_line);
+                      to_string(channel.viewer_count());
+    append_to_log("active_streams", log_line);
     return;
   }
 
@@ -649,15 +645,15 @@ void handle_client_init(WebSocketServer & server, WebSocketClient & client,
   auto curtime = time(nullptr);
   channel.set_viewer_count(channel.viewer_count() + 1);
   string log_line = to_string(curtime) + " " + channel.name() + " " +
-                    to_string(channel.viewer_count()) + "\n";
-  append_to_log("active_streams.log", log_line);
+                    to_string(channel.viewer_count());
+  append_to_log("active_streams", log_line);
 
   if (not old_channel_string.empty()) {
     Channel & old_channel = channels.at(old_channel_string);
     old_channel.set_viewer_count(old_channel.viewer_count() - 1);
     log_line = to_string(curtime) + " " + old_channel.name() + " " +
-               to_string(old_channel.viewer_count()) + "\n";
-    append_to_log("active_streams.log", log_line);
+               to_string(old_channel.viewer_count());
+    append_to_log("active_streams", log_line);
   }
 
   cerr << client.signature() << ": connection initialized. " << msg.browser
@@ -689,7 +685,7 @@ void handle_client_info(WebSocketClient & client, const ClientInfoMsg & msg)
       }
     } catch (const out_of_range & e) {
       cerr << client.signature() << "the current channel doesn't exist: "
-           << e.what() << '\n';
+           << e.what() << endl;
     }
   }
 
@@ -713,8 +709,8 @@ void handle_client_info(WebSocketClient & client, const ClientInfoMsg & msg)
     /* record playback buffer occupancy */
     string log_line = to_string(cur_time) + " " + client.username() + " "
         + *client.channel() + " " + to_string(static_cast<int>(msg.event))
-        + " " + buf + "\n";
-    append_to_log("playback_buffer.log", log_line);
+        + " " + buf;
+    append_to_log("playback_buffer", log_line);
   } else if (msg.event == ClientInfoMsg::PlayerEvent::VideoAck) {
     if (not msg.quality or not msg.timestamp or not msg.ssim) {
       cerr << "Received a VideoAck of invalid format" << endl;
@@ -725,8 +721,8 @@ void handle_client_info(WebSocketClient & client, const ClientInfoMsg & msg)
     if (msg.byte_offset == 0) {
       string log_line = to_string(cur_time) + " " + client.username() + " "
           + *client.channel() + " " + to_string(*msg.timestamp) + " "
-          + *msg.quality + " " + to_string(*msg.ssim) + "\n";
-      append_to_log("video_quality.log", log_line);
+          + *msg.quality + " " + to_string(*msg.ssim);
+      append_to_log("video_quality", log_line);
     }
   }
 
@@ -735,8 +731,8 @@ void handle_client_info(WebSocketClient & client, const ClientInfoMsg & msg)
       msg.event == ClientInfoMsg::PlayerEvent::CanPlay) {
     if (msg.event == ClientInfoMsg::PlayerEvent::Rebuffer) {
       string log_line = to_string(cur_time) + " " + client.username() + " "
-        + *client.channel() + "\n";
-      append_to_log("rebuffer_event.log", log_line);
+                        + *client.channel();
+      append_to_log("rebuffer_event", log_line);
     }
 
     if (not client.rebuffer() and
@@ -823,12 +819,12 @@ int main(int argc, char * argv[])
     abort();
   }
 
-  if (argc != 2 and argc != 3) {
+  if (argc != 3 and argc != 4) {
     print_usage(argv[0]);
     return EXIT_FAILURE;
   }
 
-  if (argc == 3 and string(argv[2]) == "debug") {
+  if (argc == 4 and string(argv[3]) == "debug") {
     debug = true;
   }
 
@@ -837,6 +833,8 @@ int main(int argc, char * argv[])
     cerr << "signal: failed to ignore SIGPIPE" << endl;
     return EXIT_FAILURE;
   }
+
+  server_id = argv[2];
 
   /* load YAML settings */
   YAML::Node config = YAML::LoadFile(argv[1]);
@@ -955,8 +953,8 @@ int main(int argc, char * argv[])
             close_channel.set_viewer_count(close_channel.viewer_count() - 1);
             string log_line = to_string(time(nullptr)) + " " +
                               close_channel.name() + " " +
-                              to_string(close_channel.viewer_count()) + "\n";
-            append_to_log("active_streams.log", log_line);
+                              to_string(close_channel.viewer_count());
+            append_to_log("active_streams", log_line);
           }
 
           clients.erase(client_it);
