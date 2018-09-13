@@ -9,6 +9,4 @@
 
 std::vector< std::string > split( const std::string & str, const std::string & separator );
 
-std::pair<std::string, std::string> split_filename(const std::string & fname);
-
 #endif /* TOKENIZE_HH */

@@ -405,9 +405,7 @@ void create_media_segment(MP4Parser & mp4_parser, MP4File & output_mp4,
 
 uint64_t get_timestamp(const string & filepath)
 {
-  string filename = fs::path(filepath).filename().string();
-  string number_str = split_filename(filename).first;
-  return narrow_cast<uint64_t>(stoll(number_str));
+  return narrow_cast<uint64_t>(stoll(fs::path(filepath).stem()));
 }
 
 void fragment(const string & input_mp4,

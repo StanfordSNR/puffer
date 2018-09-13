@@ -112,9 +112,7 @@ void create_init_segment(mkvmuxer::MkvWriter * writer,
 
 uint64_t get_timestamp(const string & filepath)
 {
-  string filename = fs::path(filepath).filename().string();
-  string number_str = split_filename(filename).first;
-  return narrow_cast<uint64_t>(stoll(number_str));
+  return narrow_cast<uint64_t>(stoll(fs::path(filepath).stem()));
 }
 
 long long get_timecode(const string & timecode_file)

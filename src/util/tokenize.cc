@@ -32,13 +32,3 @@ vector< string > split( const string & str, const string & separator )
 
   return ret;
 }
-
-pair<string, string> split_filename(const string & fname)
-{
-  auto pos = fname.find_last_of('.');
-  if (pos == string::npos) {
-    return make_pair(fname, "");
-  }
-
-  return make_pair(fname.substr(0, pos), fname.substr(pos + 1));
-}
