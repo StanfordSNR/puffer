@@ -1,4 +1,5 @@
 /ws_media_server
+/run_servers
 *.yml
 
 # Logs

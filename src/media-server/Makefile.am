@@ -3,7 +3,7 @@ AM_CPPFLAGS = $(CXX17_FLAGS) $(SSL_CFLAGS) -I$(srcdir)/../util \
 	-isystem$(srcdir)/../../third_party/json.upstream/single_include/nlohmann $(POSTGRES_CFLAGS)
 AM_CXXFLAGS = $(PICKY_CXXFLAGS) $(EXTRA_CXXFLAGS)
 
-bin_PROGRAMS = ws_media_server
+bin_PROGRAMS = ws_media_server run_servers
 
 ws_media_server_SOURCES = \
   ws_media_server.cc ws_client.hh ws_client.cc channel.hh channel.cc \
@@ -13,3 +13,6 @@ ws_media_server_SOURCES = \
 	../../third_party/json.upstream/single_include/nlohmann/json.hpp
 ws_media_server_LDADD = ../net/libnet.a ../util/libutil.a ../net/libnet.a \
 	$(POSTGRES_LIBS) $(SSL_LIBS) $(CRYPTO_LIBS) $(YAML_LIBS) -lstdc++fs
+
+run_servers_SOURCES = run_servers.cc
+run_servers_LDADD = ../util/libutil.a ../net/libnet.a $(SSL_LIBS) -lstdc++fs
