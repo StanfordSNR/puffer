@@ -10,39 +10,31 @@
 #include "inotify.hh"
 #include "poller.hh"
 #include "file_descriptor.hh"
+#include "filesystem.hh"
 #include "tokenize.hh"
 #include "exception.hh"
-#include "system_runner.hh"
 #include "socket.hh"
 #include "http_request.hh"
+#include "formatter.hh"
 
 using namespace std;
 using namespace PollerShortNames;
 
+/* payload data format to post to DB (a "format string" in a vector) */
+static Formatter formatter;
+
 void print_usage(const string & program_name)
 {
-  cerr << program_name << " <log path> <log config>" << endl;
+  cerr << "Usage: " << program_name << " <log format> <log path>" << endl;
 }
 
-void post_to_db(TCPSocket & db_sock, const vector<string> & data,
-                const string & buf)
+void post_to_db(TCPSocket & db_sock, const vector<string> & lines)
 {
-  vector<string> line = split(buf, " ");
+  string payload;
 
-  string data_str;
-  for (const auto & e : data) {
-    if (e.front() == '{' and e.back() == '}') {
-      /* fill in with value from corresponding column */
-      unsigned int column_idx = stoi(e.substr(1)) - 1;
-      if (column_idx >= line.size()) {
-        cerr << "Silent error: invalid column " << column_idx + 1 << endl;
-        return;
-      }
-
-      data_str += line.at(column_idx);
-    } else {
-      data_str += e;
-    }
+  for (const auto & line : lines) {
+    vector<string> values = split(line, " ");
+    payload += formatter.format(values) + "\n";
   }
 
   /* send POST request to InfluxDB */
@@ -50,30 +42,26 @@ void post_to_db(TCPSocket & db_sock, const vector<string> & data,
   request.set_first_line("POST /write?db=collectd&u=puffer&p="
       + safe_getenv("INFLUXDB_PASSWORD") + "&precision=s HTTP/1.1");
   request.add_header(HTTPHeader{"Host", "localhost:8086"});
-  request.add_header(HTTPHeader{"Accept", "*/*"});
   request.add_header(HTTPHeader{"Content-Type", "application/x-www-form-urlencoded"});
-  request.add_header(HTTPHeader{"Content-Length", to_string(data_str.length())});
+  request.add_header(HTTPHeader{"Content-Length", to_string(payload.size())});
   request.done_with_headers();
-  request.read_in_body(data_str);
+  request.read_in_body(payload);
 
   db_sock.write(move(request.str()));
 }
 
-int tail_loop(const string & log_path, TCPSocket & db_sock,
-              const vector<string> & data)
+int tail_loop(const string & log_path, TCPSocket & db_sock)
 {
-  bool log_rotated = false;  /* whether log rotation happened */
-  string buf;  /* buffer to assemble lines read from the log */
   vector<string> lines;  /* lines waiting to be posted to InfluxDB */
 
   Poller poller;
 
   poller.add_action(Poller::Action(db_sock, Direction::In,
     [&db_sock]()->Result {
-      /* read but ignore HTTP responses from InfluxDB */
+      /* must read HTTP responses from InfluxDB, then basically ignore them */
       const string response = db_sock.read();
       if (response.empty()) {
-        throw runtime_error("Peer socket in InfluxDB has closed");
+        throw runtime_error("peer socket in InfluxDB has closed");
       }
 
       return ResultType::Continue;
@@ -81,11 +69,9 @@ int tail_loop(const string & log_path, TCPSocket & db_sock,
   ));
 
   poller.add_action(Poller::Action(db_sock, Direction::Out,
-    [&db_sock, &lines, &data]()->Result {
-      /* post each line to InfluxDB */
-      for (const string & line : lines) {
-        post_to_db(db_sock, data, line);
-      }
+    [&db_sock, &lines]()->Result {
+      /* post lines to InfluxDB */
+      post_to_db(db_sock, lines);
       lines.clear();
 
       return ResultType::Continue;
@@ -95,48 +81,39 @@ int tail_loop(const string & log_path, TCPSocket & db_sock,
     }
   ));
 
+  bool log_rotated = false;  /* whether log rotation happened */
+  string buf;  /* used to assemble content read from the log into lines */
+
   Inotify inotify(poller);
 
   for (;;) {
-    /* read new lines from the end */
     FileDescriptor fd(CheckSystemCall("open (" + log_path + ")",
                                       open(log_path.c_str(), O_RDONLY)));
     fd.seek(0, SEEK_END);
 
     int wd = inotify.add_watch(log_path, IN_MODIFY | IN_CLOSE_WRITE,
-      [&log_rotated, &buf, &fd, &db_sock, &data, &lines]
-      (const inotify_event & event, const string &) {
-        if (event.mask & IN_MODIFY) {
-          for (;;) {
+        [&log_rotated, &buf, &fd, &db_sock, &lines]
+        (const inotify_event & event, const string &) {
+          if (event.mask & IN_MODIFY) {
             string new_content = fd.read();
             if (new_content.empty()) {
-              /* break if nothing more to read */
-              break;
+              /* return if nothing more to read */
+              return;
             }
+            buf += new_content;
 
             /* find new lines iteratively */
-            for (;;) {
-              auto pos = new_content.find("\n");
-              if (pos == string::npos) {
-                buf += new_content;
-                new_content = "";
-                break;
-              } else {
-                buf += new_content.substr(0, pos);
-                /* buf is a complete line now */
-                lines.emplace_back(move(buf));
-
-                buf = "";
-                new_content = new_content.substr(pos + 1);
-              }
+            size_t pos = 0;
+            while ((pos = buf.find("\n")) != string::npos) {
+              lines.emplace_back(buf.substr(0, pos));
+              buf = buf.substr(pos + 1);
             }
+          } else if (event.mask & IN_CLOSE_WRITE) {
+            /* old log was closed; open and watch new log in next loop */
+            log_rotated = true;
           }
-        } else if (event.mask & IN_CLOSE_WRITE) {
-          /* old log has been closed; open recreated log in next loop */
-          log_rotated = true;
         }
-      }
-    );
+      );
 
     while (not log_rotated) {
       auto ret = poller.poll(-1);
@@ -163,58 +140,26 @@ int main(int argc, char * argv[])
     return EXIT_FAILURE;
   }
 
+  string log_format(argv[1]);
+  string log_path(argv[2]);
+
   /* create an empty log if it does not exist */
-  string log_path = argv[1];
   FileDescriptor touch(CheckSystemCall("open (" + log_path + ")",
                        open(log_path.c_str(), O_WRONLY | O_CREAT, 0644)));
   touch.close();
+
+  /* read a line specifying log format and pass into string formatter */
+  ifstream format_ifstream(log_format);
+  string format_string;
+  getline(format_ifstream, format_string);
+  assert(format_string.back() != '\n');
+  formatter.parse(format_string);
 
   /* create socket connected to influxdb */
   TCPSocket db_sock;
   Address influxdb_addr("127.0.0.1", 8086);
   db_sock.connect(influxdb_addr);
 
-  /* read a line from the config file */
-  ifstream config_file(argv[2]);
-  string config_line;
-  getline(config_file, config_line);
-
-  /* data for "--data-binary": store a "format string" in a vector */
-  vector<string> data;
-
-  size_t pos = 0;
-  while (pos < config_line.size()) {
-    size_t left_pos = config_line.find("{", pos);
-    if (left_pos == string::npos) {
-      data.emplace_back(config_line.substr(pos, config_line.size() - pos));
-      break;
-    }
-
-    if (left_pos - pos > 0) {
-      data.emplace_back(config_line.substr(pos, left_pos - pos));
-    }
-    pos = left_pos + 1;
-
-    size_t right_pos = config_line.find("}", pos);
-    if (right_pos == string::npos) {
-      cerr << "Wrong config format: no matching } for {" << endl;
-      return EXIT_FAILURE;
-    } else if (right_pos - left_pos == 1) {
-      cerr << "Error: empty column number between { and }" << endl;
-      return EXIT_FAILURE;
-    }
-
-    const auto & column_no = config_line.substr(left_pos + 1,
-                                                right_pos - left_pos - 1);
-    if (stoi(column_no) <= 0) {
-      cerr << "Error: invalid column number between { and }" << endl;
-      return EXIT_FAILURE;
-    }
-
-    data.emplace_back("{" + column_no + "}");
-    pos = right_pos + 1;
-  }
-
-  /* read new lines from log and post to InfluxDB */
-  return tail_loop(log_path, db_sock, data);
+  /* read new lines from logs and post to InfluxDB */
+  return tail_loop(log_path, db_sock);
 }
