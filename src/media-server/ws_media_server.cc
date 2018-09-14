@@ -754,10 +754,11 @@ void handle_client_info(WebSocketClient & client, const ClientInfoMsg & msg)
     }
   }
 
-  /* get current throughput of the client */
-  if (msg.event == ClientInfoMsg::PlayerEvent::VideoAck and
-      msg.curr_tput and msg.curr_tput.value() > 0) {
-    client.set_curr_tput(msg.curr_tput.value());
+  /* get current throughput (measured in kpbs) of the client */
+  if (msg.receiving_time_ms and msg.received_bytes and
+      msg.receiving_time_ms.value() > 0 and msg.receiving_time_ms.value() < 3000) {
+    client.set_curr_tput((double) msg.received_bytes.value() * 8
+                         / msg.receiving_time_ms.value());
   }
 }
 

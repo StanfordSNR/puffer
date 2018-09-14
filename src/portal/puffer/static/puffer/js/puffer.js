@@ -436,18 +436,15 @@ function WebSocketClient(video, session_key, username) {
           av_source.getChannel() === message.metadata.channel) {
         av_source.handleVideo(message.data, message.metadata);
 
-        /* estimate throughput */
-        var received_data_size = message.data.byteLength * 8;
-        var curr_tput = -1;
+        /* estimate receiving time */
+        var receiving_time_ms = 0;
+        var received_bytes = message.data.byteLength;
         if (last_received_ts) {
-          var receiving_time = e.timeStamp - last_received_ts;
-          if (receiving_time < 3000 && receiving_time > 0) {
-            curr_tput = received_data_size / receiving_time;  // kbps
-          }
+          receiving_time_ms = e.timeStamp - last_received_ts;
         }
 
-        const curr_tput_str = curr_tput.toFixed(2);
-        send_client_info('vidack', {...message.metadata, curr_tput});
+        send_client_info('vidack', {...message.metadata, receiving_time_ms,
+                                    received_bytes});
       }
     } else {
       console.log('received unknown message', message.metadata.type);

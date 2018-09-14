@@ -76,7 +76,8 @@ public:
   std::optional<unsigned int> byte_offset {};
   std::optional<unsigned int> total_byte_length {};
   std::optional<double> ssim {};
-  std::optional<double> curr_tput {};
+  std::optional<unsigned int> receiving_time_ms {};
+  std::optional<unsigned int> received_bytes {};
 };
 
 class ClientMsgParser
