@@ -14,6 +14,7 @@
 #include <algorithm>
 
 #include <pqxx/pqxx>
+#include "yaml-cpp/yaml.h"
 #include "util.hh"
 #include "media_formats.hh"
 #include "inotify.hh"

@@ -15,4 +15,5 @@ ws_media_server_LDADD = ../net/libnet.a ../util/libutil.a ../net/libnet.a \
 	$(POSTGRES_LIBS) $(SSL_LIBS) $(CRYPTO_LIBS) $(YAML_LIBS) -lstdc++fs
 
 run_servers_SOURCES = run_servers.cc
-run_servers_LDADD = ../util/libutil.a ../net/libnet.a $(SSL_LIBS) -lstdc++fs
+run_servers_LDADD = ../util/libutil.a ../net/libnet.a \
+	$(SSL_LIBS) $(YAML_LIBS) -lstdc++fs

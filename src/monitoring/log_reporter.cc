@@ -152,7 +152,6 @@ int main(int argc, char * argv[])
   ifstream format_ifstream(log_format);
   string format_string;
   getline(format_ifstream, format_string);
-  assert(format_string.back() != '\n');
   formatter.parse(format_string);
 
   /* create socket connected to influxdb */
