@@ -4,6 +4,10 @@ using namespace std;
 
 void Formatter::parse(const string & format_string)
 {
+  if (format_string.empty()) {
+    throw runtime_error("format_string cannot be empty");
+  }
+
   /* reset before parsing a new format string */
   reset();
 
@@ -55,6 +59,29 @@ void Formatter::parse(const string & format_string)
       fields_.emplace_back(make_unique<Replacement>(index));
     }
   }
+}
+
+string Formatter::format(const vector<string> & values)
+{
+  string ret;
+
+  for (const auto & field : fields_) {
+    if (field->type == Type::literal) {
+      ret += static_cast<Literal*>(field.get())->text;
+    } else if (field->type == Type::replacement) {
+      unsigned int index = static_cast<Replacement*>(field.get())->index;
+
+      if (index >= values.size()) {
+        throw runtime_error("index out of range");
+      }
+
+      ret += values.at(index);
+    } else {
+      throw runtime_error("invalid field type");
+    }
+  }
+
+  return ret;
 }
 
 void Formatter::reset()

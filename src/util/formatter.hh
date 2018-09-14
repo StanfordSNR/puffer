@@ -13,6 +13,7 @@ class Formatter
 {
 public:
   void parse(const std::string & format_string);
+  std::string format(const std::vector<std::string> & values);
 
   enum class Type {literal, replacement};
 
@@ -26,13 +27,15 @@ public:
   struct Literal : Field {
     std::string text;
 
-    Literal(const std::string & text_) : Field(Type::literal), text(text_) {}
+    Literal(const std::string & text_)
+      : Field(Type::literal), text(text_) {}
   };
 
   struct Replacement : Field {
-    int index;
+    unsigned int index;
 
-    Replacement(const int index_) : Field(Type::replacement), index(index_) {}
+    Replacement(const unsigned int index_)
+      : Field(Type::replacement), index(index_) {}
   };
 
 private:
