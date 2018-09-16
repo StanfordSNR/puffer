@@ -60,7 +60,8 @@ static string server_id;
 static bool debug = false;
 
 /* log data */
-static unsigned int log_rebuffer_num;
+static unsigned int log_rebuffer_num = 0;
+static time_t last_minute_written = 0;
 
 void print_usage(const string & program_name)
 {
@@ -517,6 +518,20 @@ void start_global_timer(WebSocketServer & server)
           ++it;
         }
 
+        /* Write active_streams count to file once per minute */
+        time_t this_minute_floor = curr_time - curr_time % 60;
+        if (this_minute_floor > last_minute_written) {
+          /* round down to last minute */
+          last_minute_written = this_minute_floor;
+
+          for (auto const & name_channel_pair : channels) {
+            auto channel = name_channel_pair.second;
+            string log_line = to_string(this_minute_floor) + " " +
+                              channel.name() + " " +
+                              to_string(channel.viewer_count());
+            append_to_log("active_streams", log_line);
+          }
+        }
         return ResultType::Continue;
       }
     )
@@ -611,11 +626,7 @@ void handle_client_init(WebSocketServer & server, WebSocketClient & client,
 
   /* check if the streaming can be resumed */
   if (resume_connection(server, client, msg, channel)) {
-    auto curtime = time(nullptr);
     channel.set_viewer_count(channel.viewer_count() + 1);
-    string log_line = to_string(curtime) + " " + channel.name() + " " +
-                      to_string(channel.viewer_count());
-    append_to_log("active_streams", log_line);
     return;
   }
 
@@ -643,18 +654,11 @@ void handle_client_init(WebSocketServer & server, WebSocketClient & client,
   send_server_init(server, client, false /* initialize rather than resume */);
 
   /* increment/decrement viewer counts for new/old channel respectively */
-  auto curtime = time(nullptr);
   channel.set_viewer_count(channel.viewer_count() + 1);
-  string log_line = to_string(curtime) + " " + channel.name() + " " +
-                    to_string(channel.viewer_count());
-  append_to_log("active_streams", log_line);
 
   if (not old_channel_string.empty()) {
     Channel & old_channel = channels.at(old_channel_string);
     old_channel.set_viewer_count(old_channel.viewer_count() - 1);
-    log_line = to_string(curtime) + " " + old_channel.name() + " " +
-               to_string(old_channel.viewer_count());
-    append_to_log("active_streams", log_line);
   }
 
   cerr << client.signature() << ": connection initialized. " << msg.browser
@@ -952,10 +956,6 @@ int main(int argc, char * argv[])
 
             /* update and record viewer count */
             close_channel.set_viewer_count(close_channel.viewer_count() - 1);
-            string log_line = to_string(time(nullptr)) + " " +
-                              close_channel.name() + " " +
-                              to_string(close_channel.viewer_count());
-            append_to_log("active_streams", log_line);
           }
 
           clients.erase(client_it);
