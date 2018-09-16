@@ -850,7 +850,11 @@ int main(int argc, char * argv[])
   /* create a WebSocketServer instance */
   const string ip = "0.0.0.0";
   const uint16_t port = config["port"].as<uint16_t>();
-  WebSocketServer server {{ip, port}};
+  string congestion_control = "default";
+  if (config["congestion_control"]) {
+    congestion_control = config["congestion_control"].as<string>();
+  }
+  WebSocketServer server {{ip, port}, congestion_control};
 
   #ifdef NONSECURE
   cerr << "Launching non-secure WebSocket server" << endl;

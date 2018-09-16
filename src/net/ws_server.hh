@@ -69,11 +69,13 @@ private:
   std::set<uint64_t> closed_connections_ {};
 
   bool active_ {};
+  std::string congestion_control_ {};
 
   void init_listener_socket();
 
 public:
-  WSServer(const Address & listener_addr);
+  WSServer(const Address & listener_addr,
+           const std::string & congestion_control = "default");
 
   Poller::Result loop_once();
   int loop();

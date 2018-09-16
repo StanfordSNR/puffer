@@ -181,6 +181,10 @@ void WSServer<SocketType>::init_listener_socket()
   listener_socket_.bind(listener_addr_);
   listener_socket_.listen();
 
+  if (congestion_control_ != "default") {
+    listener_socket_.set_congestion_control(congestion_control_);
+  }
+
   active_ = true;
   poller_.add_action(Poller::Action(listener_socket_, Direction::In,
     [this] () -> ResultType
@@ -360,9 +364,11 @@ void WSServer<SocketType>::init_listener_socket()
 }
 
 template<class SocketType>
-WSServer<SocketType>::WSServer(const Address & listener_addr)
+WSServer<SocketType>::WSServer(const Address & listener_addr,
+                               const string & congestion_control)
 {
   listener_addr_ = listener_addr;
+  congestion_control_ = congestion_control;
   init_listener_socket();
 }
 
