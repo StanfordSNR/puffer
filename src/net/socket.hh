@@ -86,6 +86,12 @@ public:
 
     /* are there pending errors on a nonblocking socket? */
     void verify_no_errors() const;
+
+    /* set the current congestion control algorithm */
+    void set_congestion_control( const std::string & cc );
+
+    /* get the current congestion control algorithm */
+    std::string get_congestion_control() const;
 };
 
 #endif /* SOCKET_HH */

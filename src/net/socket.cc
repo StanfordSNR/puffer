@@ -2,12 +2,17 @@
 
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <netinet/tcp.h>
 #include <linux/netfilter_ipv4.h>
+#include <cstring>
 
 #include "socket.hh"
 #include "exception.hh"
 
 using namespace std;
+
+/* max name length of congestion control algorithm */
+const size_t TCP_CC_NAME_MAX = 16;
 
 /* default constructor for socket of (subclassed) domain and type */
 Socket::Socket( const int domain, const int type )
@@ -204,4 +209,18 @@ void TCPSocket::verify_no_errors() const
     if ( socket_error ) {
         throw unix_error( "nonblocking socket", socket_error );
     }
+}
+
+void TCPSocket::set_congestion_control( const string & cc )
+{
+    char optval[ TCP_CC_NAME_MAX ];
+    strncpy( optval, cc.c_str(), TCP_CC_NAME_MAX );
+    setsockopt( IPPROTO_TCP, TCP_CONGESTION, optval );
+}
+
+string TCPSocket::get_congestion_control() const
+{
+    char optval[ TCP_CC_NAME_MAX ];
+    getsockopt( IPPROTO_TCP, TCP_CONGESTION, optval );
+    return optval;
 }
