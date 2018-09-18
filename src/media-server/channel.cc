@@ -433,12 +433,3 @@ void Channel::load_ssim_files(Inotify & inotify)
     }
   }
 }
-
-void Channel::set_viewer_count(int viewer_count)
-{
-  if (viewer_count >= 0) {
-    viewer_count_ = viewer_count;
-  } else {
-    cerr << "Warning: trying to set a negative viewer count" << endl;
-  }
-}

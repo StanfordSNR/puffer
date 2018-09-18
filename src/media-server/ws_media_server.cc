@@ -59,9 +59,9 @@ static const unsigned int MAX_LOG_FILESIZE = 10 * 1024 * 1024;  /* 10 MB */
 static string server_id;
 static bool debug = false;
 
-/* log data */
+/* for logging */
 static unsigned int log_rebuffer_num = 0;
-static time_t last_minute_written = 0;
+static time_t last_minute = 0;
 
 void print_usage(const string & program_name)
 {
@@ -472,6 +472,32 @@ void serve_client(WebSocketServer & server, WebSocketClient & client)
   }
 }
 
+void log_active_streams(const time_t this_minute)
+{
+  /* channel name -> count */
+  map<string, unsigned int> active_streams_count;
+
+  for (const auto & client_pair : clients) {
+    const auto & client = client_pair.second;
+    if (client.channel()) {
+      string channel_name = client.channel().value();
+
+      auto map_it = active_streams_count.find(channel_name);
+      if (map_it == active_streams_count.end()) {
+        active_streams_count.emplace(channel_name, 1);
+      } else {
+        map_it->second += 1;
+      }
+    }
+  }
+
+  for (const auto & channel_count : active_streams_count) {
+    string log_line = to_string(this_minute) + " " + channel_count.first
+                      + " " + to_string(channel_count.second);
+    append_to_log("active_streams", log_line);
+  }
+}
+
 void start_global_timer(WebSocketServer & server)
 {
   server.poller().add_action(Poller::Action(global_timer, Direction::In,
@@ -510,19 +536,15 @@ void start_global_timer(WebSocketServer & server)
         server.clean_idle_connection(connection_id);
       }
 
-      /* write active_streams count to file once per minute */
-      time_t this_minute_floor = curr_time - curr_time % 60;
-      if (this_minute_floor > last_minute_written) {
-        last_minute_written = this_minute_floor;
+      /* perform some tasks once per minute */
+      time_t this_minute = curr_time - curr_time % 60;
+      if (this_minute > last_minute) {
+        last_minute = this_minute;
 
-        for (const auto & name_channel_pair : channels) {
-          auto channel = name_channel_pair.second;
-          string log_line = to_string(this_minute_floor) + " " +
-                            channel.name() + " " +
-                            to_string(channel.viewer_count());
-          append_to_log("active_streams", log_line);
-        }
+        /* write active_streams count to file */
+        log_active_streams(this_minute);
       }
+
       return ResultType::Continue;
     }
   ));
@@ -616,7 +638,6 @@ void handle_client_init(WebSocketServer & server, WebSocketClient & client,
 
   /* check if the streaming can be resumed */
   if (resume_connection(server, client, msg, channel)) {
-    channel.set_viewer_count(channel.viewer_count() + 1);
     return;
   }
 
@@ -642,14 +663,6 @@ void handle_client_init(WebSocketServer & server, WebSocketClient & client,
   reinit_log_data();
 
   send_server_init(server, client, false /* initialize rather than resume */);
-
-  /* increment/decrement viewer counts for new/old channel respectively */
-  channel.set_viewer_count(channel.viewer_count() + 1);
-
-  if (not old_channel_string.empty()) {
-    Channel & old_channel = channels.at(old_channel_string);
-    old_channel.set_viewer_count(old_channel.viewer_count() - 1);
-  }
 
   cerr << client.signature() << ": connection initialized. " << msg.browser
        << " on " << msg.os << endl;
