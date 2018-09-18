@@ -9,7 +9,9 @@ class InvitationToken(models.Model):
     # when a user registers an account with this token, the new account will
     # be assigned and hold "addon_cnt" extra tokens for distribution
     addon_cnt = models.PositiveIntegerField(default=0)
+    shared = models.BooleanField(default=False)
 
     def __str__(self):
         holder = self.holder.username if self.holder else 'unassigned'
-        return '%s (%s, %d)' % (self.token, holder, self.addon_cnt)
+        return '%s (%s, %d): shared=%s' % (self.token, holder, self.addon_cnt,
+                                           self.shared)

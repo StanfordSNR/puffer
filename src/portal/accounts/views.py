@@ -4,6 +4,7 @@ from django.shortcuts import render, redirect
 from django.contrib import messages
 from django.urls import reverse
 from django.core.exceptions import ObjectDoesNotExist
+from django.http import HttpResponse
 from accounts.models import InvitationToken
 from accounts.forms import SignUpForm
 from accounts.utils import random_token
@@ -38,22 +39,22 @@ def signup(request):
         if form.is_valid():
             invite_token = form.cleaned_data.get('invite_token')
             try:
-                matching_token = InvitationToken.objects.get(token=invite_token)
+                match_token = InvitationToken.objects.get(token=invite_token)
             except ObjectDoesNotExist:
-                messages.error(request, 'Failed to validate the provided token.')
+                messages.error(request, 'Failed to validate the token.')
                 return redirect('signup')
 
             # save the user if the token is validated
             user = form.save()
 
             # create "addon_cnt" tokens with addon_cnt=0
-            if matching_token.addon_cnt:
-                for _ in range(matching_token.addon_cnt):
+            if match_token.addon_cnt:
+                for _ in range(match_token.addon_cnt):
                     InvitationToken.objects.create(
                             token=random_token(), holder=user)
 
             # delete used tokens
-            matching_token.delete()
+            match_token.delete()
 
             messages.success(request,
                 'Your account has been created successfully! Please log in.')
@@ -62,3 +63,26 @@ def signup(request):
         form = SignUpForm()
 
     return render(request, 'accounts/signup.html', {'form': form})
+
+
+# Allow users to mark tokens as shared or not shared
+def share_token(request):
+    if request.method == 'POST':
+        invite_token = request.POST.get('token')
+
+        try:
+            match_token = InvitationToken.objects.get(token=invite_token)
+        except ObjectDoesNotExist:
+            return HttpResponseBadRequest()
+
+        share = request.POST.get('share')
+        if share == 'true':
+            match_token.shared = True
+        elif share == 'false':
+            match_token.shared = False
+        else:
+            return HttpResponseBadRequest()
+
+        match_token.save()
+
+    return HttpResponse(status=204)

@@ -27,14 +27,57 @@
         Available invitation tokens: {{ user.invitationtoken_set.all.count }}
       </a>
       <div class="collapse" id="collapse-tokens">
-        <ul class="list-group">
+        <p>Unshared tokens (Once you share one, click it to mark it shared):</p>
+        <ul class="list-group" id="unshared">
         {% for t in user.invitationtoken_set.all %}
-          {% if t.addon_cnt %}
-          <li class="list-group-item">
-            {{ t.token }} (will be expanded into {{ t.addon_cnt }} tokens when registered with)
-          </li>
-          {% else %}
-          <li class="list-group-item">{{ t.token }}</li>
+          {% if not t.shared %}
+            <li class="list-group-item">
+              <div class="d-flex bd-highlight">
+              {% if t.addon_cnt %}
+                <div class="p-2 flex-fill bd-highlight">
+                  {{ t.token }} (this token will generate {{ t.addon_cnt }}
+                  additional tokens)
+                </div>
+              {% else %}
+                <div class="p-2 flex-fill bd-highlight">
+                  {{ t.token }}
+                </div>
+              {% endif %}
+                <div class="p-2 flex-fill bd-highlight">
+                  <button onclick="share('{{ t.token }}', this, '{{ csrf_token }}')"
+                          type="button" class="btn btn-link">
+                    mark shared
+                  </button>
+                </div>
+            </li>
+          {% endif %}
+        {% endfor %}
+        </ul>
+
+        <br>
+        <p>Shared but not yet used tokens (Click to mark unshared):</p>
+        <ul class="list-group" id="shared">
+        {% for t in user.invitationtoken_set.all %}
+          {% if t.shared %}
+            <li class="list-group-item">
+              <div class="d-flex bd-highlight">
+              {% if t.addon_cnt %}
+                <div class="p-2 flex-fill bd-highlight">
+                  {{ t.token }} (this token will generate {{ t.addon_cnt }}
+                  additional tokens)
+                </div>
+              {% else %}
+                <div class="p-2 flex-fill bd-highlight">
+                  {{ t.token }}
+                </div>
+              {% endif %}
+                <div class="p-2 flex-fill bd-highlight">
+                  <button onclick="unshare('{{ t.token }}', this, '{{ csrf_token }}')"
+                          type="button" class="btn btn-link">
+                    mark unshared
+                  </button>
+                </div>
+            </li>
           {% endif %}
         {% endfor %}
         </ul>
@@ -47,6 +90,7 @@
 
   <script src="{% static 'puffer/dist/js/jquery-3.3.1.slim.min.js' %}"></script>
   <script src="{% static 'puffer/dist/js/bootstrap.min.js' %}"></script>
+  <script src="{% static 'puffer/js/profile.js' %}"></script>
 </body>
 
 </html>
