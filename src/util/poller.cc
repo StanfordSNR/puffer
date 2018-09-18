@@ -118,6 +118,13 @@ void Poller::add_action( Poller::Action action )
   action_add_queue_.push( action );
 }
 
+void Poller::remove_fd( const int fd_num )
+{
+  /* the fd won't be actually removed until the end of the current poll().
+     this allows us to deregister a fd inside the callback functions */
+  fds_to_remove_.emplace( fd_num );
+}
+
 unsigned int Poller::Action::service_count( void ) const
 {
   return direction == Direction::In ? fd.read_count() : fd.write_count();
@@ -169,14 +176,12 @@ Poller::Result Poller::poll( const int timeout_ms )
   it_action = actions_.begin();
   it_pollfd = pollfds_.begin();
 
-  set<int> fds_to_remove;
-
   for ( ; it_action != actions_.end() and it_pollfd != pollfds_.end()
         ; it_action++, it_pollfd++ ) {
     assert( it_pollfd->fd == it_action->fd.fd_num() );
     if ( it_pollfd->revents & (POLLERR | POLLHUP | POLLNVAL) ) {
       it_action->fderror_callback();
-      fds_to_remove.insert( it_pollfd->fd );
+      remove_fd( it_pollfd->fd );
       continue;
     }
 
@@ -197,7 +202,7 @@ Poller::Result Poller::poll( const int timeout_ms )
           break;
 
         case ResultType::CancelAll:
-          fds_to_remove.insert( it_pollfd->fd );
+          remove_fd( it_pollfd->fd );
           break;
 
         case ResultType::Continue:
@@ -212,7 +217,7 @@ Poller::Result Poller::poll( const int timeout_ms )
           print_exception( "Poller: error in callback", e );
 
           it_action->fderror_callback();
-          fds_to_remove.insert( it_pollfd->fd );
+          remove_fd( it_pollfd->fd );
           continue;
         }
       }
@@ -223,7 +228,8 @@ Poller::Result Poller::poll( const int timeout_ms )
     }
   }
 
-  remove_actions( fds_to_remove );
+  remove_actions( fds_to_remove_ );
+  fds_to_remove_.clear();
 
   return Result::Type::Success;
 }

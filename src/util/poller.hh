@@ -67,6 +67,10 @@ private:
   std::queue<Action> action_add_queue_ {};
   std::list<Action> actions_ {};
   std::vector<pollfd> pollfds_ {};
+  std::set<int> fds_to_remove_ {};
+
+  /* remove all actions for file descriptors in `fd_nums` */
+  void remove_actions( const std::set<int> & fd_nums );
 
 public:
   struct Result
@@ -80,10 +84,8 @@ public:
   Poller() {}
 
   void add_action( Action action );
+  void remove_fd( const int fd_num );
   Result poll( const int timeout_ms );
-
-  /* remove all actions for file descriptors in `fd_nums` */
-  void remove_actions( const std::set<int> & fd_nums );
 };
 
 namespace PollerShortNames {
