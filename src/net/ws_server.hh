@@ -73,6 +73,12 @@ private:
 
   void init_listener_socket();
 
+  /* gracefully close the connection */
+  void wait_close_connection(const uint64_t connection_id);
+
+  /* force close the connection */
+  void force_close_connection(const uint64_t connection_id);
+
 public:
   WSServer(const Address & listener_addr,
            const std::string & congestion_control = "default");
@@ -90,15 +96,16 @@ public:
 
   bool queue_frame(const uint64_t connection_id, const WSFrame & frame);
 
-  /* gracefully close the connection */
-  void close_connection(const uint64_t connection_id);
-  /* force drop a connection */
-  void drop_connection(const uint64_t connection_id);
-
   Address peer_addr(const uint64_t connection_id) const;
 
   unsigned int buffer_bytes(const uint64_t connection_id) const;
   void clear_buffer(const uint64_t connection_id);
+
+  /* public method to gracefully close a connection */
+  void close_connection(const uint64_t connection_id);
+
+  /* force close an idle connection and no longer poll on its socket */
+  void clean_idle_connection(const uint64_t connection_id);
 };
 
 using WebSocketTCPServer = WSServer<TCPSocket>;

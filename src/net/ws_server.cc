@@ -187,7 +187,7 @@ void WSServer<SocketType>::init_listener_socket()
 
   active_ = true;
   poller_.add_action(Poller::Action(listener_socket_, Direction::In,
-    [this] () -> ResultType
+    [this]()->ResultType
     {
       /* incoming connection (client inherits non-blocking) */
       TCPSocket client = listener_socket_.accept();
@@ -200,17 +200,25 @@ void WSServer<SocketType>::init_listener_socket()
 
       /* add the actions for this connection */
       poller_.add_action(Poller::Action(conn.socket, Direction::In,
-        [this, &conn, conn_id] () -> ResultType
+        [this, &conn, conn_id]()->ResultType
         {
           const string data = conn.read();
 
           if (data.empty()) {
-            drop_connection(conn_id);
+            /* peer socket is gone */
+            force_close_connection(conn_id);
             return ResultType::CancelAll;
           }
 
           if (conn.state == Connection::State::NotConnected) {
-            conn.ws_handshake_parser.parse(data);
+            try {
+              conn.ws_handshake_parser.parse(data);
+            } catch (const exception & e) {
+              /* close the connection if received an invalid message */
+              print_exception("ws_server", e);
+              force_close_connection(conn_id);
+              return ResultType::CancelAll;
+            }
 
             if (not conn.ws_handshake_parser.empty()) {
               auto request = move(conn.ws_handshake_parser.front());
@@ -222,7 +230,7 @@ void WSServer<SocketType>::init_listener_socket()
               /* only continue with status code of 101 */
               if (response.status_code() != "101") {
                 /* TODO: response will not reach the client side currently */
-                drop_connection(conn_id);
+                force_close_connection(conn_id);
                 return ResultType::CancelAll;
               }
 
@@ -235,8 +243,7 @@ void WSServer<SocketType>::init_listener_socket()
             } catch (const exception & e) {
               /* close the connection if received an invalid message */
               print_exception("ws_server", e);
-              close_connection(conn_id);
-              return ResultType::Continue;
+              wait_close_connection(conn_id);
             }
 
             if (not conn.ws_message_parser.empty()) {
@@ -251,10 +258,12 @@ void WSServer<SocketType>::init_listener_socket()
 
               case WSMessage::Type::Close:
               {
-                WSFrame close_frame { true, WSFrame::OpCode::Close, message.payload() };
+                /* respond to client-initiated close */
+                WSFrame close_frame { true, WSFrame::OpCode::Close,
+                                      message.payload() };
                 queue_frame(conn_id, close_frame);
-                conn.state = Connection::State::Closed;
-                break;
+                force_close_connection(conn_id);
+                return ResultType::CancelAll;
               }
 
               case WSMessage::Type::Ping:
@@ -277,9 +286,10 @@ void WSServer<SocketType>::init_listener_socket()
             try {
               conn.ws_message_parser.parse(data);
             } catch (const exception & e) {
-              /* already closing connection, so ignore invalid messages */
+              /* close the connection if received an invalid message */
               print_exception("ws_server", e);
-              return ResultType::Continue;
+              force_close_connection(conn_id);
+              return ResultType::CancelAll;
             }
 
             if (not conn.ws_message_parser.empty()) {
@@ -288,11 +298,8 @@ void WSServer<SocketType>::init_listener_socket()
 
               switch (message.type()) {
               case WSMessage::Type::Close:
-                conn.state = Connection::State::Closed;
-                conn.send_buffer.clear();
-
-                /* we don't want to poll on this socket anymore */
-                drop_connection(conn_id);
+                /* complete server-initiated close */
+                force_close_connection(conn_id);
                 return ResultType::CancelAll;
 
               default:
@@ -306,7 +313,7 @@ void WSServer<SocketType>::init_listener_socket()
 
           return ResultType::Continue;
         },
-        [&conn] () -> bool
+        [&conn]()->bool
         {
           return (conn.state != Connection::State::Connecting) and
                  (conn.state != Connection::State::Closed);
@@ -314,7 +321,7 @@ void WSServer<SocketType>::init_listener_socket()
       ));
 
       poller_.add_action(Poller::Action(conn.socket, Direction::Out,
-        [this, &conn, conn_id] () -> ResultType
+        [this, &conn, conn_id]()->ResultType
         {
           if (conn.state == Connection::State::Connecting) {
             if (conn.data_to_send()) {
@@ -336,13 +343,13 @@ void WSServer<SocketType>::init_listener_socket()
 
           if (conn.state == Connection::State::Closed and
               not conn.data_to_send()) {
-            drop_connection(conn_id);
+            force_close_connection(conn_id);
             return ResultType::CancelAll;
           }
 
           return ResultType::Continue;
         },
-        [&conn] () -> bool
+        [&conn]()->bool
         {
           return (conn.state == Connection::State::Connecting) or
                  ((conn.state == Connection::State::Connected or
@@ -379,7 +386,7 @@ bool WSServer<SocketType>::queue_frame(const uint64_t connection_id,
   Connection & conn = connections_.at(connection_id);
 
   if (conn.state != Connection::State::Connected) {
-    cerr << "not connected; cannot queue the frame" << endl;
+    cerr << connection_id << ": not connected; cannot queue frame" << endl;
     return false;
   }
 
@@ -405,33 +412,64 @@ void WSServer<NBSecureSocket>::clear_buffer(const uint64_t connection_id)
 }
 
 template<class SocketType>
-void WSServer<SocketType>::close_connection(const uint64_t connection_id)
+void WSServer<SocketType>::wait_close_connection(const uint64_t connection_id)
 {
-  Connection & conn = connections_.at(connection_id);
-
-  if (conn.state != Connection::State::Connected) {
-    cerr << "not connected; cannot close the connection" << endl;
+  auto conn_it = connections_.find(connection_id);
+  /* do nothing if the connection no longer exists */
+  if (conn_it == connections_.end()) {
     return;
   }
 
+  auto & conn = conn_it->second;
+  if (conn.state != Connection::State::Connected) {
+    cerr << "Warning: wait_close_connection is called but not connected" << endl;
+    return;
+  }
+
+  /* try to close the connection gracefully */
   WSFrame close_frame { true, WSFrame::OpCode::Close, "" };
   queue_frame(connection_id, close_frame);
   conn.state = Connection::State::Closing;
 }
 
 template<class SocketType>
-void WSServer<SocketType>::drop_connection(const uint64_t connection_id)
+void WSServer<SocketType>::force_close_connection(const uint64_t connection_id)
 {
   auto conn_it = connections_.find(connection_id);
+  /* do nothing if the connection no longer exists */
   if (conn_it == connections_.end()) {
-    /* connection does not exist any longer */
     return;
   }
 
   auto & conn = conn_it->second;
   conn.state = Connection::State::Closed;
-  close_callback_(connection_id);
   closed_connections_.insert(connection_id);
+  close_callback_(connection_id);
+}
+
+template<class SocketType>
+void WSServer<SocketType>::close_connection(const uint64_t connection_id)
+{
+  wait_close_connection(connection_id);
+}
+
+template<class SocketType>
+void WSServer<SocketType>::clean_idle_connection(const uint64_t connection_id)
+{
+  auto conn_it = connections_.find(connection_id);
+  /* do nothing if the connection no longer exists */
+  if (conn_it == connections_.end()) {
+    return;
+  }
+
+  auto & conn = conn_it->second;
+
+  /* deregister the socket in the connection from the poller */
+  poller_.remove_fd(conn.socket.fd_num());
+
+  conn.state = Connection::State::Closed;
+  closed_connections_.insert(connection_id);
+  close_callback_(connection_id);
 }
 
 template<class SocketType>

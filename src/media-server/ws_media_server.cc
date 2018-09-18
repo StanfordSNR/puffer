@@ -79,17 +79,6 @@ string client_signature(const uint64_t connection_id)
   }
 }
 
-void close_connection(WebSocketServer & server, const uint64_t connection_id)
-{
-  try {
-    server.close_connection(connection_id);
-  } catch (const exception & e) {
-    cerr << client_signature(connection_id) << ": failed to close connection: "
-         << e.what() << endl;
-    server.drop_connection(connection_id);
-  }
-}
-
 const VideoFormat & select_video_quality(WebSocketClient & client)
 {
   // TODO: make a better choice
@@ -271,8 +260,8 @@ void reinit_log_data()
 {
   /* reinit rebuffer_rate */
   log_rebuffer_num = 0;
-  for (auto & client : clients) {
-    if (client.second.rebuffer()) {
+  for (const auto & client_pair : clients) {
+    if (client_pair.second.rebuffer()) {
       log_rebuffer_num++;
     }
   }
@@ -485,57 +474,58 @@ void serve_client(WebSocketServer & server, WebSocketClient & client)
 
 void start_global_timer(WebSocketServer & server)
 {
-  server.poller().add_action(
-    Poller::Action(global_timer, Direction::In,
-      [&server]()->Result {
-        /* must read the timerfd, and check if timer has fired */
-        if (global_timer.expirations() == 0) {
-          return ResultType::Continue;
-        }
-
-        const auto curr_time = time(nullptr);
-
-        /* iterate over all connections */
-        for (auto it = clients.begin(); it != clients.end(); ) {
-          uint64_t connection_id = it->first;
-          WebSocketClient & client = it->second;
-
-          /* have not received messages from client for 10 seconds */
-          const auto last_msg_time = client.get_last_msg_time();
-          if (last_msg_time and curr_time - *last_msg_time > MAX_IDLE_S) {
-            close_connection(server, connection_id);
-            it = clients.erase(it);
-            cerr << client.signature() << ": drop connection after "
-                 << MAX_IDLE_S << " seconds" << endl;
-            continue;
-          }
-
-          if (client.channel()) {
-            /* only serve clients from which server has received client-init */
-            serve_client(server, client);
-          }
-
-          ++it;
-        }
-
-        /* Write active_streams count to file once per minute */
-        time_t this_minute_floor = curr_time - curr_time % 60;
-        if (this_minute_floor > last_minute_written) {
-          /* round down to last minute */
-          last_minute_written = this_minute_floor;
-
-          for (auto const & name_channel_pair : channels) {
-            auto channel = name_channel_pair.second;
-            string log_line = to_string(this_minute_floor) + " " +
-                              channel.name() + " " +
-                              to_string(channel.viewer_count());
-            append_to_log("active_streams", log_line);
-          }
-        }
+  server.poller().add_action(Poller::Action(global_timer, Direction::In,
+    [&server]()->Result {
+      /* must read the timerfd, and check if timer has fired */
+      if (global_timer.expirations() == 0) {
         return ResultType::Continue;
       }
-    )
-  );
+
+      const auto curr_time = time(nullptr);
+
+      /* iterate over all connections */
+      set<uint64_t> connections_to_close;
+      for (auto & client_pair : clients) {
+        uint64_t connection_id = client_pair.first;
+        WebSocketClient & client = client_pair.second;
+
+        /* have not received messages from client for 10 seconds */
+        const auto last_msg_time = client.get_last_msg_time();
+        if (last_msg_time and curr_time - *last_msg_time > MAX_IDLE_S) {
+          /* don't erase the client (in close callback) until after for loop */
+          connections_to_close.emplace(connection_id);
+          cerr << client.signature() << ": drop connection after "
+               << MAX_IDLE_S << " seconds" << endl;
+          continue;
+        }
+
+        if (client.channel()) {
+          /* only serve clients from which server has received client-init */
+          serve_client(server, client);
+        }
+      }
+
+      /* clients can be safely erased now */
+      for (const uint64_t connection_id : connections_to_close) {
+        server.clean_idle_connection(connection_id);
+      }
+
+      /* write active_streams count to file once per minute */
+      time_t this_minute_floor = curr_time - curr_time % 60;
+      if (this_minute_floor > last_minute_written) {
+        last_minute_written = this_minute_floor;
+
+        for (const auto & name_channel_pair : channels) {
+          auto channel = name_channel_pair.second;
+          string log_line = to_string(this_minute_floor) + " " +
+                            channel.name() + " " +
+                            to_string(channel.viewer_count());
+          append_to_log("active_streams", log_line);
+        }
+      }
+      return ResultType::Continue;
+    }
+  ));
 
   /* this timer fires every 100 ms */
   global_timer.start(100, 100);
@@ -886,11 +876,11 @@ int main(int argc, char * argv[])
   server.set_message_callback(
     [&server, &db_work](const uint64_t connection_id, const WSMessage & msg)
     {
-      if (debug) {
-        cerr << connection_id << ": message " << msg.payload() << endl;
-      }
-
       try {
+        if (debug) {
+          cerr << connection_id << ": message " << msg.payload() << endl;
+        }
+
         WebSocketClient & client = clients.at(connection_id);
         ClientMsgParser parser(msg.payload());
         client.set_last_msg_time(time(nullptr));
@@ -902,8 +892,7 @@ int main(int argc, char * argv[])
             /* user authentication */
             if (not auth_client(init_msg.session_key, db_work)) {
               cerr << connection_id << ": authentication failed" << endl;
-              close_connection(server, connection_id);
-              clients.erase(connection_id);
+              server.close_connection(connection_id);
               return;
             }
 
@@ -918,8 +907,7 @@ int main(int argc, char * argv[])
           if (not client.is_authenticated()) {
             cerr << connection_id << ": ignoring messages from a "
                  << "non-authenticated user" << endl;
-            close_connection(server, connection_id);
-            clients.erase(connection_id);
+            server.close_connection(connection_id);
             return;
           }
 
@@ -930,8 +918,7 @@ int main(int argc, char * argv[])
       } catch (const exception & e) {
         cerr << client_signature(connection_id)
              << ": warning in message callback: " << e.what() << endl;
-        close_connection(server, connection_id);
-        clients.erase(connection_id);
+        server.close_connection(connection_id);
       }
     }
   );
@@ -939,33 +926,28 @@ int main(int argc, char * argv[])
   server.set_open_callback(
     [&server](const uint64_t connection_id)
     {
-      cerr << connection_id << ": connection opened" << endl;
-      clients.emplace(piecewise_construct,
-                      forward_as_tuple(connection_id),
-                      forward_as_tuple(connection_id)); /* WebSocketClient */
+      try {
+        cerr << connection_id << ": connection opened" << endl;
+
+        clients.emplace(piecewise_construct,
+                        forward_as_tuple(connection_id),
+                        forward_as_tuple(connection_id)); /* WebSocketClient */
+      } catch (const exception & e) {
+        cerr << client_signature(connection_id)
+             << ": warning in open callback: " << e.what() << endl;
+        server.close_connection(connection_id);
+      }
     }
   );
 
   server.set_close_callback(
     [](const uint64_t connection_id)
     {
-      cerr << connection_id << ": connection closed" << endl;
-
       try {
-        const auto client_it = clients.find(connection_id);
-        if (client_it != clients.end()) {
-          const auto & client = client_it->second;
+        cerr << connection_id << ": connection closed" << endl;
 
-          if (client.channel()) {
-            auto & close_channel = channels.at(client.channel().value());
-
-            /* update and record viewer count */
-            close_channel.set_viewer_count(close_channel.viewer_count() - 1);
-          }
-
-          clients.erase(client_it);
-          reinit_log_data();
-        }
+        clients.erase(connection_id);
+        reinit_log_data();
       } catch (const exception & e) {
         cerr << client_signature(connection_id)
              << ": warning in close callback: " << e.what() << endl;
