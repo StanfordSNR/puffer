@@ -92,28 +92,28 @@ int tail_loop(const string & log_path, TCPSocket & db_sock)
     fd.seek(0, SEEK_END);
 
     int wd = inotify.add_watch(log_path, IN_MODIFY | IN_CLOSE_WRITE,
-        [&log_rotated, &buf, &fd, &db_sock, &lines]
-        (const inotify_event & event, const string &) {
-          if (event.mask & IN_MODIFY) {
-            string new_content = fd.read();
-            if (new_content.empty()) {
-              /* return if nothing more to read */
-              return;
-            }
-            buf += new_content;
-
-            /* find new lines iteratively */
-            size_t pos = 0;
-            while ((pos = buf.find("\n")) != string::npos) {
-              lines.emplace_back(buf.substr(0, pos));
-              buf = buf.substr(pos + 1);
-            }
-          } else if (event.mask & IN_CLOSE_WRITE) {
-            /* old log was closed; open and watch new log in next loop */
-            log_rotated = true;
+      [&log_rotated, &buf, &fd, &db_sock, &lines]
+      (const inotify_event & event, const string &) {
+        if (event.mask & IN_MODIFY) {
+          string new_content = fd.read();
+          if (new_content.empty()) {
+            /* return if nothing more to read */
+            return;
           }
+          buf += new_content;
+
+          /* find new lines iteratively */
+          size_t pos = 0;
+          while ((pos = buf.find("\n")) != string::npos) {
+            lines.emplace_back(buf.substr(0, pos));
+            buf = buf.substr(pos + 1);
+          }
+        } else if (event.mask & IN_CLOSE_WRITE) {
+          /* old log was closed; open and watch new log in next loop */
+          log_rotated = true;
         }
-      );
+      }
+    );
 
     while (not log_rotated) {
       auto ret = poller.poll(-1);
