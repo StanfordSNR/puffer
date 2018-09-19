@@ -1,5 +1,5 @@
 from django.contrib.auth import login, authenticate, REDIRECT_FIELD_NAME
-from django.contrib.auth import views as auth_views
+from django.contrib.auth.views import LoginView
 from django.shortcuts import render, redirect
 from django.contrib import messages
 from django.urls import reverse
@@ -8,24 +8,6 @@ from django.http import HttpResponse
 from accounts.models import InvitationToken
 from accounts.forms import SignUpForm
 from accounts.utils import random_token
-
-
-def my_login(request):
-    # prevent logged in user from logging in
-    if request.user.is_authenticated:
-        return redirect('index')
-
-    if request.method == 'POST':
-        if 'america' not in request.POST:
-            messages.error(request, 'Puffer is only available in the US.')
-
-            redirect_to = request.POST.get('next')
-            if redirect_to:
-                return redirect(reverse('login') + '?next=' + redirect_to)
-            else:
-                return redirect('login')
-
-    return auth_views.login(request)
 
 
 def signup(request):
