@@ -29,6 +29,11 @@ int main(int argc, char * argv[])
   string yaml_config(argv[1]);
   int num_servers = stoi(argv[2]);
 
+  if (num_servers <= 0) {
+    cerr << "<number of servers>: a positive integer is required" << endl;
+    return EXIT_FAILURE;
+  }
+
   /* get the paths of ws_media_server and log_reporter */
   auto media_server_dir = fs::canonical(fs::path(
                           roost::readlink("/proc/self/exe")).parent_path());

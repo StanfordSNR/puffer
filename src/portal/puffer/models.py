@@ -30,6 +30,11 @@ class Rating(models.Model):
 def user_logged_in_handler(sender, request, user, **kwargs):
     curr_session_key = request.session.session_key
 
+    if not curr_session_key:
+        request.session.create()
+        curr_session_key = request.session.session_key
+        return
+
     user_profile, _ = UserProfile.objects.get_or_create(user=user)
     last_session_key = user_profile.last_session_key
 
