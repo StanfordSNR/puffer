@@ -13,9 +13,8 @@
 #include "filesystem.hh"
 #include "tokenize.hh"
 #include "exception.hh"
-#include "socket.hh"
-#include "http_request.hh"
 #include "formatter.hh"
+#include "influxdb_client.hh"
 
 using namespace std;
 using namespace PollerShortNames;
@@ -28,63 +27,15 @@ void print_usage(const string & program_name)
   cerr << "Usage: " << program_name << " <log format> <log path>" << endl;
 }
 
-void post_to_db(TCPSocket & db_sock, const vector<string> & lines)
+int tail_loop(const string & log_path)
 {
-  string payload;
-
-  for (const auto & line : lines) {
-    vector<string> values = split(line, " ");
-    payload += formatter.format(values) + "\n";
-  }
-
-  /* send POST request to InfluxDB */
-  HTTPRequest request;
-  request.set_first_line("POST /write?db=collectd&u=puffer&p="
-      + safe_getenv("INFLUXDB_PASSWORD") + "&precision=s HTTP/1.1");
-  request.add_header(HTTPHeader{"Host", "localhost:8086"});
-  request.add_header(HTTPHeader{"Content-Type", "application/x-www-form-urlencoded"});
-  request.add_header(HTTPHeader{"Content-Length", to_string(payload.size())});
-  request.done_with_headers();
-  request.read_in_body(payload);
-
-  db_sock.write(move(request.str()));
-}
-
-int tail_loop(const string & log_path, TCPSocket & db_sock)
-{
-  vector<string> lines;  /* lines waiting to be posted to InfluxDB */
-
   Poller poller;
-
-  poller.add_action(Poller::Action(db_sock, Direction::In,
-    [&db_sock]()->Result {
-      /* must read HTTP responses from InfluxDB, then basically ignore them */
-      const string response = db_sock.read();
-      if (response.empty()) {
-        throw runtime_error("peer socket in InfluxDB has closed");
-      }
-
-      return ResultType::Continue;
-    }
-  ));
-
-  poller.add_action(Poller::Action(db_sock, Direction::Out,
-    [&db_sock, &lines]()->Result {
-      /* post lines to InfluxDB */
-      post_to_db(db_sock, lines);
-      lines.clear();
-
-      return ResultType::Continue;
-    },
-    [&lines]()->bool {
-      return not lines.empty();
-    }
-  ));
+  Inotify inotify(poller);
+  InfluxDBClient influxdb_client(poller, {"127.0.0.1", 8086}, "collectd",
+                                 "puffer", safe_getenv("INFLUXDB_PASSWORD"));
 
   bool log_rotated = false;  /* whether log rotation happened */
   string buf;  /* used to assemble content read from the log into lines */
-
-  Inotify inotify(poller);
 
   for (;;) {
     FileDescriptor fd(CheckSystemCall("open (" + log_path + ")",
@@ -92,7 +43,7 @@ int tail_loop(const string & log_path, TCPSocket & db_sock)
     fd.seek(0, SEEK_END);
 
     int wd = inotify.add_watch(log_path, IN_MODIFY | IN_CLOSE_WRITE,
-      [&log_rotated, &buf, &fd, &db_sock, &lines]
+      [&log_rotated, &buf, &fd, &influxdb_client]
       (const inotify_event & event, const string &) {
         if (event.mask & IN_MODIFY) {
           string new_content = fd.read();
@@ -105,7 +56,13 @@ int tail_loop(const string & log_path, TCPSocket & db_sock)
           /* find new lines iteratively */
           size_t pos = 0;
           while ((pos = buf.find("\n")) != string::npos) {
-            lines.emplace_back(buf.substr(0, pos));
+            const string & line = buf.substr(0, pos);
+
+            /* a data point in Line Protocol format for InfluxDB */
+            vector<string> values = split(line, " ");
+            const string & influxdb_line = formatter.format(values) + "\n";
+            influxdb_client.post(influxdb_line);
+
             buf = buf.substr(pos + 1);
           }
         } else if (event.mask & IN_CLOSE_WRITE) {
@@ -154,11 +111,6 @@ int main(int argc, char * argv[])
   getline(format_ifstream, format_string);
   formatter.parse(format_string);
 
-  /* create socket connected to influxdb */
-  TCPSocket db_sock;
-  Address influxdb_addr("127.0.0.1", 8086);
-  db_sock.connect(influxdb_addr);
-
   /* read new lines from logs and post to InfluxDB */
-  return tail_loop(log_path, db_sock);
+  return tail_loop(log_path);
 }
