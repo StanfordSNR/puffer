@@ -29,6 +29,10 @@ function ControlBar() {
   /* after setting the initial volume, don't manually set video.volume anymore;
    * call the function below instead */
   function set_video_volume(new_volume) {
+    var unmute_message = document.getElementById("unmute-message");
+    if (unmute_message) {
+      unmute_message.style.display = "none";
+    }
     new_volume = Math.min(Math.max(0, new_volume.toFixed(2)), 1);
 
     video.muted = false;  // allow unmuting and use video.volume to control
