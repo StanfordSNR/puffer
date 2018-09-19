@@ -2,11 +2,14 @@
 #include <string>
 #include <fstream>
 #include <map>
+#include <ctime>
 
+#include "util.hh"
 #include "exception.hh"
 #include "poller.hh"
 #include "inotify.hh"
 #include "filesystem.hh"
+#include "influxdb_client.hh"
 
 using namespace std;
 
@@ -58,8 +61,8 @@ int main(int argc, char * argv[])
 
   Poller poller;
   Inotify inotify(poller);
-
-  vector<string> lines;
+  InfluxDBClient influxdb_client(poller, {"127.0.0.1", 8086}, "collectd",
+                                 "puffer", safe_getenv("INFLUXDB_PASSWORD"));
 
   for (const auto & channel_name_pair : dirmap) {
     for (const auto & video_format_pair: channel_name_pair.second) {
@@ -68,7 +71,7 @@ int main(int argc, char * argv[])
       string ssim_dir = video_format_pair.second;
 
       inotify.add_watch(ssim_dir, IN_MOVED_TO,
-        [channel_name, video_format, ssim_dir, &lines]
+        [channel_name, video_format, ssim_dir, &influxdb_client]
         (const inotify_event & event, const string & path) {
           /* only interested in regular files that are moved into the dir */
           if (not (event.mask & IN_MOVED_TO) or (event.mask & IN_ISDIR)) {
@@ -86,10 +89,18 @@ int main(int argc, char * argv[])
             string line;
             getline(ssim_file, line);
 
+            /* make sure SSIM is valid */
+            try {
+              stod(line);
+            } catch (const exception & e) {
+              print_exception("invalid SSIM file", e);
+              return;
+            }
+
             string log_line = "ssim,channel=" + channel_name + ",quality="
-              + video_format + " timestamp=" + ts + "i,ssim=" + line;
-            cout << log_line << endl;
-            lines.emplace_back(log_line);
+              + video_format + " timestamp=" + ts + "i,ssim=" + line
+              + " " + to_string(time(nullptr));
+            influxdb_client.post(log_line);
           }
         }
       );

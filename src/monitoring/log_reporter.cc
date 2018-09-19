@@ -57,11 +57,8 @@ int tail_loop(const string & log_path)
           size_t pos = 0;
           while ((pos = buf.find("\n")) != string::npos) {
             const string & line = buf.substr(0, pos);
-
-            /* a data point in Line Protocol format for InfluxDB */
             vector<string> values = split(line, " ");
-            const string & influxdb_line = formatter.format(values) + "\n";
-            influxdb_client.post(influxdb_line);
+            influxdb_client.post(formatter.format(values));
 
             buf = buf.substr(pos + 1);
           }

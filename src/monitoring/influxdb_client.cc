@@ -55,5 +55,5 @@ InfluxDBClient::InfluxDBClient(Poller & poller,
 
 void InfluxDBClient::post(const string & payload)
 {
-  payload_ += payload;
+  payload_ += payload + "\n";
 }
