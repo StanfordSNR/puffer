@@ -63,8 +63,7 @@ int main(int argc, char * argv[])
       [&influxdb_client](const pid_t & pid)  // error callback
       {
         cerr << "Error in media server: pid " << to_string(pid) << endl;
-        influxdb_client.post("server_state,pid=" + to_string(pid)
-                             + " state=\"error\" "
+        influxdb_client.post("server_state state=\"error\" "
                              + to_string(time(nullptr)));
       }
     );
@@ -78,8 +77,7 @@ int main(int argc, char * argv[])
         [&influxdb_client](const pid_t & pid)  // error callback
         {
           cerr << "Error in log reporter: pid " << to_string(pid) << endl;
-          influxdb_client.post("log_reporter_state,pid=" + to_string(pid)
-                               + " state=\"error\" "
+          influxdb_client.post("log_reporter_state state=\"error\" "
                                + to_string(time(nullptr)));
         }
       );
