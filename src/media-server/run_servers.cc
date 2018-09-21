@@ -60,10 +60,10 @@ int main(int argc, char * argv[])
   for (int i = 0; i < num_servers; i++) {
     vector<string> args { ws_media_server, yaml_config, to_string(i) };
     proc_manager.run_as_child(ws_media_server, args, {},
-      [&influxdb_client](const pid_t & pid)  // error callback
+      [&influxdb_client, i](const pid_t &)  // error callback
       {
-        cerr << "Error in media server: pid " << to_string(pid) << endl;
-        influxdb_client.post("server_state state=\"error\" "
+        cerr << "Error in media server with ID " << i << endl;
+        influxdb_client.post("server_state state=\"FAILED\" "
                              + to_string(time(nullptr)));
       }
     );
@@ -74,15 +74,21 @@ int main(int argc, char * argv[])
 
       vector<string> log_args {log_reporter, log_format, log_path};
       proc_manager.run_as_child(log_reporter, log_args, {},
-        [&influxdb_client](const pid_t & pid)  // error callback
+        [&influxdb_client, log_stem](const pid_t &)  // error callback
         {
-          cerr << "Error in log reporter: pid " << to_string(pid) << endl;
-          influxdb_client.post("log_reporter_state state=\"error\" "
+          cerr << "Error in log reporter: " << log_stem << endl;
+          influxdb_client.post("log_reporter_state state=\"FAILED\" "
                                + to_string(time(nullptr)));
         }
       );
     }
   }
+
+  /* indicate that media servers and log reporters are running */
+  influxdb_client.post("server_state state=\"RUNNING\" "
+                       + to_string(time(nullptr)));
+  influxdb_client.post("log_reporter_state state=\"RUNNING\" "
+                       + to_string(time(nullptr)));
 
   return proc_manager.wait();
 }
