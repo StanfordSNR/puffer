@@ -73,7 +73,8 @@ public:
    * call the callback function if the child exits with 0 */
   pid_t run_as_child(const std::string & program,
                      const std::vector<std::string> & prog_args,
-                     const callback_t & callback = {});
+                     const callback_t & callback = {},
+                     const callback_t & error_callback = {});
 
   /* return when all the child processes exit */
   int wait();
@@ -93,6 +94,7 @@ public:
 private:
   std::unordered_map<pid_t, ChildProcess> child_processes_;
   std::unordered_map<pid_t, callback_t> callbacks_;
+  std::unordered_map<pid_t, callback_t> error_callbacks_;
 
   Poller poller_;
 

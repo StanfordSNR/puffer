@@ -190,6 +190,7 @@ void ChildProcess::throw_exception( void ) const
 ProcessManager::ProcessManager()
   : child_processes_(),
     callbacks_(),
+    error_callbacks_(),
     poller_(),
     signals_({ SIGCHLD, SIGABRT, SIGHUP, SIGINT, SIGQUIT, SIGTERM }),
     signal_fd_(signals_)
@@ -209,7 +210,8 @@ ProcessManager::ProcessManager()
 
 pid_t ProcessManager::run_as_child(const string & program,
                                    const vector<string> & prog_args,
-                                   const callback_t & callback)
+                                   const callback_t & callback,
+                                   const callback_t & error_callback)
 {
   auto child = ChildProcess(program,
     [&program, &prog_args]() {
@@ -223,6 +225,10 @@ pid_t ProcessManager::run_as_child(const string & program,
 
   if (callback) {
     callbacks_.emplace(pid, callback);
+  }
+
+  if (error_callback) {
+    error_callbacks_.emplace(pid, error_callback);
   }
 
   cerr << "[" + to_string(pid) + "] " + command_str(prog_args) + "\n";
@@ -281,9 +287,15 @@ Result ProcessManager::handle_signal(const signalfd_siginfo & sig)
 
         if (child.terminated()) {
           if (child.exit_status() != 0) {
-            child_processes_.clear();
-            throw runtime_error("ProcessManager: PID " + to_string(it->first) +
+            /* call the corresponding callback function if it exists */
+            const auto & callback_it = error_callbacks_.find(it->first);
+            if (callback_it != error_callbacks_.end()) {
+              callback_it->second(it->first);
+            } else {
+              child_processes_.clear();
+              throw runtime_error("ProcessManager: PID " + to_string(it->first) +
                                 " exits abnormally");
+            }
           }
 
           /* call the corresponding callback function if it exists */
@@ -295,9 +307,15 @@ Result ProcessManager::handle_signal(const signalfd_siginfo & sig)
           it = child_processes_.erase(it);
         } else {
           if (not child.running()) {
-            child_processes_.clear();
-            throw runtime_error("ProcessManager: PID " + to_string(it->first) +
+            /* call the corresponding callback function if it exists */
+            const auto & callback_it = error_callbacks_.find(it->first);
+            if (callback_it != error_callbacks_.end()) {
+              callback_it->second(it->first);
+            } else {
+              child_processes_.clear();
+              throw runtime_error("ProcessManager: PID " + to_string(it->first) +
                                 " is not running");
+            }
           }
 
           ++it;
