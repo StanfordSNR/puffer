@@ -63,7 +63,7 @@ int main(int argc, char * argv[])
       [&influxdb_client, i](const pid_t &)  // error callback
       {
         cerr << "Error in media server with ID " << i << endl;
-        influxdb_client.post("server_state state=\"FAILED\" "
+        influxdb_client.post("server_state state=1i "
                              + to_string(time(nullptr)));
       }
     );
@@ -77,7 +77,7 @@ int main(int argc, char * argv[])
         [&influxdb_client, log_stem](const pid_t &)  // error callback
         {
           cerr << "Error in log reporter: " << log_stem << endl;
-          influxdb_client.post("log_reporter_state state=\"FAILED\" "
+          influxdb_client.post("log_reporter_state state=1i "
                                + to_string(time(nullptr)));
         }
       );
@@ -85,9 +85,9 @@ int main(int argc, char * argv[])
   }
 
   /* indicate that media servers and log reporters are running */
-  influxdb_client.post("server_state state=\"RUNNING\" "
+  influxdb_client.post("server_state state=0i "
                        + to_string(time(nullptr)));
-  influxdb_client.post("log_reporter_state state=\"RUNNING\" "
+  influxdb_client.post("log_reporter_state state=0i "
                        + to_string(time(nullptr)));
 
   return proc_manager.wait();
