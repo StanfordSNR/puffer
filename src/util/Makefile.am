@@ -16,6 +16,7 @@ libutil_a_SOURCES = \
 	temp_dir.hh temp_dir.cc \
 	temp_file.hh temp_file.cc \
 	timeit.hh timeit.cc \
+	timestamp.hh timestamp.cc \
 	timerfd.hh timerfd.cc \
 	tokenize.hh tokenize.cc \
 	formatter.hh formatter.cc \

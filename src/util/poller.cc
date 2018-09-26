@@ -2,7 +2,6 @@
 
 #include <algorithm>
 #include <numeric>
-#include <chrono>
 
 #include "poller.hh"
 #include "exception.hh"
