@@ -76,8 +76,8 @@ Channel::Channel(const string & name, YAML::Node config, Inotify & inotify)
       cerr << "Channel " << name_ << ": ready to stream on demand" << endl;
     }
   } else {
-    /* required to run update_live_edge again after all video files are mmaped;
-     * would not be required if video files were mmapped in ascending order */
+    /* required to run update_live_edge again after all video and SSIM files
+     * are mmaped, because they were not mmapped in ascending order */
     if (vdata_.crbegin() != vdata_.crend()) {
       uint64_t newest_vts = vdata_.crbegin()->first;
       update_live_edge(newest_vts);
@@ -249,9 +249,9 @@ void Channel::update_live_edge(const uint64_t ts)
   if (ts < delay_vts) return;
 
   uint64_t live_vts = ts - delay_vts;
-  uint64_t live_ats = find_ats(live_vts);
-
   if (not vready(live_vts)) return;
+
+  uint64_t live_ats = find_ats(live_vts);
   if (not aready(live_ats)) return;
 
   if (not vlive_frontier_) {
@@ -398,6 +398,10 @@ void Channel::do_read_ssim(const fs::path & filepath, const VideoFormat & vf) {
     } catch (const exception & e) {
       print_exception("invalid SSIM file", e);
       vssim_[ts][vf] = -1;
+    }
+
+    if (live_) {
+      update_live_edge(ts);
     }
   }
 }
