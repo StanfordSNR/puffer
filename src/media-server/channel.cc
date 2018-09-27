@@ -248,11 +248,12 @@ void Channel::update_live_edge(const uint64_t ts)
 
   if (ts < delay_vts) return;
 
-  uint64_t live_vts = ts - delay_vts;
-  if (not vready(live_vts)) return;
+  uint64_t ats = find_ats(ts);
+  if (not vready(ts)) return;
+  if (not aready(ats)) return;
 
+  uint64_t live_vts = ts - delay_vts;
   uint64_t live_ats = find_ats(live_vts);
-  if (not aready(live_ats)) return;
 
   if (not vlive_frontier_) {
     cerr << "Channel " << name_ << ": ready to live stream" << endl;
