@@ -1,0 +1,13 @@
+[package]
+name = "ccp_interface"
+version = "0.1.0"
+authors = ["Chenzhi Zhu <zhucz16@mails.tsinghua.edu.cn>"]
+edition = "2018"
+
+[dependencies]
+clap="2.29"
+portus = { git = "https://github.com/ccp-project/portus.git" }
+slog = "2"
+slog-async = "2"
+slog-term = "2"
+time="0.1"
