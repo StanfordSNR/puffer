@@ -50,14 +50,15 @@ public:
   const std::string & acodec() const { return acodec_; }
 
   std::optional<uint64_t> init_vts() const;
-  uint64_t find_ats(const uint64_t vts) const;
+  std::optional<uint64_t> init_ats() const;
+  uint64_t floor_vts(const uint64_t ts) const;
+  uint64_t floor_ats(const uint64_t ts) const;
 
   bool is_valid_vts(const uint64_t ts) const { return ts % vduration_ == 0; }
   bool is_valid_ats(const uint64_t ts) const { return ts % aduration_ == 0; }
 
-  /* return live edges that allow for presentation_delay_s */
-  std::optional<uint64_t> vlive_frontier() const { return vlive_frontier_; }
-  std::optional<uint64_t> alive_frontier() const { return alive_frontier_; }
+  /* return the live edge that allow for presentation_delay_s */
+  std::optional<uint64_t> live_edge() const;
 
   /* return largest timestamps that have been cleaned */
   std::optional<uint64_t> vclean_frontier() const { return vclean_frontier_; }
@@ -84,8 +85,8 @@ private:
 
   /* live_ == true */
   std::optional<unsigned int> presentation_delay_s_ {};
-  std::optional<uint64_t> vlive_frontier_ {};
-  std::optional<uint64_t> alive_frontier_ {};
+  std::optional<uint64_t> vready_frontier_ {};
+  std::optional<uint64_t> aready_frontier_ {};
 
   std::optional<unsigned int> clean_window_s_ {};
   std::optional<uint64_t> vclean_frontier_ {};
@@ -105,7 +106,8 @@ private:
   void do_read_ssim(const fs::path & filepath, const VideoFormat & vf);
   void load_ssim_files(Inotify & inotify);
 
-  void update_live_edge(const uint64_t ts);
+  void update_vready_frontier(const uint64_t vts);
+  void update_aready_frontier(const uint64_t ats);
 };
 
 #endif /* CHANNEL_HH */

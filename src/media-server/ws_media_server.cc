@@ -399,7 +399,7 @@ void reinit_laggy_client(WebSocketServer & server, WebSocketClient & client,
   }
 
   uint64_t init_vts = channel.init_vts().value();
-  uint64_t init_ats = channel.find_ats(init_vts);
+  uint64_t init_ats = channel.init_ats().value();
 
   cerr << client.signature() << ": reinitialize laggy client "
        << client.next_vts().value() << "->" << init_vts << endl;
@@ -590,8 +590,8 @@ bool resume_connection(WebSocketServer & server, WebSocketClient & client,
   if (channel.live()) {
     /* live: don't try to resume if the requested video is already behind
      * the live edge */
-    if (not channel.vlive_frontier() or
-        requested_vts < channel.vlive_frontier().value()) {
+    if (not channel.live_edge() or
+        requested_vts < channel.live_edge().value()) {
       return false;
     }
 
@@ -642,7 +642,7 @@ void handle_client_init(WebSocketServer & server, WebSocketClient & client,
   }
 
   uint64_t init_vts = channel.init_vts().value();
-  uint64_t init_ats = channel.find_ats(init_vts);
+  uint64_t init_ats = channel.init_ats().value();
 
   /* save old channel for use in updating view count */
   const string old_channel_string = client.channel() ?
