@@ -2,6 +2,7 @@
 
 #include <fcntl.h>
 #include <fstream>
+#include <algorithm>
 
 #include "file_descriptor.hh"
 #include "exception.hh"
@@ -66,7 +67,7 @@ Channel::Channel(const string & name, YAML::Node config, Inotify & inotify)
     /* set init_vts_ to be the first ready timestamp */
     if (vdata_.cbegin() != vdata_.cend()) {
       uint64_t oldest_vts = vdata_.cbegin()->first;
-      uint64_t oldest_ats = find_ats(oldest_vts);
+      uint64_t oldest_ats = floor_ats(oldest_vts);
 
       if (not vready(oldest_vts) or not aready(oldest_ats)) {
         throw runtime_error("VoD streaming is not ready");
@@ -75,28 +76,35 @@ Channel::Channel(const string & name, YAML::Node config, Inotify & inotify)
       init_vts_ = vdata_.cbegin()->first;
       cerr << "Channel " << name_ << ": ready to stream on demand" << endl;
     }
-  } else {
-    /* required to run update_live_edge again after all video and SSIM files
-     * are mmaped, because they were not mmapped in ascending order */
-    if (vdata_.crbegin() != vdata_.crend()) {
-      uint64_t newest_vts = vdata_.crbegin()->first;
-      update_live_edge(newest_vts);
-    }
   }
 }
 
 optional<uint64_t> Channel::init_vts() const
 {
   if (live_) {
-    return vlive_frontier_;
+    return live_edge();
   } else {
     return init_vts_;
   }
 }
 
-uint64_t Channel::find_ats(const uint64_t vts) const
+optional<uint64_t> Channel::init_ats() const
 {
-  return (vts / aduration_) * aduration_;
+  if (not init_vts()) {
+    return nullopt;
+  } else {
+    return floor_ats(*init_vts());
+  }
+}
+
+uint64_t Channel::floor_vts(const uint64_t ts) const
+{
+  return (ts / vduration_) * vduration_;
+}
+
+uint64_t Channel::floor_ats(const uint64_t ts) const
+{
+  return (ts / aduration_) * aduration_;
 }
 
 bool Channel::ready() const
@@ -110,12 +118,13 @@ bool Channel::vready(const uint64_t ts) const
   if (it1 == vdata_.cend() or it1->second.size() != vformats_.size()) {
     return false;
   }
+
   auto it2 = vssim_.find(ts);
   if (it2 == vssim_.cend() or it2->second.size() != vformats_.size()) {
     return false;
   }
 
-  return vinit_.size() == vformats_.size();
+  return true;
 }
 
 mmap_t & Channel::vinit(const VideoFormat & format)
@@ -150,7 +159,7 @@ bool Channel::aready(const uint64_t ts) const
     return false;
   }
 
-  return ainit_.size() == aformats_.size();
+  return true;
 }
 
 mmap_t & Channel::ainit(const AudioFormat & format)
@@ -183,13 +192,13 @@ mmap_t mmap_file(const string & filepath)
   }
 }
 
-void Channel::munmap_video(const uint64_t newest_ts)
+void Channel::munmap_video(const uint64_t ts)
 {
   assert(clean_window_s_);
 
-  uint64_t clean_window_ts = clean_window_s_.value() * timescale_;
-  if (newest_ts < clean_window_ts) return;
-  uint64_t obsolete = newest_ts - clean_window_ts;
+  uint64_t clean_window_ts = *clean_window_s_ * timescale_;
+  if (ts < clean_window_ts) return;
+  uint64_t obsolete = ts - clean_window_ts;
 
   optional<uint64_t> cleaned_ts;
   for (auto it = vdata_.cbegin(); it != vdata_.cend();) {
@@ -205,19 +214,18 @@ void Channel::munmap_video(const uint64_t newest_ts)
 
   if (not cleaned_ts) return;
 
-  if (not vclean_frontier_ or
-      vclean_frontier_.value() < cleaned_ts.value()) {
-    vclean_frontier_ = cleaned_ts.value();
+  if (not vclean_frontier_ or *vclean_frontier_ < *cleaned_ts) {
+    vclean_frontier_ = *cleaned_ts;
   }
 }
 
-void Channel::munmap_audio(const uint64_t newest_ts)
+void Channel::munmap_audio(const uint64_t ts)
 {
   assert(clean_window_s_);
 
-  uint64_t clean_window_ts = clean_window_s_.value() * timescale_;
-  if (newest_ts < clean_window_ts) return;
-  uint64_t obsolete = newest_ts - clean_window_ts;
+  uint64_t clean_window_ts = *clean_window_s_ * timescale_;
+  if (ts < clean_window_ts) return;
+  uint64_t obsolete = ts - clean_window_ts;
 
   optional<uint64_t> cleaned_ts;
   for (auto it = adata_.cbegin(); it != adata_.cend();) {
@@ -232,37 +240,82 @@ void Channel::munmap_audio(const uint64_t newest_ts)
 
   if (not cleaned_ts) return;
 
-  if (not aclean_frontier_ or
-      aclean_frontier_.value() < cleaned_ts) {
-    aclean_frontier_ = cleaned_ts.value();
+  if (not aclean_frontier_ or *aclean_frontier_ < *cleaned_ts) {
+    aclean_frontier_ = *cleaned_ts;
   }
 }
 
-void Channel::update_live_edge(const uint64_t ts)
+optional<uint64_t> Channel::live_edge() const
 {
   assert(presentation_delay_s_);
+
+  /* init files are not ready */
+  if (vinit_.size() != vformats_.size() or
+      ainit_.size() != aformats_.size()) {
+    return nullopt;
+  }
+
+  /* no video chunks or no audio chunks are ready */
+  if (not vready_frontier_ or not aready_frontier_) {
+    return nullopt;
+  }
+
+  /* find the max ready video chunk, such that its corresponding ("floor_ats")
+   * audio chunk is also ready */
+  uint64_t ready_frontier = *vready_frontier_;
+  while (not aready(floor_ats(ready_frontier))) {
+    if (ready_frontier < vduration_) {
+      return nullopt;
+    }
+
+    ready_frontier -= vduration_;
+  }
 
   /* round up presentation delay to a multiple of video duration */
   uint64_t delay_vts = presentation_delay_s_.value() * timescale_;
   delay_vts = (delay_vts / vduration_ + 1) * vduration_;
+  if (ready_frontier < delay_vts) {
+    return nullopt;
+  }
 
-  if (ts < delay_vts) return;
+  return ready_frontier - delay_vts;
+}
 
-  uint64_t ats = find_ats(ts);
-  if (not vready(ts)) return;
+void Channel::update_vready_frontier(const uint64_t vts)
+{
+  if (not vready(vts)) return;
+
+  /* update vready_frontier_ */
+  if (not vready_frontier_) {
+    vready_frontier_ = vts;
+  } else {
+    /* vready_frontier_ is a contiguous range of ready video chunks */
+    if (vts == *vready_frontier_ + vduration_) {
+      vready_frontier_ = *vready_frontier_ + vduration_;
+
+      while (vready(*vready_frontier_ + vduration_)) {
+        vready_frontier_ = *vready_frontier_ + vduration_;
+      }
+    }
+  }
+}
+
+void Channel::update_aready_frontier(const uint64_t ats)
+{
   if (not aready(ats)) return;
 
-  uint64_t live_vts = ts - delay_vts;
-  uint64_t live_ats = find_ats(live_vts);
+  /* update aready_frontier_ */
+  if (not aready_frontier_) {
+    aready_frontier_ = ats;
+  } else {
+    /* aready_frontier_ is a contiguous range of ready audio chunks */
+    if (ats == *aready_frontier_ + aduration_) {
+      aready_frontier_ = *aready_frontier_ + aduration_;
 
-  if (not vlive_frontier_) {
-    cerr << "Channel " << name_ << ": ready to live stream" << endl;
-
-    vlive_frontier_ = live_vts;
-    alive_frontier_ = live_ats;
-  } else if (live_vts > vlive_frontier_.value()) {
-    vlive_frontier_ = live_vts;
-    alive_frontier_ = live_ats;
+      while (aready(*aready_frontier_ + aduration_)) {
+        aready_frontier_ = *aready_frontier_ + aduration_;
+      }
+    }
   }
 }
 
@@ -279,15 +332,10 @@ void Channel::do_mmap_video(const fs::path & filepath, const VideoFormat & vf)
       vdata_[ts][vf] = data_size;
 
       if (live_) {
-        update_live_edge(ts);
-        munmap_video(ts);
+        update_vready_frontier(ts);
 
-        /* assert that clean frontier < live frontier */
-        if (vclean_frontier_ and vlive_frontier_ and
-            vclean_frontier_.value() >= vlive_frontier_.value()) {
-          cerr << "Error: video cleaner has caught up" << endl;
-          vlive_frontier_.reset();
-          alive_frontier_.reset();
+        if (vready_frontier_) {
+          munmap_video(*vready_frontier_);
         }
       }
     }
@@ -339,14 +387,10 @@ void Channel::do_mmap_audio(const fs::path & filepath, const AudioFormat & af)
       adata_[ts][af] = data_size;
 
       if (live_) {
-        munmap_audio(ts);
+        update_aready_frontier(ts);
 
-        /* assert that clean frontier < live frontier */
-        if (aclean_frontier_ and alive_frontier_ and
-            aclean_frontier_.value() >= alive_frontier_.value()) {
-          cerr << "Error: audio cleaner has caught up" << endl;
-          vlive_frontier_.reset();
-          alive_frontier_.reset();
+        if (aready_frontier_) {
+          munmap_audio(*aready_frontier_);
         }
       }
     }
@@ -402,7 +446,7 @@ void Channel::do_read_ssim(const fs::path & filepath, const VideoFormat & vf) {
     }
 
     if (live_) {
-      update_live_edge(ts);
+      update_vready_frontier(ts);
     }
   }
 }
