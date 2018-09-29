@@ -7,21 +7,23 @@ extern crate slog;
 extern crate ccp_interface;
 extern crate portus;
 
-use ccp_interface::Cinter;
+use ccp_interface::Puffer;
 use portus::ipc::{BackendBuilder, Blocking};
 
-fn make_args() -> Result<(ccp_interface::CinterConfig, String), String> {
+fn make_args() -> Result<(ccp_interface::PufferConfig, String), String> {
     let matches = clap::App::new("CCP INTERFACE")
-        .about("Implementation of ccp interface for puffer")
-        .arg(Arg::with_name("ipc")
-             .long("ipc")
-             .help("Sets the type of ipc to use: (netlink|unix)")
-             .default_value("netlink")
-             .validator(portus::algs::ipc_valid))
+        .about("Implementation of CCP interface for Puffer")
+        .arg(
+            Arg::with_name("ipc")
+                .long("ipc")
+                .help("Sets the type of ipc to use: (netlink|unix)")
+                .default_value("netlink")
+                .validator(portus::algs::ipc_valid),
+        )
         .get_matches();
 
     Ok((
-        ccp_interface::CinterConfig {},
+        ccp_interface::PufferConfig {},
         String::from(matches.value_of("ipc").unwrap()),
     ))
 }
@@ -33,36 +35,38 @@ fn main() {
         .unwrap_or_default();
 
     info!(log, "starting CCP";
-        "algorithm" => "ccp_interface",
+        "algorithm" => "Puffer",
         "ipc" => ipc.clone(),
     );
     match ipc.as_str() {
         "unix" => {
             use portus::ipc::unix::Socket;
             let b = Socket::<Blocking>::new("in", "out")
-                .map(|sk| BackendBuilder{sock: sk})
+                .map(|sk| BackendBuilder { sock: sk })
                 .expect("ipc initialization");
-            portus::run::<_, Cinter<_>>(
+            portus::run::<_, Puffer<_>>(
                 b,
                 &portus::Config {
                     logger: Some(log),
                     config: cfg,
-                }
-            ).unwrap();
+                },
+            )
+            .unwrap();
         }
         #[cfg(all(target_os = "linux"))]
         "netlink" => {
             use portus::ipc::netlink::Socket;
             let b = Socket::<Blocking>::new()
-                .map(|sk| BackendBuilder{sock: sk})
+                .map(|sk| BackendBuilder { sock: sk })
                 .expect("ipc initialization");
-            portus::run::<_, Cinter<_>>(
+            portus::run::<_, Puffer<_>>(
                 b,
                 &portus::Config {
                     logger: Some(log),
                     config: cfg,
-                }
-            ).unwrap();
+                },
+            )
+            .unwrap();
         }
         _ => unreachable!(),
     }
