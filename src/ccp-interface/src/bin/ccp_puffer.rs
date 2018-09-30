@@ -38,6 +38,7 @@ fn main() {
         "algorithm" => "Puffer",
         "ipc" => ipc.clone(),
     );
+
     match ipc.as_str() {
         "unix" => {
             use portus::ipc::unix::Socket;
