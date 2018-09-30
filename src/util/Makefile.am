@@ -24,4 +24,5 @@ libutil_a_SOURCES = \
 	filesystem.hh \
 	chunk.hh \
 	mmap.hh mmap.cc \
-	y4m.hh y4m.cc
+	y4m.hh y4m.cc \
+	ipc_socket.hh ipc_socket.cc
