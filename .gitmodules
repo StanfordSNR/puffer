@@ -10,4 +10,6 @@
 [submodule "third_party/pensieve"]
 	path = third_party/pensieve
 	url = https://github.com/StanfordSNR/pensieve.git
-	ignore = dirty
+[submodule "third_party/portus"]
+	path = third_party/portus
+	url = https://github.com/StanfordSNR/portus.git

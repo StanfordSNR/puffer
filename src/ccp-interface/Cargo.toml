@@ -5,7 +5,7 @@ authors = ["Puffer authors"]
 edition = "2018"
 
 [dependencies]
-portus = { git = "https://github.com/StanfordSNR/portus" }
+portus = { path = "../../third_party/portus" }
 clap="2.29"
 slog = "2"
 slog-async = "2"
