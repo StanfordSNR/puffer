@@ -12,8 +12,9 @@ pub struct Puffer<T: Ipc> {
     control_channel: Datapath<T>,
     logger: Option<slog::Logger>,
     scope: Scope,
-    init_cwnd: u32,
-    cwnd: u32,
+    mss: u32,
+    init_cwnd: f64,
+    cwnd: f64,
 }
 
 #[derive(Clone)]
@@ -25,7 +26,6 @@ impl Default for PufferConfig {
     }
 }
 
-#[derive(Debug)]
 pub struct CongMeasurements {
 	pub rtt: u32,
 	pub acked: u32,
@@ -75,7 +75,7 @@ impl<T: Ipc> Puffer<T> {
 
     fn update_cwnd(&self) {
         if let Err(e) = self.control_channel
-            .update_field(&self.scope, &[("Cwnd", self.cwnd)]) {
+            .update_field(&self.scope, &[("Cwnd", self.cwnd as u32)]) {
             self.logger.as_ref().map(|log| {
                 warn!(log, "Cwnd update error";
                       "err" => ?e,
@@ -130,20 +130,43 @@ impl<T: Ipc> CongAlg<T> for Puffer<T> {
             control_channel: control_channel,
             logger: cfg.logger,
             scope: Scope::new(),
-            init_cwnd: 10,
-            cwnd: 10,
+            mss: info.mss,
+            init_cwnd: info.init_cwnd as f64,
+            cwnd: info.init_cwnd as f64,
         };
 
         s.scope = s.control_channel.set_program(
             String::from("DatapathIntervalRTTProg"), None).unwrap();
 
-        // update init cwnd
-        s.update_cwnd();
-
         s
     }
 
     fn on_report(&mut self, _sock_id: u32, m: Report) {
-        println!("{:?}", self.get_fields(&m));
+        let ms = self.get_fields(&m);
+
+        if ms.loss == 0 {
+            // increase cwnd by 1/cwnd per packet
+            self.cwnd += self.mss as f64 * ms.acked as f64 / self.cwnd;
+        } else {
+            // until loss detected
+            self.cwnd /= 2.0;
+            if self.cwnd <= self.init_cwnd {
+                self.cwnd = self.init_cwnd;
+            }
+        }
+
+        // update cwnd used in datapath to self.cwnd
+        self.update_cwnd();
+
+        self.logger.as_ref().map(|log| {
+            debug!(log, "on_report";
+                "rtt" => ms.rtt,
+                "acked" => ms.acked,
+                "sacked" => ms.sacked,
+                "inflight" => ms.inflight,
+                "loss" => ms.loss,
+                "was_timeout" => ms.was_timeout,
+            );
+        });
     }
 }
