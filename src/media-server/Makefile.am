@@ -9,6 +9,7 @@ bin_PROGRAMS = ws_media_server run_servers
 ws_media_server_SOURCES = \
   ws_media_server.cc ws_client.hh ws_client.cc channel.hh channel.cc \
   client_message.hh client_message.cc server_message.hh server_message.cc \
+  portus_client.hh portus_client.cc ../util/ipc_socket.hh ../util/ipc_socket.cc\
 	../wrappers/media_formats.hh ../wrappers/media_formats.cc \
 	../notifier/inotify.hh ../notifier/inotify.cc \
 	../../third_party/json.upstream/single_include/nlohmann/json.hpp

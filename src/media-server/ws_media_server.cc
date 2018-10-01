@@ -24,6 +24,7 @@
 #include "client_message.hh"
 #include "ws_server.hh"
 #include "ws_client.hh"
+#include "portus_client.hh"
 
 using namespace std;
 using namespace PollerShortNames;
@@ -884,6 +885,9 @@ int main(int argc, char * argv[])
   /* load channels and mmap (existing and new) media files */
   Inotify inotify(server.poller());
   load_channels(config, inotify);
+
+  /* connect to portus */
+  PortusClient portus_client(server.poller(), "portus_ipc_" + server_id);
 
   /* set server callbacks */
   server.set_message_callback(
