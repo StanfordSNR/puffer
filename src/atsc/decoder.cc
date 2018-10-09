@@ -1413,6 +1413,9 @@ int main( int argc, char *argv[] )
           }
           video_output.emplace( params, decoded_fields.front().presentation_time_stamp );
           audio_output.emplace( decoded_fields.front().presentation_time_stamp );
+          decoded_samples = {}; /* don't confuse newly resynced audio output with old audio samples
+                                   (which may be old enough, relative to the new video frame, to
+                                   cause a HugeTimestampDifference exception) */
           outputs_initialized = true;
         }
 
