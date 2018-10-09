@@ -1048,7 +1048,7 @@ public:
 
     /* gap is too big -> bomb out and force reinitialization */
     if ( abs( diff ) > frame_interval_ * 60 * 3 ) {
-      throw HugeTimestampDifference( "huge video timestamp difference, expected = " + to_string( expected_inner_timestamp_ ) + "vs. actual = " + to_string( field.presentation_time_stamp )  );
+      throw HugeTimestampDifference( "huge video timestamp difference, expected = " + to_string( expected_inner_timestamp_ ) + " vs. actual = " + to_string( field.presentation_time_stamp )  );
     }
 
     /* field's moment has passed -> ignore */
@@ -1238,7 +1238,7 @@ public:
 
     /* gap is too big -> bomb out and force reinitialization */
     if ( abs( diff ) > audio_block_duration * 187 * 3 ) {
-      throw HugeTimestampDifference( "huge audio timestamp difference, expected = " + to_string( expected_inner_timestamp_ ) + "vs. actual = " + to_string( audio_block.presentation_time_stamp )  );
+      throw HugeTimestampDifference( "huge audio timestamp difference, expected = " + to_string( expected_inner_timestamp_ ) + " vs. actual = " + to_string( audio_block.presentation_time_stamp )  );
     }
 
     /* block's moment has passed -> ignore */
