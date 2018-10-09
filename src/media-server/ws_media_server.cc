@@ -391,13 +391,6 @@ inline unsigned int audio_in_flight(const Channel & channel,
 void reinit_laggy_client(WebSocketServer & server, WebSocketClient & client,
                          const Channel & channel)
 {
-  /* return if the channel is not ready */
-  if (not channel.init_vts()) {
-    cerr << client.signature() << ": cannot reinit laggy client "
-         << "(channel is not ready)" << endl;
-    return;
-  }
-
   uint64_t init_vts = channel.init_vts().value();
   uint64_t init_ats = channel.init_ats().value();
 
@@ -425,13 +418,9 @@ void serve_client(WebSocketServer & server, WebSocketClient & client)
   }
 
   if (channel.live()) {
-    /* reinitialize very slow clients if the cleaner has caught up */
-    auto vclean_frontier = channel.vclean_frontier();
-    auto aclean_frontier = channel.aclean_frontier();
-    if ((vclean_frontier and
-         vclean_frontier.value() >= client.next_vts().value()) or
-        (aclean_frontier and
-         aclean_frontier.value() >= client.next_ats().value())) {
+    /* reinit client whose playback buffer falls behind reinit_frontier */
+    if (channel.reinit_frontier() and
+        client.next_vts().value() <= channel.reinit_frontier().value()) {
       reinit_laggy_client(server, client, channel);
       return;
     }

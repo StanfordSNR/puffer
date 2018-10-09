@@ -64,6 +64,9 @@ public:
   std::optional<uint64_t> vclean_frontier() const { return vclean_frontier_; }
   std::optional<uint64_t> aclean_frontier() const { return aclean_frontier_; }
 
+  /* reinit client if its playback buffer falls behind this frontier */
+  std::optional<uint64_t> reinit_frontier() const;
+
 private:
   bool live_ {false};
   std::string name_ {};
@@ -83,12 +86,13 @@ private:
   std::string vcodec_ {};
   std::string acodec_ {};
 
-  /* live_ == true */
-  std::optional<unsigned int> presentation_delay_s_ {};
+  /* presentation delay in unit of video chunks */
+  std::optional<unsigned int> present_delay_chunk_ {};
   std::optional<uint64_t> vready_frontier_ {};
   std::optional<uint64_t> aready_frontier_ {};
 
-  std::optional<unsigned int> clean_window_s_ {};
+  /* clean window in unit of video chunks */
+  std::optional<unsigned int> clean_window_chunk_ {};
   std::optional<uint64_t> vclean_frontier_ {};
   std::optional<uint64_t> aclean_frontier_ {};
 

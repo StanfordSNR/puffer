@@ -10,12 +10,12 @@
 using namespace std;
 
 static const unsigned int DEFAULT_TIMESCALE = 90000;
-static const unsigned int DEFAULT_VIDEO_DURATION = 180180;
-static const unsigned int DEFAULT_AUDIO_DURATION = 432000;
+static const unsigned int DEFAULT_VIDEO_DURATION = 180180;  // 2.002s per chunk
+static const unsigned int DEFAULT_AUDIO_DURATION = 432000;  // 4.8s per chunk
 static const string DEFAULT_VIDEO_CODEC = "video/mp4; codecs=\"avc1.42E020\"";
 static const string DEFAULT_AUDIO_CODEC = "audio/webm; codecs=\"opus\"";
-static const unsigned int DEFAULT_PRESENTATION_DELAY = 10;
-static const unsigned int DEFAULT_CLEAN_WINDOW = 30;
+static const unsigned int DEFAULT_PRESENT_DELAY_CHUNK = 5;  // 5 chunks
+static const unsigned int DEFAULT_CLEAN_WINDOW_CHUNK = 15;  // 15 chunks
 
 Channel::Channel(const string & name, YAML::Node config, Inotify & inotify)
 {
@@ -40,22 +40,22 @@ Channel::Channel(const string & name, YAML::Node config, Inotify & inotify)
       config["audio_codec"].as<string>() : DEFAULT_AUDIO_CODEC;
 
   if (live_) {
-    presentation_delay_s_ = config["presentation_delay_s"] ?
-        config["presentation_delay_s"].as<unsigned int>() :
-        DEFAULT_PRESENTATION_DELAY;
-    clean_window_s_ = config["clean_window_s"] ?
-        config["clean_window_s"].as<unsigned int>() : DEFAULT_CLEAN_WINDOW;
+    present_delay_chunk_ = config["present_delay_chunk"] ?
+        config["present_delay_chunk"].as<unsigned int>() :
+        DEFAULT_PRESENT_DELAY_CHUNK;
+    clean_window_chunk_ = config["clean_window_chunk"] ?
+        config["clean_window_chunk"].as<unsigned int>() :
+        DEFAULT_CLEAN_WINDOW_CHUNK;
 
-    /* ensure an enough gap between clean_window_s and presentation_delay_s_ */
-    if (presentation_delay_s_.value() + 5.0 * vduration_ / timescale_
-        > clean_window_s_.value()) {
-      throw runtime_error("clean_window_s should be larger enough "
-                          "(5 video durations) than presentation_delay_s_");
+    /* ensure an enough gap between clean window and presentation delay */
+    if (*clean_window_chunk_ < *present_delay_chunk_ + 5) {
+      throw runtime_error("clean_window_chunk should be 5 chunks bigger "
+                          "than present_delay_chunk");
     }
   } else {
-    if (config["presentation_delay_s"] or config["clean_window_s"]) {
-      throw runtime_error("presentation_delay_s_ or clean_window_s cannot be "
-                          "specified if live is false");
+    if (config["present_delay_chunk"] or config["clean_window_chunk"]) {
+      throw runtime_error("present_delay_chunk or clean_window_chunk cannot be"
+                          " specified if live is false");
     }
   }
 
@@ -194,9 +194,7 @@ mmap_t mmap_file(const string & filepath)
 
 void Channel::munmap_video(const uint64_t ts)
 {
-  assert(clean_window_s_);
-
-  uint64_t clean_window_ts = *clean_window_s_ * timescale_;
+  uint64_t clean_window_ts = clean_window_chunk_.value() * vduration_;
   if (ts < clean_window_ts) return;
   uint64_t obsolete = ts - clean_window_ts;
 
@@ -221,9 +219,7 @@ void Channel::munmap_video(const uint64_t ts)
 
 void Channel::munmap_audio(const uint64_t ts)
 {
-  assert(clean_window_s_);
-
-  uint64_t clean_window_ts = *clean_window_s_ * timescale_;
+  uint64_t clean_window_ts = clean_window_chunk_.value() * vduration_;
   if (ts < clean_window_ts) return;
   uint64_t obsolete = ts - clean_window_ts;
 
@@ -247,8 +243,6 @@ void Channel::munmap_audio(const uint64_t ts)
 
 optional<uint64_t> Channel::live_edge() const
 {
-  assert(presentation_delay_s_);
-
   /* init files are not ready */
   if (vinit_.size() != vformats_.size() or
       ainit_.size() != aformats_.size()) {
@@ -271,14 +265,22 @@ optional<uint64_t> Channel::live_edge() const
     ready_frontier -= vduration_;
   }
 
-  /* round up presentation delay to a multiple of video duration */
-  uint64_t delay_vts = presentation_delay_s_.value() * timescale_;
-  delay_vts = (delay_vts / vduration_ + 1) * vduration_;
+  uint64_t delay_vts = present_delay_chunk_.value() * vduration_;
   if (ready_frontier < delay_vts) {
     return nullopt;
   }
 
   return ready_frontier - delay_vts;
+}
+
+optional<uint64_t> Channel::reinit_frontier() const
+{
+  auto curr_live_edge = live_edge();
+  if (not curr_live_edge or *curr_live_edge < 5 * vduration_) {
+    return nullopt;
+  } else {
+    return *curr_live_edge - 5 * vduration_;
+  }
 }
 
 void Channel::update_vready_frontier(const uint64_t vts)
