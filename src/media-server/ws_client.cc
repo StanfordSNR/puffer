@@ -58,9 +58,10 @@ void WebSocketClient::init(const string & channel,
                            const uint64_t vts, const uint64_t ats)
 {
   channel_ = channel;
+  init_id_++;
+
   next_vts_ = vts;
   next_ats_ = ats;
-
   next_vsegment_.reset();
   next_asegment_.reset();
 
@@ -69,10 +70,11 @@ void WebSocketClient::init(const string & channel,
 
   video_playback_buf_ = 0;
   audio_playback_buf_ = 0;
+
   client_next_vts_ = vts;
   client_next_ats_ = ats;
 
-  init_id_++;
+  rebuffering_ = false;
 }
 
 void WebSocketClient::set_next_vsegment(const VideoFormat & format,
@@ -89,17 +91,25 @@ void WebSocketClient::set_next_asegment(const AudioFormat & format,
 
 void WebSocketClient::set_max_video_size(const std::vector<VideoFormat> & vfs)
 {
-  max_video_height_ = {};
-  max_video_width_ = {};
+  max_video_height_ = 0;
+  max_video_width_ = 0;
+
   for (auto & vf : vfs) {
-    /* set max video height and width according to the given video formats. */
+    /* set max video height and width according to the given video formats */
     if (screen_height_ and vf.height >= screen_height_ and
         (not max_video_height_ or vf.height < max_video_height_) ) {
         max_video_height_ = vf.height;
     }
+
     if (screen_width_ and vf.width >= screen_width_ and
         (not max_video_width_ or vf.width < max_video_width_) ) {
         max_video_width_ = vf.width;
     }
   }
+}
+
+bool WebSocketClient::is_format_capable(const VideoFormat & format) const
+{
+  return (not max_video_width_ or format.width <= max_video_width_) and
+         (not max_video_height_ or format.height <= max_video_height_);
 }

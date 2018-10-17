@@ -82,7 +82,7 @@ string client_signature(const uint64_t connection_id)
 const VideoFormat & select_video_quality(WebSocketClient & client)
 {
   // TODO: make a better choice
-  Channel & channel = channels.at(client.channel().value());
+  Channel & channel = channels.at(client.channel());
 
   /* simple buffer-based algorithm: assume max buffer is 10 seconds */
   double buf = min(max(client.video_playback_buf(), 0.0), 10.0);
@@ -152,7 +152,7 @@ const VideoFormat & select_video_quality(WebSocketClient & client)
 const AudioFormat & select_audio_quality(WebSocketClient & client)
 {
   // TODO: make a better choice
-  Channel & channel = channels.at(client.channel().value());
+  Channel & channel = channels.at(client.channel());
 
   /* simple buffer-based algorithm: assume max buffer is 10 seconds */
   double buf = min(max(client.audio_playback_buf(), 0.0), 10.0);
@@ -261,7 +261,7 @@ void reinit_log_data()
   /* reinit rebuffer_rate */
   log_rebuffer_num = 0;
   for (const auto & client_pair : clients) {
-    if (client_pair.second.rebuffer()) {
+    if (client_pair.second.is_rebuffering()) {
       log_rebuffer_num++;
     }
   }
@@ -272,7 +272,7 @@ void reinit_log_data()
 
 void serve_video_to_client(WebSocketServer & server, WebSocketClient & client)
 {
-  Channel & channel = channels.at(client.channel().value());
+  Channel & channel = channels.at(client.channel());
 
   uint64_t next_vts = client.next_vts().value();
   double ssim;
@@ -327,7 +327,7 @@ void serve_video_to_client(WebSocketServer & server, WebSocketClient & client)
 
 void serve_audio_to_client(WebSocketServer & server, WebSocketClient & client)
 {
-  Channel & channel = channels.at(client.channel().value());
+  Channel & channel = channels.at(client.channel());
   uint64_t next_ats = client.next_ats().value();
 
   if (not client.next_asegment()) { /* or try a lower quality */
@@ -409,7 +409,7 @@ void reinit_laggy_client(WebSocketServer & server, WebSocketClient & client,
 
 void serve_client(WebSocketServer & server, WebSocketClient & client)
 {
-  const Channel & channel = channels.at(client.channel().value());
+  const Channel & channel = channels.at(client.channel());
 
   if (not channel.ready()) {
     cerr << client.signature()
@@ -468,8 +468,8 @@ void log_active_streams(const time_t this_minute)
 
   for (const auto & client_pair : clients) {
     const auto & client = client_pair.second;
-    if (client.channel()) {
-      string channel_name = client.channel().value();
+    if (not client.channel().empty()) {
+      string channel_name = client.channel();
 
       auto map_it = active_streams_count.find(channel_name);
       if (map_it == active_streams_count.end()) {
@@ -514,7 +514,7 @@ void start_global_timer(WebSocketServer & server)
           continue;
         }
 
-        if (client.channel()) {
+        if (not client.channel().empty()) {
           /* only serve clients from which server has received client-init */
           serve_client(server, client);
         }
@@ -545,7 +545,7 @@ void start_global_timer(WebSocketServer & server)
 void send_server_init(WebSocketServer & server, WebSocketClient & client,
                       const bool can_resume)
 {
-  const Channel & channel = channels.at(client.channel().value());
+  const Channel & channel = channels.at(client.channel());
 
   ServerInitMsg init(channel.name(), channel.vcodec(),
                      channel.acodec(), channel.timescale(),
@@ -563,7 +563,7 @@ bool resume_connection(WebSocketServer & server, WebSocketClient & client,
                        const ClientInitMsg & msg, const Channel & channel)
 {
   /* don't resume a connection if client is requesting a different channel */
-  if (client.channel() and client.channel().value() != channel.name()) {
+  if (client.channel() != channel.name()) {
     return false;
   }
 
@@ -635,10 +635,6 @@ void handle_client_init(WebSocketServer & server, WebSocketClient & client,
 
   client.init(channel.name(), init_vts, init_ats);
 
-  /* set client's browser and system info */
-  client.set_browser(msg.browser);
-  client.set_os(msg.os);
-
   /* set client's screen info */
   client.set_screen_height(msg.screen_height);
   client.set_screen_width(msg.screen_width);
@@ -649,8 +645,7 @@ void handle_client_init(WebSocketServer & server, WebSocketClient & client,
 
   send_server_init(server, client, false /* initialize rather than resume */);
 
-  cerr << client.signature() << ": connection initialized. " << msg.browser
-       << " on " << msg.os << endl;
+  cerr << client.signature() << ": connection initialized" << endl;
 }
 
 void handle_client_info(WebSocketClient & client, const ClientInfoMsg & msg)
@@ -673,8 +668,8 @@ void handle_client_info(WebSocketClient & client, const ClientInfoMsg & msg)
 
     /* throw an error if the client current channel doesn't exist in channels */
     try {
-      if (client.channel()) {
-        client.set_max_video_size(channels.at(client.channel().value()).vformats());
+      if (not client.channel().empty()) {
+        client.set_max_video_size(channels.at(client.channel()).vformats());
       }
     } catch (const out_of_range & e) {
       cerr << client.signature() << "the current channel doesn't exist: "
@@ -701,7 +696,7 @@ void handle_client_info(WebSocketClient & client, const ClientInfoMsg & msg)
 
     /* record playback buffer occupancy */
     string log_line = to_string(cur_time) + " " + client.username() + " "
-        + *client.channel() + " " + to_string(static_cast<int>(msg.event))
+        + client.channel() + " " + to_string(static_cast<int>(msg.event))
         + " " + buf;
     append_to_log("playback_buffer", log_line);
   } else if (msg.event == ClientInfoMsg::PlayerEvent::VideoAck) {
@@ -713,7 +708,7 @@ void handle_client_info(WebSocketClient & client, const ClientInfoMsg & msg)
     /* record video quality on every VideoAck for the first video segment */
     if (msg.byte_offset == 0) {
       string log_line = to_string(cur_time) + " " + client.username() + " "
-          + *client.channel() + " " + to_string(*msg.timestamp) + " "
+          + client.channel() + " " + to_string(*msg.timestamp) + " "
           + *msg.quality + " " + to_string(*msg.ssim);
       append_to_log("video_quality", log_line);
     }
@@ -724,20 +719,20 @@ void handle_client_info(WebSocketClient & client, const ClientInfoMsg & msg)
       msg.event == ClientInfoMsg::PlayerEvent::CanPlay) {
     if (msg.event == ClientInfoMsg::PlayerEvent::Rebuffer) {
       string log_line = to_string(cur_time) + " " + client.username() + " "
-                        + *client.channel();
+                        + client.channel();
       append_to_log("rebuffer_event", log_line);
     }
 
-    if (not client.rebuffer() and
+    if (not client.is_rebuffering() and
         msg.event == ClientInfoMsg::PlayerEvent::Rebuffer) {
       log_rebuffer_num++;
-      client.set_rebuffer(true);
+      client.set_rebuffering(true);
       append_log_rebuffer_rate(cur_time);
     }
-    if (client.rebuffer() and
+    if (client.is_rebuffering() and
         msg.event == ClientInfoMsg::PlayerEvent::CanPlay) {
       log_rebuffer_num--;
-      client.set_rebuffer(false);
+      client.set_rebuffering(false);
       append_log_rebuffer_rate(cur_time);
     }
   }
@@ -897,24 +892,35 @@ int main(int argc, char * argv[])
         if (parser.msg_type() == ClientMsgParser::Type::Init) {
           const ClientInitMsg & init_msg = parser.parse_init_msg();
 
+          /* authenticate user */
           if (not client.is_authenticated()) {
-            /* user authentication */
-            if (not auth_client(init_msg.session_key, db_work)) {
+            if (auth_client(init_msg.session_key, db_work)) {
+              client.set_authenticated(true);
+
+              /* set client's username and IP */
+              client.set_session_key(init_msg.session_key);
+              client.set_username(init_msg.username);
+              client.set_address(server.peer_addr(connection_id));
+
+              /* set client's browser and system info */
+              client.set_browser(init_msg.browser);
+              client.set_os(init_msg.os);
+
+              cerr << connection_id << ": authentication succeeded" << endl;
+              cerr << client.signature() << ": " << client.browser() << " on "
+                   << client.os() << ", " << client.address().str() << endl;
+            } else {
               cerr << connection_id << ": authentication failed" << endl;
               server.close_connection(connection_id);
               return;
             }
-
-            /* set username only if authentication succeeds */
-            client.set_authed_username(init_msg.username);
           }
 
-          client.set_ip(server.peer_addr(connection_id).ip());
           handle_client_init(server, client, init_msg);
         } else {
           /* parse a message other than client-init only if user is authed */
           if (not client.is_authenticated()) {
-            cerr << connection_id << ": ignoring messages from a "
+            cerr << connection_id << ": ignored messages from a "
                  << "non-authenticated user" << endl;
             server.close_connection(connection_id);
             return;
@@ -956,6 +962,8 @@ int main(int argc, char * argv[])
         cerr << connection_id << ": connection closed" << endl;
 
         clients.erase(connection_id);
+
+        /* TODO: the logging of rebuffer rate still has flaws */
         reinit_log_data();
       } catch (const exception & e) {
         cerr << client_signature(connection_id)
