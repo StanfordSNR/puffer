@@ -577,20 +577,21 @@ bool resume_connection(WebSocketServer & server, WebSocketClient & client,
   uint64_t requested_ats = msg.next_ats.value();
 
   if (channel.live()) {
-    /* live: don't try to resume if the requested video is already behind
-     * the live edge */
+    /* don't resume if the requested video is already behind the live edge */
     if (not channel.live_edge() or
         requested_vts < channel.live_edge().value()) {
       return false;
     }
 
-    /* check if the _previous_ chunks of the requestd video/audio are ready */
-    if (not (channel.vready(requested_vts - channel.vduration()) and
-             channel.aready(requested_ats - channel.aduration()))) {
+    /* don't resume if the requested chunks are not ready */
+    if (not channel.vready_frontier() or
+        requested_vts > *channel.vready_frontier() or
+        not channel.aready_frontier() or
+        requested_ats > *channel.aready_frontier()) {
       return false;
     }
   } else {
-    /* VoD: check if the requested video and audio are ready */
+    /* don't resume if the requested chunks are not ready */
     if (not (channel.vready(requested_vts) and
              channel.aready(requested_ats))) {
       return false;
@@ -603,6 +604,23 @@ bool resume_connection(WebSocketServer & server, WebSocketClient & client,
 
   cerr << client.signature() << ": connection resumed" << endl;
   return true;
+}
+
+void update_screen_size(WebSocketClient & client,
+                        const uint16_t new_screen_height,
+                        const uint16_t new_screen_width)
+{
+  if (client.screen_height() == new_screen_height and
+      client.screen_width() == new_screen_width) {
+    return;
+  }
+
+  client.set_screen_height(new_screen_height);
+  client.set_screen_width(new_screen_width);
+
+  if (not client.channel().empty()) {
+    client.set_max_video_size(channels.at(client.channel()).vformats());
+  }
 }
 
 void handle_client_init(WebSocketServer & server, WebSocketClient & client,
@@ -632,19 +650,15 @@ void handle_client_init(WebSocketServer & server, WebSocketClient & client,
 
   uint64_t init_vts = channel.init_vts().value();
   uint64_t init_ats = channel.init_ats().value();
-
   client.init(channel.name(), init_vts, init_ats);
 
-  /* set client's screen info */
-  client.set_screen_height(msg.screen_height);
-  client.set_screen_width(msg.screen_width);
-  client.set_max_video_size(channel.vformats());
+  /* update client's screen size after setting client's channel */
+  update_screen_size(client, msg.screen_height, msg.screen_width);
 
   /* reinit the log data */
   reinit_log_data();
 
   send_server_init(server, client, false /* initialize rather than resume */);
-
   cerr << client.signature() << ": connection initialized" << endl;
 }
 
@@ -660,22 +674,8 @@ void handle_client_info(WebSocketClient & client, const ClientInfoMsg & msg)
   client.set_client_next_vts(msg.next_video_timestamp);
   client.set_client_next_ats(msg.next_audio_timestamp);
 
-  /* reset the max video size in case that the screen size was changed */
-  if (msg.screen_height != client.screen_height() or
-      msg.screen_width != client.screen_width()) {
-    client.set_screen_height(msg.screen_height);
-    client.set_screen_width(msg.screen_width);
-
-    /* throw an error if the client current channel doesn't exist in channels */
-    try {
-      if (not client.channel().empty()) {
-        client.set_max_video_size(channels.at(client.channel()).vformats());
-      }
-    } catch (const out_of_range & e) {
-      cerr << client.signature() << "the current channel doesn't exist: "
-           << e.what() << endl;
-    }
-  }
+  /* check if client's screen size has changed */
+  update_screen_size(client, msg.screen_height, msg.screen_width);
 
   uint64_t cur_time = time(nullptr);
 
@@ -739,7 +739,8 @@ void handle_client_info(WebSocketClient & client, const ClientInfoMsg & msg)
 
   /* get current throughput (measured in kpbs) of the client */
   if (msg.receiving_time_ms and msg.received_bytes and
-      msg.receiving_time_ms.value() > 0 and msg.receiving_time_ms.value() < 3000) {
+      msg.receiving_time_ms.value() > 0 and
+      msg.receiving_time_ms.value() < 3000) {
     client.set_curr_tput((double) msg.received_bytes.value() * 8
                          / msg.receiving_time_ms.value());
   }

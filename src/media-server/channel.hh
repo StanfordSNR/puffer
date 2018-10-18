@@ -60,6 +60,10 @@ public:
   /* return the live edge that allow for presentation_delay_s */
   std::optional<uint64_t> live_edge() const;
 
+  /* return the frontier of contigous range of ready chunks */
+  std::optional<uint64_t> vready_frontier() const { return vready_frontier_; }
+  std::optional<uint64_t> aready_frontier() const { return aready_frontier_; }
+
   /* return largest timestamps that have been cleaned */
   std::optional<uint64_t> vclean_frontier() const { return vclean_frontier_; }
   std::optional<uint64_t> aclean_frontier() const { return aclean_frontier_; }
