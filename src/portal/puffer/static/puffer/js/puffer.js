@@ -355,7 +355,8 @@ function WebSocketClient(video, session_key, username) {
       return;
     }
 
-    if (!(av_source && av_source.isOpen())) {
+    /* note that av_source.isOpen() can be false */
+    if (!av_source) {
       return;
     }
 
@@ -379,6 +380,10 @@ function WebSocketClient(video, session_key, username) {
       }
 
       ws.send(format_client_msg('client-info', payload));
+
+      if (debug) {
+        console.log('sent client-info', payload);
+      }
     } catch (e) {
       console.log('Failed to send client info', e);
     }
@@ -390,7 +395,7 @@ function WebSocketClient(video, session_key, username) {
 
     if (message.metadata.type === 'server-init') {
       if (debug) {
-        console.log(message.metadata.type, message.metadata);
+        console.log('received', message.metadata.type, message.metadata);
       }
 
       /* return if client is able to resume */
