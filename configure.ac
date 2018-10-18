@@ -19,6 +19,7 @@ AC_PROG_RANLIB
 # Checks for libraries.
 PKG_CHECK_MODULES([libmpeg2],[libmpeg2])
 PKG_CHECK_MODULES([opus],[opus])
+PKG_CHECK_MODULES([sndfile],[sndfile])
 PKG_CHECK_MODULES([POSTGRES],[libpqxx libpq])
 PKG_CHECK_MODULES([YAML],[yaml-cpp])
 PKG_CHECK_MODULES([SSL],[libssl libcrypto])
