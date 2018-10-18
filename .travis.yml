@@ -17,6 +17,8 @@ addons:
     - libboost-dev
     - liba52-dev
     - opus-tools
+    - libopus-dev
+    - libsndfile-dev
 
 before_install:
   # download a static-built ffmpeg
