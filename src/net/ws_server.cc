@@ -160,18 +160,6 @@ void WSServer<NBSecureSocket>::Connection::write()
 }
 
 template<class SocketType>
-unsigned int WSServer<SocketType>::Connection::buffer_bytes() const
-{
-  unsigned int total_bytes = 0;
-
-  for (const auto & buffer : send_buffer) {
-    total_bytes += buffer.size();
-  }
-
-  return total_bytes;
-}
-
-template<class SocketType>
 void WSServer<SocketType>::init_listener_socket()
 {
   listener_socket_ = TCPSocket();
@@ -396,21 +384,6 @@ bool WSServer<SocketType>::queue_frame(const uint64_t connection_id,
   return true;
 }
 
-template<>
-void WSServer<TCPSocket>::clear_buffer(const uint64_t connection_id)
-{
-  Connection & conn = connections_.at(connection_id);
-  conn.send_buffer.clear();
-}
-
-template<>
-void WSServer<NBSecureSocket>::clear_buffer(const uint64_t connection_id)
-{
-  Connection & conn = connections_.at(connection_id);
-  conn.send_buffer.clear();
-  conn.socket.clear_buffer();
-}
-
 template<class SocketType>
 void WSServer<SocketType>::wait_close_connection(const uint64_t connection_id)
 {
@@ -481,22 +454,53 @@ Address WSServer<SocketType>::peer_addr(const uint64_t connection_id) const
 }
 
 template<>
-unsigned int WSServer<TCPSocket>::buffer_bytes(const uint64_t conn_id) const
+unsigned int WSServer<TCPSocket>::Connection::buffer_bytes() const
 {
-  const Connection & conn = connections_.at(conn_id);
+  unsigned int total_bytes = 0;
+  for (const auto & buffer : send_buffer) {
+    total_bytes += buffer.size();
+  }
 
-  return conn.buffer_bytes();
+  return total_bytes;
 }
 
 template<>
-unsigned int WSServer<NBSecureSocket>::buffer_bytes(const uint64_t conn_id) const
+unsigned int WSServer<NBSecureSocket>::Connection::buffer_bytes() const
 {
-  const Connection & conn = connections_.at(conn_id);
+  unsigned int total_bytes = 0;
+  for (const auto & buffer : send_buffer) {
+    total_bytes += buffer.size();
+  }
 
-  unsigned int total_size = conn.buffer_bytes();
-  total_size += conn.socket.buffer_bytes();
+  /* NBSecureSocket maintains another buffer by itself */
+  total_bytes += socket.buffer_bytes();
 
-  return total_size;
+  return total_bytes;
+}
+
+template<class SocketType>
+unsigned int WSServer<SocketType>::buffer_bytes(const uint64_t conn_id) const
+{
+  return connections_.at(conn_id).buffer_bytes();
+}
+
+template<>
+void WSServer<TCPSocket>::Connection::clear_buffer()
+{
+  send_buffer.clear();
+}
+
+template<>
+void WSServer<NBSecureSocket>::Connection::clear_buffer()
+{
+  send_buffer.clear();
+  socket.clear_buffer();
+}
+
+template<class SocketType>
+void WSServer<SocketType>::clear_buffer(const uint64_t conn_id)
+{
+  return connections_.at(conn_id).clear_buffer();
 }
 
 template<class SocketType>

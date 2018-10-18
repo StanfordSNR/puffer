@@ -52,7 +52,9 @@ private:
     void write();
 
     bool data_to_send() const { return not send_buffer.empty(); }
+
     unsigned int buffer_bytes() const;
+    void clear_buffer();
   };
 
   SSLContext ssl_context_ {};
