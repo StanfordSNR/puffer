@@ -418,9 +418,11 @@ void serve_client(WebSocketServer & server, WebSocketClient & client)
   }
 
   if (channel.live()) {
-    /* reinit client whose playback buffer falls behind reinit_frontier */
-    if (channel.reinit_frontier() and
-        client.next_vts().value() <= channel.reinit_frontier().value()) {
+    /* reinit client if clean frontiers have caught up */
+    if ((channel.vclean_frontier() and
+         client.next_vts().value() <= *channel.vclean_frontier()) or
+        (channel.aclean_frontier() and
+         client.next_ats().value() <= *channel.aclean_frontier())) {
       reinit_laggy_client(server, client, channel);
       return;
     }
@@ -650,6 +652,7 @@ void handle_client_init(WebSocketServer & server, WebSocketClient & client,
 
   uint64_t init_vts = channel.init_vts().value();
   uint64_t init_ats = channel.init_ats().value();
+
   client.init(channel.name(), init_vts, init_ats);
 
   /* update client's screen size after setting client's channel */

@@ -15,7 +15,7 @@ static const unsigned int DEFAULT_AUDIO_DURATION = 432000;  // 4.8s per chunk
 static const string DEFAULT_VIDEO_CODEC = "video/mp4; codecs=\"avc1.42E020\"";
 static const string DEFAULT_AUDIO_CODEC = "audio/webm; codecs=\"opus\"";
 static const unsigned int DEFAULT_PRESENT_DELAY_CHUNK = 5;  // 5 chunks
-static const unsigned int DEFAULT_CLEAN_WINDOW_CHUNK = 15;  // 15 chunks
+static const unsigned int PRESENT_CLEAN_DIFF = 10;  // 10 chunks
 
 Channel::Channel(const string & name, YAML::Node config, Inotify & inotify)
 {
@@ -43,19 +43,10 @@ Channel::Channel(const string & name, YAML::Node config, Inotify & inotify)
     present_delay_chunk_ = config["present_delay_chunk"] ?
         config["present_delay_chunk"].as<unsigned int>() :
         DEFAULT_PRESENT_DELAY_CHUNK;
-    clean_window_chunk_ = config["clean_window_chunk"] ?
-        config["clean_window_chunk"].as<unsigned int>() :
-        DEFAULT_CLEAN_WINDOW_CHUNK;
-
-    /* ensure an enough gap between clean window and presentation delay */
-    if (*clean_window_chunk_ < *present_delay_chunk_ + 5) {
-      throw runtime_error("clean_window_chunk should be 5 chunks bigger "
-                          "than present_delay_chunk");
-    }
+    clean_window_chunk_ = *present_delay_chunk_ + PRESENT_CLEAN_DIFF;
   } else {
-    if (config["present_delay_chunk"] or config["clean_window_chunk"]) {
-      throw runtime_error("present_delay_chunk or clean_window_chunk cannot be"
-                          " specified if live is false");
+    if (config["present_delay_chunk"]) {
+      throw runtime_error("present_delay_chunk can't be set if live is false");
     }
   }
 
@@ -194,7 +185,7 @@ mmap_t mmap_file(const string & filepath)
 
 void Channel::munmap_video(const uint64_t ts)
 {
-  uint64_t clean_window_ts = clean_window_chunk_.value() * vduration_;
+  uint64_t clean_window_ts = (clean_window_chunk_.value() - 1) * vduration_;
   if (ts < clean_window_ts) return;
   uint64_t obsolete = ts - clean_window_ts;
 
@@ -219,7 +210,7 @@ void Channel::munmap_video(const uint64_t ts)
 
 void Channel::munmap_audio(const uint64_t ts)
 {
-  uint64_t clean_window_ts = clean_window_chunk_.value() * vduration_;
+  uint64_t clean_window_ts = (clean_window_chunk_.value() - 1) * vduration_;
   if (ts < clean_window_ts) return;
   uint64_t obsolete = ts - clean_window_ts;
 
@@ -265,22 +256,12 @@ optional<uint64_t> Channel::live_edge() const
     ready_frontier -= vduration_;
   }
 
-  uint64_t delay_vts = present_delay_chunk_.value() * vduration_;
+  uint64_t delay_vts = (present_delay_chunk_.value() - 1) * vduration_;
   if (ready_frontier < delay_vts) {
     return nullopt;
   }
 
   return ready_frontier - delay_vts;
-}
-
-optional<uint64_t> Channel::reinit_frontier() const
-{
-  auto curr_live_edge = live_edge();
-  if (not curr_live_edge or *curr_live_edge < 5 * vduration_) {
-    return nullopt;
-  } else {
-    return *curr_live_edge - 5 * vduration_;
-  }
 }
 
 void Channel::update_vready_frontier(const uint64_t vts)
