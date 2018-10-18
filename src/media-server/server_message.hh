@@ -13,7 +13,6 @@ class ServerMsg
 public:
   enum class Type {
     Unknown,
-    Hello,
     Init,
     Video,
     Audio
@@ -35,12 +34,6 @@ protected:
 private:
   json msg_ {};
   Type type_ {Type::Unknown};
-};
-
-class ServerHelloMsg : public ServerMsg
-{
-public:
-  ServerHelloMsg(const std::vector<std::string> & channels);
 };
 
 class ServerInitMsg : public ServerMsg

@@ -7,8 +7,6 @@ string ServerMsg::type_str()
   switch (type_) {
     case Type::Unknown:
       throw runtime_error("Cannot convert an unknown type to a string");
-    case Type::Hello:
-      return "server-hello";
     case Type::Init:
       return "server-init";
     case Type::Video:
@@ -32,15 +30,6 @@ string ServerMsg::to_string()
 
   copy(msg_str.begin(), msg_str.end(), ret.begin() + sizeof(uint16_t));
   return ret;
-}
-
-ServerHelloMsg::ServerHelloMsg(const vector<string> & channels)
-{
-  set_type(Type::Hello);
-  set_msg({
-    {"type", type_str()},
-    {"channels", json(channels)}
-  });
 }
 
 ServerInitMsg::ServerInitMsg(const string & channel,

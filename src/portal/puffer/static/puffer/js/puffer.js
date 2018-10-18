@@ -42,7 +42,6 @@ function AVSource(video, options) {
 
   /* SourceBuffers for audio and video */
   var vbuf = null, abuf = null;
-  var error_handler = null;
 
   var channel = options.channel;
   var video_codec = options.videoCodec;
@@ -77,7 +76,6 @@ function AVSource(video, options) {
     vbuf.addEventListener('error', function(e) {
       console.log('video source buffer error:', e);
       that.close();
-      if (that.error_handler) { that.error_handler(); }
     });
     vbuf.addEventListener('abort', function(e) {
       console.log('video source buffer abort:', e);
@@ -88,7 +86,6 @@ function AVSource(video, options) {
     abuf.addEventListener('error', function(e) {
       console.log('audio source buffer error:', e);
       that.close();
-      if (that.error_handler) { that.error_handler(); }
     });
     abuf.addEventListener('abort', function(e) {
       console.log('audio source buffer abort:', e);
@@ -124,7 +121,6 @@ function AVSource(video, options) {
   ms.addEventListener('error', function(e) {
     console.log('media source error: ' + ms.readyState, e);
     that.close();
-    if (that.error_handler) { that.error_handler(); }
   });
 
   this.canResume = function(options) {
@@ -315,7 +311,7 @@ function WebSocketClient(video, session_key, username) {
   function send_client_init(ws, channel) {
     if (ws && ws.readyState === WS_OPEN) {
       try {
-        if (browser === null) {
+        if (os === null ||  browser === null) {
           const client_info = get_client_system_info();
           os = client_info.os;
           browser = client_info.browser;
@@ -324,8 +320,6 @@ function WebSocketClient(video, session_key, username) {
         var msg = {
           sessionKey: session_key,
           userName: username,
-          playerWidth: video.videoWidth,
-          playerHeight: video.videoHeight,
           channel: channel,
           os: os,
           browser: browser,
@@ -386,11 +380,7 @@ function WebSocketClient(video, session_key, username) {
   function handle_msg(e) {
     var message = parse_server_msg(e.data);
 
-    if (message.metadata.type === 'server-hello') {
-      if (debug) {
-        console.log(message.metadata.type, message.metadata);
-      }
-    } else if (message.metadata.type === 'server-init') {
+    if (message.metadata.type === 'server-init') {
       if (debug) {
         console.log(message.metadata.type, message.metadata);
       }
@@ -403,14 +393,9 @@ function WebSocketClient(video, session_key, username) {
         return;
       }
 
-      /* client is unable to resume */
+      /* create a new AVSource if unable to resume */
       if (av_source) { av_source.close(); }
       av_source = new AVSource(video, message.metadata);
-
-      /* restart on (mysterious) errors */
-      av_source.error_handler = function() {
-        send_client_init(ws, message.metadata.channel);
-      };
     } else if (message.metadata.type === 'server-audio') {
       if (debug) {
         console.log('received', message.metadata.type,

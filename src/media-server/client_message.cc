@@ -28,9 +28,6 @@ ClientInitMsg ClientMsgParser::parse_init_msg()
   ret.session_key = msg_.at("sessionKey").get<string>();
   ret.username = msg_.at("userName").get<string>();
 
-  ret.player_width = msg_.at("playerWidth").get<uint16_t>();
-  ret.player_height = msg_.at("playerHeight").get<uint16_t>();
-
   ret.channel = msg_.at("channel").get<string>();
   ret.os = msg_.at("os").get<string>();
   ret.browser = msg_.at("browser").get<string>();
