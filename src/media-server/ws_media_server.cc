@@ -35,17 +35,13 @@ using WebSocketServer = WebSocketSecureServer;
 #endif
 
 /* global settings */
-static const unsigned int DEFAULT_MAX_BUFFER_S = 15;
-static const unsigned int DEFAULT_MAX_INFLIGHT_S = 10;
-static const size_t DEFAULT_MAX_WS_FRAME_LEN = 100000;
-static const size_t DEFAULT_MAX_WS_FRAME_NUM = 10;
-static const size_t DEFAULT_MAX_WS_QUEUE_LEN = 30 * DEFAULT_MAX_WS_FRAME_LEN;
-static const unsigned int MAX_IDLE_S = 10;  /* max client idle time (seconds) */
+static const unsigned int MAX_BUFFER_S = 10;
+static const unsigned int MAX_INFLIGHT_S = 10;
+static const size_t MAX_WS_FRAME_B = 100 * 1024;  /* 10 KB */
+static const size_t MAX_WS_FRAME_NUM = 10;  /* 10 * MAX_WS_FRAME_B */
 
-static unsigned int max_buffer_seconds;
-static unsigned int max_inflight_seconds;
-static size_t max_ws_frame_len;
-static size_t max_ws_queue_len;
+/* drop a client if have not received messaged from it for 10 seconds */
+static const unsigned int MAX_IDLE_S = 10;
 
 static map<string, Channel> channels;  /* key: channel name */
 static map<uint64_t, WebSocketClient> clients;  /* key: connection ID */
@@ -300,7 +296,7 @@ void serve_video_to_client(WebSocketServer & server, WebSocketClient & client)
          << ", continuing video " << next_vts << endl;
   }
 
-  for (size_t num = 0; num < DEFAULT_MAX_WS_FRAME_NUM; num++) {
+  for (size_t num = 0; num < MAX_WS_FRAME_NUM; num++) {
     VideoSegment & next_vsegment = client.next_vsegment().value();
 
     ServerVideoMsg video_msg(channel.name(),
@@ -311,7 +307,7 @@ void serve_video_to_client(WebSocketServer & server, WebSocketClient & client)
                              next_vsegment.offset(),
                              next_vsegment.length());
     string frame_payload = video_msg.to_string();
-    next_vsegment.read(frame_payload, max_ws_frame_len);
+    next_vsegment.read(frame_payload, MAX_WS_FRAME_B);
 
     WSFrame frame {true, WSFrame::OpCode::Binary, move(frame_payload)};
     server.queue_frame(client.connection_id(), frame);
@@ -360,7 +356,7 @@ void serve_audio_to_client(WebSocketServer & server, WebSocketClient & client)
                            next_asegment.offset(),
                            next_asegment.length());
   string frame_payload = audio_msg.to_string();
-  next_asegment.read(frame_payload, max_ws_frame_len);
+  next_asegment.read(frame_payload, MAX_WS_FRAME_B);
 
   WSFrame frame {true, WSFrame::OpCode::Binary, move(frame_payload)};
   server.queue_frame(client.connection_id(), frame);
@@ -428,26 +424,19 @@ void serve_client(WebSocketServer & server, WebSocketClient & client)
     }
   }
 
-  /* return if the server's queue has been full */
-  if (server.buffer_bytes(client.connection_id()) >= max_ws_queue_len) {
-    return;
-  }
-
   const bool can_send_video =
-      client.video_playback_buf() < max_buffer_seconds and
-      video_in_flight(channel, client) < max_inflight_seconds;
+      client.video_playback_buf() <= MAX_BUFFER_S and
+      video_in_flight(channel, client) <= MAX_INFLIGHT_S;
   const bool can_send_audio =
-      client.audio_playback_buf() < max_buffer_seconds and
-      audio_in_flight(channel, client) < max_inflight_seconds;
+      client.audio_playback_buf() <= MAX_BUFFER_S and
+      audio_in_flight(channel, client) <= MAX_INFLIGHT_S;
 
   if (client.next_vts().value() > client.next_ats().value()) {
     /* prioritize audio */
     if (can_send_audio) {
       serve_audio_to_client(server, client);
     }
-    /* serve video only if there is still room */
-    if (can_send_video and
-        server.buffer_bytes(client.connection_id()) < max_ws_queue_len) {
+    if (can_send_video) {
       serve_video_to_client(server, client);
     }
   } else {
@@ -455,9 +444,7 @@ void serve_client(WebSocketServer & server, WebSocketClient & client)
     if (can_send_video) {
       serve_video_to_client(server, client);
     }
-    /* serve audio only if there is still room */
-    if (can_send_audio and
-        server.buffer_bytes(client.connection_id()) < max_ws_queue_len) {
+    if (can_send_audio) {
       serve_audio_to_client(server, client);
     }
   }
@@ -749,20 +736,6 @@ void handle_client_info(WebSocketClient & client, const ClientInfoMsg & msg)
   }
 }
 
-void load_global_settings(const YAML::Node & config)
-{
-  max_buffer_seconds = config["max_buffer_s"] ?
-    config["max_buffer_s"].as<unsigned int>() : DEFAULT_MAX_BUFFER_S;
-  max_inflight_seconds = config["max_inflight_s"] ?
-    config["max_inflight_s"].as<unsigned int>() : DEFAULT_MAX_INFLIGHT_S;
-  max_ws_frame_len = config["max_ws_frame_b"] ?
-    config["max_ws_frame_b"].as<size_t>() : DEFAULT_MAX_WS_FRAME_LEN;
-  max_ws_queue_len = config["max_ws_queue_b"] ?
-    config["max_ws_queue_b"].as<size_t>() : DEFAULT_MAX_WS_QUEUE_LEN;
-
-  log_dir = config["log_dir"].as<string>();
-}
-
 void load_channels(const YAML::Node & config, Inotify & inotify)
 {
   /* load channels */
@@ -835,7 +808,7 @@ int main(int argc, char * argv[])
 
   /* load YAML settings */
   YAML::Node config = YAML::LoadFile(argv[1]);
-  load_global_settings(config);
+  log_dir = config["log_dir"].as<string>();
 
   /* ignore SIGPIPE generated by SSL_write */
   if (signal(SIGPIPE, SIG_IGN) == SIG_ERR) {
