@@ -51,7 +51,13 @@ private:
     std::string read();
     void write();
 
-    bool data_to_send() const { return not send_buffer.empty(); }
+    /* the connection has data to write to TCPSocket directly,
+     * or write to NBSecureSocket's internal send_buffer */
+    bool data_to_write() const { return send_buffer.size() > 0; }
+
+    /* tell the poller if the connection is interested in sending
+     * i.e., it or its NBSecureSocket has pending data in the send_buffer */
+    bool interested_in_sending() const;
 
     unsigned int buffer_bytes() const;
     void clear_buffer();

@@ -59,8 +59,8 @@ public:
 
   void clear_buffer();
 
-  bool something_to_write() { return (write_buffer_.size() > 0); }
-  bool something_to_read() { return (read_buffer_.size() > 0); }
+  bool something_to_write() const { return (write_buffer_.size() > 0); }
+  bool something_to_read() const { return (read_buffer_.size() > 0); }
 
   State state() const  { return state_; }
   Mode mode() const { return mode_; }

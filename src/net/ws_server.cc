@@ -312,11 +312,11 @@ void WSServer<SocketType>::init_listener_socket()
         [this, &conn, conn_id]()->ResultType
         {
           if (conn.state == Connection::State::Connecting) {
-            if (conn.data_to_send()) {
+            if (conn.data_to_write()) {
               conn.write();
             }
 
-            if (not conn.data_to_send()) {
+            if (not conn.data_to_write()) {
               /* if we've sent the whole handshake response */
               conn.state = Connection::State::Connected;
               open_callback_(conn_id);
@@ -325,12 +325,12 @@ void WSServer<SocketType>::init_listener_socket()
           else if ((conn.state == Connection::State::Connected or
                     conn.state == Connection::State::Closing or
                     conn.state == Connection::State::Closed) and
-                   conn.data_to_send()) {
+                   conn.data_to_write()) {
             conn.write();
           }
 
           if (conn.state == Connection::State::Closed and
-              not conn.data_to_send()) {
+              not conn.data_to_write()) {
             force_close_connection(conn_id);
             return ResultType::CancelAll;
           }
@@ -343,7 +343,7 @@ void WSServer<SocketType>::init_listener_socket()
                  ((conn.state == Connection::State::Connected or
                    conn.state == Connection::State::Closing or
                    conn.state == Connection::State::Closed) and
-                  conn.data_to_send());
+                  conn.interested_in_sending());
         }
       ));
 
@@ -451,6 +451,18 @@ Address WSServer<SocketType>::peer_addr(const uint64_t connection_id) const
   const Connection & conn = connections_.at(connection_id);
 
   return conn.socket.peer_address();
+}
+
+template<>
+bool WSServer<TCPSocket>::Connection::interested_in_sending() const
+{
+  return send_buffer.size() > 0;
+}
+
+template<>
+bool WSServer<NBSecureSocket>::Connection::interested_in_sending() const
+{
+  return send_buffer.size() > 0 or socket.something_to_write();
 }
 
 template<>
