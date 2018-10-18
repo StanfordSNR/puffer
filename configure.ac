@@ -18,6 +18,7 @@ AC_PROG_RANLIB
 
 # Checks for libraries.
 PKG_CHECK_MODULES([libmpeg2],[libmpeg2])
+PKG_CHECK_MODULES([opus],[opus])
 PKG_CHECK_MODULES([POSTGRES],[libpqxx libpq])
 PKG_CHECK_MODULES([YAML],[yaml-cpp])
 PKG_CHECK_MODULES([SSL],[libssl libcrypto])
@@ -55,6 +56,7 @@ AC_CONFIG_FILES([
     src/net/Makefile
     src/notifier/Makefile
     src/atsc/Makefile
+    src/opus-encoder/Makefile
     src/forwarder/Makefile
     src/mp4/Makefile
     src/webm/Makefile
