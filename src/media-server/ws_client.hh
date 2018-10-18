@@ -87,6 +87,9 @@ public:
   std::optional<uint64_t> client_next_vts() const { return client_next_vts_; }
   std::optional<uint64_t> client_next_ats() const { return client_next_ats_; }
 
+  std::optional<uint64_t> video_in_flight() const;
+  std::optional<uint64_t> audio_in_flight() const;
+
   double video_playback_buf() const { return video_playback_buf_; }
   double audio_playback_buf() const { return audio_playback_buf_; }
 

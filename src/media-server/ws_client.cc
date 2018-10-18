@@ -113,3 +113,23 @@ bool WebSocketClient::is_format_capable(const VideoFormat & format) const
   return (not max_video_width_ or format.width <= max_video_width_) and
          (not max_video_height_ or format.height <= max_video_height_);
 }
+
+optional<uint64_t> WebSocketClient::video_in_flight() const
+{
+  if (not next_vts_ or not client_next_vts_ or
+      *next_vts_ < *client_next_vts_) {
+    return nullopt;
+  }
+
+  return *next_vts_ - *client_next_vts_;
+}
+
+optional<uint64_t> WebSocketClient::audio_in_flight() const
+{
+  if (not next_ats_ or not client_next_ats_ or
+      *next_ats_ < *client_next_ats_) {
+    return nullopt;
+  }
+
+  return *next_ats_ - *client_next_ats_;
+}

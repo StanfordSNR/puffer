@@ -34,9 +34,10 @@ using WebSocketServer = WebSocketTCPServer;
 using WebSocketServer = WebSocketSecureServer;
 #endif
 
+static bool debug = false;
+
 /* global settings */
 static const unsigned int MAX_BUFFER_S = 10;
-static const unsigned int MAX_INFLIGHT_S = 10;
 static const size_t MAX_WS_FRAME_B = 100 * 1024;  /* 10 KB */
 static const size_t MAX_WS_FRAME_NUM = 10;  /* 10 * MAX_WS_FRAME_B */
 
@@ -48,14 +49,11 @@ static map<uint64_t, WebSocketClient> clients;  /* key: connection ID */
 
 static Timerfd global_timer;  /* non-blocking global timer fd for scheduling */
 
+/* for logging */
+static string server_id;
 static fs::path log_dir;  /* parent directory for logging */
 static map<string, FileDescriptor> log_fds;  /* map log name to fd */
 static const unsigned int MAX_LOG_FILESIZE = 10 * 1024 * 1024;  /* 10 MB */
-
-static string server_id;
-static bool debug = false;
-
-/* for logging */
 static unsigned int log_rebuffer_num = 0;
 static time_t last_minute = 0;
 
@@ -368,22 +366,6 @@ void serve_audio_to_client(WebSocketServer & server, WebSocketClient & client)
   }
 }
 
-inline unsigned int video_in_flight(const Channel & channel,
-                                    const WebSocketClient & client)
-{
-  /* Return number of seconds of video in flight */
-  return (client.next_vts().value() - client.client_next_vts().value())
-          / channel.timescale();
-}
-
-inline unsigned int audio_in_flight(const Channel & channel,
-                                    const WebSocketClient & client)
-{
-  /* Return number of seconds of audio in flight */
-  return (client.next_ats().value() - client.client_next_ats().value())
-          / channel.timescale();
-}
-
 void reinit_laggy_client(WebSocketServer & server, WebSocketClient & client,
                          const Channel & channel)
 {
@@ -424,12 +406,13 @@ void serve_client(WebSocketServer & server, WebSocketClient & client)
     }
   }
 
+  /* wait for VideoAck and AudioAck before sending the next chunk */
   const bool can_send_video =
       client.video_playback_buf() <= MAX_BUFFER_S and
-      video_in_flight(channel, client) <= MAX_INFLIGHT_S;
+      client.video_in_flight().value() == 0;
   const bool can_send_audio =
       client.audio_playback_buf() <= MAX_BUFFER_S and
-      audio_in_flight(channel, client) <= MAX_INFLIGHT_S;
+      client.audio_in_flight().value() == 0;
 
   if (client.next_vts().value() > client.next_ats().value()) {
     /* prioritize audio */
