@@ -652,7 +652,6 @@ void handle_client_info(WebSocketClient & client, const ClientInfoMsg & msg)
 
   uint64_t cur_time = time(nullptr);
 
-  /* only interested in logging the events below */
   if (msg.event == ClientInfoMsg::PlayerEvent::Timer or
       msg.event == ClientInfoMsg::PlayerEvent::Rebuffer or
       msg.event == ClientInfoMsg::PlayerEvent::CanPlay) {
@@ -673,18 +672,18 @@ void handle_client_info(WebSocketClient & client, const ClientInfoMsg & msg)
         + " " + buf;
     append_to_log("playback_buffer", log_line);
   } else if (msg.event == ClientInfoMsg::PlayerEvent::VideoAck) {
-    if (not msg.quality or not msg.timestamp or not msg.ssim or
-        not msg.byte_offset) {
-      cerr << "Received a VideoAck of invalid format" << endl;
-      return;
-    }
-
-    /* record video quality on every VideoAck for the first video segment */
-    if (*msg.byte_offset == 0) {
+    /* record video quality on the VideoAck for the last video segment */
+    if (*msg.byte_offset + *msg.received_bytes == *msg.total_byte_length) {
       string log_line = to_string(cur_time) + " " + client.username() + " "
           + client.channel() + " " + to_string(*msg.timestamp) + " "
           + *msg.quality + " " + to_string(*msg.ssim);
+      cerr << log_line << endl;
       append_to_log("video_quality", log_line);
+    }
+
+    /* get current throughput (measured in kpbs) of the client */
+    if (*msg.receiving_time_ms > 0 and *msg.receiving_time_ms < 3000) {
+      client.set_curr_tput(*msg.received_bytes * 8.0 / *msg.receiving_time_ms);
     }
   }
 
@@ -709,14 +708,6 @@ void handle_client_info(WebSocketClient & client, const ClientInfoMsg & msg)
       client.set_rebuffering(false);
       append_log_rebuffer_rate(cur_time);
     }
-  }
-
-  /* get current throughput (measured in kpbs) of the client */
-  if (msg.receiving_time_ms and msg.received_bytes and
-      msg.receiving_time_ms.value() > 0 and
-      msg.receiving_time_ms.value() < 3000) {
-    client.set_curr_tput((double) msg.received_bytes.value() * 8
-                         / msg.receiving_time_ms.value());
   }
 }
 
