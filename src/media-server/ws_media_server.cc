@@ -673,13 +673,14 @@ void handle_client_info(WebSocketClient & client, const ClientInfoMsg & msg)
         + " " + buf;
     append_to_log("playback_buffer", log_line);
   } else if (msg.event == ClientInfoMsg::PlayerEvent::VideoAck) {
-    if (not msg.quality or not msg.timestamp or not msg.ssim) {
+    if (not msg.quality or not msg.timestamp or not msg.ssim or
+        not msg.byte_offset) {
       cerr << "Received a VideoAck of invalid format" << endl;
       return;
     }
 
     /* record video quality on every VideoAck for the first video segment */
-    if (msg.byte_offset == 0) {
+    if (*msg.byte_offset == 0) {
       string log_line = to_string(cur_time) + " " + client.username() + " "
           + client.channel() + " " + to_string(*msg.timestamp) + " "
           + *msg.quality + " " + to_string(*msg.ssim);
