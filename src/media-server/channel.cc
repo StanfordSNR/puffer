@@ -14,7 +14,7 @@ static const unsigned int DEFAULT_VIDEO_DURATION = 180180;  // 2.002s per chunk
 static const unsigned int DEFAULT_AUDIO_DURATION = 432000;  // 4.8s per chunk
 static const string DEFAULT_VIDEO_CODEC = "video/mp4; codecs=\"avc1.42E020\"";
 static const string DEFAULT_AUDIO_CODEC = "audio/webm; codecs=\"opus\"";
-static const unsigned int DEFAULT_PRESENT_DELAY_CHUNK = 5;  // 5 chunks
+static const unsigned int DEFAULT_PRESENT_DELAY_CHUNK = 10;  // 10 chunks
 static const unsigned int PRESENT_CLEAN_DIFF = 10;  // 10 chunks
 
 Channel::Channel(const string & name, YAML::Node config, Inotify & inotify)
