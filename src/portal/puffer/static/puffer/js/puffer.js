@@ -254,18 +254,24 @@ function AVSource(video, options) {
     return channel;
   }
 
-  /* Get the number of seconds of video buffered */
+  /* Get the number of seconds of buffered video */
   this.getVideoBufferLen = function() {
-    if (video.buffered.length > 0) {
-      return video.buffered.end(0) - video.currentTime;
+    if (vbuf && vbuf.buffered.length == 1 &&
+        vbuf.buffered.end(0) >= video.currentTime) {
+      return vbuf.buffered.end(0) - video.currentTime;
     } else {
       return -1;
     }
   };
 
-  /* Use video buffer length for the audio */
+  /* Get the number of seconds of buffered audio */
   this.getAudioBufferLen = function() {
-    return that.getVideoBufferLen();
+    if (abuf && abuf.buffered.length == 1 &&
+        abuf.buffered.end(0) >= video.currentTime) {
+      return abuf.buffered.end(0) - video.currentTime;
+    } else {
+      return -1;
+    }
   };
 
   /* Get the expected timestamp of the next video chunk */
