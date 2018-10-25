@@ -118,27 +118,28 @@ bool Channel::vready(const uint64_t ts) const
   return true;
 }
 
-mmap_t & Channel::vinit(const VideoFormat & format)
+const mmap_t & Channel::vinit(const VideoFormat & format) const
 {
   return vinit_.at(format);
 }
 
-mmap_t & Channel::vdata(const VideoFormat & format, const uint64_t ts)
+const mmap_t & Channel::vdata(const VideoFormat & format,
+                              const uint64_t ts) const
 {
   return vdata_.at(ts).at(format);
 }
 
-map<VideoFormat, mmap_t> & Channel::vdata(const uint64_t ts)
+const map<VideoFormat, mmap_t> & Channel::vdata(const uint64_t ts) const
 {
   return vdata_.at(ts);
 }
 
-double Channel::vssim(const VideoFormat & format, const uint64_t ts)
+double Channel::vssim(const VideoFormat & format, const uint64_t ts) const
 {
   return vssim_.at(ts).at(format);
 }
 
-map<VideoFormat, double> & Channel::vssim(const uint64_t ts)
+const map<VideoFormat, double> & Channel::vssim(const uint64_t ts) const
 {
   return vssim_.at(ts);
 }
@@ -153,17 +154,18 @@ bool Channel::aready(const uint64_t ts) const
   return true;
 }
 
-mmap_t & Channel::ainit(const AudioFormat & format)
+const mmap_t & Channel::ainit(const AudioFormat & format) const
 {
   return ainit_.at(format);
 }
 
-mmap_t & Channel::adata(const AudioFormat & format, const uint64_t ts)
+const mmap_t & Channel::adata(const AudioFormat & format,
+                              const uint64_t ts) const
 {
   return adata_.at(ts).at(format);
 }
 
-map<AudioFormat, mmap_t> & Channel::adata(const uint64_t ts)
+const map<AudioFormat, mmap_t> & Channel::adata(const uint64_t ts) const
 {
   return adata_.at(ts);
 }

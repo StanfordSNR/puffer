@@ -31,16 +31,16 @@ public:
   bool ready() const;
 
   bool vready(const uint64_t ts) const;
-  mmap_t & vinit(const VideoFormat & format);
-  mmap_t & vdata(const VideoFormat & format, const uint64_t ts);
-  std::map<VideoFormat, mmap_t> & vdata(const uint64_t ts);
-  double vssim(const VideoFormat & format, const uint64_t ts);
-  std::map<VideoFormat, double> & vssim(const uint64_t ts);
+  const mmap_t & vinit(const VideoFormat & format) const;
+  const mmap_t & vdata(const VideoFormat & format, const uint64_t ts) const;
+  const std::map<VideoFormat, mmap_t> & vdata(const uint64_t ts) const;
+  double vssim(const VideoFormat & format, const uint64_t ts) const;
+  const std::map<VideoFormat, double> & vssim(const uint64_t ts) const;
 
   bool aready(const uint64_t ts) const;
-  mmap_t & ainit(const AudioFormat & format);
-  mmap_t & adata(const AudioFormat & format, const uint64_t ts);
-  std::map<AudioFormat, mmap_t> & adata(const uint64_t ts);
+  const mmap_t & ainit(const AudioFormat & format) const;
+  const mmap_t & adata(const AudioFormat & format, const uint64_t ts) const;
+  const std::map<AudioFormat, mmap_t> & adata(const uint64_t ts) const;
 
   unsigned int timescale() const { return timescale_; }
   unsigned int vduration() const { return vduration_; }

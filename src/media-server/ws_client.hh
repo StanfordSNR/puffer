@@ -12,7 +12,7 @@
 class MediaSegment
 {
 public:
-  MediaSegment(mmap_t & data, std::optional<mmap_t> init);
+  MediaSegment(const mmap_t & data, const std::optional<mmap_t> & init);
 
   void read(std::string & dst, const size_t n);
   size_t offset() { return offset_; }
@@ -29,8 +29,9 @@ private:
 class VideoSegment : public MediaSegment
 {
 public:
-  VideoSegment(const VideoFormat & format, mmap_t & data,
-               std::optional<mmap_t> init);
+  VideoSegment(const VideoFormat & format,
+               const mmap_t & data,
+               const std::optional<mmap_t> & init);
 
   const VideoFormat & format() const { return format_; }
 
@@ -41,8 +42,9 @@ private:
 class AudioSegment : public MediaSegment
 {
 public:
-  AudioSegment(const AudioFormat & format, mmap_t & data,
-               std::optional<mmap_t> init);
+  AudioSegment(const AudioFormat & format,
+               const mmap_t & data,
+               const std::optional<mmap_t> & init);
 
   const AudioFormat & format() const { return format_; }
 
@@ -117,11 +119,13 @@ public:
   void set_next_vts(const uint64_t next_vts) { next_vts_ = next_vts; }
   void set_next_ats(const uint64_t next_ats) { next_ats_ = next_ats; }
 
-  void set_next_vsegment(const VideoFormat & format, mmap_t & data,
-                         std::optional<mmap_t> & init);
+  void set_next_vsegment(const VideoFormat & format,
+                         const mmap_t & data,
+                         const std::optional<mmap_t> & init);
   void clear_next_vsegment() { next_vsegment_.reset(); }
-  void set_next_asegment(const AudioFormat & format, mmap_t & data,
-                         std::optional<mmap_t> & init);
+  void set_next_asegment(const AudioFormat & format,
+                         const mmap_t & data,
+                         const std::optional<mmap_t> & init);
   void clear_next_asegment() { next_asegment_.reset(); }
 
   void set_client_next_vts(const uint64_t vts) { client_next_vts_ = vts; }

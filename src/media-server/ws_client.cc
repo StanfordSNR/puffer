@@ -2,7 +2,8 @@
 
 using namespace std;
 
-MediaSegment::MediaSegment(mmap_t & data, optional<mmap_t> init)
+MediaSegment::MediaSegment(const mmap_t & data,
+                           const optional<mmap_t> & init)
   : init_(init), data_(data), offset_(0), length_()
 {
   length_ = get<1>(data_);
@@ -39,13 +40,15 @@ void MediaSegment::read(string & dst, const size_t n)
   assert(dst.length() - orig_dst_len <= n);
 }
 
-VideoSegment::VideoSegment(const VideoFormat & format, mmap_t & data,
-                           optional<mmap_t> init)
+VideoSegment::VideoSegment(const VideoFormat & format,
+                           const mmap_t & data,
+                           const optional<mmap_t> & init)
   : MediaSegment(data, init), format_(format)
 {}
 
-AudioSegment::AudioSegment(const AudioFormat & format, mmap_t & data,
-                           optional<mmap_t> init)
+AudioSegment::AudioSegment(const AudioFormat & format,
+                           const mmap_t & data,
+                           const optional<mmap_t> & init)
   : MediaSegment(data, init), format_(format)
 {}
 
@@ -78,13 +81,15 @@ void WebSocketClient::init(const string & channel,
 }
 
 void WebSocketClient::set_next_vsegment(const VideoFormat & format,
-                                        mmap_t & data, optional<mmap_t> & init)
+                                        const mmap_t & data,
+                                        const optional<mmap_t> & init)
 {
   next_vsegment_ = {format, data, init};
 }
 
 void WebSocketClient::set_next_asegment(const AudioFormat & format,
-                                        mmap_t & data, optional<mmap_t> & init)
+                                        const mmap_t & data,
+                                        const optional<mmap_t> & init)
 {
   next_asegment_ = {format, data, init};
 }
