@@ -27,6 +27,14 @@ class Rating(models.Model):
         return str(self.user) + '-' + str(self.stars) + '-' + str(self.comment_text)
 
 
+class Participate(models.Model):
+    email = models.CharField(max_length=255)
+    request_date = models.DateTimeField('date requested')
+
+    def __str__(self):
+        return str(self.email) + ', submitted: ' + str(self.request_date)
+
+
 def user_logged_in_handler(sender, request, user, **kwargs):
     curr_session_key = request.session.session_key
 
