@@ -35,7 +35,7 @@
     <div class="ml-auto">
       {% if user.is_authenticated %}
       <a role="button" class="btn btn-outline-primary" href="{% url 'logout' %}">Sign out</a>
-      <a role="button" class="btn btn-link" href="{% url 'profile' %}">{{ user.username }}</a>
+      <a role="button" class="btn btn-outline-primary" href="{% url 'profile' %}">Invite Friends</a>
       {% else %}
       <a role="button" class="btn btn-link" href="{% url 'signup' %}">Sign up</a>
       <a role="button" class="btn btn-outline-primary" href="{% url 'login' %}">Sign in</a>

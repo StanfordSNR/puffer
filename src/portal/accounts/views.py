@@ -68,3 +68,11 @@ def share_token(request):
         match_token.save()
 
     return HttpResponse(status=204)
+
+
+# Allow admin to generate additional tokens
+def generate_token(request):
+    if request.user.is_superuser:
+        InvitationToken.objects.create(token=random_token(), holder=request.user)
+        return render(request, 'puffer/profile.html')
+    return render(request, 'puffer/profile.html')

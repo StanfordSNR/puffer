@@ -17,8 +17,12 @@
 
   <!-- User Info -->
   <div class="container py-5">
+    <p class="lead">Puffer uses an invitation token based system to allow users
+                    to invite other users. If you have any invitation tokens,
+                    they will show up below. Feel free to share them with
+                    friends who would also like to use Puffer.</p>
     <p>
-      Username: {{ user.username }}
+      Your username: {{ user.username }}
     </p>
     <div>
       {% if user.invitationtoken_set.all %}
@@ -83,7 +87,12 @@
         </ul>
       </div>
       {% else %}
-      <a href="#">Want to invite your friends to watch Puffer video?</a>
+        <a href="{% url 'participate' %}">Want to invite your friends to watch
+                 Puffer video?</a>
+      {% endif %}
+      {% if user.is_superuser %}
+      <p> As an admin, you can click <a href="{% url 'generate_token' %}">
+          this link</a> to generate additional invite tokens.</p>
       {% endif %}
     </div>
   </div>
