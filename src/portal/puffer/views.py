@@ -4,9 +4,11 @@ from datetime import datetime
 from django.shortcuts import render, redirect
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.core.validators import validate_email
+from django.core.exceptions import ValidationError
 from django.conf import settings
 
-from .models import Rating, GrafanaSnapshot
+from .models import Rating, GrafanaSnapshot, Participate
 
 
 def index(request):
@@ -52,6 +54,29 @@ def rating(request):
     except:
         messages.error(request, 'Try rating again?')
         return redirect('rating')
+
+
+def participate(request):
+    if request.method != 'POST':
+        return render(request, 'puffer/participate.html')
+
+    email = request.POST['email-field']
+
+    try:
+        validate_email(email)
+    except ValidationError:
+        messages.info(request, 'Please provide a valid email.')
+        return redirect('participate')
+
+    try:
+        Participate.objects.create(email=email, request_date=datetime.utcnow())
+        messages.success(request, 'Thank you for requesting to participate! We\
+                         will contact you with an invitation code when room\
+                         becomes available.')
+        return redirect('participate')
+    except:
+        messages.error(request, 'Internal error: Please try again')
+        return redirect('participate')
 
 
 def monitoring(request):
