@@ -1,0 +1,92 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <link rel="stylesheet" href="{% static 'puffer/dist/css/bootstrap.min.css' %}">
+  <link rel="stylesheet" href="{% static 'puffer/css/common.css' %}">
+  <title>Puffer</title>
+  <link rel="icon" href="{%  static 'puffer/dist/images/favicon.ico' %}">
+</head>
+
+<body>
+  <!-- Navigation -->
+  {% include "puffer/navigation.html" %}
+
+  <!-- FAQ Accordian -->
+  <div id="accordion" class="container py-5">
+
+    <h2 class="font-weight-normal">Frequently Asked Questions</h2>
+    <br>
+    <div class="card">
+      <div class="card-header" id="headingOne">
+        <h5 class="mb-0">
+          <button class="btn btn-link" data-toggle="collapse"
+                  data-target="#collapseOne" aria-expanded="true"
+                  aria-controls="collapseOne">
+            What is Puffer?
+          </button>
+        </h5>
+      </div>
+
+      <div id="collapseOne" class="collapse show" aria-labelledby="headingOne"
+           data-parent="#accordion">
+        <div class="card-body">
+          Puffer is a Stanford University research project aiming to improve
+          live streaming of video over the Internet. (Insert IRB info etc.)
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header" id="headingTwo">
+        <h5 class="mb-0">
+          <button class="btn btn-link collapsed" data-toggle="collapse"
+                  data-target="#collapseTwo" aria-expanded="false"
+                  aria-controls="collapseTwo">
+          How can I sign up?
+          </button>
+        </h5>
+      </div>
+      <div id="collapseTwo" class="collapse" aria-labelledby="headingTwo"
+          data-parent="#accordion">
+        <div class="card-body">
+          Puffer is limiting growth to ensure we do not overwhelm our
+          research-oriented infrastructure. To do so, we require that
+          users possess invitation tokens in order to create new accounts.
+          To request an invitation
+          token <a href="{% url 'participate' %}">visit this page.</a>
+
+          Finally, please keep in mind that Puffer is only available
+          to users in the United States.
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header" id="headingThree">
+        <h5 class="mb-0">
+          <button class="btn btn-link collapsed" data-toggle="collapse"
+                  data-target="#collapseThree" aria-expanded="false"
+                  aria-controls="collapseThree">
+            What channels can I watch?
+          </button>
+        </h5>
+      </div>
+      <div id="collapseThree" class="collapse" aria-labelledby="headingThree"
+          data-parent="#accordion">
+        <div class="card-body">
+          Puffer rebroadcasts over-the-air television channels available in
+          the Bay Area. Currently, we rebroadcast local affiliates of CBS,
+          NBC, FOX, Univision, Ion, The CW, and PBS.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="{% static 'puffer/dist/js/jquery-3.3.1.slim.min.js' %}"></script>
+  <script src="{% static 'puffer/dist/js/bootstrap.min.js' %}"></script>
+</body>
+
+</html>

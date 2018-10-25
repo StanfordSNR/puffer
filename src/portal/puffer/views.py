@@ -79,6 +79,10 @@ def participate(request):
         return redirect('participate')
 
 
+def faq(request):
+    return render(request, 'puffer/faq.html')
+
+
 def monitoring(request):
     snapshot = GrafanaSnapshot.objects.order_by('-created_on').first()
     if snapshot:
