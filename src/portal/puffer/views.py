@@ -65,7 +65,7 @@ def participate(request):
     try:
         validate_email(email)
     except ValidationError:
-        messages.info(request, 'Please provide a valid email.')
+        messages.error(request, 'Please provide a valid email.')
         return redirect('participate')
 
     try:

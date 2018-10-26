@@ -55,8 +55,9 @@
       {% csrf_token %}
 
       <div class="form-group">
-        <textarea class="form-control" rows="3" name="email-field" id="email-field"
+        <input type="email" class="form-control" name="email-field" id="email-field"
                   placeholder="Please enter your email"></textarea>
+        <small id="emailHelp" class="form-text text-muted">We'll never share your email with anyone else.</small>
       </div>
       <button type="submit" class="btn btn-primary btn-lg mt-3">Request Tokens</button>
     </form>
