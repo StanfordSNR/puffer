@@ -52,7 +52,7 @@ def rating(request):
         messages.success(request, 'Thank you for rating us!')
         return redirect('player')
     except:
-        messages.error(request, 'Try rating again?')
+        messages.error(request, 'Internal error: Please try again.')
         return redirect('rating')
 
 
@@ -65,17 +65,17 @@ def participate(request):
     try:
         validate_email(email)
     except ValidationError:
-        messages.info(request, 'Please provide a valid email.')
+        messages.error(request, 'Please provide a valid email.')
         return redirect('participate')
 
     try:
         Participate.objects.create(email=email, request_date=datetime.utcnow())
-        messages.success(request, 'Thank you for requesting to participate! We\
-                         will contact you with an invitation code when room\
-                         becomes available.')
+        messages.success(request,
+            'Thank you for requesting to participate! We will contact you with'
+            ' an invitation code when room becomes available.')
         return redirect('participate')
     except:
-        messages.error(request, 'Internal error: Please try again')
+        messages.error(request, 'Internal error: Please try again.')
         return redirect('participate')
 
 

@@ -9,7 +9,7 @@
   <link rel="stylesheet" href="{% static 'puffer/dist/css/bootstrap.min.css' %}">
   <link rel="stylesheet" href="{% static 'puffer/css/common.css' %}">
   <title>Puffer</title>
-  <link rel="icon" href="{%  static 'puffer/dist/images/favicon.ico' %}">
+  <link rel="icon" href="{% static 'puffer/dist/images/favicon.ico' %}">
 </head>
 
 <body>
@@ -34,35 +34,34 @@
     </ul>
     {% endif %}
 
-    <h2 class="font-weight-normal">Sign Up To Watch Puffer</h2>
+    <h3 class="font-weight-normal">Sign up to watch Puffer</h3>
+    <br>
 
-    <p class="lead">Puffer is a research project run by Keith Winstein's
-                    group at Stanford University. The goal of this project
-                    is to investigate methods for improving live streaming
-                    of video over the Internet. To that end, we provide live
-                    rebroadcasts over the Internet of broadcast television
-                    channels available over-the-air in the Bay Area. To learn more
-                    about Puffer, please visit our <a href="">FAQ.</a></p>
-    <p class="lead">To avoid overwhelming our infrastructure, we are slowing
-                    growing the number of users on Puffer, with an eventual goal
-                    of 500 simultaneous viewers. As such, signing up for Puffer
-                    requires an invitation token. To request
-                    an invitation token from the Puffer team, please provide
-                    your email below, and we will provide you with one as soon
-                    as we can.</p>
+    <p>
+      Puffer is a research project run by Stanford Systems and Networking Research Group.
+      The goal of this project is to investigate methods for improving live streaming of video
+      over the Internet. To that end, we provide live rebroadcasts over the Internet of broadcast
+      television channels available over-the-air in the Bay Area.
+      To learn more about Puffer, please visit our <a href="">FAQ.</a>
+    </p>
+    <p>
+      To avoid overwhelming our infrastructure, we are slowing growing the number of users on
+      Puffer, with an eventual goal of 500 simultaneous viewers. As such, signing up for Puffer
+      requires an invitation token. To request an invitation token from the Puffer team, please
+      provide your email below, and we will provide you with one as soon as we can.
+    </p>
 
-    <form method="post" action="{% url 'participate' %}">
+    <p><form class="form-inline" method="post" action="{% url 'participate' %}">
       {% csrf_token %}
 
       <div class="form-group">
-        <textarea class="form-control" rows="3" name="email-field" id="email-field"
-                  placeholder="Please enter your email"></textarea>
+        <input type="text" class="form-control mr-3" name="email-field" id="email-field"
+               placeholder="Please enter your email"></input>
       </div>
-      <button type="submit" class="btn btn-primary btn-lg mt-3">Request Tokens</button>
-    </form>
-    <br>
-    <br>
-    <p> Already have an invitation token? <a href="{% url 'signup'%}">Sign up here</a></p>
+      <button type="submit" class="btn btn-primary btn-primary">Request tokens</button>
+    </form></p>
+
+    <p>Already have an invitation token? <a href="{% url 'signup' %}">Sign up here.</a></p>
   </div>
 
   <script src="{% static 'puffer/dist/js/jquery-3.3.1.slim.min.js' %}"></script>

@@ -19,12 +19,12 @@ class GrafanaSnapshot(models.Model):
 class Rating(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     comment_text = models.CharField(max_length=500, default='')
-    stars = models.IntegerField(validators=[MinValueValidator(0), MaxValueValidator(5)],
-                                 default=0)
+    stars = models.IntegerField(
+        validators=[MinValueValidator(0), MaxValueValidator(5)], default=0)
     pub_date = models.DateTimeField('date published')
 
     def __str__(self):
-        return str(self.user) + '-' + str(self.stars) + '-' + str(self.comment_text)
+        return '{}-{}-{}'.format(self.user, self.stars, self.comment_text)
 
 
 class Participate(models.Model):
@@ -32,7 +32,8 @@ class Participate(models.Model):
     request_date = models.DateTimeField('date requested')
 
     def __str__(self):
-        return str(self.email) + ', submitted: ' + str(self.request_date)
+        return '{}, {}'.format(self.request_date.strftime('%Y-%m-%d %H:%M'),
+                               self.email)
 
 
 def user_logged_in_handler(sender, request, user, **kwargs):
