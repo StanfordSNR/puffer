@@ -6,17 +6,18 @@
 
 using namespace std;
 
-MPCAlgo::MPCAlgo(const double max_buf_length,
-                 const size_t max_front_horizon,
-                 const size_t dis_buf_length,
-                 const double lambda,
-                 const double mu)
+MPCAlgo::MPCAlgo(const double max_buf_length, const YAML::Node & config)
 {
-  max_front_horizon_ = max_front_horizon;
-  dis_buf_length_ = dis_buf_length;
-  unit_buf_length_ = max_buf_length / dis_buf_length;
-  lambda_ = lambda;
-  mu_ = mu;
+  max_front_horizon_ = config["max_front_horizon"] ?
+      min(MAX_FRONT_HORIZON, config["max_front_horizon"].as<size_t>()) :
+      MAX_FRONT_HORIZON;
+  dis_buf_length_ = config["dis_buf_length"] ?
+      min(MAX_DIS_BUF_LENGTH, config["dis_buf_length"].as<size_t>()) :
+      MAX_DIS_BUF_LENGTH;
+  lambda_ = config["lambda"] ? config["lambda"].as<double>() : LAMBDA;
+  mu_ = config["mu"] ? config["mu"].as<double>() : MU;
+
+  unit_buf_length_ = max_buf_length / dis_buf_length_;
 
   for (size_t i = 0; i <= dis_buf_length_; i++) {
     real_buf_[i] = i * unit_buf_length_;

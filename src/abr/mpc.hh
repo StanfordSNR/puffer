@@ -49,11 +49,7 @@ private:
   void print_info();
 
 public:
-  MPCAlgo(const double max_buf_length,
-          const size_t max_front_horizon = MAX_FRONT_HORIZON,
-          const size_t dis_buf_length = MAX_DIS_BUF_LENGTH,
-          const double lambda = LAMBDA,
-          const double mu = MU);
+  MPCAlgo(const double max_buf_length, const YAML::Node & config);
 
   bool is_ready(const WebSocketClient & client, const Channel & channel) override;
 
