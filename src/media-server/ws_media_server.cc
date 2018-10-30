@@ -677,7 +677,6 @@ void handle_client_info(WebSocketClient & client, const ClientInfoMsg & msg)
       string log_line = to_string(cur_time) + " " + client.username() + " "
           + client.channel() + " " + to_string(*msg.timestamp) + " "
           + *msg.quality + " " + to_string(*msg.ssim);
-      cerr << log_line << endl;
       append_to_log("video_quality", log_line);
     }
 

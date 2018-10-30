@@ -99,7 +99,7 @@
         </tbody>
       </table>
     </div>
-    {% else %}
+    {% elif not user.is_superuser %}
     <a href="{% url 'participate' %}">Have friends interested in Puffer?</a>
     {% endif %}
   </div>
