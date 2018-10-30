@@ -7,6 +7,8 @@ from django.contrib.auth.decorators import login_required
 from django.core.validators import validate_email
 from django.core.exceptions import ValidationError
 from django.conf import settings
+from accounts.models import InvitationToken
+from accounts.utils import random_token
 
 from .models import Rating, GrafanaSnapshot, Participate
 
@@ -28,6 +30,15 @@ def player(request):
 
 @login_required(login_url='/accounts/login/')
 def profile(request):
+    if request.method != 'POST':
+        return render(request, 'puffer/profile.html')
+
+    if request.user.is_superuser:
+        addon_cnt = int(request.POST.get('addon-cnt'))
+
+        InvitationToken.objects.create(
+            token=random_token(), holder=request.user, addon_cnt=addon_cnt)
+
     return render(request, 'puffer/profile.html')
 
 

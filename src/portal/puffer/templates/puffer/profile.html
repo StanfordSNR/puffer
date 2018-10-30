@@ -24,12 +24,25 @@
       friends who would also like to use Puffer.
     </p>
     {% if user.is_superuser %}
-    <p>As an admin, you can click <a href="{% url 'generate_token' %}">
-       this link</a> to generate additional invite tokens.</p>
+    <form class="form-inline" method="post" action="{% url 'profile' %}">
+      {% csrf_token %}
+
+      As an admin, you can generate an invitation token with
+      <div class="form-group">
+        <select type="text" class="form-control mx-2" name="addon-cnt" id="addon-cnt" required>
+          <option>0</option>
+          <option>1</option>
+          <option>2</option>
+          <option>3</option>
+        </select>
+        additional tokens:
+      </div>
+      <button type="submit" class="btn btn-primary ml-2">Generate a token</button>
+    </form>
     {% endif %}
-    <br>
 
     {% if user.invitationtoken_set.all %}
+    <br>
     <p>
       <strong>Total available invitation tokens:</strong>
       {{ user.invitationtoken_set.all.count }}

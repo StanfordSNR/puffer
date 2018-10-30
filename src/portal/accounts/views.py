@@ -1,5 +1,3 @@
-from django.contrib.auth import login, authenticate, REDIRECT_FIELD_NAME
-from django.contrib.auth.views import LoginView
 from django.shortcuts import render, redirect
 from django.contrib import messages
 from django.urls import reverse
@@ -68,11 +66,3 @@ def share_token(request):
         match_token.save()
 
     return HttpResponse(status=204)
-
-
-# Allow admin to generate additional tokens
-def generate_token(request):
-    if request.user.is_superuser:
-        InvitationToken.objects.create(token=random_token(), holder=request.user)
-
-    return render(request, 'puffer/profile.html')
