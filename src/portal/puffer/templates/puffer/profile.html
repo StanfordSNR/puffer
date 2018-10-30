@@ -27,72 +27,68 @@
     <p>As an admin, you can click <a href="{% url 'generate_token' %}">
        this link</a> to generate additional invite tokens.</p>
     {% endif %}
-    <div>
-      {% if user.invitationtoken_set.all %}
-      <a data-toggle="collapse" href="#collapse-tokens"
-         aria-expanded="false" aria-controls="collapse-tokens">
-        Available invitation tokens: {{ user.invitationtoken_set.all.count }}
-      </a>
-      <div class="collapse" id="collapse-tokens">
-        <p>Unshared tokens (Once you share one, click it to mark it shared):</p>
-        <ul class="list-group" id="unshared">
+    <br>
+
+    {% if user.invitationtoken_set.all %}
+    <p>
+      <strong>Total available invitation tokens:</strong>
+      {{ user.invitationtoken_set.all.count }}
+    </p>
+
+    <div style="max-width:800px">
+      <table class="table table-hover">
+        <thead>
+          <tr>
+            <th scope="col" style="width:30%">Unshared tokens</th>
+            <th scope="col" style="width:40%">Addtional tokens to generate</th>
+            <th scope="col" style="width:30%">Once you share...</th>
+          </tr>
+        </thead>
+        <tbody id="unshared-tokens">
         {% for t in user.invitationtoken_set.all %}
           {% if not t.shared %}
-            <li class="list-group-item">
-              <div class="d-flex bd-highlight">
-              {% if t.addon_cnt %}
-                <div class="p-2 flex-fill bd-highlight">
-                  {{ t.token }} (this token will generate {{ t.addon_cnt }}
-                  additional tokens)
-                </div>
-              {% else %}
-                <div class="p-2 flex-fill bd-highlight">
-                  {{ t.token }}
-                </div>
-              {% endif %}
-                <div class="p-2 flex-fill bd-highlight">
-                  <button onclick="share('{{ t.token }}', this, '{{ csrf_token }}')"
-                          type="button" class="btn btn-link">
-                    mark shared
-                  </button>
-                </div>
-            </li>
+          <tr>
+            <td class="text-monospace">{{ t.token }}</td>
+            <td>{{ t.addon_cnt }}</td>
+            <td>
+              <a href="#" onclick="share('{{ t.token }}', this, '{{ csrf_token }}')">
+                mark shared
+              </a>
+            </td>
+          </tr>
           {% endif %}
         {% endfor %}
-        </ul>
+        </tbody>
+      </table>
 
-        <br>
-        <p>Shared but not yet used tokens (Click to mark unshared):</p>
-        <ul class="list-group" id="shared">
+      <table class="table table-hover" style="max-width: 800px">
+        <thead>
+          <tr>
+            <th scope="col" style="width:30%">Shared tokens</th>
+            <th scope="col" style="width:40%">Addtional tokens to generate</th>
+            <th scope="col" style="width:30%">Click to unshare...</th>
+          </tr>
+        </thead>
+        <tbody id="shared-tokens">
         {% for t in user.invitationtoken_set.all %}
           {% if t.shared %}
-            <li class="list-group-item">
-              <div class="d-flex bd-highlight">
-              {% if t.addon_cnt %}
-                <div class="p-2 flex-fill bd-highlight">
-                  {{ t.token }} (this token will generate {{ t.addon_cnt }}
-                  additional tokens)
-                </div>
-              {% else %}
-                <div class="p-2 flex-fill bd-highlight">
-                  {{ t.token }}
-                </div>
-              {% endif %}
-                <div class="p-2 flex-fill bd-highlight">
-                  <button onclick="unshare('{{ t.token }}', this, '{{ csrf_token }}')"
-                          type="button" class="btn btn-link">
-                    mark unshared
-                  </button>
-                </div>
-            </li>
+          <tr>
+            <td class="text-monospace">{{ t.token }}</td>
+            <td>{{ t.addon_cnt }}</td>
+            <td>
+              <a href="#" onclick="unshare('{{ t.token }}', this, '{{ csrf_token }}')">
+                mark unshared
+              </a>
+            </td>
+          </tr>
           {% endif %}
         {% endfor %}
-        </ul>
-      </div>
-      {% else %}
-      <a href="{% url 'participate' %}">Have friends interested in Puffer?</a>
-      {% endif %}
+        </tbody>
+      </table>
     </div>
+    {% else %}
+    <a href="{% url 'participate' %}">Have friends interested in Puffer?</a>
+    {% endif %}
   </div>
 
   <script src="{% static 'puffer/dist/js/jquery-3.3.1.slim.min.js' %}"></script>

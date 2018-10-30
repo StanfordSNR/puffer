@@ -1,6 +1,6 @@
 'use strict';
 
-function share(token, button, csrf_token) {
+function share(token, link, csrf_token) {
   var xhr = new XMLHttpRequest();
   xhr.open('POST', '/accounts/share_token/');
   xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
@@ -8,16 +8,17 @@ function share(token, button, csrf_token) {
                          '&share=true&csrfmiddlewaretoken=' + csrf_token)
   xhr.send(params);
 
-  var list_item = button.parentNode.parentNode.parentNode;
-  document.getElementById("unshared").removeChild(list_item);
-  button.onclick = function() {
-    unshare(token, button, csrf_token);
+  // move the token
+  var row = link.parentNode.parentNode;
+  document.getElementById("unshared-tokens").removeChild(row);
+  link.onclick = function() {
+    unshare(token, link, csrf_token);
   }
-  button.innerHTML = "mark unshared";
-  document.getElementById("shared").appendChild(list_item);
+  link.innerHTML = "mark unshared";
+  document.getElementById("shared-tokens").appendChild(row);
 }
 
-function unshare(token, button, csrf_token) {
+function unshare(token, link, csrf_token) {
   var xhr = new XMLHttpRequest();
   xhr.open('POST', '/accounts/share_token/');
   xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
@@ -25,11 +26,12 @@ function unshare(token, button, csrf_token) {
                          '&share=false&csrfmiddlewaretoken=' + csrf_token)
   xhr.send(params);
 
-  var list_item = button.parentNode.parentNode.parentNode;
-  document.getElementById("shared").removeChild(list_item);
-  button.onclick = function() {
-    share(token, button, csrf_token);
+  // move the token
+  var row = link.parentNode.parentNode;
+  document.getElementById("shared-tokens").removeChild(row);
+  link.onclick = function() {
+    share(token, link, csrf_token);
   }
-  button.innerHTML = "mark shared";
-  document.getElementById("unshared").appendChild(list_item);
+  link.innerHTML = "mark shared";
+  document.getElementById("unshared-tokens").appendChild(row);
 }
