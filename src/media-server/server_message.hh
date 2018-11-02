@@ -5,6 +5,7 @@
 #include <string>
 #include <vector>
 
+#include "channel.hh"
 #include "json.hpp"
 using json = nlohmann::json;
 
@@ -70,6 +71,49 @@ public:
                  const unsigned int duration,
                  const unsigned int byte_offset,
                  const unsigned int total_byte_length);
+};
+
+class MediaSegment
+{
+public:
+  MediaSegment(const mmap_t & data, const std::optional<mmap_t> & init);
+
+  void read(std::string & dst, const size_t n);
+  size_t offset() { return offset_; }
+  size_t length() { return length_; }
+  bool done() { return offset_ == length_; }
+
+private:
+  std::optional<mmap_t> init_;
+  mmap_t data_;
+  size_t offset_;
+  size_t length_;
+};
+
+class VideoSegment : public MediaSegment
+{
+public:
+  VideoSegment(const VideoFormat & format,
+               const mmap_t & data,
+               const std::optional<mmap_t> & init);
+
+  const VideoFormat & format() const { return format_; }
+
+private:
+  VideoFormat format_;
+};
+
+class AudioSegment : public MediaSegment
+{
+public:
+  AudioSegment(const AudioFormat & format,
+               const mmap_t & data,
+               const std::optional<mmap_t> & init);
+
+  const AudioFormat & format() const { return format_; }
+
+private:
+  AudioFormat format_;
 };
 
 #endif /* SERVER_MESSAGE_HH */
