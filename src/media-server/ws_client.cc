@@ -15,8 +15,6 @@ void WebSocketClient::init(const string & channel,
 
   next_vts_ = vts;
   next_ats_ = ats;
-  next_vsegment_.reset();
-  next_asegment_.reset();
 
   curr_vq_.reset();
   curr_aq_.reset();
@@ -28,20 +26,6 @@ void WebSocketClient::init(const string & channel,
   client_next_ats_ = ats;
 
   rebuffering_ = false;
-}
-
-void WebSocketClient::set_next_vsegment(const VideoFormat & format,
-                                        const mmap_t & data,
-                                        const optional<mmap_t> & init)
-{
-  next_vsegment_ = {format, data, init};
-}
-
-void WebSocketClient::set_next_asegment(const AudioFormat & format,
-                                        const mmap_t & data,
-                                        const optional<mmap_t> & init)
-{
-  next_asegment_ = {format, data, init};
 }
 
 void WebSocketClient::set_max_video_size(const std::vector<VideoFormat> & vfs)

@@ -97,23 +97,25 @@ ServerAudioMsg::ServerAudioMsg(const string & channel,
 
 MediaSegment::MediaSegment(const mmap_t & data,
                            const optional<mmap_t> & init)
-  : init_(init), data_(data), offset_(0), length_()
+  : data_(data), init_(init), offset_(0), length_()
 {
   length_ = get<1>(data_);
   if (init_) {
-    length_ += get<1>(init_.value());
+    length_ += get<1>(*init_);
   }
 }
 
 void MediaSegment::read(string & dst, const size_t n)
 {
+  assert(n > 0);
   assert(offset_ < length_);
-  const size_t init_size = init_ ? get<1>(init_.value()) : 0;
+
+  const size_t init_size = init_ ? get<1>(*init_) : 0;
   const size_t orig_dst_len = dst.length();
 
   if (init_ and offset_ < init_size) {
     const size_t to_read = init_size - offset_ > n ? n : init_size - offset_;
-    dst.append(get<0>(init_.value()).get() + offset_, to_read);
+    dst.append(get<0>(*init_).get() + offset_, to_read);
     offset_ += to_read;
     if (dst.length() - orig_dst_len >= n) {
       return;

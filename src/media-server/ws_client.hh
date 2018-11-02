@@ -41,8 +41,6 @@ public:
 
   std::optional<uint64_t> next_vts() const { return next_vts_; }
   std::optional<uint64_t> next_ats() const { return next_ats_; }
-  std::optional<VideoSegment> & next_vsegment() { return next_vsegment_; }
-  std::optional<AudioSegment> & next_asegment() { return next_asegment_; }
 
   std::optional<uint64_t> client_next_vts() const { return client_next_vts_; }
   std::optional<uint64_t> client_next_ats() const { return client_next_ats_; }
@@ -76,15 +74,6 @@ public:
 
   void set_next_vts(const uint64_t next_vts) { next_vts_ = next_vts; }
   void set_next_ats(const uint64_t next_ats) { next_ats_ = next_ats; }
-
-  void set_next_vsegment(const VideoFormat & format,
-                         const mmap_t & data,
-                         const std::optional<mmap_t> & init);
-  void clear_next_vsegment() { next_vsegment_.reset(); }
-  void set_next_asegment(const AudioFormat & format,
-                         const mmap_t & data,
-                         const std::optional<mmap_t> & init);
-  void clear_next_asegment() { next_asegment_.reset(); }
 
   void set_client_next_vts(const uint64_t vts) { client_next_vts_ = vts; }
   void set_client_next_ats(const uint64_t ats) { client_next_ats_ = ats; }
@@ -125,8 +114,6 @@ private:
   /* segments and timestamps in the process of being sent */
   std::optional<uint64_t> next_vts_ {};
   std::optional<uint64_t> next_ats_ {};
-  std::optional<VideoSegment> next_vsegment_ {};
-  std::optional<AudioSegment> next_asegment_ {};
 
   std::optional<VideoFormat> curr_vq_ {};
   std::optional<AudioFormat> curr_aq_ {};

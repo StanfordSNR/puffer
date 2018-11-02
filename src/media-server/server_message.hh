@@ -84,8 +84,8 @@ public:
   bool done() { return offset_ == length_; }
 
 private:
-  std::optional<mmap_t> init_;
   mmap_t data_;
+  std::optional<mmap_t> init_;
   size_t offset_;
   size_t length_;
 };

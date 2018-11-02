@@ -39,7 +39,6 @@ static bool debug = false;
 /* global settings */
 static const unsigned int MAX_BUFFER_S = 10;
 static const size_t MAX_WS_FRAME_B = 100 * 1024;  /* 10 KB */
-static const size_t MAX_WS_FRAME_NUM = 10;  /* 10 * MAX_WS_FRAME_B */
 
 /* drop a client if have not received messaged from it for 10 seconds */
 static const unsigned int MAX_IDLE_S = 10;
@@ -269,34 +268,27 @@ void serve_video_to_client(WebSocketServer & server, WebSocketClient & client)
   Channel & channel = channels.at(client.channel());
 
   uint64_t next_vts = client.next_vts().value();
-  double ssim;
-
-  if (not client.next_vsegment()) { /* or try a lower quality */
-    /* Start new chunk */
-    if (not channel.vready(next_vts)) {
-      return;
-    }
-    const VideoFormat & next_vq = select_video_quality(client);
-
-    ssim = channel.vssim(next_vts).at(next_vq);
-    cerr << client.signature() << ": channel " << channel.name()
-         << ", video " << next_vts << " " << next_vq << " " << ssim << endl;
-
-    optional<mmap_t> init_mmap;
-    if (not client.curr_vq() or next_vq != client.curr_vq().value()) {
-      init_mmap = channel.vinit(next_vq);
-    }
-    client.set_next_vsegment(next_vq, channel.vdata(next_vq, next_vts),
-                             init_mmap);
-  } else {
-    ssim = channel.vssim(next_vts).at(client.next_vsegment().value().format());
-    cerr << client.signature() << ": channel " << channel.name()
-         << ", continuing video " << next_vts << endl;
+  /* new chunk is not ready yet */
+  if (not channel.vready(next_vts)) {
+    return;
   }
 
-  for (size_t num = 0; num < MAX_WS_FRAME_NUM; num++) {
-    VideoSegment & next_vsegment = client.next_vsegment().value();
+  /* select a video quality using ABR algorithm */
+  const VideoFormat & next_vq = select_video_quality(client);
+  double ssim = channel.vssim(next_vts).at(next_vq);
 
+  /* check if a new init segment is needed */
+  optional<mmap_t> init_mmap;
+  if (not client.curr_vq() or next_vq != client.curr_vq().value()) {
+    init_mmap = channel.vinit(next_vq);
+  }
+
+  /* construct the next segment to send */
+  const auto & data_mmap = channel.vdata(next_vq, next_vts);
+  VideoSegment next_vsegment {next_vq, data_mmap, init_mmap};
+
+  /* divide the next segment into WebSocket frames and send */
+  while (not next_vsegment.done()) {
     ServerVideoMsg video_msg(channel.name(),
                              next_vsegment.format().to_string(),
                              ssim,
@@ -305,65 +297,64 @@ void serve_video_to_client(WebSocketServer & server, WebSocketClient & client)
                              next_vsegment.offset(),
                              next_vsegment.length());
     string frame_payload = video_msg.to_string();
-    next_vsegment.read(frame_payload, MAX_WS_FRAME_B);
+    next_vsegment.read(frame_payload, MAX_WS_FRAME_B - frame_payload.size());
 
     WSFrame frame {true, WSFrame::OpCode::Binary, move(frame_payload)};
     server.queue_frame(client.connection_id(), frame);
-
-    if (next_vsegment.done()) {
-      client.set_next_vts(next_vts + channel.vduration());
-      client.set_curr_vq(next_vsegment.format());
-      client.clear_next_vsegment();
-      return;
-    }
   }
+
+  /* finish sending */
+  client.set_next_vts(next_vts + channel.vduration());
+  client.set_curr_vq(next_vsegment.format());
+
+  cerr << client.signature() << ": channel " << channel.name()
+       << ", video " << next_vts << " " << next_vq << " " << ssim << endl;
 }
 
 void serve_audio_to_client(WebSocketServer & server, WebSocketClient & client)
 {
   Channel & channel = channels.at(client.channel());
+
   uint64_t next_ats = client.next_ats().value();
-
-  if (not client.next_asegment()) { /* or try a lower quality */
-    if (not channel.aready(next_ats)) {
-      return;
-    }
-
-    const AudioFormat & next_aq = select_audio_quality(client);
-
-    cerr << client.signature() << ": channel " << channel.name()
-         << ", audio " << next_ats << " " << next_aq << endl;
-
-    optional<mmap_t> init_mmap;
-    if (not client.curr_aq() or next_aq != client.curr_aq().value()) {
-      init_mmap = channel.ainit(next_aq);
-    }
-    client.set_next_asegment(next_aq, channel.adata(next_aq, next_ats),
-                             init_mmap);
-  } else {
-    cerr << client.signature() << ": channel " << channel.name()
-         << ", continuing audio " << next_ats << endl;
+  /* new chunk is not ready yet */
+  if (not channel.aready(next_ats)) {
+    return;
   }
 
-  AudioSegment & next_asegment = client.next_asegment().value();
+  /* select an audio quality using ABR algorithm */
+  const AudioFormat & next_aq = select_audio_quality(client);
 
-  ServerAudioMsg audio_msg(channel.name(),
-                           next_asegment.format().to_string(),
-                           next_ats,
-                           channel.aduration(),
-                           next_asegment.offset(),
-                           next_asegment.length());
-  string frame_payload = audio_msg.to_string();
-  next_asegment.read(frame_payload, MAX_WS_FRAME_B);
-
-  WSFrame frame {true, WSFrame::OpCode::Binary, move(frame_payload)};
-  server.queue_frame(client.connection_id(), frame);
-
-  if (next_asegment.done()) {
-    client.set_next_ats(next_ats + channel.aduration());
-    client.set_curr_aq(next_asegment.format());
-    client.clear_next_asegment();
+  /* check if a new init segment is needed */
+  optional<mmap_t> init_mmap;
+  if (not client.curr_aq() or next_aq != client.curr_aq().value()) {
+    init_mmap = channel.ainit(next_aq);
   }
+
+  /* construct the next segment to send */
+  const auto & data_mmap = channel.adata(next_aq, next_ats);
+  AudioSegment next_asegment {next_aq, data_mmap, init_mmap};
+
+  /* divide the next segment into WebSocket frames and send */
+  while (not next_asegment.done()) {
+    ServerAudioMsg audio_msg(channel.name(),
+                             next_asegment.format().to_string(),
+                             next_ats,
+                             channel.aduration(),
+                             next_asegment.offset(),
+                             next_asegment.length());
+    string frame_payload = audio_msg.to_string();
+    next_asegment.read(frame_payload, MAX_WS_FRAME_B - frame_payload.size());
+
+    WSFrame frame {true, WSFrame::OpCode::Binary, move(frame_payload)};
+    server.queue_frame(client.connection_id(), frame);
+  }
+
+  /* finish sending */
+  client.set_next_ats(next_ats + channel.aduration());
+  client.set_curr_aq(next_asegment.format());
+
+  cerr << client.signature() << ": channel " << channel.name()
+       << ", audio " << next_ats << " " << next_aq << endl;
 }
 
 void reinit_laggy_client(WebSocketServer & server, WebSocketClient & client,
