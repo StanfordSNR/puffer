@@ -1,5 +1,7 @@
 #include "ws_client.hh"
 
+#include "linear_bba.hh"
+
 using namespace std;
 
 WebSocketClient::WebSocketClient(const uint64_t connection_id)
@@ -26,6 +28,14 @@ void WebSocketClient::init(const string & channel,
   client_next_ats_ = ats;
 
   rebuffering_ = false;
+}
+
+void WebSocketClient::set_abr_algo(const string & abr_name,
+                                   const YAML::Node & abr_config)
+{
+  if (abr_name == "linear_bba") {
+    abr_algo_ = make_unique<LinearBBA>(abr_name, abr_config);
+  }
 }
 
 void WebSocketClient::set_max_video_size(const std::vector<VideoFormat> & vfs)

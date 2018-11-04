@@ -76,12 +76,13 @@ public:
 class MediaSegment
 {
 public:
-  MediaSegment(const mmap_t & data, const std::optional<mmap_t> & init);
-
   void read(std::string & dst, const size_t n);
   size_t offset() { return offset_; }
   size_t length() { return length_; }
   bool done() { return offset_ == length_; }
+
+protected:
+  MediaSegment(const mmap_t & data, const std::optional<mmap_t> & init);
 
 private:
   mmap_t data_;

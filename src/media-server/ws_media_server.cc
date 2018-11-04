@@ -818,6 +818,13 @@ int main(int argc, char * argv[])
   Inotify inotify(server.poller());
   load_channels(config, inotify);
 
+  /* load ABR algorithm */
+  string abr_name = "linear_bba";  /* default ABR */
+  if (config["abr_algorithm"]) {
+    abr_name = config["abr_algorithm"].as<string>();
+  }
+  const YAML::Node & abr_config = config["abr_configs"][abr_name];
+
   /* set server callbacks */
   server.set_message_callback(
     [&server, &db_work](const uint64_t connection_id, const WSMessage & msg)
@@ -881,14 +888,17 @@ int main(int argc, char * argv[])
   );
 
   server.set_open_callback(
-    [&server](const uint64_t connection_id)
+    [&server, &abr_name, &abr_config](const uint64_t connection_id)
     {
       try {
         cerr << connection_id << ": connection opened" << endl;
 
-        clients.emplace(piecewise_construct,
-                        forward_as_tuple(connection_id),
-                        forward_as_tuple(connection_id)); /* WebSocketClient */
+        /* create a new WebSocketClient */
+        auto & client = clients.emplace(
+            piecewise_construct,
+            forward_as_tuple(connection_id),
+            forward_as_tuple(connection_id)).first->second;
+        client.set_abr_algo(abr_name, abr_config);
       } catch (const exception & e) {
         cerr << client_signature(connection_id)
              << ": warning in open callback: " << e.what() << endl;

@@ -1,18 +1,18 @@
-#include "ws_client.hh"
-#include "channel.hh"
+#ifndef ABR_ALGO_HH
+#define ABR_ALGO_HH
 
-using namespace std;
+#include "yaml-cpp/yaml.h"
 
 class ABRAlgo
 {
 public:
-  ABRAlgo() {}
-  virtual ~ABRAlgo() {}
+  std::string abr_name() const { return abr_name_; }
 
-  /* check whether the algorithm is ready currently */
-  virtual bool is_ready(const WebSocketClient & client,
-                        const Channel & channel) = 0;
+protected:
+  ABRAlgo(const std::string & abr_name) : abr_name_(abr_name) {}
 
-  virtual const VideoFormat & select_video_quality(const WebSocketClient & client,
-                                                   const Channel & channel) = 0;
+private:
+  std::string abr_name_;
 };
+
+#endif /* ABR_ALGO_HH */

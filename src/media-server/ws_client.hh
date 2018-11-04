@@ -9,6 +9,7 @@
 #include "channel.hh"
 #include "server_message.hh"
 #include "media_formats.hh"
+#include "abr_algo.hh"
 
 class WebSocketClient
 {
@@ -60,6 +61,8 @@ public:
   std::optional<time_t> get_last_msg_time() const { return last_msg_time_; }
 
   /* mutators */
+  void set_abr_algo(const std::string & abr_name,
+                    const YAML::Node & abr_config);
   void set_authenticated(const bool authenticated) { authenticated_ = authenticated; }
   void set_session_key(const std::string & session_key) { session_key_ = session_key; }
   void set_username(const std::string & username) { username_ = username; }
@@ -91,6 +94,9 @@ public:
 
 private:
   uint64_t connection_id_ {};
+
+  /* ABR algorithm */
+  std::unique_ptr<ABRAlgo> abr_algo_ {nullptr};
 
   /* incremented every time a new client-init received */
   unsigned int init_id_ {0};
