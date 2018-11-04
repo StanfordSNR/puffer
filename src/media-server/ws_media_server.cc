@@ -75,7 +75,7 @@ string client_signature(const uint64_t connection_id)
 const VideoFormat & select_video_quality(WebSocketClient & client)
 {
   // TODO: make a better choice
-  const auto & channel = channels.at(client.channel());
+  const auto & channel = client.channel();
 
   /* simple buffer-based algorithm: assume max buffer is 10 seconds */
   double buf = min(max(client.video_playback_buf(), 0.0), 10.0);
@@ -145,7 +145,7 @@ const VideoFormat & select_video_quality(WebSocketClient & client)
 const AudioFormat & select_audio_quality(WebSocketClient & client)
 {
   // TODO: make a better choice
-  const auto & channel = channels.at(client.channel());
+  const auto & channel = client.channel();
 
   /* simple buffer-based algorithm: assume max buffer is 10 seconds */
   double buf = min(max(client.audio_playback_buf(), 0.0), 10.0);
@@ -265,7 +265,7 @@ void reinit_log_data()
 
 void serve_video_to_client(WebSocketServer & server, WebSocketClient & client)
 {
-  const auto & channel = channels.at(client.channel());
+  const auto & channel = client.channel();
 
   uint64_t next_vts = client.next_vts().value();
   /* new chunk is not ready yet */
@@ -313,7 +313,7 @@ void serve_video_to_client(WebSocketServer & server, WebSocketClient & client)
 
 void serve_audio_to_client(WebSocketServer & server, WebSocketClient & client)
 {
-  const auto & channel = channels.at(client.channel());
+  const auto & channel = client.channel();
 
   uint64_t next_ats = client.next_ats().value();
   /* new chunk is not ready yet */
@@ -365,7 +365,7 @@ void reinit_laggy_client(WebSocketServer & server, WebSocketClient & client,
 
   cerr << client.signature() << ": reinitialize laggy client "
        << client.next_vts().value() << "->" << init_vts << endl;
-  client.init(channel->name(), init_vts, init_ats);
+  client.init(channel, init_vts, init_ats);
 
   ServerInitMsg reinit(channel->name(), channel->vcodec(),
                        channel->acodec(), channel->timescale(),
@@ -378,7 +378,7 @@ void reinit_laggy_client(WebSocketServer & server, WebSocketClient & client,
 
 void serve_client(WebSocketServer & server, WebSocketClient & client)
 {
-  const auto & channel = channels.at(client.channel());
+  const auto & channel = client.channel();
 
   if (not channel->ready()) {
     cerr << client.signature()
@@ -431,8 +431,8 @@ void log_active_streams(const time_t this_minute)
 
   for (const auto & client_pair : clients) {
     const auto & client = client_pair.second;
-    if (not client.channel().empty()) {
-      string channel_name = client.channel();
+    if (client.channel()) {
+      string channel_name = client.channel()->name();
 
       auto map_it = active_streams_count.find(channel_name);
       if (map_it == active_streams_count.end()) {
@@ -477,7 +477,7 @@ void start_global_timer(WebSocketServer & server)
           continue;
         }
 
-        if (not client.channel().empty()) {
+        if (client.channel()) {
           /* only serve clients from which server has received client-init */
           serve_client(server, client);
         }
@@ -508,7 +508,7 @@ void start_global_timer(WebSocketServer & server)
 void send_server_init(WebSocketServer & server, WebSocketClient & client,
                       const bool can_resume)
 {
-  const auto & channel = channels.at(client.channel());
+  const auto & channel = client.channel();
 
   ServerInitMsg init(channel->name(), channel->vcodec(),
                      channel->acodec(), channel->timescale(),
@@ -527,7 +527,7 @@ bool resume_connection(WebSocketServer & server, WebSocketClient & client,
                        const shared_ptr<Channel> & channel)
 {
   /* don't resume a connection if client is requesting a different channel */
-  if (client.channel() != channel->name()) {
+  if (client.channel()->name() != channel->name()) {
     return false;
   }
 
@@ -563,7 +563,7 @@ bool resume_connection(WebSocketServer & server, WebSocketClient & client,
   }
 
   /* reinitialize the client */
-  client.init(channel->name(), requested_vts, requested_ats);
+  client.init(channel, requested_vts, requested_ats);
   send_server_init(server, client, true /* can resume */);
 
   cerr << client.signature() << ": connection resumed" << endl;
@@ -582,8 +582,8 @@ void update_screen_size(WebSocketClient & client,
   client.set_screen_height(new_screen_height);
   client.set_screen_width(new_screen_width);
 
-  if (not client.channel().empty()) {
-    client.set_max_video_size(channels.at(client.channel())->vformats());
+  if (client.channel()) {
+    client.set_max_video_size(client.channel()->vformats());
   }
 }
 
@@ -615,7 +615,7 @@ void handle_client_init(WebSocketServer & server, WebSocketClient & client,
   uint64_t init_vts = channel->init_vts().value();
   uint64_t init_ats = channel->init_ats().value();
 
-  client.init(channel->name(), init_vts, init_ats);
+  client.init(channel, init_vts, init_ats);
 
   /* update client's screen size after setting client's channel */
   update_screen_size(client, msg.screen_height, msg.screen_width);
@@ -660,14 +660,14 @@ void handle_client_info(WebSocketClient & client, const ClientInfoMsg & msg)
 
     /* record playback buffer occupancy */
     string log_line = to_string(cur_time) + " " + client.username() + " "
-        + client.channel() + " " + to_string(static_cast<int>(msg.event))
-        + " " + buf;
+        + client.channel()->name() + " "
+        + to_string(static_cast<int>(msg.event)) + " " + buf;
     append_to_log("playback_buffer", log_line);
   } else if (msg.event == ClientInfoMsg::PlayerEvent::VideoAck) {
     /* record video quality on the VideoAck for the last video segment */
     if (*msg.byte_offset + *msg.received_bytes == *msg.total_byte_length) {
       string log_line = to_string(cur_time) + " " + client.username() + " "
-          + client.channel() + " " + to_string(*msg.timestamp) + " "
+          + client.channel()->name() + " " + to_string(*msg.timestamp) + " "
           + *msg.quality + " " + to_string(*msg.ssim);
       append_to_log("video_quality", log_line);
     }
@@ -683,7 +683,7 @@ void handle_client_info(WebSocketClient & client, const ClientInfoMsg & msg)
       msg.event == ClientInfoMsg::PlayerEvent::CanPlay) {
     if (msg.event == ClientInfoMsg::PlayerEvent::Rebuffer) {
       string log_line = to_string(cur_time) + " " + client.username() + " "
-                        + client.channel();
+                        + client.channel()->name();
       append_to_log("rebuffer_event", log_line);
     }
 

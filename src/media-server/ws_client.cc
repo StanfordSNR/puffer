@@ -9,10 +9,11 @@ WebSocketClient::WebSocketClient(const uint64_t connection_id)
   connection_id_ = connection_id;
 }
 
-void WebSocketClient::init(const string & channel,
+void WebSocketClient::init(const shared_ptr<Channel> & channel,
                            const uint64_t vts, const uint64_t ats)
 {
   channel_ = channel;
+
   init_id_++;
 
   next_vts_ = vts;

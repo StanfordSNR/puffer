@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <optional>
 #include <string>
+#include <memory>
 
 #include "address.hh"
 #include "channel.hh"
@@ -16,7 +17,7 @@ class WebSocketClient
 public:
   WebSocketClient(const uint64_t connection_id);
 
-  void init(const std::string & channel,
+  void init(const std::shared_ptr<Channel> & channel,
             const uint64_t vts, const uint64_t ats);
 
   /* accessors */
@@ -26,7 +27,8 @@ public:
   bool is_authenticated() const { return authenticated_; }
   std::string session_key() const { return session_key_; }
   std::string username() const { return username_; }
-  std::string channel() const { return channel_; }
+
+  std::shared_ptr<Channel> channel() const { return channel_; }
 
   std::string signature() const {
     return std::to_string(connection_id_) + "," + username_;
@@ -104,7 +106,8 @@ private:
   bool authenticated_ {false};
   std::string session_key_ {};
   std::string username_ {};
-  std::string channel_ {};
+
+  std::shared_ptr<Channel> channel_ {nullptr};
 
   /* fields set in client-init */
   std::string browser_ {};
