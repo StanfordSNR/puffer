@@ -527,7 +527,7 @@ bool resume_connection(WebSocketServer & server, WebSocketClient & client,
                        const shared_ptr<Channel> & channel)
 {
   /* don't resume a connection if client is requesting a different channel */
-  if (client.channel()->name() != channel->name()) {
+  if (client.channel() != channel) {
     return false;
   }
 
@@ -598,7 +598,7 @@ void handle_client_init(WebSocketServer & server, WebSocketClient & client,
     return;
   }
 
-  auto & channel = it->second;
+  const auto & channel = it->second;
 
   /* ignore client-init if the channel is not ready */
   if (not channel->ready()) {

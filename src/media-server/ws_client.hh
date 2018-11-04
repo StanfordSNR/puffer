@@ -28,7 +28,7 @@ public:
   std::string session_key() const { return session_key_; }
   std::string username() const { return username_; }
 
-  std::shared_ptr<Channel> channel() const { return channel_; }
+  std::shared_ptr<Channel> channel() const;
 
   std::string signature() const {
     return std::to_string(connection_id_) + "," + username_;
@@ -100,14 +100,15 @@ private:
   /* ABR algorithm */
   std::unique_ptr<ABRAlgo> abr_algo_ {nullptr};
 
+  /* WebSocketClient has no interest in managing the ownership of channel */
+  std::weak_ptr<Channel> channel_;
+
   /* incremented every time a new client-init received */
   unsigned int init_id_ {0};
 
   bool authenticated_ {false};
   std::string session_key_ {};
   std::string username_ {};
-
-  std::shared_ptr<Channel> channel_ {nullptr};
 
   /* fields set in client-init */
   std::string browser_ {};

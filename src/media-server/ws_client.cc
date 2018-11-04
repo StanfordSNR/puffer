@@ -5,6 +5,7 @@
 using namespace std;
 
 WebSocketClient::WebSocketClient(const uint64_t connection_id)
+  : channel_()
 {
   connection_id_ = connection_id;
 }
@@ -29,6 +30,11 @@ void WebSocketClient::init(const shared_ptr<Channel> & channel,
   client_next_ats_ = ats;
 
   rebuffering_ = false;
+}
+
+shared_ptr<Channel> WebSocketClient::channel() const
+{
+  return channel_.lock();
 }
 
 void WebSocketClient::set_abr_algo(const string & abr_name,
