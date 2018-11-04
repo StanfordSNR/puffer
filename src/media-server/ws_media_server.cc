@@ -72,7 +72,7 @@ string client_signature(const uint64_t connection_id)
   }
 }
 
-const VideoFormat & select_video_quality(WebSocketClient & client)
+VideoFormat select_video_quality(WebSocketClient & client)
 {
   // TODO: make a better choice
   const auto & channel = client.channel();
@@ -142,7 +142,7 @@ const VideoFormat & select_video_quality(WebSocketClient & client)
   return channel->vformats()[ret_idx];
 }
 
-const AudioFormat & select_audio_quality(WebSocketClient & client)
+AudioFormat select_audio_quality(WebSocketClient & client)
 {
   // TODO: make a better choice
   const auto & channel = client.channel();

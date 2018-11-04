@@ -17,10 +17,11 @@ using mmap_t = std::tuple<std::shared_ptr<char>, size_t>;
 class Channel
 {
 public:
-  Channel(const std::string & name, YAML::Node config, Inotify & inotify);
+  Channel(const std::string & name, const YAML::Node & config,
+          Inotify & inotify);
 
   bool live() const { return live_; }
-  const std::string & name() const { return name_; }
+  std::string name() const { return name_; }
 
   fs::path input_path() const { return input_path_; }
 
@@ -31,23 +32,23 @@ public:
   bool ready() const;
 
   bool vready(const uint64_t ts) const;
-  const mmap_t & vinit(const VideoFormat & format) const;
-  const mmap_t & vdata(const VideoFormat & format, const uint64_t ts) const;
+  mmap_t vinit(const VideoFormat & format) const;
+  mmap_t vdata(const VideoFormat & format, const uint64_t ts) const;
   const std::map<VideoFormat, mmap_t> & vdata(const uint64_t ts) const;
   double vssim(const VideoFormat & format, const uint64_t ts) const;
   const std::map<VideoFormat, double> & vssim(const uint64_t ts) const;
 
   bool aready(const uint64_t ts) const;
-  const mmap_t & ainit(const AudioFormat & format) const;
-  const mmap_t & adata(const AudioFormat & format, const uint64_t ts) const;
+  mmap_t ainit(const AudioFormat & format) const;
+  mmap_t adata(const AudioFormat & format, const uint64_t ts) const;
   const std::map<AudioFormat, mmap_t> & adata(const uint64_t ts) const;
 
   unsigned int timescale() const { return timescale_; }
   unsigned int vduration() const { return vduration_; }
   unsigned int aduration() const { return aduration_; }
 
-  const std::string & vcodec() const { return vcodec_; }
-  const std::string & acodec() const { return acodec_; }
+  std::string vcodec() const { return vcodec_; }
+  std::string acodec() const { return acodec_; }
 
   std::optional<uint64_t> init_vts() const;
   std::optional<uint64_t> init_ats() const;

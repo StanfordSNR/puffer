@@ -17,7 +17,8 @@ static const string DEFAULT_AUDIO_CODEC = "audio/webm; codecs=\"opus\"";
 static const unsigned int DEFAULT_PRESENT_DELAY_CHUNK = 10;  // 10 chunks
 static const unsigned int PRESENT_CLEAN_DIFF = 10;  // 10 chunks
 
-Channel::Channel(const string & name, YAML::Node config, Inotify & inotify)
+Channel::Channel(const string & name, const YAML::Node & config,
+                 Inotify & inotify)
 {
   live_ = config["live"].as<bool>();
   name_ = name;
@@ -118,13 +119,12 @@ bool Channel::vready(const uint64_t ts) const
   return true;
 }
 
-const mmap_t & Channel::vinit(const VideoFormat & format) const
+mmap_t Channel::vinit(const VideoFormat & format) const
 {
   return vinit_.at(format);
 }
 
-const mmap_t & Channel::vdata(const VideoFormat & format,
-                              const uint64_t ts) const
+mmap_t Channel::vdata(const VideoFormat & format, const uint64_t ts) const
 {
   return vdata_.at(ts).at(format);
 }
@@ -154,13 +154,12 @@ bool Channel::aready(const uint64_t ts) const
   return true;
 }
 
-const mmap_t & Channel::ainit(const AudioFormat & format) const
+mmap_t Channel::ainit(const AudioFormat & format) const
 {
   return ainit_.at(format);
 }
 
-const mmap_t & Channel::adata(const AudioFormat & format,
-                              const uint64_t ts) const
+mmap_t Channel::adata(const AudioFormat & format, const uint64_t ts) const
 {
   return adata_.at(ts).at(format);
 }
