@@ -43,7 +43,7 @@ static const size_t MAX_WS_FRAME_B = 100 * 1024;  /* 10 KB */
 /* drop a client if have not received messaged from it for 10 seconds */
 static const unsigned int MAX_IDLE_S = 10;
 
-static map<string, Channel> channels;  /* key: channel name */
+static map<string, shared_ptr<Channel>> channels;  /* key: channel name */
 static map<uint64_t, WebSocketClient> clients;  /* key: connection ID */
 
 static Timerfd global_timer;  /* non-blocking global timer fd for scheduling */
@@ -75,23 +75,23 @@ string client_signature(const uint64_t connection_id)
 const VideoFormat & select_video_quality(WebSocketClient & client)
 {
   // TODO: make a better choice
-  Channel & channel = channels.at(client.channel());
+  const auto & channel = channels.at(client.channel());
 
   /* simple buffer-based algorithm: assume max buffer is 10 seconds */
   double buf = min(max(client.video_playback_buf(), 0.0), 10.0);
 
   uint64_t next_vts = client.next_vts().value();
-  const auto & data_map = channel.vdata(next_vts);
-  const auto & ssim_map = channel.vssim(next_vts);
+  const auto & data_map = channel->vdata(next_vts);
+  const auto & ssim_map = channel->vssim(next_vts);
 
   /* get max and min chunk size for the next video ts */
   size_t max_size = 0, min_size = SIZE_MAX;
 
-  size_t MAX_VFORMATS = channel.vformats().size();
+  size_t MAX_VFORMATS = channel->vformats().size();
   size_t max_idx = MAX_VFORMATS, min_idx = MAX_VFORMATS;
 
-  for (size_t i = 0; i < channel.vformats().size(); i++) {
-    const auto & vf = channel.vformats()[i];
+  for (size_t i = 0; i < channel->vformats().size(); i++) {
+    const auto & vf = channel->vformats()[i];
     if (not client.is_format_capable(vf)) continue;
 
     size_t chunk_size = get<1>(data_map.at(vf));
@@ -112,9 +112,9 @@ const VideoFormat & select_video_quality(WebSocketClient & client)
   assert(min_idx < MAX_VFORMATS);
 
   if (buf >= 8.0) {
-    return channel.vformats()[max_idx];
+    return channel->vformats()[max_idx];
   } else if (buf <= 2.0) {
-    return channel.vformats()[min_idx];
+    return channel->vformats()[min_idx];
   }
 
   /* pick the chunk with highest SSIM but with size <= max_serve_size */
@@ -122,8 +122,8 @@ const VideoFormat & select_video_quality(WebSocketClient & client)
   double highest_ssim = 0.0;
   size_t ret_idx = MAX_VFORMATS;
 
-  for (size_t i = 0; i < channel.vformats().size(); i++) {
-    const auto & vf = channel.vformats()[i];
+  for (size_t i = 0; i < channel->vformats().size(); i++) {
+    const auto & vf = channel->vformats()[i];
     if (not client.is_format_capable(vf)) continue;
 
     size_t chunk_size = get<1>(data_map.at(vf));
@@ -139,28 +139,28 @@ const VideoFormat & select_video_quality(WebSocketClient & client)
   }
 
   assert(ret_idx < MAX_VFORMATS);
-  return channel.vformats()[ret_idx];
+  return channel->vformats()[ret_idx];
 }
 
 const AudioFormat & select_audio_quality(WebSocketClient & client)
 {
   // TODO: make a better choice
-  Channel & channel = channels.at(client.channel());
+  const auto & channel = channels.at(client.channel());
 
   /* simple buffer-based algorithm: assume max buffer is 10 seconds */
   double buf = min(max(client.audio_playback_buf(), 0.0), 10.0);
 
   uint64_t next_ats = client.next_ats().value();
-  const auto & data_map = channel.adata(next_ats);
+  const auto & data_map = channel->adata(next_ats);
 
   /* get max and min chunk size for the next video ts */
   size_t max_size = 0, min_size = SIZE_MAX;
 
-  size_t MAX_AFORMATS = channel.aformats().size();
+  size_t MAX_AFORMATS = channel->aformats().size();
   size_t max_idx = MAX_AFORMATS, min_idx = MAX_AFORMATS;
 
-  for (size_t i = 0; i < channel.aformats().size(); i++) {
-    const auto & af = channel.aformats()[i];
+  for (size_t i = 0; i < channel->aformats().size(); i++) {
+    const auto & af = channel->aformats()[i];
     size_t chunk_size = get<1>(data_map.at(af));
     if (chunk_size <= 0) continue;
 
@@ -179,9 +179,9 @@ const AudioFormat & select_audio_quality(WebSocketClient & client)
   assert(min_idx < MAX_AFORMATS);
 
   if (buf >= 8.0) {
-    return channel.aformats()[max_idx];
+    return channel->aformats()[max_idx];
   } else if (buf <= 2.0) {
-    return channel.aformats()[min_idx];
+    return channel->aformats()[min_idx];
   }
 
   /* pick the chunk with biggest size <= max_serve_size */
@@ -189,8 +189,8 @@ const AudioFormat & select_audio_quality(WebSocketClient & client)
   size_t biggest_chunk_size = 0;
   size_t ret_idx = MAX_AFORMATS;
 
-  for (size_t i = 0; i < channel.aformats().size(); i++) {
-    const auto & af = channel.aformats()[i];
+  for (size_t i = 0; i < channel->aformats().size(); i++) {
+    const auto & af = channel->aformats()[i];
     size_t chunk_size = get<1>(data_map.at(af));
 
     if (chunk_size <= 0 or chunk_size > max_serve_size) {
@@ -204,7 +204,7 @@ const AudioFormat & select_audio_quality(WebSocketClient & client)
   }
 
   assert(ret_idx < MAX_AFORMATS);
-  return channel.aformats()[ret_idx];
+  return channel->aformats()[ret_idx];
 }
 
 void append_to_log(const string & log_stem, const string & log_line)
@@ -265,35 +265,35 @@ void reinit_log_data()
 
 void serve_video_to_client(WebSocketServer & server, WebSocketClient & client)
 {
-  Channel & channel = channels.at(client.channel());
+  const auto & channel = channels.at(client.channel());
 
   uint64_t next_vts = client.next_vts().value();
   /* new chunk is not ready yet */
-  if (not channel.vready(next_vts)) {
+  if (not channel->vready(next_vts)) {
     return;
   }
 
   /* select a video quality using ABR algorithm */
   const VideoFormat & next_vq = select_video_quality(client);
-  double ssim = channel.vssim(next_vts).at(next_vq);
+  double ssim = channel->vssim(next_vts).at(next_vq);
 
   /* check if a new init segment is needed */
   optional<mmap_t> init_mmap;
   if (not client.curr_vq() or next_vq != client.curr_vq().value()) {
-    init_mmap = channel.vinit(next_vq);
+    init_mmap = channel->vinit(next_vq);
   }
 
   /* construct the next segment to send */
-  const auto & data_mmap = channel.vdata(next_vq, next_vts);
+  const auto & data_mmap = channel->vdata(next_vq, next_vts);
   VideoSegment next_vsegment {next_vq, data_mmap, init_mmap};
 
   /* divide the next segment into WebSocket frames and send */
   while (not next_vsegment.done()) {
-    ServerVideoMsg video_msg(channel.name(),
+    ServerVideoMsg video_msg(channel->name(),
                              next_vsegment.format().to_string(),
                              ssim,
                              next_vts,
-                             channel.vduration(),
+                             channel->vduration(),
                              next_vsegment.offset(),
                              next_vsegment.length());
     string frame_payload = video_msg.to_string();
@@ -304,20 +304,20 @@ void serve_video_to_client(WebSocketServer & server, WebSocketClient & client)
   }
 
   /* finish sending */
-  client.set_next_vts(next_vts + channel.vduration());
+  client.set_next_vts(next_vts + channel->vduration());
   client.set_curr_vq(next_vsegment.format());
 
-  cerr << client.signature() << ": channel " << channel.name()
+  cerr << client.signature() << ": channel " << channel->name()
        << ", video " << next_vts << " " << next_vq << " " << ssim << endl;
 }
 
 void serve_audio_to_client(WebSocketServer & server, WebSocketClient & client)
 {
-  Channel & channel = channels.at(client.channel());
+  const auto & channel = channels.at(client.channel());
 
   uint64_t next_ats = client.next_ats().value();
   /* new chunk is not ready yet */
-  if (not channel.aready(next_ats)) {
+  if (not channel->aready(next_ats)) {
     return;
   }
 
@@ -327,19 +327,19 @@ void serve_audio_to_client(WebSocketServer & server, WebSocketClient & client)
   /* check if a new init segment is needed */
   optional<mmap_t> init_mmap;
   if (not client.curr_aq() or next_aq != client.curr_aq().value()) {
-    init_mmap = channel.ainit(next_aq);
+    init_mmap = channel->ainit(next_aq);
   }
 
   /* construct the next segment to send */
-  const auto & data_mmap = channel.adata(next_aq, next_ats);
+  const auto & data_mmap = channel->adata(next_aq, next_ats);
   AudioSegment next_asegment {next_aq, data_mmap, init_mmap};
 
   /* divide the next segment into WebSocket frames and send */
   while (not next_asegment.done()) {
-    ServerAudioMsg audio_msg(channel.name(),
+    ServerAudioMsg audio_msg(channel->name(),
                              next_asegment.format().to_string(),
                              next_ats,
-                             channel.aduration(),
+                             channel->aduration(),
                              next_asegment.offset(),
                              next_asegment.length());
     string frame_payload = audio_msg.to_string();
@@ -350,25 +350,25 @@ void serve_audio_to_client(WebSocketServer & server, WebSocketClient & client)
   }
 
   /* finish sending */
-  client.set_next_ats(next_ats + channel.aduration());
+  client.set_next_ats(next_ats + channel->aduration());
   client.set_curr_aq(next_asegment.format());
 
-  cerr << client.signature() << ": channel " << channel.name()
+  cerr << client.signature() << ": channel " << channel->name()
        << ", audio " << next_ats << " " << next_aq << endl;
 }
 
 void reinit_laggy_client(WebSocketServer & server, WebSocketClient & client,
-                         const Channel & channel)
+                         const shared_ptr<Channel> & channel)
 {
-  uint64_t init_vts = channel.init_vts().value();
-  uint64_t init_ats = channel.init_ats().value();
+  uint64_t init_vts = channel->init_vts().value();
+  uint64_t init_ats = channel->init_ats().value();
 
   cerr << client.signature() << ": reinitialize laggy client "
        << client.next_vts().value() << "->" << init_vts << endl;
-  client.init(channel.name(), init_vts, init_ats);
+  client.init(channel->name(), init_vts, init_ats);
 
-  ServerInitMsg reinit(channel.name(), channel.vcodec(),
-                       channel.acodec(), channel.timescale(),
+  ServerInitMsg reinit(channel->name(), channel->vcodec(),
+                       channel->acodec(), channel->timescale(),
                        client.next_vts().value(),
                        client.next_ats().value(),
                        client.init_id(), false);
@@ -378,20 +378,20 @@ void reinit_laggy_client(WebSocketServer & server, WebSocketClient & client,
 
 void serve_client(WebSocketServer & server, WebSocketClient & client)
 {
-  const Channel & channel = channels.at(client.channel());
+  const auto & channel = channels.at(client.channel());
 
-  if (not channel.ready()) {
+  if (not channel->ready()) {
     cerr << client.signature()
          << ": cannot serve because channel is not available anymore" << endl;
     return;
   }
 
-  if (channel.live()) {
+  if (channel->live()) {
     /* reinit client if clean frontiers have caught up */
-    if ((channel.vclean_frontier() and
-         client.next_vts().value() <= *channel.vclean_frontier()) or
-        (channel.aclean_frontier() and
-         client.next_ats().value() <= *channel.aclean_frontier())) {
+    if ((channel->vclean_frontier() and
+         client.next_vts().value() <= *channel->vclean_frontier()) or
+        (channel->aclean_frontier() and
+         client.next_ats().value() <= *channel->aclean_frontier())) {
       reinit_laggy_client(server, client, channel);
       return;
     }
@@ -508,10 +508,10 @@ void start_global_timer(WebSocketServer & server)
 void send_server_init(WebSocketServer & server, WebSocketClient & client,
                       const bool can_resume)
 {
-  const Channel & channel = channels.at(client.channel());
+  const auto & channel = channels.at(client.channel());
 
-  ServerInitMsg init(channel.name(), channel.vcodec(),
-                     channel.acodec(), channel.timescale(),
+  ServerInitMsg init(channel->name(), channel->vcodec(),
+                     channel->acodec(), channel->timescale(),
                      client.next_vts().value(),
                      client.next_ats().value(),
                      client.init_id(), can_resume);
@@ -523,46 +523,47 @@ void send_server_init(WebSocketServer & server, WebSocketClient & client,
 }
 
 bool resume_connection(WebSocketServer & server, WebSocketClient & client,
-                       const ClientInitMsg & msg, const Channel & channel)
+                       const ClientInitMsg & msg,
+                       const shared_ptr<Channel> & channel)
 {
   /* don't resume a connection if client is requesting a different channel */
-  if (client.channel() != channel.name()) {
+  if (client.channel() != channel->name()) {
     return false;
   }
 
   /* check if the requested timestamps are valid */
-  if (not (msg.next_vts and channel.is_valid_vts(msg.next_vts.value()) and
-           msg.next_ats and channel.is_valid_ats(msg.next_ats.value()))) {
+  if (not (msg.next_vts and channel->is_valid_vts(msg.next_vts.value()) and
+           msg.next_ats and channel->is_valid_ats(msg.next_ats.value()))) {
     return false;
   }
 
   uint64_t requested_vts = msg.next_vts.value();
   uint64_t requested_ats = msg.next_ats.value();
 
-  if (channel.live()) {
+  if (channel->live()) {
     /* don't resume if the requested video is already behind the live edge */
-    if (not channel.live_edge() or
-        requested_vts < channel.live_edge().value()) {
+    if (not channel->live_edge() or
+        requested_vts < channel->live_edge().value()) {
       return false;
     }
 
     /* don't resume if the requested chunks are not ready */
-    if (not channel.vready_frontier() or
-        requested_vts > *channel.vready_frontier() or
-        not channel.aready_frontier() or
-        requested_ats > *channel.aready_frontier()) {
+    if (not channel->vready_frontier() or
+        requested_vts > *channel->vready_frontier() or
+        not channel->aready_frontier() or
+        requested_ats > *channel->aready_frontier()) {
       return false;
     }
   } else {
     /* don't resume if the requested chunks are not ready */
-    if (not (channel.vready(requested_vts) and
-             channel.aready(requested_ats))) {
+    if (not (channel->vready(requested_vts) and
+             channel->aready(requested_ats))) {
       return false;
     }
   }
 
   /* reinitialize the client */
-  client.init(channel.name(), requested_vts, requested_ats);
+  client.init(channel->name(), requested_vts, requested_ats);
   send_server_init(server, client, true /* can resume */);
 
   cerr << client.signature() << ": connection resumed" << endl;
@@ -582,7 +583,7 @@ void update_screen_size(WebSocketClient & client,
   client.set_screen_width(new_screen_width);
 
   if (not client.channel().empty()) {
-    client.set_max_video_size(channels.at(client.channel()).vformats());
+    client.set_max_video_size(channels.at(client.channel())->vformats());
   }
 }
 
@@ -600,7 +601,7 @@ void handle_client_init(WebSocketServer & server, WebSocketClient & client,
   auto & channel = it->second;
 
   /* ignore client-init if the channel is not ready */
-  if (not channel.ready()) {
+  if (not channel->ready()) {
     cerr << client.signature()
          << ": ignored client-init (channel is not ready)" << endl;
     return;
@@ -611,10 +612,10 @@ void handle_client_init(WebSocketServer & server, WebSocketClient & client,
     return;
   }
 
-  uint64_t init_vts = channel.init_vts().value();
-  uint64_t init_ats = channel.init_ats().value();
+  uint64_t init_vts = channel->init_vts().value();
+  uint64_t init_ats = channel->init_ats().value();
 
-  client.init(channel.name(), init_vts, init_ats);
+  client.init(channel->name(), init_vts, init_ats);
 
   /* update client's screen size after setting client's channel */
   update_screen_size(client, msg.screen_height, msg.screen_width);
@@ -718,10 +719,9 @@ void load_channels(const YAML::Node & config, Inotify & inotify)
 
     /* exceptions might be thrown from the lambda callbacks in the channel */
     try {
-      channels.emplace(
-          piecewise_construct,
-          forward_as_tuple(channel_name),
-          forward_as_tuple(channel_name, config[channel_name], inotify));
+      auto channel = make_shared<Channel>(
+          channel_name, config[channel_name], inotify);
+      channels.emplace(channel_name, move(channel));
     } catch (const exception & e) {
       cerr << "Error: exceptions in channel " << channel_name << ": "
            << e.what() << endl;
