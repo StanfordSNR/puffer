@@ -15,10 +15,20 @@
 class WebSocketClient
 {
 public:
-  WebSocketClient(const uint64_t connection_id);
+  WebSocketClient(const uint64_t connection_id,
+                  const std::string & abr_name,
+                  const YAML::Node & abr_config);
+
+  /* forbid copying or move assigning WebSocketClient */
+  WebSocketClient(const WebSocketClient & other) = delete;
+  const WebSocketClient & operator=(const WebSocketClient & other) = delete;
+
+  /* forbid moving or copy assigning WebSocketClient */
+  WebSocketClient(WebSocketClient && other) = delete;
+  WebSocketClient & operator=(WebSocketClient && other) = delete;
 
   void init(const std::shared_ptr<Channel> & channel,
-            const uint64_t vts, const uint64_t ats);
+            const uint64_t init_vts, const uint64_t init_ats);
 
   /* accessors */
   uint64_t connection_id() const { return connection_id_; }
@@ -28,7 +38,7 @@ public:
   std::string session_key() const { return session_key_; }
   std::string username() const { return username_; }
 
-  std::shared_ptr<Channel> channel() const;
+  std::shared_ptr<Channel> channel() const { return channel_.lock(); }
 
   std::string signature() const {
     return std::to_string(connection_id_) + "," + username_;
@@ -63,8 +73,6 @@ public:
   std::optional<time_t> get_last_msg_time() const { return last_msg_time_; }
 
   /* mutators */
-  void set_abr_algo(const std::string & abr_name,
-                    const YAML::Node & abr_config);
   void set_authenticated(const bool authenticated) { authenticated_ = authenticated; }
   void set_session_key(const std::string & session_key) { session_key_ = session_key; }
   void set_username(const std::string & username) { username_ = username; }

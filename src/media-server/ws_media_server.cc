@@ -894,11 +894,10 @@ int main(int argc, char * argv[])
         cerr << connection_id << ": connection opened" << endl;
 
         /* create a new WebSocketClient */
-        auto & client = clients.emplace(
+        clients.emplace(
             piecewise_construct,
             forward_as_tuple(connection_id),
-            forward_as_tuple(connection_id)).first->second;
-        client.set_abr_algo(abr_name, abr_config);
+            forward_as_tuple(connection_id, abr_name, abr_config));
       } catch (const exception & e) {
         cerr << client_signature(connection_id)
              << ": warning in open callback: " << e.what() << endl;

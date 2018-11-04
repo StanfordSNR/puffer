@@ -6,7 +6,8 @@
 class LinearBBA : public ABRAlgo
 {
 public:
-  LinearBBA(const std::string & abr_name, const YAML::Node & abr_config);
+  LinearBBA(const WebSocketClient & client,
+            const std::string & abr_name, const YAML::Node & abr_config);
 
 private:
   double lower_reservoir_ {0.2};

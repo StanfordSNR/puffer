@@ -4,21 +4,26 @@
 
 using namespace std;
 
-WebSocketClient::WebSocketClient(const uint64_t connection_id)
+WebSocketClient::WebSocketClient(const uint64_t connection_id,
+                                 const string & abr_name,
+                                 const YAML::Node & abr_config)
   : channel_()
 {
   connection_id_ = connection_id;
+
+  if (abr_name == "linear_bba") {
+    abr_algo_ = make_unique<LinearBBA>(*this, abr_name, abr_config);
+  }
 }
 
 void WebSocketClient::init(const shared_ptr<Channel> & channel,
-                           const uint64_t vts, const uint64_t ats)
+                           const uint64_t init_vts, const uint64_t init_ats)
 {
-  channel_ = channel;
-
   init_id_++;
 
-  next_vts_ = vts;
-  next_ats_ = ats;
+  channel_ = channel;
+  next_vts_ = init_vts;
+  next_ats_ = init_ats;
 
   curr_vq_.reset();
   curr_aq_.reset();
@@ -26,23 +31,10 @@ void WebSocketClient::init(const shared_ptr<Channel> & channel,
   video_playback_buf_ = 0;
   audio_playback_buf_ = 0;
 
-  client_next_vts_ = vts;
-  client_next_ats_ = ats;
+  client_next_vts_ = init_vts;
+  client_next_ats_ = init_ats;
 
   rebuffering_ = false;
-}
-
-shared_ptr<Channel> WebSocketClient::channel() const
-{
-  return channel_.lock();
-}
-
-void WebSocketClient::set_abr_algo(const string & abr_name,
-                                   const YAML::Node & abr_config)
-{
-  if (abr_name == "linear_bba") {
-    abr_algo_ = make_unique<LinearBBA>(abr_name, abr_config);
-  }
 }
 
 void WebSocketClient::set_max_video_size(const std::vector<VideoFormat> & vfs)

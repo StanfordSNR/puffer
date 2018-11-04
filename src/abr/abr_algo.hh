@@ -1,7 +1,7 @@
 #ifndef ABR_ALGO_HH
 #define ABR_ALGO_HH
 
-#include "yaml-cpp/yaml.h"
+class WebSocketClient;
 
 class ABRAlgo
 {
@@ -9,9 +9,11 @@ public:
   std::string abr_name() const { return abr_name_; }
 
 protected:
-  ABRAlgo(const std::string & abr_name) : abr_name_(abr_name) {}
+  ABRAlgo(const WebSocketClient & client, const std::string & abr_name)
+    : client_(client), abr_name_(abr_name) {}
 
-private:
+  /* it is safe to hold a reference to the parent as the parent lives longer */
+  const WebSocketClient & client_;
   std::string abr_name_;
 };
 
