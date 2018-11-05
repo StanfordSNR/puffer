@@ -16,6 +16,7 @@
 #include <pqxx/pqxx>
 #include "yaml-cpp/yaml.h"
 #include "util.hh"
+#include "timestamp.hh"
 #include "media_formats.hh"
 #include "inotify.hh"
 #include "timerfd.hh"
@@ -171,6 +172,7 @@ void serve_video_to_client(WebSocketServer & server, WebSocketClient & client)
   /* finish sending */
   client.set_next_vts(next_vts + channel->vduration());
   client.set_curr_vq(next_vsegment.format());
+  client.set_last_video_send_ts(timestamp_ms());
 
   cerr << client.signature() << ": channel " << channel->name()
        << ", video " << next_vts << " " << next_vq << " " << ssim << endl;
@@ -529,8 +531,22 @@ void handle_client_info(WebSocketClient & client, const ClientInfoMsg & msg)
         + to_string(static_cast<int>(msg.event)) + " " + buf;
     append_to_log("playback_buffer", log_line);
   } else if (msg.event == ClientInfoMsg::PlayerEvent::VideoAck) {
-    /* record video quality on the VideoAck for the last video segment */
+    /* VideoAck for the last video segment */
     if (*msg.byte_offset + *msg.received_bytes == *msg.total_byte_length) {
+      /* record transmission time */
+      if (client.last_video_send_ts()) {
+        uint64_t trans_time = timestamp_ms() - *client.last_video_send_ts();
+        /* notify the ABR algorithm that a video chunk is acked */
+        client.video_chunk_acked(client.curr_vq().value(), *msg.ssim,
+                                 *msg.total_byte_length, trans_time);
+        client.reset_last_video_send_ts();
+      } else {
+        cerr << client.signature() << ": error: server didn't send video but "
+             << "received VideoAck" << endl;
+        return;
+      }
+
+      /* record video quality */
       string log_line = to_string(cur_time) + " " + client.username() + " "
           + client.channel()->name() + " " + to_string(*msg.timestamp) + " "
           + *msg.quality + " " + to_string(*msg.ssim);

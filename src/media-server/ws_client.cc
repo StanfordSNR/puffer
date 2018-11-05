@@ -84,6 +84,14 @@ optional<uint64_t> WebSocketClient::audio_in_flight() const
   return *next_ats_ - *client_next_ats_;
 }
 
+void WebSocketClient::video_chunk_acked(const VideoFormat & format,
+                                        const double ssim,
+                                        const unsigned int chunk_size,
+                                        const uint64_t transmission_time)
+{
+  abr_algo_->video_chunk_acked(format, ssim, chunk_size, transmission_time);
+}
+
 VideoFormat WebSocketClient::select_video_format()
 {
   return abr_algo_->select_video_format();

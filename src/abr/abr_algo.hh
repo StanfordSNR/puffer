@@ -10,7 +10,11 @@ class ABRAlgo
 public:
   virtual ~ABRAlgo() {}
 
-  virtual void reset() = 0;
+  virtual void reset() {}
+  virtual void video_chunk_acked(const VideoFormat & /* format */,
+                                 const double /* ssim */,
+                                 const unsigned int /* chunk_size */,
+                                 const uint64_t /* transmission_time */) {}
   virtual VideoFormat select_video_format() = 0;
 
   /* accessors */

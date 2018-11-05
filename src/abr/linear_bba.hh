@@ -9,7 +9,6 @@ public:
   LinearBBA(const WebSocketClient & client,
             const std::string & abr_name, const YAML::Node & abr_config);
 
-  void reset() {}
   VideoFormat select_video_format();
 
 private:

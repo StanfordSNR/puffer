@@ -73,6 +73,8 @@ public:
 
   std::optional<time_t> get_last_msg_time() const { return last_msg_time_; }
 
+  std::optional<uint64_t> last_video_send_ts() const { return last_video_send_ts_; }
+
   /* mutators */
   void set_authenticated(const bool authenticated) { authenticated_ = authenticated; }
   void set_session_key(const std::string & session_key) { session_key_ = session_key; }
@@ -103,6 +105,14 @@ public:
 
   void set_last_msg_time(const time_t t) { last_msg_time_ = t; }
 
+  void reset_last_video_send_ts() { last_video_send_ts_.reset(); }
+  void set_last_video_send_ts(const uint64_t send_ts) { last_video_send_ts_ = send_ts; }
+
+  /* ABR related */
+  void video_chunk_acked(const VideoFormat & format,
+                         const double ssim,
+                         const unsigned int chunk_size,
+                         const uint64_t transmission_time);
   VideoFormat select_video_format();
   AudioFormat select_audio_format();
 
@@ -135,7 +145,7 @@ private:
   uint16_t max_video_height_ {0};
   uint16_t max_video_width_ {0};
 
-  /* segments and timestamps in the process of being sent */
+  /* chunk timestamps in the process of being sent */
   std::optional<uint64_t> next_vts_ {};
   std::optional<uint64_t> next_ats_ {};
 
@@ -153,6 +163,9 @@ private:
   std::optional<double> curr_tput_ {};
 
   std::optional<time_t> last_msg_time_ {};
+
+  /* sending time of last video chunk */
+  std::optional<uint64_t> last_video_send_ts_ {};
 };
 
 #endif /* WS_CLIENT_HH */
