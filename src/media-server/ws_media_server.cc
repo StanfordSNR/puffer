@@ -24,6 +24,7 @@
 #include "client_message.hh"
 #include "ws_server.hh"
 #include "ws_client.hh"
+#include "abr_algo.hh"
 
 using namespace std;
 using namespace PollerShortNames;
@@ -37,7 +38,7 @@ using WebSocketServer = WebSocketSecureServer;
 static bool debug = false;
 
 /* global settings */
-static const unsigned int MAX_BUFFER_S = 10;
+static const unsigned int MAX_BUFFER_S = 10;  /* seconds */
 static const size_t MAX_WS_FRAME_B = 100 * 1024;  /* 10 KB */
 
 /* drop a client if have not received messaged from it for 10 seconds */
@@ -144,7 +145,7 @@ VideoFormat select_video_quality(WebSocketClient & client)
 
 AudioFormat select_audio_quality(WebSocketClient & client)
 {
-  // TODO: make a better choice
+  /* TODO: make a better choice */
   const auto & channel = client.channel();
 
   /* simple buffer-based algorithm: assume max buffer is 10 seconds */
@@ -274,7 +275,7 @@ void serve_video_to_client(WebSocketServer & server, WebSocketClient & client)
   }
 
   /* select a video quality using ABR algorithm */
-  const VideoFormat & next_vq = select_video_quality(client);
+  const VideoFormat & next_vq = client.select_video_format();
   double ssim = channel->vssim(next_vts).at(next_vq);
 
   /* check if a new init segment is needed */

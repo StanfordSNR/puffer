@@ -1,5 +1,4 @@
 #include "ws_client.hh"
-
 #include "linear_bba.hh"
 
 using namespace std;
@@ -35,6 +34,9 @@ void WebSocketClient::init(const shared_ptr<Channel> & channel,
   client_next_ats_ = init_ats;
 
   rebuffering_ = false;
+
+  /* reset the ABR algorithm if WebSocketClient is (re)inited */
+  abr_algo_->reset();
 }
 
 void WebSocketClient::set_max_video_size(const std::vector<VideoFormat> & vfs)
@@ -80,4 +82,9 @@ optional<uint64_t> WebSocketClient::audio_in_flight() const
   }
 
   return *next_ats_ - *client_next_ats_;
+}
+
+VideoFormat WebSocketClient::select_video_format()
+{
+  return abr_algo_->select_video_format();
 }

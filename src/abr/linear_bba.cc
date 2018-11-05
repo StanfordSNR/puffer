@@ -1,4 +1,5 @@
 #include "linear_bba.hh"
+#include "ws_client.hh"
 
 using namespace std;
 
@@ -13,4 +14,12 @@ LinearBBA::LinearBBA(const WebSocketClient & client,
   if (abr_config["upper_reservoir"]) {
     upper_reservoir_ = abr_config["upper_reservoir"].as<double>();
   }
+}
+
+VideoFormat LinearBBA::select_video_format()
+{
+  const auto & channel = client_.channel();
+
+  // TODO
+  return channel->vformats()[0];
 }

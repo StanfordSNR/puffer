@@ -10,7 +10,8 @@
 #include "channel.hh"
 #include "server_message.hh"
 #include "media_formats.hh"
-#include "abr_algo.hh"
+
+class ABRAlgo;
 
 class WebSocketClient
 {
@@ -101,6 +102,8 @@ public:
   void set_curr_tput(const double curr_tput) { curr_tput_ = curr_tput; }
 
   void set_last_msg_time(const time_t t) { last_msg_time_ = t; }
+
+  VideoFormat select_video_format();
 
 private:
   uint64_t connection_id_ {};
