@@ -8,6 +8,13 @@ class WebSocketClient;
 class ABRAlgo
 {
 public:
+  struct Chunk {
+    VideoFormat format;
+    double ssim;
+    unsigned int chunk_size;
+    uint64_t trans_time;
+  };
+
   virtual ~ABRAlgo() {}
 
   virtual void reset() {}

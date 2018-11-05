@@ -9,7 +9,7 @@ public:
   LinearBBA(const WebSocketClient & client,
             const std::string & abr_name, const YAML::Node & abr_config);
 
-  VideoFormat select_video_format();
+  VideoFormat select_video_format() override;
 
 private:
   double lower_reservoir_ {0.2};

@@ -1,5 +1,6 @@
 #include "ws_client.hh"
 #include "linear_bba.hh"
+#include "mpc.hh"
 
 using namespace std;
 
@@ -12,6 +13,8 @@ WebSocketClient::WebSocketClient(const uint64_t connection_id,
 
   if (abr_name == "linear_bba") {
     abr_algo_ = make_unique<LinearBBA>(*this, abr_name, abr_config);
+  } else if (abr_name == "mpc") {
+    abr_algo_ = make_unique<MPC>(*this, abr_name, abr_config);
   }
 }
 
