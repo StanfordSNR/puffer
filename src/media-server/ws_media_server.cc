@@ -38,7 +38,6 @@ using WebSocketServer = WebSocketSecureServer;
 static bool debug = false;
 
 /* global settings */
-static const unsigned int MAX_BUFFER_S = 10;  /* seconds */
 static const size_t MAX_WS_FRAME_B = 100 * 1024;  /* 10 KB */
 
 /* drop a client if have not received messaged from it for 10 seconds */
@@ -71,141 +70,6 @@ string client_signature(const uint64_t connection_id)
   } else {
     return to_string(connection_id) + ",";
   }
-}
-
-VideoFormat select_video_quality(WebSocketClient & client)
-{
-  // TODO: make a better choice
-  const auto & channel = client.channel();
-
-  /* simple buffer-based algorithm: assume max buffer is 10 seconds */
-  double buf = min(max(client.video_playback_buf(), 0.0), 10.0);
-
-  uint64_t next_vts = client.next_vts().value();
-  const auto & data_map = channel->vdata(next_vts);
-  const auto & ssim_map = channel->vssim(next_vts);
-
-  /* get max and min chunk size for the next video ts */
-  size_t max_size = 0, min_size = SIZE_MAX;
-
-  size_t MAX_VFORMATS = channel->vformats().size();
-  size_t max_idx = MAX_VFORMATS, min_idx = MAX_VFORMATS;
-
-  for (size_t i = 0; i < channel->vformats().size(); i++) {
-    const auto & vf = channel->vformats()[i];
-    if (not client.is_format_capable(vf)) continue;
-
-    size_t chunk_size = get<1>(data_map.at(vf));
-    if (chunk_size <= 0) continue;
-
-    if (chunk_size > max_size) {
-      max_size = chunk_size;
-      max_idx = i;
-    }
-
-    if (chunk_size < min_size) {
-      min_size = chunk_size;
-      min_idx = i;
-    }
-  }
-
-  assert(max_idx < MAX_VFORMATS);
-  assert(min_idx < MAX_VFORMATS);
-
-  if (buf >= 8.0) {
-    return channel->vformats()[max_idx];
-  } else if (buf <= 2.0) {
-    return channel->vformats()[min_idx];
-  }
-
-  /* pick the chunk with highest SSIM but with size <= max_serve_size */
-  double max_serve_size = ceil(buf * (max_size - min_size) / 10.0 + min_size);
-  double highest_ssim = 0.0;
-  size_t ret_idx = MAX_VFORMATS;
-
-  for (size_t i = 0; i < channel->vformats().size(); i++) {
-    const auto & vf = channel->vformats()[i];
-    if (not client.is_format_capable(vf)) continue;
-
-    size_t chunk_size = get<1>(data_map.at(vf));
-    if (chunk_size <= 0 or chunk_size > max_serve_size) {
-      continue;
-    }
-
-    double ssim = ssim_map.at(vf);
-    if (ssim > highest_ssim) {
-      highest_ssim = ssim;
-      ret_idx = i;
-    }
-  }
-
-  assert(ret_idx < MAX_VFORMATS);
-  return channel->vformats()[ret_idx];
-}
-
-AudioFormat select_audio_quality(WebSocketClient & client)
-{
-  /* TODO: make a better choice */
-  const auto & channel = client.channel();
-
-  /* simple buffer-based algorithm: assume max buffer is 10 seconds */
-  double buf = min(max(client.audio_playback_buf(), 0.0), 10.0);
-
-  uint64_t next_ats = client.next_ats().value();
-  const auto & data_map = channel->adata(next_ats);
-
-  /* get max and min chunk size for the next video ts */
-  size_t max_size = 0, min_size = SIZE_MAX;
-
-  size_t MAX_AFORMATS = channel->aformats().size();
-  size_t max_idx = MAX_AFORMATS, min_idx = MAX_AFORMATS;
-
-  for (size_t i = 0; i < channel->aformats().size(); i++) {
-    const auto & af = channel->aformats()[i];
-    size_t chunk_size = get<1>(data_map.at(af));
-    if (chunk_size <= 0) continue;
-
-    if (chunk_size > max_size) {
-      max_size = chunk_size;
-      max_idx = i;
-    }
-
-    if (chunk_size < min_size) {
-      min_size = chunk_size;
-      min_idx = i;
-    }
-  }
-
-  assert(max_idx < MAX_AFORMATS);
-  assert(min_idx < MAX_AFORMATS);
-
-  if (buf >= 8.0) {
-    return channel->aformats()[max_idx];
-  } else if (buf <= 2.0) {
-    return channel->aformats()[min_idx];
-  }
-
-  /* pick the chunk with biggest size <= max_serve_size */
-  double max_serve_size = ceil(buf * (max_size - min_size) / 10.0 + min_size);
-  size_t biggest_chunk_size = 0;
-  size_t ret_idx = MAX_AFORMATS;
-
-  for (size_t i = 0; i < channel->aformats().size(); i++) {
-    const auto & af = channel->aformats()[i];
-    size_t chunk_size = get<1>(data_map.at(af));
-
-    if (chunk_size <= 0 or chunk_size > max_serve_size) {
-      continue;
-    }
-
-    if (chunk_size > biggest_chunk_size) {
-      biggest_chunk_size = chunk_size;
-      ret_idx = i;
-    }
-  }
-
-  assert(ret_idx < MAX_AFORMATS);
-  return channel->aformats()[ret_idx];
 }
 
 void append_to_log(const string & log_stem, const string & log_line)
@@ -323,7 +187,7 @@ void serve_audio_to_client(WebSocketServer & server, WebSocketClient & client)
   }
 
   /* select an audio quality using ABR algorithm */
-  const AudioFormat & next_aq = select_audio_quality(client);
+  const AudioFormat & next_aq = client.select_audio_format();
 
   /* check if a new init segment is needed */
   optional<mmap_t> init_mmap;
@@ -400,10 +264,10 @@ void serve_client(WebSocketServer & server, WebSocketClient & client)
 
   /* wait for VideoAck and AudioAck before sending the next chunk */
   const bool can_send_video =
-      client.video_playback_buf() <= MAX_BUFFER_S and
+      client.video_playback_buf() <= WebSocketClient::MAX_BUFFER_S and
       client.video_in_flight().value() == 0;
   const bool can_send_audio =
-      client.audio_playback_buf() <= MAX_BUFFER_S and
+      client.audio_playback_buf() <= WebSocketClient::MAX_BUFFER_S and
       client.audio_in_flight().value() == 0;
 
   if (client.next_vts().value() > client.next_ats().value()) {

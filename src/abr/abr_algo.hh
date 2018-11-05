@@ -16,9 +16,6 @@ public:
   /* accessors */
   std::string abr_name() const { return abr_name_; }
 
-  /* const values */
-  static const unsigned int MAX_BUFFER_S = 10;  /* seconds */
-
 protected:
   ABRAlgo(const WebSocketClient & client, const std::string & abr_name)
     : client_(client), abr_name_(abr_name) {}

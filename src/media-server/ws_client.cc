@@ -88,3 +88,68 @@ VideoFormat WebSocketClient::select_video_format()
 {
   return abr_algo_->select_video_format();
 }
+
+AudioFormat WebSocketClient::select_audio_format()
+{
+  double buf = min(max(audio_playback_buf_, 0.0), MAX_BUFFER_S);
+
+  const auto & channel = channel_.lock();
+  const auto & aformats = channel->aformats();
+  size_t aformats_cnt = aformats.size();
+
+  uint64_t next_ats = next_ats_.value();
+  const auto & data_map = channel->adata(next_ats);
+
+  /* get max and min chunk size for the next audio ts */
+  size_t max_size = 0, min_size = SIZE_MAX;
+  size_t max_idx = aformats_cnt, min_idx = aformats_cnt;
+
+  for (size_t i = 0; i < aformats_cnt; i++) {
+    const auto & af = aformats[i];
+
+    size_t chunk_size = get<1>(data_map.at(af));
+    if (chunk_size <= 0) continue;
+
+    if (chunk_size > max_size) {
+      max_size = chunk_size;
+      max_idx = i;
+    }
+
+    if (chunk_size < min_size) {
+      min_size = chunk_size;
+      min_idx = i;
+    }
+  }
+
+  assert(max_idx < aformats_cnt);
+  assert(min_idx < aformats_cnt);
+
+  if (buf >= 0.8 * MAX_BUFFER_S) {
+    return aformats[max_idx];
+  } else if (buf <= 0.2 * MAX_BUFFER_S) {
+    return aformats[min_idx];
+  }
+
+  /* pick the largest chunk with size <= max_serve_size */
+  double max_serve_size = ceil(buf * (max_size - min_size) / MAX_BUFFER_S
+                               + min_size);
+  size_t biggest_chunk_size = 0;
+  size_t ret_idx = aformats_cnt;
+
+  for (size_t i = 0; i < aformats_cnt; i++) {
+    const auto & af = aformats[i];
+
+    size_t chunk_size = get<1>(data_map.at(af));
+    if (chunk_size <= 0 or chunk_size > max_serve_size) {
+      continue;
+    }
+
+    if (chunk_size > biggest_chunk_size) {
+      biggest_chunk_size = chunk_size;
+      ret_idx = i;
+    }
+  }
+
+  assert(ret_idx < aformats_cnt);
+  return aformats[ret_idx];
+}

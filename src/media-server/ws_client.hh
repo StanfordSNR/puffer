@@ -104,6 +104,9 @@ public:
   void set_last_msg_time(const time_t t) { last_msg_time_ = t; }
 
   VideoFormat select_video_format();
+  AudioFormat select_audio_format();
+
+  static constexpr double MAX_BUFFER_S = 10.0;  /* seconds */
 
 private:
   uint64_t connection_id_ {};
