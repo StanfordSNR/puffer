@@ -119,9 +119,11 @@ public:
   static constexpr double MAX_BUFFER_S = 10.0;  /* seconds */
 
 private:
-  uint64_t connection_id_ {};
+  uint64_t connection_id_;
 
   /* ABR algorithm */
+  std::string abr_name_;
+  YAML::Node abr_config_;
   std::unique_ptr<ABRAlgo> abr_algo_ {nullptr};
 
   /* WebSocketClient has no interest in managing the ownership of channel */
@@ -166,6 +168,9 @@ private:
 
   /* sending time of last video chunk */
   std::optional<uint64_t> last_video_send_ts_ {};
+
+  /* (re)instantiate abr_algo_ */
+  void init_abr_algo();
 };
 
 #endif /* WS_CLIENT_HH */

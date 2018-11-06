@@ -11,17 +11,16 @@ public:
   struct Chunk {
     VideoFormat format;
     double ssim;
-    unsigned int chunk_size;
-    uint64_t trans_time;
+    unsigned int size;
+    uint64_t trans_time;  /* transmission time */
   };
 
   virtual ~ABRAlgo() {}
 
-  virtual void reset() {}
-  virtual void video_chunk_acked(const VideoFormat & /* format */,
-                                 const double /* ssim */,
-                                 const unsigned int /* chunk_size */,
-                                 const uint64_t /* transmission_time */) {}
+  virtual void video_chunk_acked(const VideoFormat & /* chunk format */,
+                                 const double /* chunk ssim */,
+                                 const unsigned int /* chunk size */,
+                                 const uint64_t /* transmission time */) {}
   virtual VideoFormat select_video_format() = 0;
 
   /* accessors */

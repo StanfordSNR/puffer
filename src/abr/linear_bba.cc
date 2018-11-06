@@ -1,8 +1,6 @@
 #include "linear_bba.hh"
 #include "ws_client.hh"
 
-#include <algorithm>
-
 using namespace std;
 
 LinearBBA::LinearBBA(const WebSocketClient & client,

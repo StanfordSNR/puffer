@@ -7,15 +7,10 @@ using namespace std;
 WebSocketClient::WebSocketClient(const uint64_t connection_id,
                                  const string & abr_name,
                                  const YAML::Node & abr_config)
-  : channel_()
+  : connection_id_(connection_id), abr_name_(abr_name),
+    abr_config_(abr_config), channel_()
 {
-  connection_id_ = connection_id;
-
-  if (abr_name == "linear_bba") {
-    abr_algo_ = make_unique<LinearBBA>(*this, abr_name, abr_config);
-  } else if (abr_name == "mpc") {
-    abr_algo_ = make_unique<MPC>(*this, abr_name, abr_config);
-  }
+  init_abr_algo();
 }
 
 void WebSocketClient::init(const shared_ptr<Channel> & channel,
@@ -39,7 +34,7 @@ void WebSocketClient::init(const shared_ptr<Channel> & channel,
   rebuffering_ = false;
 
   /* reset the ABR algorithm if WebSocketClient is (re)inited */
-  abr_algo_->reset();
+  init_abr_algo();
 }
 
 void WebSocketClient::set_max_video_size(const std::vector<VideoFormat> & vfs)
@@ -163,4 +158,15 @@ AudioFormat WebSocketClient::select_audio_format()
 
   assert(ret_idx < aformats_cnt);
   return aformats[ret_idx];
+}
+
+void WebSocketClient::init_abr_algo()
+{
+  if (abr_name_ == "linear_bba") {
+    abr_algo_ = make_unique<LinearBBA>(*this, abr_name_, abr_config_);
+  } else if (abr_name_ == "mpc") {
+    abr_algo_ = make_unique<MPC>(*this, abr_name_, abr_config_);
+  } else {
+    throw runtime_error("undefined ABR algorithm");
+  }
 }

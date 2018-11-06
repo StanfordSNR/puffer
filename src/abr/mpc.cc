@@ -9,16 +9,23 @@ MPC::MPC(const WebSocketClient & client,
          const string & abr_name, const YAML::Node & abr_config)
   : ABRAlgo(client, abr_name)
 {
-  max_lookahead_horizon_ = abr_config["max_lookahead_horizon"] ?
-      min(MAX_LOOKAHEAD_HORIZON, abr_config["max_lookahead_horizon"].as<size_t>()) :
-      MAX_LOOKAHEAD_HORIZON;
-  dis_buf_length_ = abr_config["dis_buf_length"] ?
-      min(MAX_DIS_BUF_LENGTH, abr_config["dis_buf_length"].as<size_t>()) :
-      MAX_DIS_BUF_LENGTH;
-  rebuffer_length_coeff_ = abr_config["rebuffer_length_coeff"] ?
-      abr_config["rebuffer_length_coeff"].as<double>() : REBUFFER_LENGTH_COEFF;
-  ssim_diff_coeff_ = abr_config["ssim_diff_coeff"] ?
-      abr_config["ssim_diff_coeff"].as<double>() : SSIM_DIFF_COEFF;
+  if (abr_config["max_lookahead_horizon"]) {
+    max_lookahead_horizon_ = min(max_lookahead_horizon_,
+                             abr_config["max_lookahead_horizon"].as<size_t>());
+  }
+
+  if (abr_config["dis_buf_length"]) {
+    dis_buf_length_ = min(dis_buf_length_,
+                          abr_config["dis_buf_length"].as<size_t>());
+  }
+
+  if (abr_config["rebuffer_length_coeff"]) {
+    rebuffer_length_coeff_ = abr_config["rebuffer_length_coeff"].as<double>();
+  }
+
+  if (abr_config["ssim_diff_coeff"]) {
+    ssim_diff_coeff_ = abr_config["ssim_diff_coeff"].as<double>();
+  }
 
   unit_buf_length_ = WebSocketClient::MAX_BUFFER_S / dis_buf_length_;
 
@@ -27,18 +34,13 @@ MPC::MPC(const WebSocketClient & client,
   }
 }
 
-void MPC::reset()
-{
-  past_chunks_.clear();
-}
-
 void MPC::video_chunk_acked(const VideoFormat & format,
                             const double ssim,
-                            const unsigned int chunk_size,
+                            const unsigned int size,
                             const uint64_t trans_time)
 {
-  past_chunks_.emplace_back(Chunk{format, ssim, chunk_size, trans_time});
-  if (past_chunks_.size() > past_chunk_cnt_) {
+  past_chunks_.emplace_back(Chunk{format, ssim, size, trans_time});
+  if (past_chunks_.size() > max_num_past_chunks_) {
     past_chunks_.pop_front();
   }
 }
@@ -64,7 +66,7 @@ void MPC::reinit()
   lookahead_horizon_ = min(max_lookahead_horizon_,
                        (*channel->vready_frontier() - curr_ts) / vduration);
 
-  /* initial failed if there is no ready chunk ahead */
+  /* initialization failed if there is no ready chunk ahead */
   if (lookahead_horizon_ == 0) {
     throw runtime_error("no ready chunk ahead");
   }
@@ -93,7 +95,7 @@ void MPC::reinit()
 
   auto it = past_chunks_.begin();
   for (size_t i = 0; it != past_chunks_.end(); it++, i++) {
-    unit_sending_time_[i] = (double) it->trans_time / it->chunk_size / 1000;
+    unit_sending_time_[i] = (double) it->trans_time / it->size / 1000;
   }
 
   for (size_t i = 0; i < lookahead_horizon_; i++) {
@@ -162,7 +164,8 @@ double MPC::get_value(size_t i, size_t curr_buffer, size_t curr_format)
   return v_[i][curr_buffer][curr_format];
 }
 
-size_t MPC::discretize_buffer(double buf) {
+size_t MPC::discretize_buffer(double buf)
+{
   size_t dis_buffer = (buf + unit_buf_length_ * 0.5) / unit_buf_length_;
   return max((size_t)0, min(dis_buf_length_, dis_buffer));
 }
