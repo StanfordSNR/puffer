@@ -1,103 +1,90 @@
 #include "server_message.hh"
 
-using namespace std;
+#include "strict_conversions.hh"
 
-string ServerMsg::type_str()
-{
-  switch (type_) {
-    case Type::Unknown:
-      throw runtime_error("Cannot convert an unknown type to a string");
-    case Type::Init:
-      return "server-init";
-    case Type::Video:
-      return "server-video";
-    case Type::Audio:
-      return "server-audio";
-    default:
-      throw runtime_error("Invalid type");
-  }
-}
+using namespace std;
 
 string ServerMsg::to_string()
 {
   string msg_str = msg_.dump();
-  uint16_t msg_len = msg_str.length();
+  uint16_t msg_len = narrow_cast<uint16_t>(msg_str.length());
   string ret(sizeof(uint16_t) + msg_len, 0);
 
   /* Network endian */
   uint16_t msg_len_be = htobe16(msg_len);
   memcpy(&ret[0], &msg_len_be, sizeof(uint16_t));
-
   copy(msg_str.begin(), msg_str.end(), ret.begin() + sizeof(uint16_t));
+
   return ret;
 }
 
-ServerInitMsg::ServerInitMsg(const string & channel,
+ServerInitMsg::ServerInitMsg(const unsigned int init_id,
+                             const string & channel,
                              const string & video_codec,
                              const string & audio_codec,
                              const unsigned int timescale,
+                             const unsigned int vduration,
+                             const unsigned int aduration,
                              const uint64_t init_vts,
                              const uint64_t init_ats,
-                             const unsigned int init_id,
                              const bool can_resume)
 {
-  set_type(Type::Init);
-  set_msg({
-    {"type", type_str()},
+  msg_ = {
+    {"type", "server-init"},
+    {"initId", init_id},
     {"channel", channel},
     {"videoCodec", video_codec},
     {"audioCodec", audio_codec},
     {"timescale", timescale},
+    {"videoDuration", vduration},
+    {"audioDuration", aduration},
     {"initVideoTimestamp", init_vts},
     {"initAudioTimestamp", init_ats},
-    {"initId", init_id},
     {"canResume", can_resume}
-  });
+  };
 }
 
-ServerVideoMsg::ServerVideoMsg(const string & channel,
-                               const string & quality,
-                               const double ssim,
-                               const uint64_t timestamp,
-                               const unsigned int duration,
-                               const unsigned int byte_offset,
-                               const unsigned int total_byte_length)
-{
-  set_type(Type::Video);
-  set_msg({
-    {"type", type_str()},
-    {"channel", channel},
-    {"quality", quality},
-    {"ssim", ssim},
-    {"timestamp", timestamp},
-    {"duration", duration},
-    {"byteOffset", byte_offset},
-    {"totalByteLength", total_byte_length}
-  });
-}
-
-ServerAudioMsg::ServerAudioMsg(const string & channel,
+ServerVideoMsg::ServerVideoMsg(const unsigned int init_id,
+                               const string & channel,
                                const string & quality,
                                const uint64_t timestamp,
-                               const unsigned int duration,
                                const unsigned int byte_offset,
-                               const unsigned int total_byte_length)
+                               const unsigned int total_byte_length,
+                               const double ssim)
 {
-  set_type(Type::Audio);
-  set_msg({
-    {"type", type_str()},
+  msg_ = {
+    {"type", "server-video"},
+    {"initId", init_id},
     {"channel", channel},
     {"quality", quality},
     {"timestamp", timestamp},
-    {"duration", duration},
+    {"byteOffset", byte_offset},
+    {"totalByteLength", total_byte_length},
+    {"ssim", ssim}
+  };
+}
+
+ServerAudioMsg::ServerAudioMsg(const unsigned int init_id,
+                               const string & channel,
+                               const string & quality,
+                               const uint64_t timestamp,
+                               const unsigned int byte_offset,
+                               const unsigned int total_byte_length)
+{
+  msg_ = {
+    {"type", "server-audio"},
+    {"initId", init_id},
+    {"channel", channel},
+    {"quality", quality},
+    {"timestamp", timestamp},
     {"byteOffset", byte_offset},
     {"totalByteLength", total_byte_length}
-  });
+  };
 }
 
 MediaSegment::MediaSegment(const mmap_t & data,
                            const optional<mmap_t> & init)
-  : data_(data), init_(init), offset_(0), length_()
+  : data_(data), init_(init), length_(), offset_(0)
 {
   length_ = get<1>(data_);
   if (init_) {

@@ -155,13 +155,13 @@ void serve_video_to_client(WebSocketServer & server, WebSocketClient & client)
 
   /* divide the next segment into WebSocket frames and send */
   while (not next_vsegment.done()) {
-    ServerVideoMsg video_msg(channel->name(),
+    ServerVideoMsg video_msg(client.init_id(),
+                             channel->name(),
                              next_vq.to_string(),
-                             ssim,
                              next_vts,
-                             channel->vduration(),
                              next_vsegment.offset(),
-                             next_vsegment.length());
+                             next_vsegment.length(),
+                             ssim);
     string frame_payload = video_msg.to_string();
     next_vsegment.read(frame_payload, MAX_WS_FRAME_B - frame_payload.size());
 
@@ -203,10 +203,10 @@ void serve_audio_to_client(WebSocketServer & server, WebSocketClient & client)
 
   /* divide the next segment into WebSocket frames and send */
   while (not next_asegment.done()) {
-    ServerAudioMsg audio_msg(channel->name(),
+    ServerAudioMsg audio_msg(client.init_id(),
+                             channel->name(),
                              next_aq.to_string(),
                              next_ats,
-                             channel->aduration(),
                              next_asegment.offset(),
                              next_asegment.length());
     string frame_payload = audio_msg.to_string();
@@ -234,11 +234,12 @@ void reinit_laggy_client(WebSocketServer & server, WebSocketClient & client,
        << client.next_vts().value() << "->" << init_vts << endl;
   client.init(channel, init_vts, init_ats);
 
-  ServerInitMsg reinit(channel->name(), channel->vcodec(),
-                       channel->acodec(), channel->timescale(),
-                       client.next_vts().value(),
-                       client.next_ats().value(),
-                       client.init_id(), false);
+  ServerInitMsg reinit(client.init_id(), channel->name(),
+                       channel->vcodec(), channel->acodec(),
+                       channel->timescale(),
+                       channel->vduration(), channel->aduration(),
+                       client.next_vts().value(), client.next_ats().value(),
+                       false);
   WSFrame frame {true, WSFrame::OpCode::Binary, reinit.to_string()};
   server.queue_frame(client.connection_id(), frame);
 }
@@ -377,11 +378,12 @@ void send_server_init(WebSocketServer & server, WebSocketClient & client,
 {
   const auto & channel = client.channel();
 
-  ServerInitMsg init(channel->name(), channel->vcodec(),
-                     channel->acodec(), channel->timescale(),
-                     client.next_vts().value(),
-                     client.next_ats().value(),
-                     client.init_id(), can_resume);
+  ServerInitMsg init(client.init_id(), channel->name(),
+                     channel->vcodec(), channel->acodec(),
+                     channel->timescale(),
+                     channel->vduration(), channel->aduration(),
+                     client.next_vts().value(), client.next_ats().value(),
+                     can_resume);
   WSFrame frame {true, WSFrame::OpCode::Binary, init.to_string()};
 
   /* drop previously queued frames before sending server init */

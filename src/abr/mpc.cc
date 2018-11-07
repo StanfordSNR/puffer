@@ -39,7 +39,7 @@ void MPC::video_chunk_acked(const VideoFormat & format,
                             const unsigned int size,
                             const uint64_t trans_time)
 {
-  past_chunks_.emplace_back(Chunk{format, ssim, size, trans_time});
+  past_chunks_.push_back({format, ssim, size, trans_time});
   if (past_chunks_.size() > max_num_past_chunks_) {
     past_chunks_.pop_front();
   }
