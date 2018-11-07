@@ -215,7 +215,14 @@ void TCPSocket::set_congestion_control( const string & cc )
 {
     char optval[ TCP_CC_NAME_MAX ];
     strncpy( optval, cc.c_str(), TCP_CC_NAME_MAX );
-    setsockopt( IPPROTO_TCP, TCP_CONGESTION, optval );
+
+    try {
+      setsockopt( IPPROTO_TCP, TCP_CONGESTION, optval );
+    } catch (const exception & e) {
+      /* rethrow the exception with better error messages */
+      print_exception("set_congestion_control", e);
+      throw runtime_error("unavailable congestion control: " + cc);
+    }
 }
 
 string TCPSocket::get_congestion_control() const

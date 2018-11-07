@@ -586,11 +586,11 @@ void handle_client_info(WebSocketClient & client, const ClientInfoMsg & msg)
 void load_channels(const YAML::Node & config, Inotify & inotify)
 {
   /* load channels */
-  for (YAML::const_iterator it = config["channel"].begin();
-       it != config["channel"].end(); ++it) {
+  for (YAML::const_iterator it = config["channels"].begin();
+       it != config["channels"].end(); ++it) {
     const string & channel_name = it->as<string>();
 
-    if (not config[channel_name]) {
+    if (not config["channel_configs"][channel_name]) {
       throw runtime_error("Cannot find details of channel: " + channel_name);
     }
 
@@ -601,7 +601,7 @@ void load_channels(const YAML::Node & config, Inotify & inotify)
     /* exceptions might be thrown from the lambda callbacks in the channel */
     try {
       auto channel = make_shared<Channel>(
-          channel_name, config[channel_name], inotify);
+          channel_name, config["channel_configs"][channel_name], inotify);
       channels.emplace(channel_name, move(channel));
     } catch (const exception & e) {
       cerr << "Error: exceptions in channel " << channel_name << ": "
