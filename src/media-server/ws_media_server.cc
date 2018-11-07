@@ -156,7 +156,7 @@ void serve_video_to_client(WebSocketServer & server, WebSocketClient & client)
   /* divide the next segment into WebSocket frames and send */
   while (not next_vsegment.done()) {
     ServerVideoMsg video_msg(channel->name(),
-                             next_vsegment.format().to_string(),
+                             next_vq.to_string(),
                              ssim,
                              next_vts,
                              channel->vduration(),
@@ -171,7 +171,7 @@ void serve_video_to_client(WebSocketServer & server, WebSocketClient & client)
 
   /* finish sending */
   client.set_next_vts(next_vts + channel->vduration());
-  client.set_curr_vq(next_vsegment.format());
+  client.set_curr_vq(next_vq);
   client.set_last_video_send_ts(timestamp_ms());
 
   cerr << client.signature() << ": channel " << channel->name()
@@ -204,7 +204,7 @@ void serve_audio_to_client(WebSocketServer & server, WebSocketClient & client)
   /* divide the next segment into WebSocket frames and send */
   while (not next_asegment.done()) {
     ServerAudioMsg audio_msg(channel->name(),
-                             next_asegment.format().to_string(),
+                             next_aq.to_string(),
                              next_ats,
                              channel->aduration(),
                              next_asegment.offset(),
@@ -218,7 +218,7 @@ void serve_audio_to_client(WebSocketServer & server, WebSocketClient & client)
 
   /* finish sending */
   client.set_next_ats(next_ats + channel->aduration());
-  client.set_curr_aq(next_asegment.format());
+  client.set_curr_aq(next_aq);
 
   cerr << client.signature() << ": channel " << channel->name()
        << ", audio " << next_ats << " " << next_aq << endl;
@@ -503,8 +503,6 @@ void handle_client_info(WebSocketClient & client, const ClientInfoMsg & msg)
 
   client.set_audio_playback_buf(msg.audio_buffer_len);
   client.set_video_playback_buf(msg.video_buffer_len);
-  client.set_client_next_vts(msg.next_video_timestamp);
-  client.set_client_next_ats(msg.next_audio_timestamp);
 
   /* check if client's screen size has changed */
   update_screen_size(client, msg.screen_height, msg.screen_width);
@@ -531,8 +529,10 @@ void handle_client_info(WebSocketClient & client, const ClientInfoMsg & msg)
         + to_string(static_cast<int>(msg.event)) + " " + buf;
     append_to_log("playback_buffer", log_line);
   } else if (msg.event == ClientInfoMsg::PlayerEvent::VideoAck) {
-    /* VideoAck for the last video segment */
+    /* VideoAck for the last segment */
     if (*msg.byte_offset + *msg.received_bytes == *msg.total_byte_length) {
+      client.set_client_next_vts(msg.next_video_timestamp);
+
       /* record transmission time */
       if (client.last_video_send_ts()) {
         uint64_t trans_time = timestamp_ms() - *client.last_video_send_ts();
@@ -556,6 +556,11 @@ void handle_client_info(WebSocketClient & client, const ClientInfoMsg & msg)
     /* get current throughput (measured in kpbs) of the client */
     if (*msg.receiving_time_ms > 0 and *msg.receiving_time_ms < 3000) {
       client.set_curr_tput(*msg.received_bytes * 8.0 / *msg.receiving_time_ms);
+    }
+  } else if (msg.event == ClientInfoMsg::PlayerEvent::AudioAck) {
+    /* AudioAck for the last segment */
+    if (*msg.byte_offset + *msg.received_bytes == *msg.total_byte_length) {
+      client.set_client_next_ats(msg.next_audio_timestamp);
     }
   }
 

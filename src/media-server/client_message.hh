@@ -13,11 +13,9 @@ using json = nlohmann::json;
 class ClientInitMsg
 {
 public:
+  /* authentication */
   std::string session_key {};
   std::string username {};
-
-  uint16_t player_width {};
-  uint16_t player_height {};
 
   std::string channel {};
 
@@ -26,6 +24,7 @@ public:
   uint16_t screen_height {};
   uint16_t screen_width {};
 
+  /* used to resume connection */
   std::optional<uint64_t> next_vts {};
   std::optional<uint64_t> next_ats {};
 };
@@ -74,10 +73,10 @@ public:
   std::optional<uint64_t> timestamp {};
   std::optional<unsigned int> duration {};
   std::optional<unsigned int> byte_offset {};
+  std::optional<unsigned int> received_bytes {};
   std::optional<unsigned int> total_byte_length {};
   std::optional<double> ssim {};
   std::optional<unsigned int> receiving_time_ms {};
-  std::optional<unsigned int> received_bytes {};
 };
 
 class ClientMsgParser

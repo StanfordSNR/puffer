@@ -93,10 +93,10 @@ ClientInfoMsg ClientMsgParser::parse_info_msg()
     ret.duration = msg_.at("duration").get<unsigned int>();
     ret.byte_offset = msg_.at("byteOffset").get<unsigned int>();
     ret.total_byte_length = msg_.at("totalByteLength").get<unsigned int>();
+    ret.received_bytes = msg_.at("receivedBytes").get<unsigned int>();
     if (ret.event == ClientInfoMsg::PlayerEvent::VideoAck) {
       ret.ssim = msg_.at("ssim").get<double>();
       ret.receiving_time_ms = msg_.at("receivingTimeMs").get<unsigned int>();
-      ret.received_bytes = msg_.at("receivedBytes").get<unsigned int>();
     }
   }
 

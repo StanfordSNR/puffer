@@ -8,7 +8,7 @@ const DEBUG_TIMER_INTERVAL = 500;
 const BASE_RECONNECT_BACKOFF = 1000;
 const MAX_RECONNECT_BACKOFF = 15000;
 
-var debug = false;
+var debug = true;
 var non_secure = false;
 
 /* Server messages are of the form: "short_metadata_len|metadata_json|data" */
@@ -76,6 +76,7 @@ function AVSource(ws_client, video, options) {
     video.currentTime = init_seek_ts / timescale;
 
     vbuf = ms.addSourceBuffer(video_codec);
+    abuf = ms.addSourceBuffer(audio_codec);
 
     vbuf.addEventListener('updateend', function(e) {
       if (pending_vidack) {
@@ -94,8 +95,6 @@ function AVSource(ws_client, video, options) {
     vbuf.addEventListener('abort', function(e) {
       console.log('video source buffer abort:', e);
     });
-
-    abuf = ms.addSourceBuffer(audio_codec);
 
     abuf.addEventListener('updateend', function(e) {
       if (pending_audack) {
@@ -209,8 +208,8 @@ function AVSource(ws_client, video, options) {
 
     /* VideoAck payload */
     var vidack_payload = {...metadata,
-                          receivingTimeMs: receiving_time_ms,
-                          receivedBytes: data.byteLength};
+                          receivedBytes: data.byteLength,
+                          receivingTimeMs: receiving_time_ms};
 
     /* Last fragment received */
     if (data.byteLength + metadata.byteOffset === metadata.totalByteLength) {
@@ -262,7 +261,8 @@ function AVSource(ws_client, video, options) {
     partial_audio_chunks.push(data);
 
     /* AudioAck payload */
-    var audack_payload = metadata;
+    var audack_payload = {...metadata,
+                          receivedBytes: data.byteLength};
 
     /* Last fragment received */
     if (data.byteLength + metadata.byteOffset === metadata.totalByteLength) {
