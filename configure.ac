@@ -3,7 +3,7 @@
 
 AC_PREREQ([2.69])
 AC_INIT([puffer], [0.2], [fyy@cs.stanford.edu])
-AM_INIT_AUTOMAKE([foreign])
+AM_INIT_AUTOMAKE([foreign subdir-objects])
 AC_CONFIG_HEADERS([config.h])
 
 # Add picky CXXFLAGS

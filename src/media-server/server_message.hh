@@ -7,6 +7,7 @@
 
 #include "channel.hh"
 #include "json.hpp"
+
 using json = nlohmann::json;
 
 class ServerMsg
