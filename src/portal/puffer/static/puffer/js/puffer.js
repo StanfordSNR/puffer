@@ -1,14 +1,13 @@
 'use strict';
 
 const WS_OPEN = 1;
-const GLOBAL_TIMESCALE = 90000;
 
 const TIMER_INTERVAL = 500;
 const DEBUG_TIMER_INTERVAL = 500;
 const BASE_RECONNECT_BACKOFF = 1000;
 const MAX_RECONNECT_BACKOFF = 15000;
 
-var debug = true;
+var debug = false;
 var non_secure = false;
 
 /* Server messages are of the form: "short_metadata_len|metadata_json|data" */
@@ -37,34 +36,47 @@ function concat_arraybuffers(arr, len) {
   return tmp.buffer;
 }
 
-function AVSource(ws_client, video, options) {
+function AVSource(ws_client, video, server_init) {
   var that = this;
 
   /* SourceBuffers for audio and video */
-  var vbuf = null, abuf = null;
+  var vbuf = null;
+  var abuf = null;
 
-  var channel = options.channel;
-  var video_codec = options.videoCodec;
-  var audio_codec = options.audioCodec;
-  var timescale = options.timescale;
-  var init_seek_ts = Math.max(options.initAudioTimestamp,
-                              options.initVideoTimestamp);
-  var init_id = options.initId;
+  var channel = server_init.channel;
+  const video_codec = server_init.videoCodec;
+  const audio_codec = server_init.audioCodec;
+  const timescale = server_init.timescale;
+  const video_duration = server_init.videoDuration;
+  const audio_duration = server_init.audioDuration;
+  const init_seek_ts = Math.max(server_init.initAudioTimestamp,
+                                server_init.initVideoTimestamp);
 
   /* Timestamps for the next chunks that the player is expecting */
-  var next_audio_timestamp = options.initAudioTimestamp;
-  var next_video_timestamp = options.initVideoTimestamp;
+  var next_video_timestamp = server_init.initVideoTimestamp;
+  var next_audio_timestamp = server_init.initAudioTimestamp;
 
   /* Add pending chunks to SourceBuffers only if SourceBuffers
    * are initialized and ready to accept more chunks */
   var pending_video_chunks = [];
   var pending_audio_chunks = [];
 
-  /* Pending VideoAck/AudioAck that will be sent after updateend is fired */
-  var pending_vidack = null;
-  var pending_audack = null;
+  /* last segment of chunk to ack that will be sent after updateend is fired
+   * the ack can contain the up-to-date playback buffer levels in this way */
+  var pending_video_to_ack = null;
+  var pending_audio_to_ack = null;
 
   var ms = new MediaSource();
+
+  /* used by handleVideo */
+  var curr_video_quality = null;
+  var curr_ssim = null;
+  var curr_video_bitrate = null;  // kbps
+  var partial_video_chunks = null;
+
+  /* used by handleAudio */
+  var curr_audio_quality = null;
+  var partial_audio_chunks = null;
 
   video.src = URL.createObjectURL(ms);
   video.load();
@@ -79,9 +91,9 @@ function AVSource(ws_client, video, options) {
     abuf = ms.addSourceBuffer(audio_codec);
 
     vbuf.addEventListener('updateend', function(e) {
-      if (pending_vidack) {
-        ws_client.send_client_info('vidack', pending_vidack);
-        pending_vidack = null;
+      if (pending_video_to_ack) {
+        ws_client.send_client_ack('client-vidack', pending_video_to_ack);
+        pending_video_to_ack = null;
       }
 
       that.vbuf_update();
@@ -97,9 +109,9 @@ function AVSource(ws_client, video, options) {
     });
 
     abuf.addEventListener('updateend', function(e) {
-      if (pending_audack) {
-        ws_client.send_client_info('audack', pending_audack);
-        pending_audack = null;
+      if (pending_audio_to_ack) {
+        ws_client.send_client_ack('client-audack', pending_audio_to_ack);
+        pending_audio_to_ack = null;
       }
 
       that.abuf_update();
@@ -125,40 +137,41 @@ function AVSource(ws_client, video, options) {
     }
     init_source_buffers();
   });
+
   ms.addEventListener('sourceended', function(e) {
     if (debug) {
       console.log('sourceended: ' + ms.readyState, e);
     }
   });
+
   ms.addEventListener('sourceclose', function(e) {
     if (debug) {
       console.log('sourceclose: ' + ms.readyState, e);
     }
     that.close();
   });
+
   ms.addEventListener('error', function(e) {
     console.log('media source error: ' + ms.readyState, e);
     that.close();
   });
 
-  this.canResume = function(options) {
+  this.canResume = function(server_init) {
     return (
-      options.canResume
-      && options.channel === channel
-      && options.videoCodec === video_codec
-      && options.audioCodec === audio_codec
-      && options.timescale === timescale
-      && options.initVideoTimestamp === next_video_timestamp
-      && options.initAudioTimestamp === next_audio_timestamp
+      server_init.canResume &&
+      server_init.channel === channel &&
+      server_init.videoCodec === video_codec &&
+      server_init.audioCodec === audio_codec &&
+      server_init.timescale === timescale &&
+      server_init.videoDuration === video_duration &&
+      server_init.audioDuration === audio_duration &&
+      server_init.initVideoTimestamp === next_video_timestamp &&
+      server_init.initAudioTimestamp === next_audio_timestamp
     );
   };
 
-  this.resume = function(options) {
-    init_id = options.initId;
-  };
-
   this.isOpen = function() {
-    return abuf !== null && vbuf !== null;
+    return vbuf !== null && abuf !== null;
   };
 
   /* Close the AV source, presumably it is being replaced */
@@ -170,27 +183,15 @@ function AVSource(ws_client, video, options) {
     pending_video_chunks = [];
     pending_audio_chunks = [];
 
-    abuf = null;
     vbuf = null;
+    abuf = null;
   };
 
-  var last_received_video_ts = null;
-  var curr_video_quality = null;
-  var partial_video_chunks = null;
-  var curr_ssim = null;
-  var curr_video_bitrate = null;
-
-  this.getVideoQuality = function() { return curr_video_quality; };
-  this.getSSIM = function() { return curr_ssim; };
-  this.getVideoBitrate = function() { return curr_video_bitrate; };
-
-  this.handleVideo = function(data, metadata, event_timestamp) {
+  this.handleVideo = function(metadata, data, msg_ts) {
     if (channel !== metadata.channel) {
-      console.log('ignored data from incorrect channel');
+      console.log('error: should have ignored data from incorrect channel');
       return;
     }
-
-    curr_ssim = metadata.ssim;
 
     /* New segment or server aborted sending */
     if (curr_video_quality !== metadata.quality) {
@@ -199,17 +200,7 @@ function AVSource(ws_client, video, options) {
     }
     partial_video_chunks.push(data);
 
-    /* estimate receiving time */
-    var receiving_time_ms = 0;
-    if (last_received_video_ts) {
-      receiving_time_ms = event_timestamp - last_received_video_ts;
-    }
-    last_received_video_ts = event_timestamp;
-
-    /* VideoAck payload */
-    var vidack_payload = {...metadata,
-                          receivedBytes: data.byteLength,
-                          receivingTimeMs: receiving_time_ms};
+    curr_ssim = metadata.ssim;
 
     /* Last fragment received */
     if (data.byteLength + metadata.byteOffset === metadata.totalByteLength) {
@@ -219,16 +210,15 @@ function AVSource(ws_client, video, options) {
 
       /* assemble partial chunks into a complete chunk */
       pending_video_chunks.push({
-        ts: metadata.timestamp,
+        metadata: metadata,
         data: concat_arraybuffers(partial_video_chunks,
-                                  metadata.totalByteLength),
-        vidack: vidack_payload  // ack the last fragment in updateend handler
+                                  metadata.totalByteLength)
       });
       partial_video_chunks = [];
 
-      next_video_timestamp = metadata.timestamp + metadata.duration;
+      next_video_timestamp = metadata.timestamp + video_duration;
       curr_video_bitrate = 0.001 * 8 * metadata.totalByteLength /
-                           (metadata.duration / GLOBAL_TIMESCALE);  // kbps
+                           (video_duration / timescale);
 
       /* try updating vbuf */
       that.vbuf_update();
@@ -238,18 +228,13 @@ function AVSource(ws_client, video, options) {
       }
 
       /* ack intermediate fragments immediately */
-      ws_client.send_client_info('vidack', vidack_payload);
+      ws_client.send_client_ack('client-vidack', metadata);
     }
   };
 
-  var curr_audio_quality = null;
-  var partial_audio_chunks = null;
-
-  this.getAudioQuality = function() { return curr_audio_quality; }
-
-  this.handleAudio = function(data, metadata, event_timestamp) {
+  this.handleAudio = function(metadata, data, msg_ts) {
     if (channel !== metadata.channel) {
-      console.log('ignored data from incorrect channel');
+      console.log('error: should have ignored data from incorrect channel');
       return;
     }
 
@@ -260,10 +245,6 @@ function AVSource(ws_client, video, options) {
     }
     partial_audio_chunks.push(data);
 
-    /* AudioAck payload */
-    var audack_payload = {...metadata,
-                          receivedBytes: data.byteLength};
-
     /* Last fragment received */
     if (data.byteLength + metadata.byteOffset === metadata.totalByteLength) {
       if (debug) {
@@ -272,14 +253,13 @@ function AVSource(ws_client, video, options) {
 
       /* assemble partial chunks into a complete chunk */
       pending_audio_chunks.push({
-        ts: metadata.timestamp,
+        metadata: metadata,
         data: concat_arraybuffers(partial_audio_chunks,
-                                  metadata.totalByteLength),
-        audack: audack_payload  // ack the last fragment in updateend handler
+                                  metadata.totalByteLength)
       });
       partial_audio_chunks = [];
 
-      next_audio_timestamp = metadata.timestamp + metadata.duration;
+      next_audio_timestamp = metadata.timestamp + audio_duration;
 
       /* try updating abuf */
       that.abuf_update();
@@ -289,26 +269,29 @@ function AVSource(ws_client, video, options) {
       }
 
       /* ack intermediate fragments immediately */
-      ws_client.send_client_info('audack', audack_payload);
+      ws_client.send_client_ack('client-audack', metadata);
     }
   };
 
-  /* Log debugging info to console */
-  this.logBufferInfo = function() {
-    if (video.buffered.length > 1) {
-      console.log('Error: video.buffered.length=' + video.buffered.length +
-                  ', server not sending segments in order?');
-    }
-
-    for (var i = 0; i < video.buffered.length; i++) {
-      // There should only be one range if the server is sending in order
-      console.log('video range:',
-                  video.buffered.start(i), '-', video.buffered.end(i));
-    }
-  };
-
+  /* accessors */
   this.getChannel = function() {
     return channel;
+  }
+
+  this.getVideoQuality = function() {
+    return curr_video_quality;
+  };
+
+  this.getSSIM = function() {
+    return curr_ssim;
+  };
+
+  this.getVideoBitrate = function() {
+    return curr_video_bitrate;
+  };
+
+  this.getAudioQuality = function() {
+    return curr_audio_quality;
   }
 
   /* Get the number of seconds of buffered video */
@@ -341,135 +324,178 @@ function AVSource(ws_client, video, options) {
     return next_audio_timestamp;
   };
 
-  /* Get the id that identifies this initialized source */
-  this.getInitId = function() {
-    return init_id;
-  };
-
   /* Push data onto the SourceBuffers if they are ready */
   this.vbuf_update = function() {
     if (vbuf && !vbuf.updating && pending_video_chunks.length > 0) {
       var next_video = pending_video_chunks.shift();
-
-      if (!pending_vidack) {
-        pending_vidack = next_video.vidack;  // sent ack in updateend handler
-      } else {
-        console.log("Error: call vbuf.appendBuffer() again before updateend");
-      }
-
       vbuf.appendBuffer(next_video.data);
+
+      if (!pending_video_to_ack) {
+        pending_video_to_ack = next_video.metadata;  // sent ack in updateend handler
+      } else {
+        console.log("Error: called vbuf.appendBuffer() again before updateend");
+      }
     }
   }
 
   this.abuf_update = function() {
     if (abuf && !abuf.updating && pending_audio_chunks.length > 0) {
       var next_audio = pending_audio_chunks.shift();
-
-      if (!pending_audack) {
-        pending_audack = next_audio.audack;  // sent ack in updateend handler
-      } else {
-        console.log("Error: call abuf.appendBuffer() again before updateend");
-      }
-
       abuf.appendBuffer(next_audio.data);
+
+      if (!pending_audio_to_ack) {
+        pending_audio_to_ack = next_audio.metadata;  // sent ack in updateend handler
+      } else {
+        console.log("Error: called abuf.appendBuffer() again before updateend");
+      }
     }
   };
 }
 
 function WebSocketClient(session_key, username, sysinfo) {
   var that = this;
+  var video = document.getElementById('tv-video');
 
   var ws = null;
   var av_source = null;
 
-  /* Exponential backoff to reconnect */
-  var rc_backoff = BASE_RECONNECT_BACKOFF;
-  var last_open = null;
+  /* increment every time a client-init is sent */
+  var init_id = 0;
 
-  this.send_client_init = function(ws, channel) {
+  /* record the screen sizes reported to the server as they might change */
+  var screen_height = null;
+  var screen_width = null;
+
+  /* exponential backoff to reconnect */
+  var reconnect_backoff = BASE_RECONNECT_BACKOFF;
+  var last_ws_open = null;
+
+  this.send_client_init = function(channel) {
     if (!(ws && ws.readyState === WS_OPEN)) {
       return;
     }
 
-    try {
-      var msg = {
-        sessionKey: session_key,
-        userName: username,
-        channel: channel,
-        os: sysinfo.os,
-        browser: sysinfo.browser,
-        screenHeight: screen.height,
-        screenWidth: screen.width
-      };
+    init_id += 1;
 
-      if (av_source && av_source.getChannel() === channel) {
-        msg.nextAudioTimestamp = av_source.getNextAudioTimestamp();
-        msg.nextVideoTimestamp = av_source.getNextVideoTimestamp();
-      }
+    screen_height = screen.height;
+    screen_width = screen.width;
 
-      ws.send(format_client_msg('client-init', msg));
+    var msg = {
+      initId: init_id,
+      sessionKey: session_key,
+      userName: username,
+      channel: channel,
+      os: sysinfo.os,
+      browser: sysinfo.browser,
+      screenHeight: screen_height,
+      screenWidth: screen_width
+    };
 
-      if (debug) {
-        console.log('sent client-init', msg);
-      }
-    } catch (e) {
-      console.log(e);
+    /* try resuming if the client is already watching the same channel */
+    if (av_source && av_source.getChannel() === channel) {
+      msg.nextVts = av_source.getNextVideoTimestamp();
+      msg.nextAts = av_source.getNextAudioTimestamp();
+    }
+
+    ws.send(format_client_msg('client-init', msg));
+
+    if (debug) {
+      console.log('sent client-init', msg);
     }
   }
 
-  this.send_client_info = function(event, extra_payload = {}) {
+  this.send_client_info = function(info_event) {
     if (!(ws && ws.readyState === WS_OPEN)) {
       return;
     }
 
-    /* note that av_source.isOpen() can be false */
+    /* note that it is fine if av_source.isOpen() is false */
     if (!av_source) {
       return;
     }
 
-    try {
-      var payload = {
-        event: event,
-        videoBufferLen: av_source.getVideoBufferLen(),
-        audioBufferLen: av_source.getAudioBufferLen(),
-        nextVideoTimestamp: av_source.getNextVideoTimestamp(),
-        nextAudioTimestamp: av_source.getNextAudioTimestamp(),
-        playerReadyState: video.readyState,
-        initId: av_source.getInitId(),
-        screenHeight: screen.height,
-        screenWidth: screen.width
-      };
+    var msg = {
+      initId: init_id,
+      event: info_event,
+      videoBufferLen: av_source.getVideoBufferLen(),
+      audioBufferLen: av_source.getAudioBufferLen()
+    };
 
-      if (extra_payload) {
-        for (var ele in extra_payload) {
-          payload[ele] = extra_payload[ele];
-        }
-      }
+    /* include screen sizes if they have changed */
+    if (screen.height !== screen_height || screen.width !== screen_width) {
+      screen_height = screen.height;
+      screen_width = screen.width;
+      msg.screenHeight = screen_height;
+      msg.screenWidth = screen_width;
+    }
 
-      ws.send(format_client_msg('client-info', payload));
+    ws.send(format_client_msg('client-info', msg));
 
-      if (debug) {
-        console.log('sent client-info', payload);
-      }
-    } catch (e) {
-      console.log('Failed to send client info', e);
+    if (debug) {
+      console.log('sent client-info', msg);
     }
   }
 
-  /* Handle a websocket message from the server */
+  /* ack_type: 'client-vidack' or 'client-audack' */
+  this.send_client_ack = function(ack_type, data_to_ack) {
+    if (!(ws && ws.readyState === WS_OPEN)) {
+      return;
+    }
+
+    /* note that it is fine if av_source.isOpen() is false */
+    if (!av_source) {
+      return;
+    }
+
+    var msg = {
+      initId: init_id,
+      videoBufferLen: av_source.getVideoBufferLen(),
+      audioBufferLen: av_source.getAudioBufferLen()
+    };
+
+    msg.channel = data_to_ack.channel;
+    msg.quality = data_to_ack.quality;
+    msg.timestamp = data_to_ack.timestamp;
+
+    msg.byteOffset = data_to_ack.byteOffset;
+    msg.totalByteLength = data_to_ack.totalByteLength;
+
+    /* read the length of data_to_ack */
+    msg.byteLength = data_to_ack.byteLength;
+
+    if (ack_type == 'client-vidack' || ack_type == 'client-audack') {
+      ws.send(format_client_msg(ack_type, msg));
+    } else {
+      console.log('invalid ack type:', ack_type);
+      return;
+    }
+
+    if (debug) {
+      console.log('sent', ack_type, msg);
+    }
+  }
+
+  /* handle a WebSocket message from the server */
   function handle_ws_msg(e) {
-    var message = parse_server_msg(e.data);
+    const msg_ts = e.timeStamp;
+    const server_msg = parse_server_msg(e.data);
+    const metadata = server_msg.metadata;
+    const data = server_msg.data;
 
-    if (message.metadata.type === 'server-init') {
-      if (debug) {
-        console.log('received', message.metadata.type, message.metadata);
-      }
+    /* ignore outdated messages from the server */
+    if (metadata.initId !== init_id) {
+      return;
+    }
 
+    if (debug) {
+      console.log('received', metadata.type, metadata);
+    }
+
+    if (metadata.type === 'server-init') {
       /* return if client is able to resume */
-      if (av_source && av_source.isOpen() &&
-          av_source.canResume(message.metadata)) {
+      if (av_source && av_source.isOpen() && av_source.canResume(metadata)) {
         console.log('Resuming playback');
-        av_source.resume(message.metadata);
+        av_source.resume(metadata);
         return;
       }
 
@@ -477,37 +503,25 @@ function WebSocketClient(session_key, username, sysinfo) {
       if (av_source) {
         av_source.close();
       }
-      av_source = new AVSource(that, video, message.metadata);
-    } else if (message.metadata.type === 'server-audio') {
-      if (debug) {
-        console.log('received', message.metadata.type,
-                    message.metadata.timestamp,
-                    message.metadata.quality);
-      }
-
-      if (!av_source) {
-        console.log('Error: AVSource is not initialized yet');
-        return;
-      }
-
-      /* note: handleAudio can buffer chunks even if !av_source.isOpen() */
-      av_source.handleAudio(message.data, message.metadata, e.timeStamp);
-    } else if (message.metadata.type === 'server-video') {
-      if (debug) {
-        console.log('received', message.metadata.type,
-                    message.metadata.timestamp,
-                    message.metadata.quality);
-      }
-
+      av_source = new AVSource(that, video, server_init);
+    } else if (metadata.type === 'server-video') {
       if (!av_source) {
         console.log('Error: AVSource is not initialized yet');
         return;
       }
 
       /* note: handleVideo can buffer chunks even if !av_source.isOpen() */
-      av_source.handleVideo(message.data, message.metadata, e.timeStamp);
+      av_source.handleVideo(metadata, data, msg_ts);
+    } else if (metadata.type === 'server-audio') {
+      if (!av_source) {
+        console.log('Error: AVSource is not initialized yet');
+        return;
+      }
+
+      /* note: handleAudio can buffer chunks even if !av_source.isOpen() */
+      av_source.handleAudio(metadata, data, msg_ts);
     } else {
-      console.log('received unknown message', message.metadata.type);
+      console.log('received unknown message', metadata);
     }
   }
 
@@ -522,25 +536,25 @@ function WebSocketClient(session_key, username, sysinfo) {
 
     ws.onopen = function(e) {
       console.log('Connected to', ws_addr);
-      last_open = Date.now();
+      last_ws_open = Date.now();
 
-      that.send_client_init(ws, channel);
+      that.send_client_init(channel);
     };
 
     ws.onclose = function(e) {
       console.log('Closed connection to', ws_addr);
       ws = null;
 
-      /* reset rc_backoff if WebSocket has been open for a while */
-      if (last_open && Date.now() - last_open > MAX_RECONNECT_BACKOFF) {
-        rc_backoff = BASE_RECONNECT_BACKOFF;
+      /* reset reconnect_backoff if WebSocket has been open for a while */
+      if (last_ws_open && Date.now() - last_ws_open > MAX_RECONNECT_BACKOFF) {
+        reconnect_backoff = BASE_RECONNECT_BACKOFF;
       }
 
-      last_open = null;
+      last_ws_open = null;
 
-      if (rc_backoff <= MAX_RECONNECT_BACKOFF) {
+      if (reconnect_backoff <= MAX_RECONNECT_BACKOFF) {
         /* Try to reconnect */
-        console.log('Reconnecting in ' + rc_backoff + 'ms');
+        console.log('Reconnecting in ' + reconnect_backoff + 'ms');
 
         setTimeout(function() {
           if (av_source) {
@@ -548,9 +562,9 @@ function WebSocketClient(session_key, username, sysinfo) {
           } else {
             that.connect(channel);
           }
-        }, rc_backoff);
+        }, reconnect_backoff);
 
-        rc_backoff = rc_backoff * 2;
+        reconnect_backoff = reconnect_backoff * 2;
       }
     };
 
@@ -561,7 +575,7 @@ function WebSocketClient(session_key, username, sysinfo) {
   };
 
   this.set_channel = function(channel) {
-    that.send_client_init(ws, channel);
+    that.send_client_init(channel);
   };
 
   video.oncanplay = function() {
@@ -574,13 +588,14 @@ function WebSocketClient(session_key, username, sysinfo) {
     that.send_client_info('rebuffer');
   };
 
-  // Start sending status updates to the server
+  /* send status updates to the server from time to time */
   function timer_helper() {
     that.send_client_info('timer');
     setTimeout(timer_helper, TIMER_INTERVAL);
   }
   timer_helper();
 
+  /* display debugging information on the client side */
   const na = 'N/A';
   function debug_timer_helper() {
     if (av_source && av_source.isOpen()) {
