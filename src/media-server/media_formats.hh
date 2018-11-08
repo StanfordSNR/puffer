@@ -8,13 +8,15 @@
 
 struct VideoFormat
 {
-  int width;
-  int height;
-  int crf;
+  VideoFormat(const std::string & str);
+
+  int width {};
+  int height {};
+  int crf {};
 
   std::string resolution() const;
-
   std::string to_string() const;
+
   bool operator<(const VideoFormat & o) const;
   bool operator==(const VideoFormat & o) const;
   bool operator!=(const VideoFormat & o) const;
@@ -24,9 +26,12 @@ std::ostream &operator<<(std::ostream & os, const VideoFormat & o);
 
 struct AudioFormat
 {
-  int bitrate;
+  AudioFormat(const std::string & str);
+
+  int bitrate {};  /* kbps */
 
   std::string to_string() const;
+
   bool operator<(const AudioFormat & o) const;
   bool operator==(const AudioFormat & o) const;
   bool operator!=(const AudioFormat & o) const;
