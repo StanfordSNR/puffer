@@ -4,101 +4,119 @@
 
 using namespace std;
 
-ClientMsgParser::ClientMsgParser(const string & data)
+ClientInitMsg::ClientInitMsg(const json & msg)
 {
-  msg_ = json::parse(data);
+  init_id = msg.at("initId").get<unsigned int>();
 
-  string type_str = msg_.at("type").get<string>();
+  session_key = msg.at("sessionKey").get<string>();
+  username = msg.at("userName").get<string>();
+
+  channel = msg.at("channel").get<string>();
+
+  os = msg.at("os").get<string>();
+  browser = msg.at("browser").get<string>();
+
+  screen_height = msg.at("screenHeight").get<uint16_t>();
+  screen_width = msg.at("screenWidth").get<uint16_t>();
+
+  auto it = msg.find("nextVts");
+  if (it != msg.end()) {
+    next_vts = it->get<uint64_t>();
+  }
+
+  it = msg.find("nextAts");
+  if (it != msg.end()) {
+    next_ats = it->get<uint64_t>();
+  }
+}
+
+ClientInfoMsg::ClientInfoMsg(const json & msg)
+{
+  init_id = msg.at("initId").get<unsigned int>();
+
+  const string & event_str = msg.at("event").get<string>();
+  if (event_str == "timer") {
+    event = ClientInfoMsg::Event::Timer;
+  } else if (event_str == "rebuffer") {
+    event = ClientInfoMsg::Event::Rebuffer;
+  } else if (event_str == "canplay") {
+    event = ClientInfoMsg::Event::CanPlay;
+  } else {
+    throw runtime_error("Invalid client info event");
+  }
+
+  video_buffer_len = msg.at("videoBufferLen").get<double>();
+  audio_buffer_len = msg.at("audioBufferLen").get<double>();
+
+  auto it = msg.find("screenHeight");
+  if (it != msg.end()) {
+    screen_height = it->get<uint16_t>();
+  }
+
+  it = msg.find("screenWidth");
+  if (it != msg.end()) {
+    screen_width = it->get<uint16_t>();
+  }
+}
+
+ClientAckMsg::ClientAckMsg(const json & msg)
+{
+  init_id = msg.at("initId").get<unsigned int>();
+
+  channel = msg.at("channel").get<string>();
+  quality = msg.at("quality").get<string>();
+  timestamp = msg.at("timestamp").get<uint64_t>();
+
+  byte_offset = msg.at("byteOffset").get<unsigned int>();
+  byte_length = msg.at("byteLength").get<unsigned int>();
+  total_byte_length = msg.at("totalByteLength").get<unsigned int>();
+
+  video_buffer_len = msg.at("videoBufferLen").get<double>();
+  audio_buffer_len = msg.at("audioBufferLen").get<double>();
+}
+
+ClientVidAckMsg::ClientVidAckMsg(const json & msg)
+  : ClientAckMsg(msg)
+{}
+
+ClientAudAckMsg::ClientAudAckMsg(const json & msg)
+  : ClientAckMsg(msg)
+{}
+
+ClientMsgParser::ClientMsgParser(const string & data)
+  : msg_(json::parse(data))
+{
+  const string & type_str = msg_.at("type").get<string>();
 
   if (type_str == "client-init") {
     type_ = Type::Init;
   } else if (type_str == "client-info") {
     type_ = Type::Info;
+  } else if (type_str == "client-vidack") {
+    type_ = Type::VideoAck;
+  } else if (type_str == "client-audack") {
+    type_ = Type::AudioAck;
   } else {
-    throw runtime_error("Invalid message type");
+    throw runtime_error("Invalid client message type");
   }
 }
 
-ClientInitMsg ClientMsgParser::parse_init_msg()
+ClientInitMsg ClientMsgParser::parse_client_init()
 {
-  assert(type_ == Type::Init);
-
-  ClientInitMsg ret;
-
-  ret.session_key = msg_.at("sessionKey").get<string>();
-  ret.username = msg_.at("userName").get<string>();
-
-  ret.channel = msg_.at("channel").get<string>();
-  ret.os = msg_.at("os").get<string>();
-  ret.browser = msg_.at("browser").get<string>();
-  ret.screen_height = msg_.at("screenHeight").get<uint16_t>();
-  ret.screen_width = msg_.at("screenWidth").get<uint16_t>();
-
-  auto it = msg_.find("nextVideoTimestamp");
-  if (it != msg_.end()) {
-    ret.next_vts = it->get<uint64_t>();
-  }
-
-  it = msg_.find("nextAudioTimestamp");
-  if (it != msg_.end()) {
-    ret.next_ats = it->get<uint64_t>();
-  }
-
-  return ret;
+  return ClientInitMsg(msg_);
 }
 
-ClientInfoMsg ClientMsgParser::parse_info_msg()
+ClientInfoMsg ClientMsgParser::parse_client_info()
 {
-  assert(type_ == Type::Info);
+  return ClientInfoMsg(msg_);
+}
 
-  ClientInfoMsg ret;
+ClientVidAckMsg ClientMsgParser::parse_client_vidack()
+{
+  return ClientVidAckMsg(msg_);
+}
 
-  string event_str = msg_.at("event").get<string>();
-
-  if (event_str == "timer") {
-    ret.event = ClientInfoMsg::PlayerEvent::Timer;
-  } else if (event_str == "rebuffer") {
-    ret.event = ClientInfoMsg::PlayerEvent::Rebuffer;
-  } else if (event_str == "canplay") {
-    ret.event = ClientInfoMsg::PlayerEvent::CanPlay;
-  } else if (event_str == "audack") {
-    ret.event = ClientInfoMsg::PlayerEvent::AudioAck;
-  } else if (event_str == "vidack") {
-    ret.event = ClientInfoMsg::PlayerEvent::VideoAck;
-  } else {
-    ret.event = ClientInfoMsg::PlayerEvent::Unknown;
-  }
-
-  ret.init_id = msg_.at("initId").get<unsigned int>();
-  ret.video_buffer_len = msg_.at("videoBufferLen").get<double>();
-  ret.audio_buffer_len = msg_.at("audioBufferLen").get<double>();
-  ret.next_video_timestamp = msg_.at("nextVideoTimestamp").get<uint64_t>();
-  ret.next_audio_timestamp = msg_.at("nextAudioTimestamp").get<uint64_t>();
-  ret.screen_height = msg_.at("screenHeight").get<uint16_t>();
-  ret.screen_width = msg_.at("screenWidth").get<uint16_t>();
-
-  int player_ready_state = msg_.at("playerReadyState").get<int>();
-  if (player_ready_state < 0 || player_ready_state > 4) {
-    throw runtime_error("Invalid player ready state");
-  }
-  ret.player_ready_state = static_cast<ClientInfoMsg::PlayerReadyState>
-                                      (player_ready_state);
-
-  /* extra metadata payload */
-  if (ret.event == ClientInfoMsg::PlayerEvent::AudioAck or
-      ret.event == ClientInfoMsg::PlayerEvent::VideoAck) {
-    ret.type = msg_.at("type").get<string>();
-    ret.quality = msg_.at("quality").get<string>();
-    ret.timestamp = msg_.at("timestamp").get<uint64_t>();
-    ret.duration = msg_.at("duration").get<unsigned int>();
-    ret.byte_offset = msg_.at("byteOffset").get<unsigned int>();
-    ret.total_byte_length = msg_.at("totalByteLength").get<unsigned int>();
-    ret.received_bytes = msg_.at("receivedBytes").get<unsigned int>();
-    if (ret.event == ClientInfoMsg::PlayerEvent::VideoAck) {
-      ret.ssim = msg_.at("ssim").get<double>();
-      ret.receiving_time_ms = msg_.at("receivingTimeMs").get<unsigned int>();
-    }
-  }
-
-  return ret;
+ClientAudAckMsg ClientMsgParser::parse_client_audack()
+{
+  return ClientAudAckMsg(msg_);
 }

@@ -10,73 +10,93 @@
 #include "json.hpp"
 using json = nlohmann::json;
 
-class ClientInitMsg
+class ClientMsg
+{
+protected:
+  /* prevent this class from being instantiated */
+  ClientMsg() {}
+};
+
+class ClientInitMsg : public ClientMsg
 {
 public:
+  ClientInitMsg(const json & msg);
+
+  unsigned int init_id {};
+
   /* authentication */
   std::string session_key {};
   std::string username {};
 
+  /* channel requested by the client to play */
   std::string channel {};
 
+  /* client OS, browser and screen information */
   std::string os {};
   std::string browser {};
+
   uint16_t screen_height {};
   uint16_t screen_width {};
 
-  /* used to resume connection */
+  /* next timestamps to expect; used to resume connection only */
   std::optional<uint64_t> next_vts {};
   std::optional<uint64_t> next_ats {};
 };
 
-class ClientInfoMsg
+class ClientInfoMsg : public ClientMsg
 {
 public:
-  enum class PlayerEvent {
-    Unknown = 0,
-    Timer = 1,
-    Rebuffer = 2,
-    CanPlay = 3,
-    AudioAck = 4,
-    VideoAck = 5
+  enum class Event {
+    Timer,
+    Rebuffer,
+    CanPlay
   };
 
-  enum class PlayerReadyState {
-    HaveNothing = 0,
-    HaveMetadata = 1,
-    HaveCurrentData = 2,
-    HaveFutureData = 3,
-    HaveEnoughData = 4
-  };
-
-  PlayerEvent event {PlayerEvent::Unknown};
-
-  /* Length of client's buffer in seconds */
-  double video_buffer_len {};
-  double audio_buffer_len {};
-
-  /* Next segment the client is expecting */
-  uint64_t next_video_timestamp {};
-  uint64_t next_audio_timestamp {};
-
-  PlayerReadyState player_ready_state {PlayerReadyState::HaveNothing};
+  ClientInfoMsg(const json & msg);
 
   unsigned int init_id {};
 
-  /* Current screen size */
-  uint16_t screen_height {};
-  uint16_t screen_width {};
+  Event event {};
+  double video_buffer_len {};
+  double audio_buffer_len {};
 
-  /* extra metadata payload */
-  std::optional<std::string> type {};
-  std::optional<std::string> quality {};
-  std::optional<uint64_t> timestamp {};
-  std::optional<unsigned int> duration {};
-  std::optional<unsigned int> byte_offset {};
-  std::optional<unsigned int> received_bytes {};
-  std::optional<unsigned int> total_byte_length {};
-  std::optional<double> ssim {};
-  std::optional<unsigned int> receiving_time_ms {};
+  /* user's screen size might have changed while watching */
+  std::optional<uint16_t> screen_height {};
+  std::optional<uint16_t> screen_width {};
+};
+
+class ClientAckMsg : public ClientMsg
+{
+public:
+  unsigned int init_id {};
+
+  std::string channel {};  /* acked channel */
+  std::string quality {};  /* acked quality */
+  uint64_t timestamp {};   /* acked timestamp */
+
+  unsigned int byte_offset {};  /* acked offset */
+  unsigned int byte_length {};  /* acked length */
+  unsigned int total_byte_length {};  /* total length to expect */
+
+  /* video and audio buffer levels of client before it sends this ACK */
+  double video_buffer_len {};
+  double audio_buffer_len {};
+
+protected:
+  /* prevent this class from being instantiated */
+  ClientAckMsg(const json & msg);
+};
+
+class ClientVidAckMsg : public ClientAckMsg
+{
+public:
+  ClientVidAckMsg(const json & msg);
+};
+
+class ClientAudAckMsg : public ClientAckMsg
+{
+public:
+  ClientAudAckMsg(const json & msg);
 };
 
 class ClientMsgParser
@@ -85,18 +105,22 @@ public:
   enum class Type {
     Unknown,
     Init,
-    Info
+    Info,  /* rebuffer, canplay, or timer */
+    VideoAck,
+    AudioAck
   };
 
   ClientMsgParser(const std::string & data);
 
-  Type msg_type() { return type_; }
+  ClientInitMsg parse_client_init();
+  ClientInfoMsg parse_client_info();
+  ClientVidAckMsg parse_client_vidack();
+  ClientAudAckMsg parse_client_audack();
 
-  ClientInitMsg parse_init_msg();
-  ClientInfoMsg parse_info_msg();
+  Type msg_type() const { return type_; }
 
 private:
-  json msg_ {};
+  json msg_;
   Type type_ {Type::Unknown};
 };
 
