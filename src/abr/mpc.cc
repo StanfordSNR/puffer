@@ -94,11 +94,11 @@ void MPC::reinit()
   size_t num_past_chunks = past_chunks_.size();
 
   auto it = past_chunks_.begin();
-  for (size_t i = 0; it != past_chunks_.end(); it++, i++) {
+  for (size_t i = 1; it != past_chunks_.end(); it++, i++) {
     unit_sending_time_[i] = (double) it->trans_time / it->size / 1000;
   }
 
-  for (size_t i = 0; i < lookahead_horizon_; i++) {
+  for (size_t i = 1; i <= lookahead_horizon_; i++) {
     double tmp = 0;
     for (size_t j = 0; j < num_past_chunks; j++) {
       tmp += unit_sending_time_[i + j];
@@ -146,7 +146,7 @@ size_t MPC::update_value(size_t i, size_t curr_buffer, size_t curr_format)
 double MPC::get_qvalue(size_t i, size_t curr_buffer, size_t curr_format,
                        size_t next_format)
 {
-  double real_rebuffer = curr_sending_time_[i][next_format]
+  double real_rebuffer = curr_sending_time_[i+1][next_format]
                          - real_buffer_[curr_buffer];
   double next_buffer = discretize_buffer(max(0.0, -real_rebuffer) + chunk_length_);
   return curr_ssims_[i][curr_format]
