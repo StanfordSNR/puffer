@@ -1,6 +1,8 @@
 /* -*-mode:c++; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4 -*- */
 
 #include "strict_conversions.hh"
+
+#include <iomanip>
 #include "exception.hh"
 
 using namespace std;
@@ -63,4 +65,11 @@ unsigned long int strict_atoui(const string & str, const int base)
   }
 
   return ret;
+}
+
+string double_to_string(const double input, const int precision)
+{
+  stringstream stream;
+  stream << fixed << setprecision(precision) << input;
+  return stream.str();
 }

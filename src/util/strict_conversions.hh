@@ -7,10 +7,12 @@
 #include <stdexcept>
 #include <string>
 #include <type_traits>
+#include <sstream>
 
 long int strict_atoi( const std::string & str, const int base = 10 );
 double strict_atof( const std::string & str );
 unsigned long int strict_atoui(const std::string & str, const int base = 10);
+std::string double_to_string(const double input, const int precision);
 
 /* Cast two integral types Source to Target.
  * Assert no precision is lost. */
