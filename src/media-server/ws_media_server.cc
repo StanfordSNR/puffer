@@ -390,15 +390,11 @@ void send_server_init(WebSocketServer & server, WebSocketClient & client,
   server.queue_frame(client.connection_id(), frame);
 }
 
-bool resume_connection(WebSocketServer & server, WebSocketClient & client,
-                       const ClientInitMsg & msg)
+bool resume_connection(WebSocketServer & server,
+                       WebSocketClient & client,
+                       const ClientInitMsg & msg,
+                       const shared_ptr<Channel> & channel)
 {
-  /* don't resume a connection if client is requesting a different channel */
-  const auto & channel = client.channel();
-  if (not channel or channel->name() != msg.channel) {
-    return false;
-  }
-
   /* check if requested timestamps exist */
   if (not msg.next_vts or not msg.next_ats) {
     return false;
@@ -484,7 +480,7 @@ void handle_client_init(WebSocketServer & server, WebSocketClient & client,
   }
 
   /* check if the streaming can be resumed */
-  if (resume_connection(server, client, msg)) {
+  if (resume_connection(server, client, msg, channel)) {
     return;
   }
 
