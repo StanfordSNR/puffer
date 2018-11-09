@@ -29,16 +29,16 @@ public:
   const std::vector<AudioFormat> & aformats() const { return aformats_; }
 
   /* if channel is ready to serve */
-  bool ready() const;
+  bool ready_to_serve() const;
+  bool vready_to_serve(const uint64_t ts) const;
+  bool aready_to_serve(const uint64_t ts) const;
 
-  bool vready(const uint64_t ts) const;
   mmap_t vinit(const VideoFormat & format) const;
   mmap_t vdata(const VideoFormat & format, const uint64_t ts) const;
   const std::map<VideoFormat, mmap_t> & vdata(const uint64_t ts) const;
   double vssim(const VideoFormat & format, const uint64_t ts) const;
   const std::map<VideoFormat, double> & vssim(const uint64_t ts) const;
 
-  bool aready(const uint64_t ts) const;
   mmap_t ainit(const AudioFormat & format) const;
   mmap_t adata(const AudioFormat & format, const uint64_t ts) const;
   const std::map<AudioFormat, mmap_t> & adata(const uint64_t ts) const;
@@ -52,22 +52,17 @@ public:
 
   std::optional<uint64_t> init_vts() const;
   std::optional<uint64_t> init_ats() const;
-  uint64_t floor_vts(const uint64_t ts) const;
-  uint64_t floor_ats(const uint64_t ts) const;
-
-  bool is_valid_vts(const uint64_t ts) const { return ts % vduration_ == 0; }
-  bool is_valid_ats(const uint64_t ts) const { return ts % aduration_ == 0; }
 
   /* return the live edge that allow for presentation_delay_s */
   std::optional<uint64_t> live_edge() const;
 
   /* return the frontier of contigous range of ready chunks */
-  std::optional<uint64_t> vready_frontier() const { return vready_frontier_; }
-  std::optional<uint64_t> aready_frontier() const { return aready_frontier_; }
+  std::optional<uint64_t> vready_frontier() const;
+  std::optional<uint64_t> aready_frontier() const;
 
   /* return largest timestamps that have been cleaned */
-  std::optional<uint64_t> vclean_frontier() const { return vclean_frontier_; }
-  std::optional<uint64_t> aclean_frontier() const { return aclean_frontier_; }
+  std::optional<uint64_t> vclean_frontier() const;
+  std::optional<uint64_t> aclean_frontier() const;
 
 private:
   bool live_ {false};
@@ -100,6 +95,15 @@ private:
 
   /* configured only if live_ == false */
   std::optional<uint64_t> init_vts_ {};
+
+  bool vready(const uint64_t ts) const;
+  bool aready(const uint64_t ts) const;
+
+  uint64_t floor_vts(const uint64_t ts) const;
+  uint64_t floor_ats(const uint64_t ts) const;
+
+  bool is_valid_vts(const uint64_t ts) const { return ts % vduration_ == 0; }
+  bool is_valid_ats(const uint64_t ts) const { return ts % aduration_ == 0; }
 
   void do_mmap_video(const fs::path & filepath, const VideoFormat & vf);
   void munmap_video(const uint64_t ts);

@@ -99,9 +99,47 @@ uint64_t Channel::floor_ats(const uint64_t ts) const
   return (ts / aduration_) * aduration_;
 }
 
-bool Channel::ready() const
+bool Channel::ready_to_serve() const
 {
   return init_vts().has_value();
+}
+
+bool Channel::vready_to_serve(const uint64_t ts) const
+{
+  if (not is_valid_vts(ts)) {
+    return false;
+  }
+
+  if (live_) {
+    if (not vready_frontier_ or ts > *vready_frontier_) {
+      return false;
+    }
+  } else {
+    if (not vready(ts)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+bool Channel::aready_to_serve(const uint64_t ts) const
+{
+  if (not is_valid_ats(ts)) {
+    return false;
+  }
+
+  if (live_) {
+    if (not aready_frontier_ or ts > *aready_frontier_) {
+      return false;
+    }
+  } else {
+    if (not aready(ts)) {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 bool Channel::vready(const uint64_t ts) const
@@ -113,6 +151,16 @@ bool Channel::vready(const uint64_t ts) const
 
   auto it2 = vssim_.find(ts);
   if (it2 == vssim_.cend() or it2->second.size() != vformats_.size()) {
+    return false;
+  }
+
+  return true;
+}
+
+bool Channel::aready(const uint64_t ts) const
+{
+  auto it = adata_.find(ts);
+  if (it == adata_.cend() or it->second.size() != aformats_.size()) {
     return false;
   }
 
@@ -142,16 +190,6 @@ double Channel::vssim(const VideoFormat & format, const uint64_t ts) const
 const map<VideoFormat, double> & Channel::vssim(const uint64_t ts) const
 {
   return vssim_.at(ts);
-}
-
-bool Channel::aready(const uint64_t ts) const
-{
-  auto it = adata_.find(ts);
-  if (it == adata_.cend() or it->second.size() != aformats_.size()) {
-    return false;
-  }
-
-  return true;
 }
 
 mmap_t Channel::ainit(const AudioFormat & format) const
@@ -235,6 +273,8 @@ void Channel::munmap_audio(const uint64_t ts)
 
 optional<uint64_t> Channel::live_edge() const
 {
+  assert(live_);
+
   /* init files are not ready */
   if (vinit_.size() != vformats_.size() or
       ainit_.size() != aformats_.size()) {
@@ -263,6 +303,30 @@ optional<uint64_t> Channel::live_edge() const
   }
 
   return ready_frontier - delay_vts;
+}
+
+std::optional<uint64_t> Channel::vready_frontier() const
+{
+  assert(live_);
+  return vready_frontier_;
+}
+
+std::optional<uint64_t> Channel::aready_frontier() const
+{
+  assert(live_);
+  return aready_frontier_;
+}
+
+std::optional<uint64_t> Channel::vclean_frontier() const
+{
+  assert(live_);
+  return vclean_frontier_;
+}
+
+std::optional<uint64_t> Channel::aclean_frontier() const
+{
+  assert(live_);
+  return aclean_frontier_;
 }
 
 void Channel::update_vready_frontier(const uint64_t vts)

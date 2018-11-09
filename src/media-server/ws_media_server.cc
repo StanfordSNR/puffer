@@ -131,10 +131,9 @@ void reinit_log_data()
 void serve_video_to_client(WebSocketServer & server, WebSocketClient & client)
 {
   const auto & channel = client.channel();
-
   uint64_t next_vts = client.next_vts().value();
-  /* new chunk is not ready yet */
-  if (not channel->vready(next_vts)) {
+
+  if (not channel->vready_to_serve(next_vts)) {
     return;
   }
 
@@ -180,10 +179,9 @@ void serve_video_to_client(WebSocketServer & server, WebSocketClient & client)
 void serve_audio_to_client(WebSocketServer & server, WebSocketClient & client)
 {
   const auto & channel = client.channel();
-
   uint64_t next_ats = client.next_ats().value();
-  /* new chunk is not ready yet */
-  if (not channel->aready(next_ats)) {
+
+  if (not channel->aready_to_serve(next_ats)) {
     return;
   }
 
@@ -247,7 +245,7 @@ void serve_client(WebSocketServer & server, WebSocketClient & client)
 {
   const auto & channel = client.channel();
 
-  if (not channel->ready()) {
+  if (not channel->ready_to_serve()) {
     cerr << client.signature()
          << ": cannot serve because channel is not available anymore" << endl;
     return;
@@ -403,32 +401,10 @@ bool resume_connection(WebSocketServer & server,
   uint64_t requested_vts = *msg.next_vts;
   uint64_t requested_ats = *msg.next_ats;
 
-  /* check if the requested timestamps are valid */
-  if (not channel->is_valid_vts(requested_vts) or
-      not channel->is_valid_ats(requested_ats)) {
+  /* check if the requested timestamps are ready to serve */
+  if (not channel->vready_to_serve(requested_vts) or
+      not channel->aready_to_serve(requested_ats)) {
     return false;
-  }
-
-  if (channel->live()) {
-    /* don't resume if the requested video is already behind the live edge */
-    if (not channel->live_edge() or
-        requested_vts < channel->live_edge().value()) {
-      return false;
-    }
-
-    /* don't resume if the requested chunks are not ready */
-    if (not channel->vready_frontier() or
-        requested_vts > *channel->vready_frontier() or
-        not channel->aready_frontier() or
-        requested_ats > *channel->aready_frontier()) {
-      return false;
-    }
-  } else {
-    /* don't resume if the requested chunks are not ready */
-    if (not channel->vready(requested_vts) or
-        not channel->aready(requested_ats)) {
-      return false;
-    }
   }
 
   /* reinitialize the client */
@@ -473,7 +449,7 @@ void handle_client_init(WebSocketServer & server, WebSocketClient & client,
   const auto & channel = it->second;
 
   /* ignore client-init if the channel is not ready */
-  if (not channel->ready()) {
+  if (not channel->ready_to_serve()) {
     cerr << client.signature()
          << ": ignored client-init (channel is not ready)" << endl;
     return;
