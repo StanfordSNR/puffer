@@ -16,6 +16,7 @@
 #include <pqxx/pqxx>
 #include "yaml-cpp/yaml.h"
 #include "util.hh"
+#include "strict_conversions.hh"
 #include "timestamp.hh"
 #include "media_formats.hh"
 #include "inotify.hh"
@@ -35,8 +36,6 @@ using WebSocketServer = WebSocketTCPServer;
 #else
 using WebSocketServer = WebSocketSecureServer;
 #endif
-
-static bool debug = false;
 
 /* global settings */
 static const size_t MAX_WS_FRAME_B = 100 * 1024;  /* 10 KB */
@@ -59,7 +58,7 @@ static time_t last_minute = 0;
 
 void print_usage(const string & program_name)
 {
-  cerr << program_name << " <YAML configuration> <server ID> [debug]" << endl;
+  cerr << program_name << " <YAML configuration> <server ID>" << endl;
 }
 
 /* return "connection_id,username" or "connection_id," (unknown username) */
@@ -105,13 +104,13 @@ void append_to_log(const string & log_stem, const string & log_line)
   }
 }
 
-void append_log_rebuffer_rate(uint64_t cur_time)
+void append_log_rebuffer_rate(uint64_t curr_time)
 {
   double rebuffer_rate = 0;
   if (clients.size() > 0) {
     rebuffer_rate = (double) log_rebuffer_num / clients.size();
   }
-  string log_line = to_string(cur_time) + " " + to_string(rebuffer_rate);
+  string log_line = to_string(curr_time) + " " + to_string(rebuffer_rate);
   append_to_log("rebuffer_rate", log_line);
 }
 
@@ -392,22 +391,27 @@ void send_server_init(WebSocketServer & server, WebSocketClient & client,
 }
 
 bool resume_connection(WebSocketServer & server, WebSocketClient & client,
-                       const ClientInitMsg & msg,
-                       const shared_ptr<Channel> & channel)
+                       const ClientInitMsg & msg)
 {
   /* don't resume a connection if client is requesting a different channel */
-  if (client.channel() != channel) {
+  const auto & channel = client.channel();
+  if (not channel or channel->name() != msg.channel) {
     return false;
   }
+
+  /* check if requested timestamps exist */
+  if (not msg.next_vts or not msg.next_ats) {
+    return false;
+  }
+
+  uint64_t requested_vts = *msg.next_vts;
+  uint64_t requested_ats = *msg.next_ats;
 
   /* check if the requested timestamps are valid */
-  if (not (msg.next_vts and channel->is_valid_vts(msg.next_vts.value()) and
-           msg.next_ats and channel->is_valid_ats(msg.next_ats.value()))) {
+  if (not channel->is_valid_vts(requested_vts) or
+      not channel->is_valid_ats(requested_ats)) {
     return false;
   }
-
-  uint64_t requested_vts = msg.next_vts.value();
-  uint64_t requested_ats = msg.next_ats.value();
 
   if (channel->live()) {
     /* don't resume if the requested video is already behind the live edge */
@@ -425,8 +429,8 @@ bool resume_connection(WebSocketServer & server, WebSocketClient & client,
     }
   } else {
     /* don't resume if the requested chunks are not ready */
-    if (not (channel->vready(requested_vts) and
-             channel->aready(requested_ats))) {
+    if (not channel->vready(requested_vts) or
+        not channel->aready(requested_ats)) {
       return false;
     }
   }
@@ -459,6 +463,9 @@ void update_screen_size(WebSocketClient & client,
 void handle_client_init(WebSocketServer & server, WebSocketClient & client,
                         const ClientInitMsg & msg)
 {
+  /* always set client's init_id when a client-init is received */
+  client.set_init_id(msg.init_id);
+
   /* ignore invalid channel request */
   auto it = channels.find(msg.channel);
   if (it == channels.end()) {
@@ -477,7 +484,7 @@ void handle_client_init(WebSocketServer & server, WebSocketClient & client,
   }
 
   /* check if the streaming can be resumed */
-  if (resume_connection(server, client, msg, channel)) {
+  if (resume_connection(server, client, msg)) {
     return;
   }
 
@@ -498,96 +505,116 @@ void handle_client_init(WebSocketServer & server, WebSocketClient & client,
 
 void handle_client_info(WebSocketClient & client, const ClientInfoMsg & msg)
 {
-  /* ignore client messages with old ID (init_id) */
   if (msg.init_id != client.init_id()) {
+    cerr << client.signature() << ": warning: ignored messages with "
+         << "invalid init_id (but should not have received)" << endl;
     return;
   }
 
-  client.set_audio_playback_buf(msg.audio_buffer_len);
   client.set_video_playback_buf(msg.video_buffer_len);
+  client.set_audio_playback_buf(msg.audio_buffer_len);
 
   /* check if client's screen size has changed */
-  update_screen_size(client, msg.screen_height, msg.screen_width);
-
-  uint64_t cur_time = time(nullptr);
-
-  if (msg.event == ClientInfoMsg::PlayerEvent::Timer or
-      msg.event == ClientInfoMsg::PlayerEvent::Rebuffer or
-      msg.event == ClientInfoMsg::PlayerEvent::CanPlay) {
-    /* convert video playback buffer to string (%.1f) */
-    double vbuf_len = min(max(msg.video_buffer_len, 0.0), 99.0);
-    const size_t buf_size = 5;
-    char buf[buf_size];
-    int n = snprintf(buf, buf_size, "%.1f", vbuf_len);
-    if (n < 0 or n >= static_cast<int>(buf_size)) {
-      cerr << "Warning in recording video playback buffer: error occurred or "
-           << "the converted string is truncated" << endl;
-      return;
-    }
-
-    /* record playback buffer occupancy */
-    string log_line = to_string(cur_time) + " " + client.username() + " "
-        + client.channel()->name() + " "
-        + to_string(static_cast<int>(msg.event)) + " " + buf;
-    append_to_log("playback_buffer", log_line);
-  } else if (msg.event == ClientInfoMsg::PlayerEvent::VideoAck) {
-    /* VideoAck for the last segment */
-    if (*msg.byte_offset + *msg.received_bytes == *msg.total_byte_length) {
-      client.set_client_next_vts(msg.next_video_timestamp);
-
-      /* record transmission time */
-      if (client.last_video_send_ts()) {
-        uint64_t trans_time = timestamp_ms() - *client.last_video_send_ts();
-        /* notify the ABR algorithm that a video chunk is acked */
-        client.video_chunk_acked(client.curr_vq().value(), *msg.ssim,
-                                 *msg.total_byte_length, trans_time);
-        client.reset_last_video_send_ts();
-      } else {
-        cerr << client.signature() << ": error: server didn't send video but "
-             << "received VideoAck" << endl;
-        return;
-      }
-
-      /* record video quality */
-      string log_line = to_string(cur_time) + " " + client.username() + " "
-          + client.channel()->name() + " " + to_string(*msg.timestamp) + " "
-          + *msg.quality + " " + to_string(*msg.ssim);
-      append_to_log("video_quality", log_line);
-    }
-
-    /* get current throughput (measured in kpbs) of the client */
-    if (*msg.receiving_time_ms > 0 and *msg.receiving_time_ms < 3000) {
-      client.set_curr_tput(*msg.received_bytes * 8.0 / *msg.receiving_time_ms);
-    }
-  } else if (msg.event == ClientInfoMsg::PlayerEvent::AudioAck) {
-    /* AudioAck for the last segment */
-    if (*msg.byte_offset + *msg.received_bytes == *msg.total_byte_length) {
-      client.set_client_next_ats(msg.next_audio_timestamp);
-    }
+  if (msg.screen_height and msg.screen_width) {
+    update_screen_size(client, *msg.screen_height, *msg.screen_width);
   }
 
-  /* record rebuffer event and rebuffer rate */
-  if (msg.event == ClientInfoMsg::PlayerEvent::Rebuffer or
-      msg.event == ClientInfoMsg::PlayerEvent::CanPlay) {
-    if (msg.event == ClientInfoMsg::PlayerEvent::Rebuffer) {
-      string log_line = to_string(cur_time) + " " + client.username() + " "
-                        + client.channel()->name();
-      append_to_log("rebuffer_event", log_line);
-    }
+  uint64_t curr_time = time(nullptr);
 
-    if (not client.is_rebuffering() and
-        msg.event == ClientInfoMsg::PlayerEvent::Rebuffer) {
-      log_rebuffer_num++;
-      client.set_rebuffering(true);
-      append_log_rebuffer_rate(cur_time);
-    }
-    if (client.is_rebuffering() and
-        msg.event == ClientInfoMsg::PlayerEvent::CanPlay) {
-      log_rebuffer_num--;
-      client.set_rebuffering(false);
-      append_log_rebuffer_rate(cur_time);
-    }
+  /* convert video playback buffer to string (%.1f) */
+  double vbuf_len = max(msg.video_buffer_len, 0.0);
+  string vbuf_len_str = double_to_string(vbuf_len, 1);
+
+  /* record playback buffer levels */
+  string log_line = to_string(curr_time) + " " + client.username() + " "
+      + client.channel()->name() + " " + msg.event_str + " " + vbuf_len_str;
+  append_to_log("playback_buffer", log_line);
+
+  /* record rebuffer events */
+  if (msg.event == ClientInfoMsg::Event::Rebuffer) {
+    string log_line = to_string(curr_time) + " " + client.username() + " "
+                      + client.channel()->name();
+    append_to_log("rebuffer_event", log_line);
   }
+
+  /* record rebuffer rates (TODO: still has flaws) */
+  if (not client.is_rebuffering() and
+      msg.event == ClientInfoMsg::Event::Rebuffer) {
+    log_rebuffer_num++;
+    client.set_rebuffering(true);
+    append_log_rebuffer_rate(curr_time);
+  }
+
+  if (client.is_rebuffering() and
+      msg.event == ClientInfoMsg::Event::CanPlay) {
+    log_rebuffer_num--;
+    client.set_rebuffering(false);
+    append_log_rebuffer_rate(curr_time);
+  }
+}
+
+void handle_client_video_ack(WebSocketClient & client,
+                             const ClientVidAckMsg & msg)
+{
+  if (msg.init_id != client.init_id()) {
+    cerr << client.signature() << ": warning: ignored messages with "
+         << "invalid init_id (but should not have received)" << endl;
+    return;
+  }
+
+  uint64_t curr_time = time(nullptr);
+
+  client.set_video_playback_buf(msg.video_buffer_len);
+  client.set_audio_playback_buf(msg.audio_buffer_len);
+
+  /* only interested in the event when the last segment is acked */
+  if (msg.byte_offset + msg.byte_length != msg.total_byte_length) {
+    return;
+  }
+
+  /* allow sending another chunk */
+  client.set_client_next_vts(msg.timestamp + client.channel()->vduration());
+
+  /* record transmission time */
+  if (client.last_video_send_ts()) {
+    uint64_t trans_time = timestamp_ms() - *client.last_video_send_ts();
+
+    /* notify the ABR algorithm that a video chunk is acked */
+    client.video_chunk_acked(msg.video_format, msg.ssim,
+                             msg.total_byte_length, trans_time);
+    client.reset_last_video_send_ts();
+  } else {
+    cerr << client.signature() << ": error: server didn't send video but "
+         << "received VideoAck" << endl;
+    return;
+  }
+
+  /* record video quality */
+  string log_line = to_string(curr_time) + " " + client.username() + " "
+      + msg.channel + " " + to_string(msg.timestamp) + " "
+      + msg.quality + " " + double_to_string(msg.ssim, 2);
+  append_to_log("video_quality", log_line);
+}
+
+void handle_client_audio_ack(WebSocketClient & client,
+                             const ClientAudAckMsg & msg)
+{
+  if (msg.init_id != client.init_id()) {
+    cerr << client.signature() << ": warning: ignored messages with "
+         << "invalid init_id (but should not have received)" << endl;
+    return;
+  }
+
+  client.set_video_playback_buf(msg.video_buffer_len);
+  client.set_audio_playback_buf(msg.audio_buffer_len);
+
+  /* only interested in the event when the last segment is acked */
+  if (msg.byte_offset + msg.byte_length != msg.total_byte_length) {
+    return;
+  }
+
+  /* allow sending another chunk */
+  client.set_client_next_ats(msg.timestamp + client.channel()->aduration());
 }
 
 void load_channels(const YAML::Node & config, Inotify & inotify)
@@ -641,13 +668,9 @@ int main(int argc, char * argv[])
     abort();
   }
 
-  if (argc != 3 and argc != 4) {
+  if (argc != 3) {
     print_usage(argv[0]);
     return EXIT_FAILURE;
-  }
-
-  if (argc == 4 and string(argv[3]) == "debug") {
-    debug = true;
   }
 
   /* obtain and validate server ID */
@@ -715,33 +738,29 @@ int main(int argc, char * argv[])
 
   /* set server callbacks */
   server.set_message_callback(
-    [&server, &db_work](const uint64_t connection_id, const WSMessage & msg)
+    [&server, &db_work](const uint64_t connection_id, const WSMessage & ws_msg)
     {
       try {
-        if (debug) {
-          cerr << connection_id << ": message " << msg.payload() << endl;
-        }
-
         WebSocketClient & client = clients.at(connection_id);
-        ClientMsgParser parser(msg.payload());
         client.set_last_msg_time(time(nullptr));
 
-        if (parser.msg_type() == ClientMsgParser::Type::Init) {
-          const ClientInitMsg & init_msg = parser.parse_init_msg();
+        ClientMsgParser msg_parser(ws_msg.payload());
+        if (msg_parser.msg_type() == ClientMsgParser::Type::Init) {
+          ClientInitMsg msg = msg_parser.parse_client_init();
 
           /* authenticate user */
           if (not client.is_authenticated()) {
-            if (auth_client(init_msg.session_key, db_work)) {
+            if (auth_client(msg.session_key, db_work)) {
               client.set_authenticated(true);
 
               /* set client's username and IP */
-              client.set_session_key(init_msg.session_key);
-              client.set_username(init_msg.username);
+              client.set_session_key(msg.session_key);
+              client.set_username(msg.username);
               client.set_address(server.peer_addr(connection_id));
 
-              /* set client's browser and system info */
-              client.set_browser(init_msg.browser);
-              client.set_os(init_msg.os);
+              /* set client's system info (OS and browser) */
+              client.set_os(msg.os);
+              client.set_browser(msg.browser);
 
               cerr << connection_id << ": authentication succeeded" << endl;
               cerr << client.signature() << ": " << client.browser() << " on "
@@ -753,7 +772,7 @@ int main(int argc, char * argv[])
             }
           }
 
-          handle_client_init(server, client, init_msg);
+          handle_client_init(server, client, msg);
         } else {
           /* parse a message other than client-init only if user is authed */
           if (not client.is_authenticated()) {
@@ -763,8 +782,18 @@ int main(int argc, char * argv[])
             return;
           }
 
-          if (parser.msg_type() == ClientMsgParser::Type::Info) {
-            handle_client_info(client, parser.parse_info_msg());
+          switch (msg_parser.msg_type()) {
+          case ClientMsgParser::Type::Info:
+            handle_client_info(client, msg_parser.parse_client_info());
+            break;
+          case ClientMsgParser::Type::VideoAck:
+            handle_client_video_ack(client, msg_parser.parse_client_vidack());
+            break;
+          case ClientMsgParser::Type::AudioAck:
+            handle_client_audio_ack(client, msg_parser.parse_client_audack());
+            break;
+          default:
+            throw runtime_error("invalid client message");
           }
         }
       } catch (const exception & e) {

@@ -16,8 +16,6 @@ WebSocketClient::WebSocketClient(const uint64_t connection_id,
 void WebSocketClient::init(const shared_ptr<Channel> & channel,
                            const uint64_t init_vts, const uint64_t init_ats)
 {
-  init_id_++;
-
   channel_ = channel;
   next_vts_ = init_vts;
   next_ats_ = init_ats;
@@ -32,7 +30,6 @@ void WebSocketClient::init(const shared_ptr<Channel> & channel,
   client_next_ats_ = init_ats;
 
   rebuffering_ = false;
-
   last_video_send_ts_.reset();
 
   /* reset the ABR algorithm if WebSocketClient is (re)inited */

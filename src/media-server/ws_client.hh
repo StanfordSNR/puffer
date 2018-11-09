@@ -33,8 +33,8 @@ public:
 
   /* accessors */
   uint64_t connection_id() const { return connection_id_; }
-  unsigned int init_id() const { return init_id_; }
 
+  unsigned int init_id() const { return init_id_; }
   bool is_authenticated() const { return authenticated_; }
   std::string session_key() const { return session_key_; }
   std::string username() const { return username_; }
@@ -69,13 +69,13 @@ public:
   std::optional<AudioFormat> curr_aq() const { return curr_aq_; }
 
   bool is_rebuffering() const { return rebuffering_; }
-  std::optional<double> curr_tput() const { return curr_tput_; }
 
   std::optional<time_t> get_last_msg_time() const { return last_msg_time_; }
 
   std::optional<uint64_t> last_video_send_ts() const { return last_video_send_ts_; }
 
   /* mutators */
+  void set_init_id(const unsigned int init_id) { init_id_ = init_id; }
   void set_authenticated(const bool authenticated) { authenticated_ = authenticated; }
   void set_session_key(const std::string & session_key) { session_key_ = session_key; }
   void set_username(const std::string & username) { username_ = username; }
@@ -101,8 +101,6 @@ public:
   void set_curr_aq(const AudioFormat & quality) { curr_aq_ = quality; }
 
   void set_rebuffering(const bool rebuffering) { rebuffering_ = rebuffering; }
-  void set_curr_tput(const double curr_tput) { curr_tput_ = curr_tput; }
-
   void set_last_msg_time(const time_t t) { last_msg_time_ = t; }
 
   void reset_last_video_send_ts() { last_video_send_ts_.reset(); }
@@ -129,7 +127,7 @@ private:
   /* WebSocketClient has no interest in managing the ownership of channel */
   std::weak_ptr<Channel> channel_;
 
-  /* incremented every time a new client-init received */
+  /* set to the init_id in the most recently received client-init */
   unsigned int init_id_ {0};
 
   bool authenticated_ {false};
@@ -162,8 +160,6 @@ private:
   std::optional<uint64_t> client_next_ats_ {};
 
   bool rebuffering_ {false};
-  std::optional<double> curr_tput_ {};
-
   std::optional<time_t> last_msg_time_ {};
 
   /* sending time of last video chunk */
