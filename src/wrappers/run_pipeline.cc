@@ -166,7 +166,7 @@ void run_audio_encoder(ProcessManager & proc_manager,
 
   vector<string> args {
     notifier, src_dir, ".wav", "--check", dst_dir, ".webm", "--tmp", tmp_dir,
-    "--exec", audio_encoder, "-b", to_string(af.bitrate) };
+    "--exec", audio_encoder, "-b", af.to_string() };
   proc_manager.run_as_child(notifier, args);
 }
 
