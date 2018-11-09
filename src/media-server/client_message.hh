@@ -7,7 +7,9 @@
 #include <exception>
 #include <memory>
 
+#include "media_formats.hh"
 #include "json.hpp"
+
 using json = nlohmann::json;
 
 class ClientMsg
@@ -24,12 +26,13 @@ public:
 
   unsigned int init_id {};
 
+  /* channel requested by the client to play
+   * init_id and channel have a one-to-one mapping */
+  std::string channel {};
+
   /* authentication */
   std::string session_key {};
   std::string username {};
-
-  /* channel requested by the client to play */
-  std::string channel {};
 
   /* client OS, browser and screen information */
   std::string os {};
@@ -57,6 +60,7 @@ public:
   unsigned int init_id {};
 
   Event event {};
+  std::string event_str {};
   double video_buffer_len {};
   double audio_buffer_len {};
 
@@ -91,12 +95,17 @@ class ClientVidAckMsg : public ClientAckMsg
 {
 public:
   ClientVidAckMsg(const json & msg);
+
+  double ssim {};
+  VideoFormat video_format;
 };
 
 class ClientAudAckMsg : public ClientAckMsg
 {
 public:
   ClientAudAckMsg(const json & msg);
+
+  AudioFormat audio_format;
 };
 
 class ClientMsgParser

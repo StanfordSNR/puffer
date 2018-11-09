@@ -463,7 +463,11 @@ function WebSocketClient(session_key, username, sysinfo) {
     /* read the length of data_to_ack */
     msg.byteLength = data_to_ack.byteLength;
 
-    if (ack_type == 'client-vidack' || ack_type == 'client-audack') {
+    if (ack_type == 'client-vidack') {
+      msg.ssim = data_to_ack.ssim;
+
+      ws.send(format_client_msg(ack_type, msg));
+    } else if (ack_type == 'client-audack') {
       ws.send(format_client_msg(ack_type, msg));
     } else {
       console.log('invalid ack type:', ack_type);
@@ -558,6 +562,7 @@ function WebSocketClient(session_key, username, sysinfo) {
 
         setTimeout(function() {
           if (av_source) {
+            /* Try to resume the connection */
             that.connect(av_source.getChannel());
           } else {
             that.connect(channel);

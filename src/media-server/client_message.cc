@@ -1,17 +1,14 @@
 #include "client_message.hh"
 
-#include <cassert>
-
 using namespace std;
 
 ClientInitMsg::ClientInitMsg(const json & msg)
 {
   init_id = msg.at("initId").get<unsigned int>();
+  channel = msg.at("channel").get<string>();
 
   session_key = msg.at("sessionKey").get<string>();
   username = msg.at("userName").get<string>();
-
-  channel = msg.at("channel").get<string>();
 
   os = msg.at("os").get<string>();
   browser = msg.at("browser").get<string>();
@@ -34,7 +31,7 @@ ClientInfoMsg::ClientInfoMsg(const json & msg)
 {
   init_id = msg.at("initId").get<unsigned int>();
 
-  const string & event_str = msg.at("event").get<string>();
+  event_str = msg.at("event").get<string>();
   if (event_str == "timer") {
     event = ClientInfoMsg::Event::Timer;
   } else if (event_str == "rebuffer") {
@@ -76,11 +73,13 @@ ClientAckMsg::ClientAckMsg(const json & msg)
 }
 
 ClientVidAckMsg::ClientVidAckMsg(const json & msg)
-  : ClientAckMsg(msg)
-{}
+  : ClientAckMsg(msg), video_format(quality)
+{
+  ssim = msg.at("ssim").get<double>();
+}
 
 ClientAudAckMsg::ClientAudAckMsg(const json & msg)
-  : ClientAckMsg(msg)
+  : ClientAckMsg(msg), audio_format(quality)
 {}
 
 ClientMsgParser::ClientMsgParser(const string & data)
