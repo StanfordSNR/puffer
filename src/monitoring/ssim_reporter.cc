@@ -37,7 +37,8 @@ void parse_target_directory(const string & target_dir)
       }
 
       string ssim_dir_name = ssim_dir.path().filename();
-      if (ssim_dir_name.substr(ssim_dir_name.size() - 4) == "ssim") {
+      if (ssim_dir_name.size() >= 5 and /* at least ending with "-ssim" */
+          ssim_dir_name.substr(ssim_dir_name.size() - 4) == "ssim") {
         string video_format = ssim_dir_name.substr(0, ssim_dir_name.size() - 5);
 
         dirmap[channel_name][video_format] = ssim_dir.path();
