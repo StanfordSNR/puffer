@@ -84,7 +84,13 @@ void MPC::reinit()
   }
 
   /* init curr_ssims */
-  for (size_t i = 0; i <= lookahead_horizon_; i++) {
+  if (past_chunks_.size() > 0) {
+    curr_ssims_[0][curr_format_] = past_chunks_.back().ssim;
+  } else {
+    curr_ssims_[0][curr_format_] = 0;
+  }
+
+  for (size_t i = 1; i <= lookahead_horizon_; i++) {
     for (size_t j = 0; j < num_formats_; j++) {
       curr_ssims_[i][j] = channel->vssim(vformats[j], curr_ts + vduration * i);
     }
