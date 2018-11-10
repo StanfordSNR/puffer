@@ -57,12 +57,23 @@ Channel::Channel(const string & name, const YAML::Node & config,
 
   if (not live_) {
     /* set init_vts_ to be the first ready timestamp */
-    if (vdata_.cbegin() != vdata_.cend()) {
-      uint64_t oldest_vts = vdata_.cbegin()->first;
-      uint64_t oldest_ats = floor_ats(oldest_vts);
+    if (vready_frontier_ and aready_frontier_) {
+      uint64_t old_vts = vdata_.cbegin()->first;
+      uint64_t old_ats = floor_ats(old_vts);
 
-      if (not vready(oldest_vts) or not aready(oldest_ats)) {
-        throw runtime_error("VoD streaming is not ready");
+      /* check all the videos and audios are ready before ready frontiers */
+      while (old_vts <= *vready_frontier_) {
+        if (not vready(old_vts)) {
+          throw runtime_error("VoD streaming is not ready");
+        }
+        old_vts += vduration_;
+      }
+
+      while (old_ats <= *aready_frontier_) {
+        if (not aready(old_ats)) {
+          throw runtime_error("VoD streaming is not ready");
+        }
+        old_ats += aduration_;
       }
 
       init_vts_ = vdata_.cbegin()->first;
@@ -106,40 +117,20 @@ bool Channel::ready_to_serve() const
 
 bool Channel::vready_to_serve(const uint64_t ts) const
 {
-  if (not is_valid_vts(ts)) {
-    return false;
+  if (is_valid_vts(ts) and vready_frontier_ and ts <= *vready_frontier_) {
+    return true;
   }
 
-  if (live_) {
-    if (not vready_frontier_ or ts > *vready_frontier_) {
-      return false;
-    }
-  } else {
-    if (not vready(ts)) {
-      return false;
-    }
-  }
-
-  return true;
+  return false;
 }
 
 bool Channel::aready_to_serve(const uint64_t ts) const
 {
-  if (not is_valid_ats(ts)) {
-    return false;
+  if (is_valid_ats(ts) and aready_frontier_ and ts <= *aready_frontier_) {
+    return true;
   }
 
-  if (live_) {
-    if (not aready_frontier_ or ts > *aready_frontier_) {
-      return false;
-    }
-  } else {
-    if (not aready(ts)) {
-      return false;
-    }
-  }
-
-  return true;
+  return false;
 }
 
 bool Channel::vready(const uint64_t ts) const
@@ -305,18 +296,6 @@ optional<uint64_t> Channel::live_edge() const
   return ready_frontier - delay_vts;
 }
 
-std::optional<uint64_t> Channel::vready_frontier() const
-{
-  assert(live_);
-  return vready_frontier_;
-}
-
-std::optional<uint64_t> Channel::aready_frontier() const
-{
-  assert(live_);
-  return aready_frontier_;
-}
-
 std::optional<uint64_t> Channel::vclean_frontier() const
 {
   assert(live_);
@@ -379,12 +358,10 @@ void Channel::do_mmap_video(const fs::path & filepath, const VideoFormat & vf)
       uint64_t ts = stoull(filestem);
       vdata_[ts][vf] = data_size;
 
-      if (live_) {
-        update_vready_frontier(ts);
+      update_vready_frontier(ts);
 
-        if (vready_frontier_) {
-          munmap_video(*vready_frontier_);
-        }
+      if (live_ and vready_frontier_) {
+        munmap_video(*vready_frontier_);
       }
     }
   }
@@ -434,12 +411,10 @@ void Channel::do_mmap_audio(const fs::path & filepath, const AudioFormat & af)
       uint64_t ts = stoull(filestem);
       adata_[ts][af] = data_size;
 
-      if (live_) {
-        update_aready_frontier(ts);
+      update_aready_frontier(ts);
 
-        if (aready_frontier_) {
-          munmap_audio(*aready_frontier_);
-        }
+      if (live_ and aready_frontier_) {
+        munmap_audio(*aready_frontier_);
       }
     }
   }
@@ -493,9 +468,7 @@ void Channel::do_read_ssim(const fs::path & filepath, const VideoFormat & vf) {
       vssim_[ts][vf] = -1;
     }
 
-    if (live_) {
-      update_vready_frontier(ts);
-    }
+    update_vready_frontier(ts);
   }
 }
 

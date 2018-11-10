@@ -57,8 +57,8 @@ public:
   std::optional<uint64_t> live_edge() const;
 
   /* return the frontier of contigous range of ready chunks */
-  std::optional<uint64_t> vready_frontier() const;
-  std::optional<uint64_t> aready_frontier() const;
+  std::optional<uint64_t> vready_frontier() const { return vready_frontier_; }
+  std::optional<uint64_t> aready_frontier() const { return aready_frontier_; }
 
   /* return largest timestamps that have been cleaned */
   std::optional<uint64_t> vclean_frontier() const;
