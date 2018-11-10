@@ -3,7 +3,7 @@
 
 using namespace std;
 
-static const double HIGH_SENDING_TIME = 10;
+static const double HIGH_SENDING_TIME = 10000;
 
 MPC::MPC(const WebSocketClient & client,
          const string & abr_name, const YAML::Node & abr_config)
@@ -92,7 +92,13 @@ void MPC::reinit()
 
   for (size_t i = 1; i <= lookahead_horizon_; i++) {
     for (size_t j = 0; j < num_formats_; j++) {
-      curr_ssims_[i][j] = channel->vssim(vformats[j], curr_ts + vduration * i);
+      try {
+        curr_ssims_[i][j] = channel->vssim(vformats[j], curr_ts + vduration * i);
+      } catch (const exception & e) {
+        cerr << "Error occurs when getting the ssim of "
+             << curr_ts + vduration * i << " " << vformats[j] << endl;
+        curr_ssims_[i][j] = 0;
+      }
     }
   }
 
@@ -120,8 +126,14 @@ void MPC::reinit()
     const auto & data_map = channel->vdata(curr_ts + vduration * i);
 
     for (size_t j = 0; j < num_formats_; j++) {
-      curr_sending_time_[i][j] = get<1>(data_map.at(vformats[j]))
-                                 * unit_sending_time_[i + num_past_chunks];
+      try {
+        curr_sending_time_[i][j] = get<1>(data_map.at(vformats[j]))
+                                   * unit_sending_time_[i + num_past_chunks];
+      } catch (const exception & e) {
+        cerr << "Error occurs when getting the video size of "
+             << curr_ts + vduration * i << " " << vformats[j] << endl;
+        curr_sending_time_[i][j] = HIGH_SENDING_TIME;
+      }
     }
   }
 }
