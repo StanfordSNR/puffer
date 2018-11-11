@@ -17,14 +17,13 @@ static const string DEFAULT_AUDIO_CODEC = "audio/webm; codecs=\"opus\"";
 static const unsigned int DEFAULT_PRESENT_DELAY_CHUNK = 10;  // 10 chunks
 static const unsigned int PRESENT_CLEAN_DIFF = 10;  // 10 chunks
 
-Channel::Channel(const string & name, const YAML::Node & config,
-                 Inotify & inotify)
+Channel::Channel(const string & name, const fs::path & media_dir,
+                 const YAML::Node & config, Inotify & inotify)
 {
   live_ = config["live"].as<bool>();
   name_ = name;
 
-  string input_dir = config["input"].as<string>();
-  input_path_ = fs::path(input_dir);
+  input_path_ = media_dir / name;
 
   vformats_ = get_video_formats(config);
   aformats_ = get_audio_formats(config);

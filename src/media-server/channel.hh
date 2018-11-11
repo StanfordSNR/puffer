@@ -17,8 +17,8 @@ using mmap_t = std::tuple<std::shared_ptr<char>, size_t>;
 class Channel
 {
 public:
-  Channel(const std::string & name, const YAML::Node & config,
-          Inotify & inotify);
+  Channel(const std::string & name, const fs::path & media_dir,
+          const YAML::Node & config, Inotify & inotify);
 
   bool live() const { return live_; }
   std::string name() const { return name_; }
