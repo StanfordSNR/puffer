@@ -2,6 +2,7 @@
 #include <string>
 #include <vector>
 #include <tuple>
+#include <set>
 
 #include "filesystem.hh"
 #include "path.hh"
@@ -12,13 +13,9 @@ using namespace std;
 
 static const uint32_t global_timescale = 90000;
 
-static fs::path output_path;
 static fs::path src_path;
+static fs::path media_dir;
 static string notifier;
-
-/* tuple<directory, extension> */
-static vector<tuple<string, string>> vwork, awork;
-static vector<tuple<string, string>> vready, aready;
 
 void print_usage(const string & program_name)
 {
@@ -27,26 +24,9 @@ void print_usage(const string & program_name)
   << endl;
 }
 
-YAML::Node load_yaml(const string & yaml_path)
-{
-  YAML::Node config = YAML::LoadFile(yaml_path);
-
-  if (not config["output"]) {
-    throw runtime_error("invalid YAML: output is not present");
-  }
-
-  if (not config["video"]) {
-    throw runtime_error("invalid YAML: video is not present");
-  }
-
-  if (not config["audio"]) {
-    throw runtime_error("invalid YAML: audio is not present");
-  }
-
-  return config;
-}
-
-void run_video_canonicalizer(ProcessManager & proc_manager)
+void run_video_canonicalizer(ProcessManager & proc_manager,
+                             const fs::path & output_path,
+                             vector<tuple<string, string>> & vwork)
 {
   /* prepare directories */
   string src_dir = output_path / "working/video-raw";
@@ -69,6 +49,8 @@ void run_video_canonicalizer(ProcessManager & proc_manager)
 }
 
 void run_video_encoder(ProcessManager & proc_manager,
+                       const fs::path & output_path,
+                       vector<tuple<string, string>> & vwork,
                        const VideoFormat & vf)
 {
   /* prepare directories */
@@ -94,6 +76,8 @@ void run_video_encoder(ProcessManager & proc_manager,
 }
 
 void run_video_fragmenter(ProcessManager & proc_manager,
+                          const fs::path & output_path,
+                          vector<tuple<string, string>> & vready,
                           const VideoFormat & vf)
 {
   /* prepare directories */
@@ -120,6 +104,8 @@ void run_video_fragmenter(ProcessManager & proc_manager,
 }
 
 void run_ssim_calculator(ProcessManager & proc_manager,
+                         const fs::path & output_path,
+                         vector<tuple<string, string>> & vready,
                          const VideoFormat & vf)
 {
   /* prepare directories */
@@ -146,6 +132,8 @@ void run_ssim_calculator(ProcessManager & proc_manager,
 }
 
 void run_audio_encoder(ProcessManager & proc_manager,
+                       const fs::path & output_path,
+                       vector<tuple<string, string>> & awork,
                        const AudioFormat & af)
 {
   /* prepare directories */
@@ -171,6 +159,8 @@ void run_audio_encoder(ProcessManager & proc_manager,
 }
 
 void run_audio_fragmenter(ProcessManager & proc_manager,
+                          const fs::path & output_path,
+                          vector<tuple<string, string>> & aready,
                           const AudioFormat & af)
 {
   /* prepare directories */
@@ -241,63 +231,44 @@ void run_windowcleaner(ProcessManager & proc_manager,
   }
 }
 
-int main(int argc, char * argv[])
+void run_pipeline(ProcessManager & proc_manager,
+                  const string & channel_name,
+                  const YAML::Node & config)
 {
-  if (argc < 1) {
-    abort();
-  }
-
-  if (argc != 2) {
-    print_usage(argv[0]);
-    return EXIT_FAILURE;
-  }
-
-  /* load YAML configuration */
-  YAML::Node config = load_yaml(argv[1]);
   vector<VideoFormat> vformats = get_video_formats(config);
   vector<AudioFormat> aformats = get_audio_formats(config);
 
-  /* create output directory */
-  output_path = config["output"].as<string>();
+  /* tuple<directory, extension> */
+  vector<tuple<string, string>> vwork, awork;
+  vector<tuple<string, string>> vready, aready;
 
+  fs::path output_path = media_dir / channel_name;
   if (fs::exists(output_path)) {
-    /* clean up output_dir if overwrite_output is true */
-    if (config["overwrite_output"] and config["overwrite_output"].as<bool>()) {
-      fs::remove_all(output_path);
-    } else {
-      cerr << output_path.string() + " already exists" << endl;
-      return EXIT_FAILURE;
-    }
-  } else {
-    fs::create_directories(output_path);
+    throw runtime_error(output_path.string() + " already exists");
   }
 
-  /* get the path of wrappers directory and notifier */
-  src_path = fs::canonical(fs::path(
-             roost::readlink("/proc/self/exe")).parent_path().parent_path());
-  notifier = src_path / "notifier/notifier";
-
-  ProcessManager proc_manager;
+  /* create output directory if it does not exist */
+  fs::create_directories(output_path);
 
   /* create a tmp directory for decoder to output raw media chunks */
   fs::create_directories(output_path / "tmp" / "raw");
 
   /* run video_canonicalizer */
-  run_video_canonicalizer(proc_manager);
+  run_video_canonicalizer(proc_manager, output_path, vwork);
 
   for (const auto & vf : vformats) {
     /* run video encoder and video fragmenter */
-    run_video_encoder(proc_manager, vf);
-    run_video_fragmenter(proc_manager, vf);
+    run_video_encoder(proc_manager, output_path, vwork, vf);
+    run_video_fragmenter(proc_manager, output_path, vwork, vf);
 
     /* run ssim_calculator */
-    run_ssim_calculator(proc_manager, vf);
+    run_ssim_calculator(proc_manager, output_path, vready, vf);
   }
 
   for (const auto & af : aformats) {
     /* run audio encoder and audio fragmenter */
-    run_audio_encoder(proc_manager, af);
-    run_audio_fragmenter(proc_manager, af);
+    run_audio_encoder(proc_manager, output_path, awork, af);
+    run_audio_fragmenter(proc_manager, output_path, aready, af);
   }
 
   /* vwork, awork, vready, aready should already be filled in */
@@ -310,6 +281,48 @@ int main(int argc, char * argv[])
   int64_t clean_window_ts = config["clean_window_s"].as<int>() * global_timescale;
   run_windowcleaner(proc_manager, vready, clean_window_ts);
   run_windowcleaner(proc_manager, aready, clean_window_ts);
+}
+
+int main(int argc, char * argv[])
+{
+  if (argc < 1) {
+    abort();
+  }
+
+  if (argc != 2) {
+    print_usage(argv[0]);
+    return EXIT_FAILURE;
+  }
+
+  /* load YAML configuration */
+  YAML::Node config = YAML::LoadFile(argv[1]);
+
+  /* get the path of wrappers directory and notifier */
+  src_path = fs::canonical(fs::path(
+             roost::readlink("/proc/self/exe")).parent_path().parent_path());
+  notifier = src_path / "notifier/notifier";
+  media_dir = config["media_dir"].as<string>();
+
+  ProcessManager proc_manager;
+
+  /* temporary set of channels to check if duplicate channels exist */
+  set<string> channel_set;
+  for (YAML::const_iterator it = config["channels"].begin();
+       it != config["channels"].end(); ++it) {
+    const string & channel_name = it->as<string>();
+
+    if (not config["channel_configs"][channel_name]) {
+      throw runtime_error("Cannot find details of channel: " + channel_name);
+    }
+
+    if (not channel_set.insert(channel_name).second) {
+      throw runtime_error("Found duplicate channel: " + channel_name);
+    }
+
+    /* run the encoding pipeline for channel_name */
+    run_pipeline(proc_manager,
+                 channel_name, config["channel_configs"][channel_name]);
+  }
 
   return proc_manager.wait();
 }
