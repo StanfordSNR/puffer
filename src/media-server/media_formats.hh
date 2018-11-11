@@ -39,10 +39,4 @@ struct AudioFormat
 
 std::ostream &operator<<(std::ostream & os, const AudioFormat & o);
 
-/* get video formats (resolution, CRF) from a YAML node containing "video" */
-std::vector<VideoFormat> get_video_formats(const YAML::Node & config);
-
-/* get audio formats (bitrate) from a YAML node containing "audio" */
-std::vector<AudioFormat> get_audio_formats(const YAML::Node & config);
-
 #endif /* MEDIA_FORMATS_HH */
