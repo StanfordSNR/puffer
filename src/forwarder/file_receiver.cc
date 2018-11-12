@@ -10,13 +10,21 @@
 #include "exception.hh"
 #include "poller.hh"
 #include "file_message.hh"
+#include "filesystem.hh"
 
 using namespace std;
 using namespace PollerShortNames;
 
+static uint16_t global_file_id = 0;  /* intended to wrap around */
+static fs::path tmp_dir_path;
+
 void print_usage(const string & program_name)
 {
-  cerr << "Usage: " << program_name << " PORT" << endl;
+  cerr <<
+  "Usage: " << program_name << " PORT TMP-DIR\n\n"
+  "TMP-DIR: directory to save temp file; "
+  "must be unique for each file_receiver process"
+  << endl;
 }
 
 class Client
@@ -27,14 +35,18 @@ public:
   void write_to_file() const
   {
     FileMsg metadata(buffer);
-    const auto & dst_path = metadata.dst_path;
+    fs::path dst_path = metadata.dst_path;
+    string tmp_path = tmp_dir_path / (dst_path.stem().string() + "."
+                                      + to_string(global_file_id++));
 
-    FileDescriptor fd(CheckSystemCall("open (" + dst_path + ")",
-        open(dst_path.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644)));
+    FileDescriptor fd(CheckSystemCall("open (" + tmp_path + ")",
+        open(tmp_path.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644)));
     fd.write(buffer.substr(metadata.size()));
     fd.close();
 
-    cerr << "Received and created " << dst_path << endl;
+    fs::rename(tmp_path, dst_path);
+
+    cerr << "Received " << tmp_path << " and moved to " << dst_path << endl;
   }
 
   TCPSocket socket;
@@ -47,12 +59,13 @@ int main(int argc, char * argv[])
     abort();
   }
 
-  if (argc != 2) {
+  if (argc != 3) {
     print_usage(argv[0]);
     return EXIT_FAILURE;
   }
 
   uint16_t port = narrow_cast<uint16_t>(stoi(argv[1]));
+  tmp_dir_path = argv[2];
 
   TCPSocket listening_socket;
   listening_socket.set_reuseaddr();
@@ -62,16 +75,16 @@ int main(int argc, char * argv[])
   listening_socket.listen();
   cerr << "Listening on " << listening_socket.local_address().str() << endl;
 
-  uint64_t global_id = 0;
+  uint64_t global_client_id = 0;
   map<uint64_t, Client> clients;
 
   Poller poller;
   poller.add_action(Poller::Action(listening_socket, Direction::In,
-    [&poller, &listening_socket, &global_id, &clients]()->ResultType {
+    [&poller, &listening_socket, &global_client_id, &clients]()->ResultType {
       TCPSocket client_sock = listening_socket.accept();
 
       /* create a new Client */
-      const uint64_t client_id = global_id++;
+      const uint64_t client_id = global_client_id++;
       clients.emplace(piecewise_construct,
                       forward_as_tuple(client_id),
                       forward_as_tuple(move(client_sock)));
