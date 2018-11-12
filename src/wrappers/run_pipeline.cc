@@ -13,6 +13,7 @@
 using namespace std;
 
 static const uint32_t global_timescale = 90000;
+static const uint32_t clean_window_s = 60;
 
 static fs::path src_path;
 static fs::path media_dir;
@@ -219,7 +220,7 @@ void run_depcleaner(ProcessManager & proc_manager,
 
 void run_windowcleaner(ProcessManager & proc_manager,
                        const vector<tuple<string, string>> & ready,
-                       const int64_t clean_window_ts)
+                       const unsigned int clean_window_ts)
 {
   string windowcleaner = src_path / "cleaner/windowcleaner";
 
@@ -260,7 +261,7 @@ void run_pipeline(ProcessManager & proc_manager,
   for (const auto & vf : vformats) {
     /* run video encoder and video fragmenter */
     run_video_encoder(proc_manager, output_path, vwork, vf);
-    run_video_fragmenter(proc_manager, output_path, vwork, vf);
+    run_video_fragmenter(proc_manager, output_path, vready, vf);
 
     /* run ssim_calculator */
     run_ssim_calculator(proc_manager, output_path, vready, vf);
@@ -279,7 +280,7 @@ void run_pipeline(ProcessManager & proc_manager,
   run_depcleaner(proc_manager, awork, aready);
 
   /* run windowcleaner to clean up files in ready/ */
-  int64_t clean_window_ts = config["clean_window_s"].as<int>() * global_timescale;
+  unsigned int clean_window_ts = clean_window_s * global_timescale;
   run_windowcleaner(proc_manager, vready, clean_window_ts);
   run_windowcleaner(proc_manager, aready, clean_window_ts);
 }
@@ -324,6 +325,13 @@ int main(int argc, char * argv[])
 
     vector<string> file_reporter_args { file_reporter, yaml_abs_path };
     proc_manager.run_as_child(file_reporter, file_reporter_args);
+
+    /* report backlog sizes */
+    string backlog = monitoring_dir / "backlog.py";
+    string abs_media_dir = fs::absolute(media_dir);
+
+    vector<string> backlog_args { backlog, abs_media_dir };
+    proc_manager.run_as_child(backlog, backlog_args);
   }
 
   return proc_manager.wait();
