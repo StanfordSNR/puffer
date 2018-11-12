@@ -1,8 +1,12 @@
+#include <fcntl.h>
+
 #include <iostream>
 
 #include "strict_conversions.hh"
-#include "file_message.hh"
 #include "socket.hh"
+#include "file_descriptor.hh"
+#include "exception.hh"
+#include "file_message.hh"
 
 using namespace std;
 
@@ -31,8 +35,23 @@ int main(int argc, char * argv[])
   socket.connect({dst_ip, dst_port});
   cerr << "Connected to " << socket.peer_address().str() << endl;
 
-  // TODO
-  socket.write("dummy data");
+  /* send dst_path first */
+  FileMsg metadata(dst_path.size(), dst_path);
+  socket.write(metadata.to_string());
+
+  FileDescriptor fd(CheckSystemCall("open (" + src_path + ")",
+                    open(src_path.c_str(), O_RDONLY)));
+  /* send the file at src_path */
+  for (;;) {
+    const string data = fd.read();
+    if (data.empty()) {  // EOF
+      break;
+    }
+
+    socket.write(data);
+  }
+
+  fd.close();
 
   return EXIT_SUCCESS;
 }
