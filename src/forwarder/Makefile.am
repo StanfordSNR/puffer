@@ -1,7 +1,7 @@
 AM_CPPFLAGS = $(CXX17_FLAGS) -I$(srcdir)/../util -I$(srcdir)/../net
 AM_CXXFLAGS = $(PICKY_CXXFLAGS) $(EXTRA_CXXFLAGS)
 
-bin_PROGRAMS = forwarder
+bin_PROGRAMS = udp_to_tcp
 
-forwarder_SOURCES = forwarder.cc
-forwarder_LDADD = ../util/libutil.a ../net/libnet.a $(SSL_LIBS)
+udp_to_tcp_SOURCES = udp_to_tcp.cc
+udp_to_tcp_LDADD = ../util/libutil.a ../net/libnet.a $(SSL_LIBS)
