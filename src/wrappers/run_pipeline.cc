@@ -297,7 +297,8 @@ int main(int argc, char * argv[])
   }
 
   /* load YAML configuration */
-  YAML::Node config = YAML::LoadFile(argv[1]);
+  string yaml_config = fs::absolute(argv[1]);
+  YAML::Node config = YAML::LoadFile(yaml_config);
 
   /* get the path of wrappers directory and notifier */
   src_path = fs::canonical(fs::path(
@@ -316,14 +317,13 @@ int main(int argc, char * argv[])
   }
 
   /* if logging is enabled */
-  if (config["log_dir"]) {
+  if (config["enable_logging"].as<bool>()) {
     fs::path monitoring_dir = src_path / "monitoring";
 
     /* report SSIMs and video chunk sizes */
     string file_reporter = monitoring_dir / "file_reporter";
-    string yaml_abs_path = fs::absolute(argv[1]);
 
-    vector<string> file_reporter_args { file_reporter, yaml_abs_path };
+    vector<string> file_reporter_args { file_reporter, yaml_config };
     proc_manager.run_as_child(file_reporter, file_reporter_args);
 
     /* report backlog sizes */

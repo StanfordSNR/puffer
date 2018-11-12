@@ -7,6 +7,7 @@
 #include <fstream>
 
 #include "util.hh"
+#include "yaml-cpp/yaml.h"
 #include "inotify.hh"
 #include "poller.hh"
 #include "file_descriptor.hh"
@@ -24,15 +25,23 @@ static Formatter formatter;
 
 void print_usage(const string & program_name)
 {
-  cerr << "Usage: " << program_name << " <log format> <log path>" << endl;
+  cerr <<
+  "Usage: " << program_name << " <YAML configuration> <log format> <log path>"
+  << endl;
 }
 
-int tail_loop(const string & log_path)
+int tail_loop(const YAML::Node & config, const string & log_path)
 {
   Poller poller;
   Inotify inotify(poller);
-  InfluxDBClient influxdb_client(poller, {"127.0.0.1", 8086}, "collectd",
-                                 "puffer", safe_getenv("INFLUXDB_PASSWORD"));
+
+  const auto & influx = config["influxdb_connection"];
+  InfluxDBClient influxdb_client(
+      poller,
+      {influx["host"].as<string>(), influx["port"].as<uint16_t>()},
+      influx["dbname"].as<string>(),
+      influx["user"].as<string>(),
+      safe_getenv("INFLUXDB_PASSWORD"));
 
   bool log_rotated = false;  /* whether log rotation happened */
   string buf;  /* used to assemble content read from the log into lines */
@@ -89,13 +98,14 @@ int main(int argc, char * argv[])
     abort();
   }
 
-  if (argc != 3) {
+  if (argc != 4) {
     print_usage(argv[0]);
     return EXIT_FAILURE;
   }
 
-  string log_format(argv[1]);
-  string log_path(argv[2]);
+  YAML::Node config = YAML::LoadFile(argv[1]);
+  string log_format(argv[2]);
+  string log_path(argv[3]);
 
   /* create an empty log if it does not exist */
   FileDescriptor touch(CheckSystemCall("open (" + log_path + ")",
@@ -109,5 +119,5 @@ int main(int argc, char * argv[])
   formatter.parse(format_string);
 
   /* read new lines from logs and post to InfluxDB */
-  return tail_loop(log_path);
+  return tail_loop(config, log_path);
 }

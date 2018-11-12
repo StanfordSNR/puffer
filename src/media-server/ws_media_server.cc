@@ -689,7 +689,7 @@ int main(int argc, char * argv[])
   #endif
 
   /* connect to the database for user authentication */
-  string db_conn_str = config["db_connection"].as<string>();
+  string db_conn_str = config["postgres_connection"].as<string>();
   db_conn_str += " password=" + safe_getenv("PUFFER_PORTAL_DB_KEY");
 
   pqxx::connection db_conn(db_conn_str);
