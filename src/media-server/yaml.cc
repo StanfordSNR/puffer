@@ -2,33 +2,57 @@
 
 using namespace std;
 
-vector<VideoFormat> channel_video_formats(const YAML::Node & config)
+set<string> load_channels(const YAML::Node & config)
 {
-  vector<VideoFormat> vformats;
+  set<string> channel_set;
 
-  const YAML::Node & res_map = config["video"];
-  for (const auto & res_node : res_map) {
-    const string & res = res_node.first.as<string>();
+  for (YAML::const_iterator it = config["channels"].begin();
+       it != config["channels"].end(); ++it) {
+    const string & channel_name = it->as<string>();
 
-    const YAML::Node & crf_list = res_node.second;
-    for (const auto & crf_node : crf_list) {
-      const auto & vformat_str = res + "-" + crf_node.as<string>();
-      vformats.emplace_back(vformat_str);
+    if (not config["channel_configs"][channel_name]) {
+      throw runtime_error("Cannot find details of channel: " + channel_name);
+    }
+
+    if (not channel_set.emplace(channel_name).second) {
+      throw runtime_error("Found duplicate channel: " + channel_name);
     }
   }
 
-  return vformats;
+  return channel_set;
+}
+
+vector<VideoFormat> channel_video_formats(const YAML::Node & config)
+{
+  set<VideoFormat> vformats;
+
+  const auto & res_map = config["video"];
+  for (const auto & res_node : res_map) {
+    const string & res = res_node.first.as<string>();
+
+    const auto & crf_list = res_node.second;
+    for (const auto & crf_node : crf_list) {
+      const auto & vformat_str = res + "-" + crf_node.as<string>();
+      if (not vformats.emplace(vformat_str).second) {
+        throw runtime_error("Duplicate video format " + vformat_str);
+      }
+    }
+  }
+
+  return { vformats.begin(), vformats.end() };
 }
 
 vector<AudioFormat> channel_audio_formats(const YAML::Node & config)
 {
-  vector<AudioFormat> aformats;
+  set<AudioFormat> aformats;
 
-  const YAML::Node & bitrate_list = config["audio"];
+  const auto & bitrate_list = config["audio"];
   for (const auto & bitrate_node : bitrate_list) {
     const string & aformat_str = bitrate_node.as<string>();
-    aformats.emplace_back(aformat_str);
+    if (not aformats.emplace(aformat_str).second) {
+      throw runtime_error("Duplicate audio format " + aformat_str);
+    }
   }
 
-  return aformats;
+  return { aformats.begin(), aformats.end() };
 }

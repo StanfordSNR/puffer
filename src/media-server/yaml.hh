@@ -3,14 +3,19 @@
 
 #include <string>
 #include <map>
+#include <set>
+#include <vector>
 
 #include "yaml-cpp/yaml.h"
 #include "media_formats.hh"
 
-/* get video formats of a channel from its channel config */
+/* get all channel names */
+std::set<std::string> load_channels(const YAML::Node & config);
+
+/* get video formats of a specific channel's config */
 std::vector<VideoFormat> channel_video_formats(const YAML::Node & config);
 
-/* get audio formats of a channel from its channel config */
+/* get audio formats of a specific channel's config */
 std::vector<AudioFormat> channel_audio_formats(const YAML::Node & config);
 
 #endif /* YAML_HH */
