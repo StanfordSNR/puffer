@@ -8,6 +8,7 @@
 #include "path.hh"
 #include "child_process.hh"
 #include "media_formats.hh"
+#include "yaml.hh"
 
 using namespace std;
 
@@ -235,8 +236,8 @@ void run_pipeline(ProcessManager & proc_manager,
                   const string & channel_name,
                   const YAML::Node & config)
 {
-  vector<VideoFormat> vformats = get_video_formats(config);
-  vector<AudioFormat> aformats = get_audio_formats(config);
+  vector<VideoFormat> vformats = channel_video_formats(config);
+  vector<AudioFormat> aformats = channel_audio_formats(config);
 
   /* tuple<directory, extension> */
   vector<tuple<string, string>> vwork, awork;
@@ -306,19 +307,8 @@ int main(int argc, char * argv[])
   ProcessManager proc_manager;
 
   /* temporary set of channels to check if duplicate channels exist */
-  set<string> channel_set;
-  for (YAML::const_iterator it = config["channels"].begin();
-       it != config["channels"].end(); ++it) {
-    const string & channel_name = it->as<string>();
-
-    if (not config["channel_configs"][channel_name]) {
-      throw runtime_error("Cannot find details of channel: " + channel_name);
-    }
-
-    if (not channel_set.insert(channel_name).second) {
-      throw runtime_error("Found duplicate channel: " + channel_name);
-    }
-
+  set<string> channel_set = load_channels(config);
+  for (const auto & channel_name : channel_set) {
     /* run the encoding pipeline for channel_name */
     run_pipeline(proc_manager,
                  channel_name, config["channel_configs"][channel_name]);

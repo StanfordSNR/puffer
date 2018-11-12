@@ -8,7 +8,7 @@ bin_PROGRAMS = ws_media_server run_servers
 
 ws_media_server_SOURCES = ws_media_server.cc \
 	ws_client.hh ws_client.cc channel.hh channel.cc \
-	media_formats.hh media_formats.cc \
+	media_formats.hh media_formats.cc yaml.hh yaml.cc \
 	client_message.hh client_message.cc server_message.hh server_message.cc \
 	../notifier/inotify.hh ../notifier/inotify.cc \
 	../abr/abr_algo.hh ../abr/linear_bba.hh ../abr/linear_bba.cc \

@@ -14,7 +14,7 @@
 #include <algorithm>
 
 #include <pqxx/pqxx>
-#include "yaml-cpp/yaml.h"
+#include "yaml.hh"
 #include "util.hh"
 #include "strict_conversions.hh"
 #include "timestamp.hh"
@@ -600,23 +600,12 @@ void handle_client_audio_ack(WebSocketClient & client,
   client.set_client_next_ats(msg.timestamp + client.channel()->aduration());
 }
 
-void load_channels(const YAML::Node & config, Inotify & inotify)
+void create_channels(const YAML::Node & config, Inotify & inotify)
 {
   fs::path media_dir = config["media_dir"].as<string>();
 
-  /* load channels */
-  for (YAML::const_iterator it = config["channels"].begin();
-       it != config["channels"].end(); ++it) {
-    const string & channel_name = it->as<string>();
-
-    if (not config["channel_configs"][channel_name]) {
-      throw runtime_error("Cannot find details of channel: " + channel_name);
-    }
-
-    if (channels.find(channel_name) != channels.end()) {
-      throw runtime_error("Found duplicate channel: " + channel_name);
-    }
-
+  set<string> channel_set = load_channels(config);
+  for (const auto & channel_name : channel_set) {
     /* exceptions might be thrown from the lambda callbacks in the channel */
     try {
       auto channel = make_shared<Channel>(
@@ -713,9 +702,9 @@ int main(int argc, char * argv[])
   db_conn.prepare("auth", "SELECT EXISTS(SELECT 1 FROM django_session WHERE "
     "session_key = $1 AND expire_date > now());");
 
-  /* load channels and mmap existing and newly created media files */
+  /* create Channels and mmap existing and newly created media files */
   Inotify inotify(server.poller());
-  load_channels(config, inotify);
+  create_channels(config, inotify);
 
   /* load ABR algorithm */
   string abr_name = "linear_bba";  /* default ABR */

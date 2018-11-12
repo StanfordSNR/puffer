@@ -26,5 +26,6 @@ generate_mpd_SOURCES = generate_mpd.cc
 generate_mpd_LDADD = ../util/libutil.a ../net/libnet.a -lstdc++fs $(SSL_LIBS)
 
 run_pipeline_SOURCES = run_pipeline.cc \
-	../media-server/media_formats.hh ../media-server/media_formats.cc
+	../media-server/media_formats.hh ../media-server/media_formats.cc \
+	../media-server/yaml.hh ../media-server/yaml.cc
 run_pipeline_LDADD = ../util/libutil.a ../net/libnet.a -lstdc++fs $(SSL_LIBS) $(YAML_LIBS)

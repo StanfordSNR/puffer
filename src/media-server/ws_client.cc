@@ -41,7 +41,7 @@ void WebSocketClient::set_max_video_size(const std::vector<VideoFormat> & vfs)
   max_video_height_ = 0;
   max_video_width_ = 0;
 
-  for (auto & vf : vfs) {
+  for (const auto & vf : vfs) {
     /* set max video height and width according to the given video formats */
     if (screen_height_ and vf.height >= screen_height_ and
         (not max_video_height_ or vf.height < max_video_height_) ) {

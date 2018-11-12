@@ -5,6 +5,7 @@
 #include <algorithm>
 
 #include "file_descriptor.hh"
+#include "yaml.hh"
 #include "exception.hh"
 
 using namespace std;
@@ -25,8 +26,8 @@ Channel::Channel(const string & name, const fs::path & media_dir,
 
   input_path_ = media_dir / name;
 
-  vformats_ = get_video_formats(config);
-  aformats_ = get_audio_formats(config);
+  vformats_ = channel_video_formats(config);
+  aformats_ = channel_audio_formats(config);
 
   timescale_ = config["timescale"] ?
       config["timescale"].as<unsigned int>() : DEFAULT_TIMESCALE;
