@@ -1,2 +1,4 @@
 /udp_to_tcp
+/file_receiver
+/file_sender
 /*.sh
