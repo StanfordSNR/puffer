@@ -47,6 +47,7 @@ static map<string, shared_ptr<Channel>> channels;  /* key: channel name */
 static map<uint64_t, WebSocketClient> clients;  /* key: connection ID */
 
 static Timerfd global_timer;  /* non-blocking global timer fd for scheduling */
+static const int TIMER_PERIOD_MS = 100;  /* global timer fires every 100 ms */
 
 /* for logging */
 static string server_id;
@@ -369,7 +370,7 @@ void start_global_timer(WebSocketServer & server)
   ));
 
   /* this timer fires every 100 ms */
-  global_timer.start(100, 100);
+  global_timer.start(TIMER_PERIOD_MS, TIMER_PERIOD_MS);
 }
 
 void send_server_init(WebSocketServer & server, WebSocketClient & client,

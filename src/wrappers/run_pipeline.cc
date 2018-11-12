@@ -320,18 +320,10 @@ int main(int argc, char * argv[])
   if (config["enable_logging"].as<bool>()) {
     fs::path monitoring_dir = src_path / "monitoring";
 
-    /* report SSIMs and video chunk sizes */
+    /* report SSIMs, video chunk sizes, and backlog sizes */
     string file_reporter = monitoring_dir / "file_reporter";
-
     vector<string> file_reporter_args { file_reporter, yaml_config };
     proc_manager.run_as_child(file_reporter, file_reporter_args);
-
-    /* report backlog sizes */
-    string backlog = monitoring_dir / "backlog.py";
-    string abs_media_dir = fs::absolute(media_dir);
-
-    vector<string> backlog_args { backlog, abs_media_dir };
-    proc_manager.run_as_child(backlog, backlog_args);
   }
 
   return proc_manager.wait();

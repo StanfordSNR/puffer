@@ -104,6 +104,11 @@ int main(int argc, char * argv[])
   }
 
   YAML::Node config = YAML::LoadFile(argv[1]);
+  if (not config["enable_logging"].as<bool>()) {
+    cerr << "Error: logging is not enabled yet" << endl;
+    return EXIT_FAILURE;
+  }
+
   string log_format(argv[2]);
   string log_path(argv[3]);
 

@@ -8,14 +8,17 @@
 #include "yaml.hh"
 #include "media_formats.hh"
 #include "exception.hh"
+#include "timerfd.hh"
 #include "poller.hh"
 #include "inotify.hh"
 #include "filesystem.hh"
 #include "influxdb_client.hh"
 
 using namespace std;
+using namespace PollerShortNames;
 
-fs::path media_dir;
+static const int TIMER_PERIOD_MS = 60000;  /* 1 minute */
+static fs::path media_dir;
 
 void print_usage(const string & program_name)
 {
@@ -66,10 +69,10 @@ void report_ssim(const string & channel_name,
   );
 }
 
-void report_size(const string & channel_name,
-                 const string & vformat,
-                 Inotify & inotify,
-                 InfluxDBClient & influxdb_client)
+void report_video_size(const string & channel_name,
+                       const string & vformat,
+                       Inotify & inotify,
+                       InfluxDBClient & influxdb_client)
 {
   fs::path channel_path = media_dir / channel_name;
   string video_dir = channel_path / "ready" / vformat;
@@ -99,6 +102,49 @@ void report_size(const string & channel_name,
   );
 }
 
+void report_backlog(const set<string> & channel_set,
+                    Poller & poller,
+                    Timerfd & timer,
+                    InfluxDBClient & influxdb_client)
+{
+  poller.add_action(Poller::Action(timer, Direction::In,
+    [&channel_set, &timer, &influxdb_client]() {
+      /* must read the timerfd, and check if timer has fired */
+      if (timer.expirations() == 0) {
+        return ResultType::Continue;
+      }
+
+      for (const auto & channel_name : channel_set) {
+        fs::path channel_path = media_dir / channel_name;
+        string working_dir = channel_path / "working";
+        string canonical_dir = channel_path / "working/video-canonical";
+
+        unsigned int working_cnt = 0;
+        for (const auto & entry : fs::recursive_directory_iterator(working_dir)) {
+          if (fs::is_regular_file(entry)) {
+            working_cnt++;
+          }
+        }
+
+        unsigned int canonical_cnt = 0;
+        for (const auto & entry : fs::recursive_directory_iterator(canonical_dir)) {
+          if (fs::is_regular_file(entry)) {
+            canonical_cnt++;
+          }
+        }
+
+        string log_line = "backlog,channel=" + channel_name
+          + " working_cnt=" + to_string(working_cnt)
+          + "i,canonical_cnt=" + to_string(canonical_cnt)
+          + "i " + to_string(time(nullptr));
+        influxdb_client.post(log_line);
+      }
+
+      return ResultType::Continue;
+    }
+  ));
+}
+
 int main(int argc, char * argv[])
 {
   if (argc < 1) {
@@ -111,13 +157,24 @@ int main(int argc, char * argv[])
   }
 
   YAML::Node config = YAML::LoadFile(argv[1]);
+  if (not config["enable_logging"].as<bool>()) {
+    cerr << "Error: logging is not enabled yet" << endl;
+    return EXIT_FAILURE;
+  }
+
   media_dir = config["media_dir"].as<string>();
   set<string> channel_set = load_channels(config);
 
   Poller poller;
   Inotify inotify(poller);
-  InfluxDBClient influxdb_client(poller, {"127.0.0.1", 8086}, "collectd",
-                                 "puffer", safe_getenv("INFLUXDB_PASSWORD"));
+
+  const auto & influx = config["influxdb_connection"];
+  InfluxDBClient influxdb_client(
+      poller,
+      {influx["host"].as<string>(), influx["port"].as<uint16_t>()},
+      influx["dbname"].as<string>(),
+      influx["user"].as<string>(),
+      safe_getenv("INFLUXDB_PASSWORD"));
 
   for (const auto & channel_name : channel_set) {
     const auto & channel_config = config["channel_configs"][channel_name];
@@ -125,12 +182,19 @@ int main(int argc, char * argv[])
 
     for (const auto & vformat : vformats) {
       /* report SSIM indices */
-      report_ssim(channel_name, vformat.to_string(), inotify, influxdb_client);
+      report_ssim(channel_name, vformat.to_string(),
+                  inotify, influxdb_client);
 
       /* report video sizes */
-      report_size(channel_name, vformat.to_string(), inotify, influxdb_client);
+      report_video_size(channel_name, vformat.to_string(),
+                        inotify, influxdb_client);
     }
   }
+
+  /* create a periodic timer that fires every minute to report backlog sizes */
+  Timerfd timer;
+  report_backlog(channel_set, poller, timer, influxdb_client);
+  timer.start(TIMER_PERIOD_MS, TIMER_PERIOD_MS);
 
   for (;;) {
     auto ret = poller.poll(-1);

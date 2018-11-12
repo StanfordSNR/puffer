@@ -37,15 +37,13 @@ int main(int argc, char * argv[])
     return EXIT_FAILURE;
   }
 
-  /* get some paths */
+  const bool enable_logging = config["enable_logging"].as<bool>();
   const auto & src_path = fs::canonical(fs::path(
       roost::readlink("/proc/self/exe")).parent_path().parent_path());
-  const auto & media_server_dir = src_path / "media-server";
-  const auto & ws_media_server = media_server_dir / "ws_media_server";
-  bool enable_logging = config["enable_logging"].as<bool>();
 
   ProcessManager proc_manager;
 
+  /* create influxdb_client only if enable_logging is true */
   optional<InfluxDBClient> influxdb_client;
   if (enable_logging) {
     /* add influx client for posting states of child processes */
@@ -59,6 +57,7 @@ int main(int argc, char * argv[])
   }
 
   /* run multiple instances of ws_media_server */
+  const auto & ws_media_server = src_path / "media-server/ws_media_server";
   for (int i = 0; i < num_servers; i++) {
     vector<string> args { ws_media_server, yaml_config, to_string(i) };
     proc_manager.run_as_child(ws_media_server, args, {},
@@ -66,6 +65,7 @@ int main(int argc, char * argv[])
       {
         cerr << "Error in media server with ID " << i << endl;
         if (influxdb_client) {
+          /* at least one media server have failed */
           influxdb_client->post("server_state state=1i "
                                 + to_string(time(nullptr)));
         }
@@ -81,13 +81,12 @@ int main(int argc, char * argv[])
 
     /* run log reporters */
     auto log_reporter = src_path / "monitoring/log_reporter";
-
     fs::path log_dir = config["log_dir"].as<string>();
     vector<string> log_stems {
       "active_streams", "playback_buffer", "rebuffer_event", "rebuffer_rate",
       "video_quality"};
 
-    /* run multiple instances of ws_media_server */
+    /* run a log reporter for each ws_media_server instance */
     for (int i = 0; i < num_servers; i++) {
       for (const auto & log_stem : log_stems) {
         string log_format = log_dir / (log_stem + ".conf");
@@ -99,6 +98,7 @@ int main(int argc, char * argv[])
           [&influxdb_client, log_stem](const pid_t &)  // error callback
           {
             cerr << "Error in log reporter: " << log_stem << endl;
+            /* at least one log reporter have failed */
             influxdb_client->post("log_reporter_state state=1i "
                                   + to_string(time(nullptr)));
           }
