@@ -13,9 +13,9 @@
 std::set<std::string> load_channels(const YAML::Node & config);
 
 /* get video formats of a specific channel's config */
-std::vector<VideoFormat> channel_video_formats(const YAML::Node & config);
+std::vector<VideoFormat> channel_video_formats(const YAML::Node & channel_config);
 
 /* get audio formats of a specific channel's config */
-std::vector<AudioFormat> channel_audio_formats(const YAML::Node & config);
+std::vector<AudioFormat> channel_audio_formats(const YAML::Node & channel_config);
 
 #endif /* YAML_HH */

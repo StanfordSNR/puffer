@@ -22,11 +22,11 @@ set<string> load_channels(const YAML::Node & config)
   return channel_set;
 }
 
-vector<VideoFormat> channel_video_formats(const YAML::Node & config)
+vector<VideoFormat> channel_video_formats(const YAML::Node & channel_config)
 {
   set<VideoFormat> vformats;
 
-  const auto & res_map = config["video"];
+  const auto & res_map = channel_config["video"];
   for (const auto & res_node : res_map) {
     const string & res = res_node.first.as<string>();
 
@@ -42,11 +42,11 @@ vector<VideoFormat> channel_video_formats(const YAML::Node & config)
   return { vformats.begin(), vformats.end() };
 }
 
-vector<AudioFormat> channel_audio_formats(const YAML::Node & config)
+vector<AudioFormat> channel_audio_formats(const YAML::Node & channel_config)
 {
   set<AudioFormat> aformats;
 
-  const auto & bitrate_list = config["audio"];
+  const auto & bitrate_list = channel_config["audio"];
   for (const auto & bitrate_node : bitrate_list) {
     const string & aformat_str = bitrate_node.as<string>();
     if (not aformats.emplace(aformat_str).second) {
