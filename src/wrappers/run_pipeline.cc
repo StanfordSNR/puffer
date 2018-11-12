@@ -308,22 +308,11 @@ int main(int argc, char * argv[])
 
   ProcessManager proc_manager;
 
-  /* temporary set of channels to check if duplicate channels exist */
   set<string> channel_set = load_channels(config);
   for (const auto & channel_name : channel_set) {
     /* run the encoding pipeline for channel_name */
     run_pipeline(proc_manager,
                  channel_name, config["channel_configs"][channel_name]);
-  }
-
-  /* if logging is enabled */
-  if (config["enable_logging"].as<bool>()) {
-    fs::path monitoring_dir = src_path / "monitoring";
-
-    /* report SSIMs, video chunk sizes, and backlog sizes */
-    string file_reporter = monitoring_dir / "file_reporter";
-    vector<string> file_reporter_args { file_reporter, yaml_config };
-    proc_manager.run_as_child(file_reporter, file_reporter_args);
   }
 
   return proc_manager.wait();
