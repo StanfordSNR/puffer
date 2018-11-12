@@ -314,5 +314,17 @@ int main(int argc, char * argv[])
                  channel_name, config["channel_configs"][channel_name]);
   }
 
+  /* if logging is enabled */
+  if (config["log_dir"]) {
+    fs::path monitoring_dir = src_path / "monitoring";
+
+    /* report SSIMs and video chunk sizes */
+    string file_reporter = monitoring_dir / "file_reporter";
+    string yaml_abs_path = fs::absolute(argv[1]);
+
+    vector<string> file_reporter_args { file_reporter, yaml_abs_path };
+    proc_manager.run_as_child(file_reporter, file_reporter_args);
+  }
+
   return proc_manager.wait();
 }
