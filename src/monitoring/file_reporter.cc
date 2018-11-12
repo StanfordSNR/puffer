@@ -66,6 +66,39 @@ void report_ssim(const string & channel_name,
   );
 }
 
+void report_size(const string & channel_name,
+                 const string & vformat,
+                 Inotify & inotify,
+                 InfluxDBClient & influxdb_client)
+{
+  fs::path channel_path = media_dir / channel_name;
+  string video_dir = channel_path / "ready" / vformat;
+
+  inotify.add_watch(video_dir, IN_MOVED_TO,
+    [channel_name, vformat, video_dir, &influxdb_client]
+    (const inotify_event & event, const string & path) {
+      /* only interested in regular files that are moved into the dir */
+      if (not (event.mask & IN_MOVED_TO) or (event.mask & IN_ISDIR)) {
+        return;
+      }
+
+      assert(video_dir == path);
+      assert(event.len != 0);
+
+      fs::path filepath = fs::path(path) / event.name;
+      if (filepath.extension() == ".m4s") {
+        string ts = filepath.stem();
+        const auto filesize = fs::file_size(filepath);
+
+        string log_line = "video_size,channel=" + channel_name + ",quality="
+          + vformat + " timestamp=" + ts + "i,size=" + to_string(filesize)
+          + "i " + to_string(time(nullptr));
+        influxdb_client.post(log_line);
+      }
+    }
+  );
+}
+
 int main(int argc, char * argv[])
 {
   if (argc < 1) {
@@ -93,6 +126,9 @@ int main(int argc, char * argv[])
     for (const auto & vformat : vformats) {
       /* report SSIM indices */
       report_ssim(channel_name, vformat.to_string(), inotify, influxdb_client);
+
+      /* report video sizes */
+      report_size(channel_name, vformat.to_string(), inotify, influxdb_client);
     }
   }
 
