@@ -49,6 +49,11 @@ public:
 
     fd.close();
 
+    /* create parent directories if they don't exist yet */
+    if (dst_path.has_parent_path()) {
+      fs::create_directories(dst_path.parent_path());
+    }
+
     fs::rename(tmp_path, dst_path);
 
     cerr << "Received " << tmp_path << " and moved to " << dst_path << endl;
