@@ -15,7 +15,7 @@ void print_usage(const string & program_name)
 {
   cerr <<
   "Usage: " << program_name << " SRC-PATH HOST PORT DST-PATH\n\n"
-  "Copy the file at SRC-PATH to DST-PATH on HOST:PORT and DELETE the file"
+  "Transfer the file at SRC-PATH to DST-PATH on HOST:PORT"
   << endl;
 }
 
@@ -57,10 +57,7 @@ int main(int argc, char * argv[])
 
   fd.close();
 
-  /* delete the file */
-  fs::remove(src_path);
-
-  cerr << "Delivered and removed file " << src_path << endl;
+  cerr << "Delivered file " << src_path << endl;
 
   return EXIT_SUCCESS;
 }
