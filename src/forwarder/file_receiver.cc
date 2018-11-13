@@ -16,12 +16,12 @@ using namespace std;
 using namespace PollerShortNames;
 
 static uint16_t global_file_id = 0;  /* intended to wrap around */
-static fs::path tmp_dir_path;
+static fs::path tmp_dir_path = fs::temp_directory_path();
 
 void print_usage(const string & program_name)
 {
   cerr <<
-  "Usage: " << program_name << " PORT TMP-DIR\n\n"
+  "Usage: " << program_name << " PORT [TMP-DIR]\n\n"
   "TMP-DIR: directory to save temp file; "
   "must be unique for each file_receiver process"
   << endl;
@@ -69,13 +69,15 @@ int main(int argc, char * argv[])
     abort();
   }
 
-  if (argc != 3) {
+  if (argc != 2 and argc != 3) {
     print_usage(argv[0]);
     return EXIT_FAILURE;
   }
 
   uint16_t port = narrow_cast<uint16_t>(stoi(argv[1]));
-  tmp_dir_path = argv[2];
+  if (argc == 3) {
+    tmp_dir_path = argv[2];
+  }
 
   TCPSocket listening_socket;
   listening_socket.set_reuseaddr();
