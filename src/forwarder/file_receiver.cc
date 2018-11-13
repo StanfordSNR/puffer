@@ -41,7 +41,12 @@ public:
 
     FileDescriptor fd(CheckSystemCall("open (" + tmp_path + ")",
         open(tmp_path.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644)));
-    fd.write(buffer.substr(metadata.size()));
+
+    /* avoid writing empty data */
+    if (buffer.size() > metadata.size()) {
+      fd.write(buffer.substr(metadata.size()));
+    }
+
     fd.close();
 
     fs::rename(tmp_path, dst_path);
