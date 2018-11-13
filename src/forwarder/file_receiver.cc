@@ -36,7 +36,7 @@ public:
   {
     FileMsg metadata(buffer);
     fs::path dst_path = metadata.dst_path;
-    string tmp_path = tmp_dir_path / (dst_path.stem().string() + "."
+    string tmp_path = tmp_dir_path / (dst_path.filename().string() + "."
                                       + to_string(global_file_id++));
 
     FileDescriptor fd(CheckSystemCall("open (" + tmp_path + ")",

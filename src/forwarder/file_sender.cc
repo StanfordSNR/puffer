@@ -14,8 +14,8 @@ using namespace std;
 void print_usage(const string & program_name)
 {
   cerr <<
-  "Usage: " << program_name << " SRC-PATH HOST PORT DST-PATH\n\n"
-  "Transfer the file at SRC-PATH to DST-PATH on HOST:PORT"
+  "Usage: " << program_name << " SRC-PATH HOST PORT DST-DIR\n\n"
+  "Transfer the file at SRC-PATH to DST-DIR on HOST:PORT"
   << endl;
 }
 
@@ -33,13 +33,14 @@ int main(int argc, char * argv[])
   string src_path = argv[1];
   string dst_ip = argv[2];
   uint16_t dst_port = narrow_cast<uint16_t>(stoi(argv[3]));
-  string dst_path = argv[4];
+  string dst_dir = argv[4];
 
   TCPSocket socket;
   socket.connect({dst_ip, dst_port});
   cerr << "Connected to " << socket.peer_address().str() << endl;
 
   /* send dst_path first */
+  string dst_path = fs::path(dst_dir) / fs::path(src_path).filename();
   FileMsg metadata(dst_path.size(), dst_path);
   socket.write(metadata.to_string());
 
