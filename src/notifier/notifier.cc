@@ -43,15 +43,15 @@ Notifier::Notifier(const string & src_dir,
     prefixes_()
 {
   /* check mode */
-  if (dst_dir_opt.has_value() and dst_ext_opt.has_value()) {
+  if (dst_dir_opt and dst_ext_opt) {
     check_mode_ = true;
-    dst_dir_ = dst_dir_opt.value();
-    dst_ext_ = dst_ext_opt.value();
+    dst_dir_ = *dst_dir_opt;
+    dst_ext_ = *dst_ext_opt;
   }
 
   /* use default temporary directory if not specified */
-  if (tmp_dir_opt.has_value()) {
-    tmp_dir_ = tmp_dir_opt.value();
+  if (tmp_dir_opt) {
+    tmp_dir_ = *tmp_dir_opt;
   } else {
     tmp_dir_ = fs::temp_directory_path();
   }
@@ -70,11 +70,11 @@ Notifier::Notifier(const string & src_dir,
       string filename = event.name;
 
       /* ignore files that do not match source extension */
-      if (fs::path(filename).extension() != src_ext_) {
+      if (src_ext_ != "." and fs::path(filename).extension() != src_ext_) {
         return;
       }
 
-      run_as_child(fs::path(filename).stem());
+      run_as_child(filename);
     }
   );
 }
@@ -96,11 +96,22 @@ inline string Notifier::get_tmp_path(const string & prefix)
   return fs::path(tmp_dir_) / (prefix + dst_ext_);
 }
 
-void Notifier::run_as_child(const string & prefix)
+void Notifier::run_as_child(const string & filename)
 {
+  string prefix = fs::path(filename).stem();
+
   /* create arguments passed to program_ */
-  vector<string> args { program_, get_src_path(prefix) };
+  vector<string> args { program_ };
+
+  if (src_ext_ == ".") {
+    /* keep the original extension if interested in any file */
+    args.emplace_back(fs::path(src_dir_) / filename);
+  } else {
+    args.emplace_back(get_src_path(prefix));
+  }
+
   if (check_mode_) {
+    /* make program output to a tmp path and move to the dst path later */
     args.emplace_back(get_tmp_path(prefix));
   }
 
@@ -141,17 +152,19 @@ void Notifier::process_existing_files()
   }
 
   for (const auto & src : fs::directory_iterator(src_dir_)) {
-    if (src.path().extension() == src_ext_) {
-      string prefix = src.path().stem();
+    const auto & src_path = src.path();
+    if (src_path.extension() == src_ext_) {
+      string filename = src_path.filename();
+      string prefix = src_path.stem();
 
       if (check_mode_) {
         /* in check mode only process files with no outputs in dst_dir */
         if (dst_prefixes.find(prefix) == dst_prefixes.end()) {
-          run_as_child(prefix);
+          run_as_child(filename);
         }
       } else {
         /* otherwise process every file in src_dir with src_ext */
-        run_as_child(prefix);
+        run_as_child(filename);
       }
     }
   }
@@ -197,6 +210,15 @@ int main(int argc, char * argv[])
       tmp_dir_opt = argv[arg_idx++];
     } else if (opt_arg == "--exec") {
       break;
+    }
+  }
+
+  /* interested in any file extension */
+  if (src_ext == ".") {
+    /* --check is not allowed */
+    if (dst_dir_opt or dst_ext_opt) {
+      cerr << "Error: --check is not allowed when src_ext is ." << endl;
+      return EXIT_FAILURE;
     }
   }
 
