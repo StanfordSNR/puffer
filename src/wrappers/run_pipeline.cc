@@ -188,6 +188,30 @@ void run_audio_fragmenter(ProcessManager & proc_manager,
   proc_manager.run_as_child(notifier, args);
 }
 
+void run_file_sender(ProcessManager & proc_manager,
+                     const vector<tuple<string, string>> & ready,
+                     const YAML::Node & config)
+{
+  string ip = config["ip"].as<string>();
+  uint16_t port = config["port"].as<uint16_t>();
+  fs::path dst_media_dir = config["media_dir"].as<string>();
+  string file_sender = src_path / "forwarder/file_sender";
+
+  for (const auto & item : ready) {
+    const auto & dir = std::get<0>(item);
+
+    /* remove the prefix of media_dir from dir and append to dst_media_dir */
+    string remaining = dir.substr(media_dir.string().size());
+    string dst_dir = dst_media_dir / remaining;
+
+    /* file sender is interested in any move-in files
+     * e.g., init.mp4 and .m4s in a vready dir */
+    vector<string> notifier_args { notifier, dir, ".", "--exec",
+      file_sender, ip, to_string(port), dst_dir };
+    proc_manager.run_as_child(notifier, notifier_args);
+  }
+}
+
 void run_depcleaner(ProcessManager & proc_manager,
                     const vector<tuple<string, string>> & work,
                     const vector<tuple<string, string>> & ready)
@@ -237,8 +261,9 @@ void run_pipeline(ProcessManager & proc_manager,
                   const string & channel_name,
                   const YAML::Node & config)
 {
-  vector<VideoFormat> vformats = channel_video_formats(config);
-  vector<AudioFormat> aformats = channel_audio_formats(config);
+  const auto & channel_config = config["channel_configs"][channel_name];
+  vector<VideoFormat> vformats = channel_video_formats(channel_config);
+  vector<AudioFormat> aformats = channel_audio_formats(channel_config);
 
   /* tuple<directory, extension> */
   vector<tuple<string, string>> vwork, awork;
@@ -271,6 +296,12 @@ void run_pipeline(ProcessManager & proc_manager,
     /* run audio encoder and audio fragmenter */
     run_audio_encoder(proc_manager, output_path, awork, af);
     run_audio_fragmenter(proc_manager, output_path, aready, af);
+  }
+
+  if (config["remote_media_server"]) {
+    /* run file_sender to transfer files in ready/ */
+    run_file_sender(proc_manager, vready, config["remote_media_server"]);
+    run_file_sender(proc_manager, aready, config["remote_media_server"]);
   }
 
   /* vwork, awork, vready, aready should already be filled in */
@@ -311,8 +342,7 @@ int main(int argc, char * argv[])
   set<string> channel_set = load_channels(config);
   for (const auto & channel_name : channel_set) {
     /* run the encoding pipeline for channel_name */
-    run_pipeline(proc_manager,
-                 channel_name, config["channel_configs"][channel_name]);
+    run_pipeline(proc_manager, channel_name, config);
   }
 
   return proc_manager.wait();
