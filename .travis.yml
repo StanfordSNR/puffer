@@ -16,6 +16,7 @@ addons:
     - libyaml-cpp-dev
     - libboost-dev
     - liba52-dev
+    - opus-tools
 
 before_install:
   # download a static-built ffmpeg
@@ -42,7 +43,8 @@ install:
 script:
   - ./autogen.sh
   - ./configure
-  - make -j3 distcheck V=1 || (cat puffer-0.2/_build/src/tests/test-suite.log && exit 1)
+  - make check -j3
+  # - make -j3 distcheck V=1 || (cat puffer-0.2/_build/src/tests/test-suite.log && exit 1)
 
 notifications:
   email: false
