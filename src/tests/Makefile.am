@@ -11,7 +11,7 @@ AM_TESTS_ENVIRONMENT = \
 
 EXTRA_DIST = test_helpers.py
 
-dist_check_SCRIPTS = fetch_vectors.test forwarder.test notify_good_prog.test \
+dist_check_SCRIPTS = fetch_vectors.test udp_to_tcp.test notify_good_prog.test \
 	notify_bad_prog.test cleaner.test ssim.test mpd.test time.test cleanup.test \
 	mp4.test depcleaner.test windowcleaner.test
 

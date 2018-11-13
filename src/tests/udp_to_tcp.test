@@ -17,21 +17,21 @@ def main():
 
     abs_builddir = os.environ['abs_builddir']
 
-    # run forwarder
-    forwarder = path.abspath(
-        path.join(abs_builddir, os.pardir, 'forwarder', 'forwarder'))
+    # run udp_to_tcp
+    udp_to_tcp = path.abspath(
+        path.join(abs_builddir, os.pardir, 'forwarder', 'udp_to_tcp'))
     udp_port = get_open_port()
     tcp_port = get_open_port()
-    forwarder_proc = Popen([forwarder, str(udp_port), str(tcp_port)],
-                           stderr=PIPE)
+    udp_to_tcp_proc = Popen([udp_to_tcp, str(udp_port), str(tcp_port)],
+                             stderr=PIPE)
 
-    sys.stderr.write(forwarder_proc.stderr.readline().decode())
+    sys.stderr.write(udp_to_tcp_proc.stderr.readline().decode())
 
     # create TCP socket
     tcp_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     tcp_sock.connect(('127.0.0.1', tcp_port))
 
-    sys.stderr.write(forwarder_proc.stderr.readline().decode())
+    sys.stderr.write(udp_to_tcp_proc.stderr.readline().decode())
 
     # send content over UDP socket
     udp_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -40,10 +40,10 @@ def main():
     # receive data from TCP socket
     data = tcp_sock.recv(len(content))
 
-    # terminate connections and the forwarder
+    # terminate connections and the udp_to_tcp
     udp_sock.close()
     tcp_sock.close()
-    forwarder_proc.terminate()
+    udp_to_tcp_proc.terminate()
 
     if data != content:
         sys.exit('data received not equal to the data sent')
