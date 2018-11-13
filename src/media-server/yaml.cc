@@ -1,4 +1,5 @@
 #include "yaml.hh"
+#include "util.hh"
 
 using namespace std;
 
@@ -55,4 +56,24 @@ vector<AudioFormat> channel_audio_formats(const YAML::Node & channel_config)
   }
 
   return { aformats.begin(), aformats.end() };
+}
+
+string postgres_connection_string(const YAML::Node & config)
+{
+  string ret;
+
+  ret = "host=" + config["host"].as<string>();
+  ret += " port=" + to_string(config["port"].as<uint16_t>());
+  ret += " dbname=" + config["dbname"].as<string>();
+  ret += " user=" + config["user"].as<string>();
+  ret += " password=" + safe_getenv(config["password"].as<string>());
+
+  if (config["sslmode"]) {
+    ret += " sslmode=" + config["sslmode"].as<string>();
+    ret += " sslrootcert=" + config["sslrootcert"].as<string>();
+    ret += " sslcert=" + config["sslcert"].as<string>();
+    ret += " sslkey=" + config["sslkey"].as<string>();
+  }
+
+  return ret;
 }

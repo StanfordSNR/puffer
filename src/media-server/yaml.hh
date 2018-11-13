@@ -18,4 +18,7 @@ std::vector<VideoFormat> channel_video_formats(const YAML::Node & channel_config
 /* get audio formats of a specific channel's config */
 std::vector<AudioFormat> channel_audio_formats(const YAML::Node & channel_config);
 
+/* get connection string of postgres_connection */
+std::string postgres_connection_string(const YAML::Node & postgres_connection_config);
+
 #endif /* YAML_HH */
