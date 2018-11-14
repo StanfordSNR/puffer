@@ -20,8 +20,7 @@ void print_usage(const string & program_name)
   "Options:\n"
   "-r                         recursively\n"
   "-p, --pattern <pattern>    remove files whose names matching <pattern>\n"
-  "-t, --time <time>          remove files that have not been accessed for <time> seconds\n"
-  "-c, --cycle <period>       make cleaner a daemon and roughly repeat every <period> seconds"
+  "-t, --time <time>          remove files that have not been accessed for <time> seconds"
   << endl;
 }
 
@@ -88,18 +87,17 @@ int main(int argc, char * argv[])
     abort();
   }
 
-  string working_dir, pattern, stale_time, period;
+  string working_dir, pattern, stale_time;
   bool recursive = false;
 
   const option cmd_line_opts[] = {
     {"pattern", required_argument, nullptr, 'p'},
     {"time",    required_argument, nullptr, 't'},
-    {"cycle",   required_argument, nullptr, 'c'},
     { nullptr,  0,                 nullptr,  0 },
   };
 
   while (true) {
-    const int opt = getopt_long(argc, argv, "p:t:c:r", cmd_line_opts, nullptr);
+    const int opt = getopt_long(argc, argv, "p:t:r", cmd_line_opts, nullptr);
     if (opt == -1) {
       break;
     }
@@ -110,9 +108,6 @@ int main(int argc, char * argv[])
       break;
     case 't':
       stale_time = optarg;
-      break;
-    case 'c':
-      period = optarg;
       break;
     case 'r':
       recursive = true;
@@ -151,23 +146,7 @@ int main(int argc, char * argv[])
     return EXIT_FAILURE;
   }
 
-  int period_sec = -1;
-  if (period.size()) {
-    period_sec = stoi(period);
-    if (period_sec <= 0) {
-      cerr << "--cycle should be greater than 0" << endl;
-      return EXIT_FAILURE;
-    }
-  }
-
-  if (period_sec > 0) {
-    for (;;) {
-      sleep(period_sec);
-      clean_files(working_dir, recursive, pattern, stale_time_sec);
-    }
-  } else {
-    clean_files(working_dir, recursive, pattern, stale_time_sec);
-  }
+  clean_files(working_dir, recursive, pattern, stale_time_sec);
 
   return EXIT_SUCCESS;
 }
