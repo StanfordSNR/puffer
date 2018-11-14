@@ -55,7 +55,7 @@ def send_to_influx(status):
             v['rf_channel'], v['snr'], v['selected_rate']))
 
     client = InfluxDBClient('localhost', 8086, 'puffer', INFLUX_PWD)
-    client.write_points(json_body, time_precision='s', database='collectd')
+    client.write_points(json_body, time_precision='s', database='puffer')
 
 
 def make_cookie(session_id):

@@ -36,11 +36,19 @@ public:
   {
     FileMsg metadata(buffer);
     fs::path dst_path = metadata.dst_path;
-    string tmp_path = tmp_dir_path / (dst_path.filename().string() + "."
-                                      + to_string(global_file_id++));
+    fs::path tmp_path = tmp_dir_path / (dst_path.filename().string() + "."
+                                        + to_string(global_file_id++));
 
-    FileDescriptor fd(CheckSystemCall("open (" + tmp_path + ")",
-        open(tmp_path.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644)));
+    /* create parent directories if they don't exist yet */
+    if (dst_path.has_parent_path()) {
+      fs::create_directories(dst_path.parent_path());
+    }
+    if (tmp_path.has_parent_path()) {
+      fs::create_directories(tmp_path.parent_path());
+    }
+
+    FileDescriptor fd(CheckSystemCall("open (" + tmp_path.string() + ")",
+        open(tmp_path.string().c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644)));
 
     /* avoid writing empty data */
     if (buffer.size() > metadata.size()) {
@@ -48,11 +56,6 @@ public:
     }
 
     fd.close();
-
-    /* create parent directories if they don't exist yet */
-    if (dst_path.has_parent_path()) {
-      fs::create_directories(dst_path.parent_path());
-    }
 
     fs::rename(tmp_path, dst_path);
 
