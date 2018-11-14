@@ -8,7 +8,6 @@ const BASE_RECONNECT_BACKOFF = 1000;
 const MAX_RECONNECT_BACKOFF = 15000;
 
 var debug = false;
-var non_secure = false;
 
 /* Server messages are of the form: "short_metadata_len|metadata_json|data" */
 function parse_server_msg(data) {
@@ -510,8 +509,8 @@ function WebSocketClient(session_key, username, sysinfo) {
 
   this.connect = function(channel) {
     const ws_host_port = location.hostname + ':9361';
-    const ws_addr = non_secure ? 'ws://' + ws_host_port
-                               : 'wss://' + ws_host_port;
+    const ws_addr = debug ? 'ws://' + ws_host_port
+                          : 'wss://' + ws_host_port;
     ws = new WebSocket(ws_addr);
 
     ws.binaryType = 'arraybuffer';
@@ -614,7 +613,7 @@ function WebSocketClient(session_key, username, sysinfo) {
 
 function start_puffer(session_key, username, sysinfo, settings_debug) {
   /* if DEBUG = True in settings.py, connect to non-secure WebSocket server */
-  non_secure = settings_debug;
+  debug = settings_debug;
 
   return new WebSocketClient(session_key, username, sysinfo);
 }
