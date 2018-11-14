@@ -192,7 +192,7 @@ void run_file_sender(ProcessManager & proc_manager,
                      const vector<tuple<string, string>> & ready,
                      const YAML::Node & config)
 {
-  string ip = config["ip"].as<string>();
+  string host = config["host"].as<string>();
   uint16_t port = config["port"].as<uint16_t>();
   fs::path dst_media_dir = config["media_dir"].as<string>();
   string file_sender = src_path / "forwarder/file_sender";
@@ -207,7 +207,7 @@ void run_file_sender(ProcessManager & proc_manager,
     /* file sender is interested in any move-in files
      * e.g., init.mp4 and .m4s in a vready dir */
     vector<string> notifier_args { notifier, dir, ".", "--exec",
-      file_sender, ip, to_string(port), dst_dir };
+      file_sender, host, to_string(port), dst_dir };
     proc_manager.run_as_child(notifier, notifier_args);
   }
 }
@@ -343,6 +343,16 @@ int main(int argc, char * argv[])
   for (const auto & channel_name : channel_set) {
     /* run the encoding pipeline for channel_name */
     run_pipeline(proc_manager, channel_name, config);
+  }
+
+  /* if logging is enabled */
+  if (config["enable_logging"].as<bool>()) {
+    fs::path monitoring_dir = src_path / "monitoring";
+
+    /* report SSIMs, video chunk sizes, and backlog sizes */
+    string file_reporter = monitoring_dir / "file_reporter";
+    vector<string> file_reporter_args { file_reporter, yaml_config };
+    proc_manager.run_as_child(file_reporter, file_reporter_args);
   }
 
   return proc_manager.wait();
