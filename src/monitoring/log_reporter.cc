@@ -41,7 +41,7 @@ int tail_loop(const YAML::Node & config, const string & log_path)
       {influx["host"].as<string>(), influx["port"].as<uint16_t>()},
       influx["dbname"].as<string>(),
       influx["user"].as<string>(),
-      safe_getenv("INFLUXDB_PASSWORD"));
+      safe_getenv(influx["password"].as<string>()));
 
   bool log_rotated = false;  /* whether log rotation happened */
   string buf;  /* used to assemble content read from the log into lines */

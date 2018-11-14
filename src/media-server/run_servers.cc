@@ -1,5 +1,6 @@
 #include <iostream>
 #include <string>
+#include <memory>
 
 #include "yaml-cpp/yaml.h"
 #include "filesystem.hh"
@@ -44,16 +45,16 @@ int main(int argc, char * argv[])
   ProcessManager proc_manager;
 
   /* create influxdb_client only if enable_logging is true */
-  optional<InfluxDBClient> influxdb_client;
+  unique_ptr<InfluxDBClient> influxdb_client = nullptr;
   if (enable_logging) {
     /* add influx client for posting states of child processes */
     const auto & influx = config["influxdb_connection"];
-    influxdb_client = InfluxDBClient(
+    influxdb_client = make_unique<InfluxDBClient>(
         proc_manager.poller(),
-        {influx["host"].as<string>(), influx["port"].as<uint16_t>()},
+        Address(influx["host"].as<string>(), influx["port"].as<uint16_t>()),
         influx["dbname"].as<string>(),
         influx["user"].as<string>(),
-        safe_getenv("INFLUXDB_PASSWORD"));
+        safe_getenv(influx["password"].as<string>()));
   }
 
   /* run multiple instances of ws_media_server */

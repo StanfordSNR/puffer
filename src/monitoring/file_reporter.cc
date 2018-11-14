@@ -174,7 +174,7 @@ int main(int argc, char * argv[])
       {influx["host"].as<string>(), influx["port"].as<uint16_t>()},
       influx["dbname"].as<string>(),
       influx["user"].as<string>(),
-      safe_getenv("INFLUXDB_PASSWORD"));
+      safe_getenv(influx["password"].as<string>()));
 
   for (const auto & channel_name : channel_set) {
     const auto & channel_config = config["channel_configs"][channel_name];

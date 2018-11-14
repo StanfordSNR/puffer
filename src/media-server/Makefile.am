@@ -20,4 +20,4 @@ ws_media_server_LDADD = ../util/libutil.a ../net/libnet.a ../util/libutil.a \
 run_servers_SOURCES = run_servers.cc \
   ../monitoring/influxdb_client.hh ../monitoring/influxdb_client.cc
 run_servers_LDADD = ../util/libutil.a ../net/libnet.a \
-	$(SSL_LIBS) $(YAML_LIBS) -lstdc++fs
+	$(SSL_LIBS) $(YAML_LIBS) $(YAML_LIBS) -lstdc++fs
