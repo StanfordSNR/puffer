@@ -11,22 +11,31 @@ https://docs.djangoproject.com/en/2.0/ref/settings/
 """
 
 import os
+import yaml
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+PUFFER_BASE_DIR = os.path.dirname(os.path.dirname(BASE_DIR));
 
+# Modify if needed: path of Puffer's YAML configuration file
+yaml_config_path = os.path.join(PUFFER_BASE_DIR, 'src', 'settings.yml')
+
+# load YAML configuration
+with open(yaml_config_path, 'r') as fh:
+    yaml_config = yaml.safe_load(fh)
+portal_config = yaml_config['portal_settings']
+postgres_config = yaml_config['postgres_connection']
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/2.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.environ['PUFFER_PORTAL_SECRET_KEY']
+SECRET_KEY = os.environ[portal_config['secret_key']]
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = False
+DEBUG = portal_config['debug']
 
-ALLOWED_HOSTS = ['puffer.stanford.edu']
-
+ALLOWED_HOSTS = portal_config['allowed_hosts']
 
 # Application definition
 
@@ -75,21 +84,25 @@ WSGI_APPLICATION = 'portal.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/2.0/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'puffer',
-        'USER': 'puffer',
-        'PASSWORD': os.environ['PUFFER_PORTAL_DB_KEY'],
-        'HOST': '35.236.47.112',
-        'PORT': '5432',
-        'OPTIONS': {
-            'sslmode': 'verify-ca',
-            'sslrootcert': '/home/puffer/.ssl/puffer-postgres/server-ca.pem',
-            'sslcert': '/home/puffer/.ssl/puffer-postgres/client-cert.pem',
-            'sslkey': '/home/puffer/.ssl/puffer-postgres/client-key.pem',
-        },
+default_db = {
+    'ENGINE': 'django.db.backends.postgresql',
+    'NAME': postgres_config['dbname'],
+    'USER': postgres_config['user'],
+    'PASSWORD': os.environ[postgres_config['password']],
+    'HOST': postgres_config['host'],
+    'PORT': postgres_config['port'],
+}
+
+if 'sslmode' in postgres_config:
+    default_db['OPTIONS'] = {
+        'sslmode': postgres_config['sslmode'],
+        'sslrootcert': postgres_config['sslrootcert'],
+        'sslcert': postgres_config['sslcert'],
+        'sslkey': postgres_config['sslkey'],
     }
+
+DATABASES = {
+    'default': default_db
 }
 
 # Password validation
