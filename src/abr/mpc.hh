@@ -39,9 +39,8 @@ private:
   double rebuffer_length_coeff_ {REBUFFER_LENGTH_COEFF};
   double ssim_diff_coeff_ {SSIM_DIFF_COEFF};
 
-  /* for the current buffer length and format */
+  /* for the current buffer length */
   size_t curr_buffer_ {};
-  size_t curr_format_ {};
 
   /* for storing the value function */
   uint64_t flag_[MAX_LOOKAHEAD_HORIZON + 1][MAX_DIS_BUF_LENGTH + 1][MAX_NUM_FORMATS] {};

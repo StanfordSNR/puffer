@@ -48,7 +48,7 @@ void MPC::video_chunk_acked(const VideoFormat & format,
 VideoFormat MPC::select_video_format()
 {
   reinit();
-  size_t ret_format = update_value(0, curr_buffer_, curr_format_);
+  size_t ret_format = update_value(0, curr_buffer_, 0);
   return client_.channel()->vformats()[ret_format];
 }
 
@@ -73,21 +73,11 @@ void MPC::reinit()
 
   curr_buffer_ = discretize_buffer(client_.video_playback_buf());
 
-  /* get the current format */
-  auto curr_format = *client_.curr_vformat();
-  curr_format_ = 0;
-  for (size_t i = 0; i < num_formats_; i++) {
-    if (vformats[i] == curr_format) {
-      curr_format_ = i;
-      break;
-    }
-  }
-
   /* init curr_ssims */
   if (past_chunks_.size() > 0) {
-    curr_ssims_[0][curr_format_] = past_chunks_.back().ssim;
+    curr_ssims_[0][0] = past_chunks_.back().ssim;
   } else {
-    curr_ssims_[0][curr_format_] = 0;
+    curr_ssims_[0][0] = 0;
   }
 
   for (size_t i = 1; i <= lookahead_horizon_; i++) {
