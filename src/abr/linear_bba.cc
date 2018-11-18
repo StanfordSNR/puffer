@@ -61,8 +61,11 @@ VideoFormat LinearBBA::select_video_format()
   }
 
   /* pick the chunk with highest SSIM but with size <= max_serve_size */
-  double max_serve_size = ceil(buf * (max_size - min_size) / max_buffer_s
-                               + min_size);
+  double slope = (max_size - min_size) /
+                 ((upper_reservoir_ - lower_reservoir_) * max_buffer_s);
+  double max_serve_size = min_size +
+                          slope * (buf - lower_reservoir_ * max_buffer_s);
+
   double highest_ssim = 0.0;
   size_t ret_idx = vformats_cnt;
 

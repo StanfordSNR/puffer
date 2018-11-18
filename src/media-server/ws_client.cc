@@ -126,15 +126,17 @@ AudioFormat WebSocketClient::select_audio_format()
   assert(max_idx < aformats_cnt);
   assert(min_idx < aformats_cnt);
 
-  if (buf >= 0.8 * MAX_BUFFER_S) {
+  if (buf >= UPPER_RESERVOIR * MAX_BUFFER_S) {
     return aformats[max_idx];
-  } else if (buf <= 0.2 * MAX_BUFFER_S) {
+  } else if (buf <= LOWER_RESERVOIR * MAX_BUFFER_S) {
     return aformats[min_idx];
   }
 
   /* pick the largest chunk with size <= max_serve_size */
-  double max_serve_size = ceil(buf * (max_size - min_size) / MAX_BUFFER_S
-                               + min_size);
+  double slope = (max_size - min_size) /
+                 ((UPPER_RESERVOIR - LOWER_RESERVOIR) * MAX_BUFFER_S);
+  double max_serve_size = min_size +
+                          slope * (buf - LOWER_RESERVOIR * MAX_BUFFER_S);
   size_t biggest_chunk_size = 0;
   size_t ret_idx = aformats_cnt;
 
