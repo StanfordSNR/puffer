@@ -271,19 +271,22 @@ function AVSource(ws_client, video, server_init) {
     if (vbuf && vbuf.buffered.length == 1 &&
         vbuf.buffered.end(0) >= video.currentTime) {
       return vbuf.buffered.end(0) - video.currentTime;
-    } else {
-      return -1;
     }
+
+    return -1;
   };
 
-  /* Get the number of seconds of buffered audio */
+  /* Get the min number of seconds of buffered video and audio */
   this.getAudioBufferLen = function() {
-    if (abuf && abuf.buffered.length == 1 &&
-        abuf.buffered.end(0) >= video.currentTime) {
-      return abuf.buffered.end(0) - video.currentTime;
-    } else {
-      return -1;
+    if (vbuf && vbuf.buffered.length == 1 &&
+        abuf && abuf.buffered.length == 1) {
+      var min_buf = Math.min(vbuf.buffered.end(0), abuf.buffered.end(0));
+      if (min_buf >= video.currentTime) {
+        return min_buf - video.currentTime;
+      }
     }
+
+    return -1;
   };
 
   /* Get the expected timestamp of the next video chunk */
