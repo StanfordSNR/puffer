@@ -325,7 +325,7 @@ function AVSource(ws_client, video, server_init) {
       if (!pending_video_to_ack) {
         pending_video_to_ack = next_video.metadata;  // sent ack in updateend handler
       } else {
-        console.log("Error: called vbuf.appendBuffer() again before updateend");
+        console.log('Error: called vbuf.appendBuffer() again before updateend');
       }
     }
   };
@@ -338,7 +338,7 @@ function AVSource(ws_client, video, server_init) {
       if (!pending_audio_to_ack) {
         pending_audio_to_ack = next_audio.metadata;  // sent ack in updateend handler
       } else {
-        console.log("Error: called abuf.appendBuffer() again before updateend");
+        console.log('Error: called abuf.appendBuffer() again before updateend');
       }
     }
   };
@@ -582,6 +582,11 @@ function WebSocketClient(session_key, username, sysinfo) {
   };
 
   video.oncanplay = function() {
+    /* pause and hide loading circle */
+    var spinner = document.getElementById('tv-spinner');
+    spinner.style.display = 'none';
+    spinner.classList.add('paused');
+
     console.log('Video can play');
     that.send_client_info('canplay');
   };
