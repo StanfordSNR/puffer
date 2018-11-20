@@ -9,6 +9,12 @@ const MAX_RECONNECT_BACKOFF = 15000;
 
 var debug = false;
 
+function set_player_error(error_message) {
+  var player_error = document.getElementById('player-error');
+  player_error.innerHTML = error_message;
+  player_error.style.display = 'block';
+}
+
 /* Server messages are of the form: "short_metadata_len|metadata_json|data" */
 function parse_server_msg(data) {
   var header_len = new DataView(data, 0, 2).getUint16();
@@ -65,7 +71,18 @@ function AVSource(ws_client, video, server_init) {
   var pending_video_to_ack = null;
   var pending_audio_to_ack = null;
 
-  var ms = new MediaSource();
+  var ms = null;
+
+  if (window.MediaSource) {
+    ms = new MediaSource();
+  } else {
+    set_player_error(
+      'Error: Your browser does not support Media Source Extensions (MSE), ' +
+      'which Puffer requires to stream media. Please try another browser or ' +
+      'device. Please note that no browsers for iOS currently support MSE.'
+    );
+    console.log(overlay_message);
+  }
 
   /* used by handleVideo */
   var curr_video_quality = null;
