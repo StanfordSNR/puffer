@@ -40,7 +40,7 @@ using WebSocketServer = WebSocketSecureServer;
 /* global settings */
 static const size_t MAX_WS_FRAME_B = 100 * 1024;  /* 10 KB */
 /* drop a client if have not received messaged from it for 10 seconds */
-static const unsigned int MAX_IDLE_S = 10;
+static const unsigned int MAX_IDLE_S = 60;
 static fs::path media_dir;  /* base directory of media files */
 
 static map<string, shared_ptr<Channel>> channels;  /* key: channel name */

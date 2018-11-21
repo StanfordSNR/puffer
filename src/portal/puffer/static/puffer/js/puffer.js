@@ -4,8 +4,8 @@ const WS_OPEN = 1;
 
 const TIMER_INTERVAL = 250;
 const DEBUG_TIMER_INTERVAL = 500;
-const BASE_RECONNECT_BACKOFF = 250;
-const MAX_RECONNECT_BACKOFF = 15000;  // should > drop connection timeout on server
+const BASE_RECONNECT_BACKOFF = 500;
+const MAX_RECONNECT_BACKOFF = 10000;
 
 var debug = false;
 
@@ -350,7 +350,6 @@ function WebSocketClient(session_key, username, sysinfo) {
 
   /* exponential backoff to reconnect */
   var reconnect_backoff = BASE_RECONNECT_BACKOFF;
-  var last_ws_open = null;
 
   this.send_client_init = function(channel) {
     if (!(ws && ws.readyState === WS_OPEN)) {
@@ -397,6 +396,11 @@ function WebSocketClient(session_key, username, sysinfo) {
       return;
     }
 
+    /* send client-info only when server-error has not been received */
+    if (server_error) {
+      return;
+    }
+
     var msg = {
       initId: init_id,
       event: info_event,
@@ -427,6 +431,11 @@ function WebSocketClient(session_key, username, sysinfo) {
 
     /* note that it is fine if av_source.isOpen() is false */
     if (!av_source) {
+      return;
+    }
+
+    /* send client ack only when server-error has not been received */
+    if (server_error) {
       return;
     }
 
@@ -503,6 +512,9 @@ function WebSocketClient(session_key, username, sysinfo) {
         return;
       }
 
+      /* reset reconnect_backoff once a new media chunk is received */
+      reconnect_backoff = BASE_RECONNECT_BACKOFF;
+
       /* note: handleVideo can buffer chunks even if !av_source.isOpen() */
       av_source.handleVideo(metadata, data, msg_ts);
     } else if (metadata.type === 'server-audio') {
@@ -510,6 +522,9 @@ function WebSocketClient(session_key, username, sysinfo) {
         console.log('Error: AVSource is not initialized yet');
         return;
       }
+
+      /* reset reconnect_backoff once a new media chunk is received */
+      reconnect_backoff = BASE_RECONNECT_BACKOFF;
 
       /* note: handleAudio can buffer chunks even if !av_source.isOpen() */
       av_source.handleAudio(metadata, data, msg_ts);
@@ -529,21 +544,12 @@ function WebSocketClient(session_key, username, sysinfo) {
 
     ws.onopen = function(e) {
       console.log('Connected to', ws_addr);
-      last_ws_open = Date.now();
-
       that.set_channel(channel);
     };
 
     ws.onclose = function(e) {
       console.log('Closed connection to', ws_addr);
       ws = null;
-
-      /* reset reconnect_backoff if WebSocket has been open for a while */
-      if (last_ws_open && Date.now() - last_ws_open > MAX_RECONNECT_BACKOFF) {
-        reconnect_backoff = BASE_RECONNECT_BACKOFF;
-      }
-
-      last_ws_open = null;
 
       if (reconnect_backoff <= MAX_RECONNECT_BACKOFF) {
         /* Try to reconnect */
@@ -595,11 +601,7 @@ function WebSocketClient(session_key, username, sysinfo) {
 
   /* send status updates to the server from time to time */
   function timer_helper() {
-    /* send client-timer only when server-error has not been received */
-    if (!server_error) {
-      that.send_client_info('timer');
-    }
-
+    that.send_client_info('timer');
     setTimeout(timer_helper, TIMER_INTERVAL);
   }
   timer_helper();
