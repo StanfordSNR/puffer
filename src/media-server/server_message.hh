@@ -15,7 +15,7 @@ class ServerMsg
 public:
   /* serialize server message: 16-bit length of msg_ | serialized msg_
    * video/audio chunk will be appended to serialized ServerMsg */
-  std::string to_string();
+  std::string to_string() const;
 
 protected:
   /* prevent this class from being instantiated */
@@ -60,6 +60,13 @@ public:
                  const uint64_t timestamp,
                  const unsigned int byte_offset,
                  const unsigned int total_byte_length);
+};
+
+class ServerErrorMsg : public ServerMsg
+{
+public:
+  ServerErrorMsg(const unsigned int init_id,
+                 const std::string & error_message);
 };
 
 class MediaSegment

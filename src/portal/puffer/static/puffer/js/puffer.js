@@ -11,11 +11,20 @@ var debug = false;
 
 var video = document.getElementById('tv-video');
 var spinner = document.getElementById('tv-spinner');
+var player_error = document.getElementById('player-error');
 
 function set_player_error(error_message) {
-  var player_error = document.getElementById('player-error');
-  player_error.innerHTML = error_message;
-  player_error.style.display = 'block';
+  if (player_error.style.display === 'none') {
+    player_error.innerHTML = error_message;
+    player_error.style.display = 'block';
+  }
+}
+
+function clear_player_error() {
+  if (player_error.style.display === 'block') {
+    player_error.innerHTML = '';
+    player_error.style.display = 'none';
+  }
 }
 
 function start_spinner() {
@@ -469,7 +478,9 @@ function WebSocketClient(session_key, username, sysinfo) {
       console.log('received', metadata.type, metadata);
     }
 
-    if (metadata.type === 'server-init') {
+    if (metadata.type === 'server-error') {
+      set_player_error(metadata.errorMessage);
+    } else if (metadata.type === 'server-init') {
       /* return if client is able to resume */
       if (av_source && av_source.isOpen() && metadata.canResume) {
         console.log('Resuming playback');
@@ -567,6 +578,7 @@ function WebSocketClient(session_key, username, sysinfo) {
 
   video.onplaying = function() {
     stop_spinner();
+    clear_player_error();
     console.log('Video is playing');
   };
 

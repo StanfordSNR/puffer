@@ -4,7 +4,7 @@
 
 using namespace std;
 
-string ServerMsg::to_string()
+string ServerMsg::to_string() const
 {
   string msg_str = msg_.dump();
   uint16_t msg_len = narrow_cast<uint16_t>(msg_str.length());
@@ -79,6 +79,16 @@ ServerAudioMsg::ServerAudioMsg(const unsigned int init_id,
     {"timestamp", timestamp},
     {"byteOffset", byte_offset},
     {"totalByteLength", total_byte_length}
+  };
+}
+
+ServerErrorMsg::ServerErrorMsg(const unsigned int init_id,
+                               const string & error_message)
+{
+  msg_ = {
+    {"type", "server-error"},
+    {"initId", init_id},
+    {"errorMessage", error_message}
   };
 }
 

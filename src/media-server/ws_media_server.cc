@@ -62,6 +62,8 @@ static time_t last_minute = 0;
 static bool enforce_moving_live_edge = false;
 static map<string, tuple<optional<uint64_t>, optional<time_t>>> live_edges;
 static const unsigned int MAX_UNCHANGED_LIVE_EDGE_S = 10;
+static string CHANNEL_NOT_READY = "Sorry, the channel is not currently "
+  "available. Please refresh or try again later.";
 
 void print_usage(const string & program_name)
 {
@@ -228,6 +230,37 @@ void serve_audio_to_client(WebSocketServer & server, WebSocketClient & client)
        << ", audio " << next_ats << " " << next_aq << endl;
 }
 
+void send_server_init(WebSocketServer & server, WebSocketClient & client,
+                      const bool can_resume)
+{
+  const auto & channel = client.channel();
+
+  ServerInitMsg init(client.init_id(), channel->name(),
+                     channel->vcodec(), channel->acodec(),
+                     channel->timescale(),
+                     channel->vduration(), channel->aduration(),
+                     client.next_vts().value(), client.next_ats().value(),
+                     can_resume);
+  WSFrame frame {true, WSFrame::OpCode::Binary, init.to_string()};
+
+  /* drop previously queued frames before sending server-init */
+  server.clear_buffer(client.connection_id());
+
+  server.queue_frame(client.connection_id(), frame);
+}
+
+void send_server_error(WebSocketServer & server, WebSocketClient & client,
+                       const string & error_message)
+{
+  ServerErrorMsg err_msg(client.init_id(), error_message);
+  WSFrame frame {true, WSFrame::OpCode::Binary, err_msg.to_string()};
+
+  /* drop previously queued frames before sending server-error */
+  server.clear_buffer(client.connection_id());
+
+  server.queue_frame(client.connection_id(), frame);
+}
+
 void reinit_laggy_client(WebSocketServer & server, WebSocketClient & client,
                          const shared_ptr<Channel> & channel)
 {
@@ -238,23 +271,15 @@ void reinit_laggy_client(WebSocketServer & server, WebSocketClient & client,
        << client.next_vts().value() << "->" << init_vts << endl;
   client.init(channel, init_vts, init_ats);
 
-  ServerInitMsg reinit(client.init_id(), channel->name(),
-                       channel->vcodec(), channel->acodec(),
-                       channel->timescale(),
-                       channel->vduration(), channel->aduration(),
-                       client.next_vts().value(), client.next_ats().value(),
-                       false);
-  WSFrame frame {true, WSFrame::OpCode::Binary, reinit.to_string()};
-  server.queue_frame(client.connection_id(), frame);
+  send_server_init(server, client, false /* cannot resume */);
 }
 
 void serve_client(WebSocketServer & server, WebSocketClient & client)
 {
   const auto & channel = client.channel();
 
+  /* channel may become not ready */
   if (not channel->ready_to_serve()) {
-    cerr << client.signature()
-         << ": cannot serve because channel is not available anymore" << endl;
     return;
   }
 
@@ -410,24 +435,6 @@ void start_global_timer(WebSocketServer & server)
   global_timer.start(TIMER_PERIOD_MS, TIMER_PERIOD_MS);
 }
 
-void send_server_init(WebSocketServer & server, WebSocketClient & client,
-                      const bool can_resume)
-{
-  const auto & channel = client.channel();
-
-  ServerInitMsg init(client.init_id(), channel->name(),
-                     channel->vcodec(), channel->acodec(),
-                     channel->timescale(),
-                     channel->vduration(), channel->aduration(),
-                     client.next_vts().value(), client.next_ats().value(),
-                     can_resume);
-  WSFrame frame {true, WSFrame::OpCode::Binary, init.to_string()};
-
-  /* drop previously queued frames before sending server init */
-  server.clear_buffer(client.connection_id());
-  server.queue_frame(client.connection_id(), frame);
-}
-
 bool resume_connection(WebSocketServer & server,
                        WebSocketClient & client,
                        const ClientInitMsg & msg,
@@ -488,10 +495,11 @@ void handle_client_init(WebSocketServer & server, WebSocketClient & client,
 
   const auto & channel = it->second;
 
-  /* ignore client-init if the channel is not ready */
+  /* reply that the channel is not ready */
   if (not channel->ready_to_serve()) {
-    cerr << client.signature()
-         << ": ignored client-init (channel is not ready)" << endl;
+    send_server_error(server, client, CHANNEL_NOT_READY);
+    cerr << client.signature() << ": requested channel " << channel->name()
+         << " is not ready" << endl;
     return;
   }
 
@@ -796,6 +804,7 @@ int main(int argc, char * argv[])
             }
           }
 
+          /* handle client-init and initialize client's channel */
           handle_client_init(server, client, msg);
         } else {
           /* parse a message other than client-init only if user is authed */
@@ -804,6 +813,17 @@ int main(int argc, char * argv[])
                  << "non-authenticated user" << endl;
             server.close_connection(connection_id);
             return;
+          }
+
+          /* normally, client's channel should already be initialized */
+          if (client.channel()) {
+            const auto & channel = client.channel();
+
+            /* inform the client that the channel becomes not ready */
+            if (not channel->ready_to_serve()) {
+              send_server_error(server, client, CHANNEL_NOT_READY);
+              return;
+            }
           }
 
           switch (msg_parser.msg_type()) {
