@@ -83,11 +83,25 @@ ServerAudioMsg::ServerAudioMsg(const unsigned int init_id,
 }
 
 ServerErrorMsg::ServerErrorMsg(const unsigned int init_id,
-                               const string & error_message)
+                               const ErrorType error_type)
 {
+  string error_type_str;
+  string error_message;
+
+  if (error_type == ErrorType::Channel) {
+    error_type_str = "channel";
+    error_message = "Sorry, the channel is not currently available. "
+      "Please refresh or try again later.";
+  } else if (error_type == ErrorType::Drop) {
+    error_type_str = "drop";
+    error_message = "Your connection has been dropped after timeout. "
+      "Please refresh the page.";
+  }
+
   msg_ = {
     {"type", "server-error"},
     {"initId", init_id},
+    {"errorType", error_type_str},
     {"errorMessage", error_message}
   };
 }

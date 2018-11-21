@@ -70,8 +70,7 @@ public:
 
   bool is_rebuffering() const { return rebuffering_; }
 
-  std::optional<time_t> get_last_msg_time() const { return last_msg_time_; }
-
+  std::optional<uint64_t> last_msg_recv_ts() const { return last_msg_recv_ts_; }
   std::optional<uint64_t> last_video_send_ts() const { return last_video_send_ts_; }
 
   /* mutators */
@@ -101,7 +100,7 @@ public:
   void set_curr_aq(const AudioFormat & quality) { curr_aq_ = quality; }
 
   void set_rebuffering(const bool rebuffering) { rebuffering_ = rebuffering; }
-  void set_last_msg_time(const time_t t) { last_msg_time_ = t; }
+  void set_last_msg_recv_ts(const uint64_t recv_ts) { last_msg_recv_ts_ = recv_ts; }
 
   void reset_last_video_send_ts() { last_video_send_ts_.reset(); }
   void set_last_video_send_ts(const uint64_t send_ts) { last_video_send_ts_ = send_ts; }
@@ -160,7 +159,7 @@ private:
   std::optional<uint64_t> client_next_ats_ {};
 
   bool rebuffering_ {false};
-  std::optional<time_t> last_msg_time_ {};
+  std::optional<uint64_t> last_msg_recv_ts_ {};
 
   /* sending time of last video chunk */
   std::optional<uint64_t> last_video_send_ts_ {};

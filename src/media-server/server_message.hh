@@ -65,8 +65,12 @@ public:
 class ServerErrorMsg : public ServerMsg
 {
 public:
-  ServerErrorMsg(const unsigned int init_id,
-                 const std::string & error_message);
+  enum class ErrorType {
+    Channel,  /* error in the current channel */
+    Drop      /* connection to be dropped */
+  };
+
+  ServerErrorMsg(const unsigned int init_id, const ErrorType error_type);
 };
 
 class MediaSegment

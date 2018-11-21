@@ -14,17 +14,13 @@ var spinner = document.getElementById('tv-spinner');
 var player_error = document.getElementById('player-error');
 
 function set_player_error(error_message) {
-  if (player_error.style.display === 'none') {
-    player_error.innerHTML = error_message;
-    player_error.style.display = 'block';
-  }
+  player_error.innerHTML = error_message;
+  player_error.style.display = 'block';
 }
 
 function clear_player_error() {
-  if (player_error.style.display === 'block') {
-    player_error.innerHTML = '';
-    player_error.style.display = 'none';
-  }
+  player_error.innerHTML = '';
+  player_error.style.display = 'none';
 }
 
 function start_spinner() {
@@ -342,7 +338,7 @@ function WebSocketClient(session_key, username, sysinfo) {
 
   /* increment every time a client-init is sent */
   var init_id = 0;
-  var server_error = false;  // if received server-error with the same init_id
+  var server_channel_error = false;  // if received server-error type 'channel'
 
   /* record the screen sizes reported to the server as they might change */
   var screen_height = null;
@@ -357,7 +353,7 @@ function WebSocketClient(session_key, username, sysinfo) {
     }
 
     init_id += 1;
-    server_error = false;
+    server_channel_error = false;
 
     screen_height = screen.height;
     screen_width = screen.width;
@@ -396,8 +392,8 @@ function WebSocketClient(session_key, username, sysinfo) {
       return;
     }
 
-    /* send client-info only when server-error has not been received */
-    if (server_error) {
+    /* send client-info only when not received server-error type 'channel' */
+    if (server_channel_error) {
       return;
     }
 
@@ -434,8 +430,8 @@ function WebSocketClient(session_key, username, sysinfo) {
       return;
     }
 
-    /* send client ack only when server-error has not been received */
-    if (server_error) {
+    /* send client ack only when not received server-error type 'channel' */
+    if (server_channel_error) {
       return;
     }
 
@@ -490,8 +486,15 @@ function WebSocketClient(session_key, username, sysinfo) {
     }
 
     if (metadata.type === 'server-error') {
-      server_error = true;
+      server_channel_error = true;
       set_player_error(metadata.errorMessage);
+
+      if (metadata.errorType == 'drop') {
+        /* server is going to drop this connection
+         * now disconnect and never reconnect */
+        reconnect_backoff = MAX_RECONNECT_BACKOFF;
+        ws.close();
+      }
     } else if (metadata.type === 'server-init') {
       /* return if client is able to resume */
       if (av_source && av_source.isOpen() && metadata.canResume) {
@@ -551,7 +554,7 @@ function WebSocketClient(session_key, username, sysinfo) {
       console.log('Closed connection to', ws_addr);
       ws = null;
 
-      if (reconnect_backoff <= MAX_RECONNECT_BACKOFF) {
+      if (reconnect_backoff < MAX_RECONNECT_BACKOFF) {
         /* Try to reconnect */
         console.log('Reconnecting in ' + reconnect_backoff + 'ms');
 

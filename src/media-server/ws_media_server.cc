@@ -39,8 +39,8 @@ using WebSocketServer = WebSocketSecureServer;
 
 /* global settings */
 static const size_t MAX_WS_FRAME_B = 100 * 1024;  /* 10 KB */
-/* drop a client if have not received messaged from it for 10 seconds */
-static const unsigned int MAX_IDLE_S = 60;
+static const unsigned int DROP_NOTIFICATION_MS = 30000;
+static const unsigned int MAX_IDLE_MS = 60000;
 static fs::path media_dir;  /* base directory of media files */
 
 static map<string, shared_ptr<Channel>> channels;  /* key: channel name */
@@ -62,8 +62,6 @@ static time_t last_minute = 0;
 static bool enforce_moving_live_edge = false;
 static map<string, tuple<optional<uint64_t>, optional<time_t>>> live_edges;
 static const unsigned int MAX_UNCHANGED_LIVE_EDGE_S = 10;
-static string CHANNEL_NOT_READY = "Sorry, the channel is not currently "
-  "available. Please refresh or try again later.";
 
 void print_usage(const string & program_name)
 {
@@ -250,9 +248,9 @@ void send_server_init(WebSocketServer & server, WebSocketClient & client,
 }
 
 void send_server_error(WebSocketServer & server, WebSocketClient & client,
-                       const string & error_message)
+                       const ServerErrorMsg::ErrorType error_type)
 {
-  ServerErrorMsg err_msg(client.init_id(), error_message);
+  ServerErrorMsg err_msg(client.init_id(), error_type);
   WSFrame frame {true, WSFrame::OpCode::Binary, err_msg.to_string()};
 
   /* drop previously queued frames before sending server-error */
@@ -384,10 +382,9 @@ void start_global_timer(WebSocketServer & server)
       }
 
       if (enforce_moving_live_edge) {
+        /* mark channel as not available if live edge is not moving forward */
         do_enforce_moving_live_edge();
       }
-
-      const auto curr_time = time(nullptr);
 
       /* iterate over all connections */
       set<uint64_t> connections_to_close;
@@ -395,14 +392,23 @@ void start_global_timer(WebSocketServer & server)
         uint64_t connection_id = client_pair.first;
         WebSocketClient & client = client_pair.second;
 
-        /* have not received messages from client for 10 seconds */
-        const auto last_msg_time = client.get_last_msg_time();
-        if (last_msg_time and curr_time - *last_msg_time > MAX_IDLE_S) {
-          /* don't erase the client (in close callback) until after for loop */
-          connections_to_close.emplace(connection_id);
-          cerr << client.signature() << ": drop connection after "
-               << MAX_IDLE_S << " seconds" << endl;
-          continue;
+        /* have not received messages from client for a while */
+        const auto last_msg_recv_ts = client.last_msg_recv_ts();
+        if (last_msg_recv_ts) {
+          const auto elapsed = timestamp_ms() - *last_msg_recv_ts;
+
+          assert(MAX_IDLE_MS > DROP_NOTIFICATION_MS);
+          if (elapsed > MAX_IDLE_MS) {
+            /* don't erase the client (in close callback) until after for loop */
+            connections_to_close.emplace(connection_id);
+            cerr << client.signature() << ": cleaned idle connection" << endl;
+            continue;
+          } else if (elapsed > DROP_NOTIFICATION_MS) {
+            /* notify that the connection is going to be dropped */
+            send_server_error(server, client, ServerErrorMsg::ErrorType::Drop);
+            cerr << client.signature() << ": connection going to be dropped" << endl;
+            continue;
+          }
         }
 
         if (client.channel()) {
@@ -418,6 +424,7 @@ void start_global_timer(WebSocketServer & server)
 
       if (enable_logging) {
         /* perform some tasks once per minute */
+        const auto curr_time = time(nullptr);
         time_t this_minute = curr_time - curr_time % 60;
         if (this_minute > last_minute) {
           last_minute = this_minute;
@@ -497,7 +504,7 @@ void handle_client_init(WebSocketServer & server, WebSocketClient & client,
 
   /* reply that the channel is not ready */
   if (not channel->ready_to_serve()) {
-    send_server_error(server, client, CHANNEL_NOT_READY);
+    send_server_error(server, client, ServerErrorMsg::ErrorType::Channel);
     cerr << client.signature() << ": requested channel " << channel->name()
          << " is not ready" << endl;
     return;
@@ -774,7 +781,7 @@ int main(int argc, char * argv[])
     {
       try {
         WebSocketClient & client = clients.at(connection_id);
-        client.set_last_msg_time(time(nullptr));
+        client.set_last_msg_recv_ts(timestamp_ms());
 
         ClientMsgParser msg_parser(ws_msg.payload());
         if (msg_parser.msg_type() == ClientMsgParser::Type::Init) {
@@ -821,7 +828,8 @@ int main(int argc, char * argv[])
 
             /* inform the client that the channel becomes not ready */
             if (not channel->ready_to_serve()) {
-              send_server_error(server, client, CHANNEL_NOT_READY);
+              send_server_error(server, client,
+                                ServerErrorMsg::ErrorType::Channel);
               return;
             }
           }
