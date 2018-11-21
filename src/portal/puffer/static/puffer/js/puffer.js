@@ -486,6 +486,8 @@ function WebSocketClient(session_key, username, sysinfo) {
     } else if (metadata.type === 'server-init') {
       /* return if client is able to resume */
       if (av_source && av_source.isOpen() && metadata.canResume) {
+        stop_spinner();
+        clear_player_error();
         console.log('Resuming playback');
         return;
       }
