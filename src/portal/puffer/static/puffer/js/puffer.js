@@ -4,7 +4,7 @@ const WS_OPEN = 1;
 
 const TIMER_INTERVAL = 250;
 const DEBUG_TIMER_INTERVAL = 500;
-const BASE_RECONNECT_BACKOFF = 1000;
+const BASE_RECONNECT_BACKOFF = 250;
 const MAX_RECONNECT_BACKOFF = 15000;
 
 var debug = false;
@@ -547,6 +547,10 @@ function WebSocketClient(session_key, username, sysinfo) {
     };
 
     ws.onerror = function(e) {
+      set_player_error(
+        'Error: failed to connect to server. Please refresh or try again later.'
+      );
+
       console.log('WebSocket error:', e);
       ws = null;
     };
