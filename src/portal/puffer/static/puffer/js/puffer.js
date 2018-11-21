@@ -5,7 +5,7 @@ const WS_OPEN = 1;
 const TIMER_INTERVAL = 250;
 const DEBUG_TIMER_INTERVAL = 500;
 const BASE_RECONNECT_BACKOFF = 250;
-const MAX_RECONNECT_BACKOFF = 15000;
+const MAX_RECONNECT_BACKOFF = 15000;  // should > drop connection timeout on server
 
 var debug = false;
 
@@ -342,6 +342,7 @@ function WebSocketClient(session_key, username, sysinfo) {
 
   /* increment every time a client-init is sent */
   var init_id = 0;
+  var server_error = false;  // if received server-error with the same init_id
 
   /* record the screen sizes reported to the server as they might change */
   var screen_height = null;
@@ -357,6 +358,7 @@ function WebSocketClient(session_key, username, sysinfo) {
     }
 
     init_id += 1;
+    server_error = false;
 
     screen_height = screen.height;
     screen_width = screen.width;
@@ -479,6 +481,7 @@ function WebSocketClient(session_key, username, sysinfo) {
     }
 
     if (metadata.type === 'server-error') {
+      server_error = true;
       set_player_error(metadata.errorMessage);
     } else if (metadata.type === 'server-init') {
       /* return if client is able to resume */
@@ -590,7 +593,11 @@ function WebSocketClient(session_key, username, sysinfo) {
 
   /* send status updates to the server from time to time */
   function timer_helper() {
-    that.send_client_info('timer');
+    /* send client-timer only when server-error has not been received */
+    if (!server_error) {
+      that.send_client_info('timer');
+    }
+
     setTimeout(timer_helper, TIMER_INTERVAL);
   }
   timer_helper();
