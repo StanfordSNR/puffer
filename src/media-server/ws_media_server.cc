@@ -577,7 +577,7 @@ void handle_client_info(WebSocketClient & client, const ClientInfoMsg & msg)
     }
 
     if (client.is_rebuffering() and
-        msg.event == ClientInfoMsg::Event::CanPlay) {
+        msg.event == ClientInfoMsg::Event::Play) {
       log_rebuffer_num--;
       client.set_rebuffering(false);
       append_log_rebuffer_rate(curr_time);

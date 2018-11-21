@@ -52,7 +52,7 @@ public:
   enum class Event {
     Timer,
     Rebuffer,
-    CanPlay
+    Play
   };
 
   ClientInfoMsg(const json & msg);
@@ -114,7 +114,7 @@ public:
   enum class Type {
     Unknown,
     Init,
-    Info,  /* rebuffer, canplay, or timer */
+    Info,  /* rebuffer, play, or timer */
     VideoAck,
     AudioAck
   };

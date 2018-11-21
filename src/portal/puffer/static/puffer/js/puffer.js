@@ -3,13 +3,15 @@
 const WS_OPEN = 1;
 
 const TIMER_INTERVAL = 250;
-const DEBUG_TIMER_INTERVAL = 500;
 const BASE_RECONNECT_BACKOFF = 500;
 const MAX_RECONNECT_BACKOFF = 10000;
 
 var debug = false;
 
 var video = document.getElementById('tv-video');
+var video_playing = false;  /* if video is currently playing or rebuffering */
+var last_play_position = null;
+
 var spinner = document.getElementById('tv-spinner');
 var player_error = document.getElementById('player-error');
 
@@ -582,37 +584,63 @@ function WebSocketClient(session_key, username, sysinfo) {
   };
 
   this.set_channel = function(channel) {
+    /* reset video state and start spinner once a new channel is selected */
+    video_playing = false;
+    last_play_position = null;
     start_spinner();
+
     that.send_client_init(channel);
   };
 
-  video.oncanplay = function() {
-    that.send_client_info('canplay');
-  };
+  function check_player_state() {
+    if (!last_play_position) {
+      last_play_position = video.currentTime;
+      return;
+    }
 
-  video.onplaying = function() {
-    stop_spinner();
-    clear_player_error();
-    console.log('Video is playing');
-  };
+    /* allow for 50 ms margin */
+    var threshold = (TIMER_INTERVAL - 50) / 1000;
+    var diff = video.currentTime - last_play_position;
+    last_play_position = video.currentTime;
 
-  video.onwaiting = function() {
-    start_spinner();
-    console.log('Video is rebuffering');
-    that.send_client_info('rebuffer');
-  };
+    if (diff < threshold && video_playing) {
+      /* video starts rebuffering */
+      console.log('Video starts rebuffering');
+      video_playing = false;
 
-  /* send status updates to the server from time to time */
-  function timer_helper() {
-    that.send_client_info('timer');
-    setTimeout(timer_helper, TIMER_INTERVAL);
+      /* render UI */
+      start_spinner();
+
+      /* inform server */
+      that.send_client_info('rebuffer');
+    } else if (diff >= threshold && !video_playing) {
+      /* video starts playing */
+      console.log('Video starts playing');
+      video_playing = true;
+
+      /* render UI */
+      stop_spinner();
+      clear_player_error();
+
+      /* inform server */
+      that.send_client_info('play');
+    } else {
+      that.send_client_info('timer');
+    }
   }
-  timer_helper();
 
-  /* display debugging information on the client side */
-  const na = 'N/A';
-  function debug_timer_helper() {
+  var debug_info_cnt = 0;
+
+  function update_debug_info() {
+    if (debug_info_cnt != 0) {
+      debug_info_cnt = 0;
+      return;
+    }
+
+    debug_info_cnt = 1;
+
     if (av_source && av_source.isOpen()) {
+      const na = 'N/A';
       var video_buf = document.getElementById('video-buf');
       const vbuf_val = av_source.getVideoBufferLen();
       video_buf.innerHTML = vbuf_val >= 0 ? vbuf_val.toFixed(1) : na;
@@ -637,9 +665,20 @@ function WebSocketClient(session_key, username, sysinfo) {
       const vbitrate_val = av_source.getVideoBitrate();
       video_bitrate.innerHTML = vbitrate_val ? vbitrate_val.toFixed(2) : na;
     }
-    setTimeout(debug_timer_helper, DEBUG_TIMER_INTERVAL);
   }
-  debug_timer_helper();
+
+  /* send status updates to the server from time to time */
+  function timer_helper() {
+    /* check if the video is playing or rebuffering; send client-info */
+    check_player_state();
+
+    /* update debug info every 2 * TIMER_INTERVAL */
+    update_debug_info();
+
+    /* repeat firing timer */
+    setTimeout(timer_helper, TIMER_INTERVAL);
+  }
+  timer_helper();
 }
 
 function start_puffer(session_key, username, sysinfo, settings_debug) {

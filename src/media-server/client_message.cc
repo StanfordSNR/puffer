@@ -36,8 +36,8 @@ ClientInfoMsg::ClientInfoMsg(const json & msg)
     event = ClientInfoMsg::Event::Timer;
   } else if (event_str == "rebuffer") {
     event = ClientInfoMsg::Event::Rebuffer;
-  } else if (event_str == "canplay") {
-    event = ClientInfoMsg::Event::CanPlay;
+  } else if (event_str == "play") {
+    event = ClientInfoMsg::Event::Play;
   } else {
     throw runtime_error("Invalid client info event");
   }
