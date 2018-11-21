@@ -112,7 +112,7 @@ uint64_t Channel::floor_ats(const uint64_t ts) const
 
 bool Channel::ready_to_serve() const
 {
-  return init_vts().has_value();
+  return not paused_ and init_vts().has_value();
 }
 
 bool Channel::vready_to_serve(const uint64_t ts) const

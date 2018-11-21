@@ -30,6 +30,7 @@ public:
 
   /* if channel is ready to serve */
   bool ready_to_serve() const;
+  void set_paused(const bool paused) { paused_ = paused; }
   bool vready_to_serve(const uint64_t ts) const;
   bool aready_to_serve(const uint64_t ts) const;
 
@@ -67,6 +68,7 @@ public:
 private:
   bool live_ {false};
   std::string name_ {};
+  bool paused_ {false};
 
   fs::path input_path_ {};
   std::vector<VideoFormat> vformats_ {};
