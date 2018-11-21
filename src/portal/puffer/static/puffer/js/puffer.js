@@ -592,6 +592,17 @@ function WebSocketClient(session_key, username, sysinfo) {
     that.send_client_init(channel);
   };
 
+  video.onplaying = function() {
+    /* small optimization: make spinner and error messages disappear sooner */
+    stop_spinner();
+    clear_player_error();
+  };
+
+  video.onwaiting = function() {
+    /* small optimization: make spinner display sooner */
+    start_spinner();
+  };
+
   function check_player_state() {
     if (!last_play_position) {
       last_play_position = video.currentTime;
