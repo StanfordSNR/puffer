@@ -81,11 +81,6 @@ function AVSource(ws_client, server_init) {
   var pending_video_chunks = [];
   var pending_audio_chunks = [];
 
-  /* last segment of chunk to ack that will be sent after updateend is fired
-   * the ack can contain the up-to-date playback buffer levels in this way */
-  var pending_video_to_ack = null;
-  var pending_audio_to_ack = null;
-
   var ms = null;
 
   if (window.MediaSource) {
@@ -121,14 +116,7 @@ function AVSource(ws_client, server_init) {
     vbuf = ms.addSourceBuffer(video_codec);
     abuf = ms.addSourceBuffer(audio_codec);
 
-    vbuf.addEventListener('updateend', function(e) {
-      if (pending_video_to_ack) {
-        ws_client.send_client_ack('client-vidack', pending_video_to_ack);
-        pending_video_to_ack = null;
-      }
-
-      that.vbuf_update();
-    });
+    vbuf.addEventListener('updateend', that.vbuf_update);
 
     vbuf.addEventListener('error', function(e) {
       console.log('video source buffer error:', e);
@@ -139,14 +127,7 @@ function AVSource(ws_client, server_init) {
       console.log('video source buffer abort:', e);
     });
 
-    abuf.addEventListener('updateend', function(e) {
-      if (pending_audio_to_ack) {
-        ws_client.send_client_ack('client-audack', pending_audio_to_ack);
-        pending_audio_to_ack = null;
-      }
-
-      that.abuf_update();
-    });
+    abuf.addEventListener('updateend', that.abuf_update);
 
     abuf.addEventListener('error', function(e) {
       console.log('audio source buffer error:', e);
@@ -200,9 +181,6 @@ function AVSource(ws_client, server_init) {
     pending_video_chunks = [];
     pending_audio_chunks = [];
 
-    pending_video_to_ack = null;
-    pending_audio_to_ack = null;
-
     vbuf = null;
     abuf = null;
   };
@@ -212,6 +190,9 @@ function AVSource(ws_client, server_init) {
       console.log('error: should have ignored data from incorrect channel');
       return;
     }
+
+    /* send vidack */
+    ws_client.send_client_ack('client-vidack', metadata);
 
     /* New segment or server aborted sending */
     if (curr_video_quality !== metadata.quality) {
@@ -238,9 +219,6 @@ function AVSource(ws_client, server_init) {
 
       /* try updating vbuf */
       that.vbuf_update();
-    } else {
-      /* ack intermediate fragments immediately */
-      ws_client.send_client_ack('client-vidack', metadata);
     }
   };
 
@@ -249,6 +227,9 @@ function AVSource(ws_client, server_init) {
       console.log('error: should have ignored data from incorrect channel');
       return;
     }
+
+    /* send audack */
+    ws_client.send_client_ack('client-audack', metadata);
 
     /* New segment or server aborted sending */
     if (curr_audio_quality !== metadata.quality) {
@@ -271,9 +252,6 @@ function AVSource(ws_client, server_init) {
 
       /* try updating abuf */
       that.abuf_update();
-    } else {
-      /* ack intermediate fragments immediately */
-      ws_client.send_client_ack('client-audack', metadata);
     }
   };
 
@@ -336,12 +314,6 @@ function AVSource(ws_client, server_init) {
     if (vbuf && !vbuf.updating && pending_video_chunks.length > 0) {
       var next_video = pending_video_chunks.shift();
       vbuf.appendBuffer(next_video.data);
-
-      if (!pending_video_to_ack) {
-        pending_video_to_ack = next_video.metadata;  // sent ack in updateend handler
-      } else {
-        console.log('Error: called vbuf.appendBuffer() again before updateend');
-      }
     }
   };
 
@@ -349,12 +321,6 @@ function AVSource(ws_client, server_init) {
     if (abuf && !abuf.updating && pending_audio_chunks.length > 0) {
       var next_audio = pending_audio_chunks.shift();
       abuf.appendBuffer(next_audio.data);
-
-      if (!pending_audio_to_ack) {
-        pending_audio_to_ack = next_audio.metadata;  // sent ack in updateend handler
-      } else {
-        console.log('Error: called abuf.appendBuffer() again before updateend');
-      }
     }
   };
 }
