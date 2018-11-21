@@ -9,10 +9,25 @@ const MAX_RECONNECT_BACKOFF = 15000;
 
 var debug = false;
 
+var video = document.getElementById('tv-video');
+var spinner = document.getElementById('tv-spinner');
+
 function set_player_error(error_message) {
   var player_error = document.getElementById('player-error');
   player_error.innerHTML = error_message;
   player_error.style.display = 'block';
+}
+
+function start_spinner() {
+  /* start and display loading circle */
+  spinner.classList.remove('paused');
+  spinner.style.display = 'block';
+}
+
+function stop_spinner() {
+  /* pause and hide loading circle */
+  spinner.classList.add('paused');
+  spinner.style.display = 'none';
 }
 
 /* Server messages are of the form: "short_metadata_len|metadata_json|data" */
@@ -41,7 +56,7 @@ function concat_arraybuffers(arr, len) {
   return tmp.buffer;
 }
 
-function AVSource(ws_client, video, server_init) {
+function AVSource(ws_client, server_init) {
   var that = this;
 
   /* SourceBuffers for audio and video */
@@ -346,7 +361,6 @@ function AVSource(ws_client, video, server_init) {
 
 function WebSocketClient(session_key, username, sysinfo) {
   var that = this;
-  var video = document.getElementById('tv-video');
 
   var ws = null;
   var av_source = null;
@@ -387,11 +401,6 @@ function WebSocketClient(session_key, username, sysinfo) {
     if (av_source && av_source.getChannel() === channel) {
       msg.nextVts = av_source.getNextVideoTimestamp();
       msg.nextAts = av_source.getNextAudioTimestamp();
-    } else {
-      /* cannot resume */
-      if (av_source) {
-        av_source.close();
-      }
     }
 
     ws.send(format_client_msg('client-init', msg));
@@ -505,7 +514,7 @@ function WebSocketClient(session_key, username, sysinfo) {
       if (av_source) {
         av_source.close();
       }
-      av_source = new AVSource(that, video, metadata);
+      av_source = new AVSource(that, metadata);
     } else if (metadata.type === 'server-video') {
       if (!av_source) {
         console.log('Error: AVSource is not initialized yet');
@@ -540,7 +549,7 @@ function WebSocketClient(session_key, username, sysinfo) {
       console.log('Connected to', ws_addr);
       last_ws_open = Date.now();
 
-      that.send_client_init(channel);
+      that.set_channel(channel);
     };
 
     ws.onclose = function(e) {
@@ -578,20 +587,21 @@ function WebSocketClient(session_key, username, sysinfo) {
   };
 
   this.set_channel = function(channel) {
+    start_spinner();
     that.send_client_init(channel);
   };
 
   video.oncanplay = function() {
-    /* pause and hide loading circle */
-    var spinner = document.getElementById('tv-spinner');
-    spinner.style.display = 'none';
-    spinner.classList.add('paused');
-
-    console.log('Video can play');
     that.send_client_info('canplay');
   };
 
+  video.onplaying = function() {
+    stop_spinner();
+    console.log('Video is playing');
+  };
+
   video.onwaiting = function() {
+    start_spinner();
     console.log('Video is rebuffering');
     that.send_client_info('rebuffer');
   };
