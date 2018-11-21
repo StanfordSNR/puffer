@@ -500,8 +500,6 @@ function WebSocketClient(session_key, username, sysinfo) {
     } else if (metadata.type === 'server-init') {
       /* return if client is able to resume */
       if (av_source && av_source.isOpen() && metadata.canResume) {
-        stop_spinner();
-        clear_player_error();
         console.log('Resuming playback');
         return;
       }
@@ -609,8 +607,8 @@ function WebSocketClient(session_key, username, sysinfo) {
       return;
     }
 
-    /* allow for 50 ms margin */
-    var threshold = (TIMER_INTERVAL - 50) / 1000;
+    /* allow for 20 ms margin */
+    var threshold = (TIMER_INTERVAL - 20) / 1000;
     var diff = video.currentTime - last_play_position;
     last_play_position = video.currentTime;
 
