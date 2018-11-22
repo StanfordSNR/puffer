@@ -287,7 +287,8 @@ function AVSource(ws_client, server_init) {
   this.getVideoBufferLen = function() {
     if (vbuf && vbuf.buffered.length == 1 &&
         vbuf.buffered.end(0) >= video.currentTime) {
-      return vbuf.buffered.end(0) - video.currentTime;
+      const ret = vbuf.buffered.end(0) - video.currentTime;
+      return parseFloat(ret.toFixed(3));
     }
 
     return -1;
@@ -297,9 +298,10 @@ function AVSource(ws_client, server_init) {
   this.getAudioBufferLen = function() {
     if (vbuf && vbuf.buffered.length == 1 &&
         abuf && abuf.buffered.length == 1) {
-      var min_buf = Math.min(vbuf.buffered.end(0), abuf.buffered.end(0));
+      const min_buf = Math.min(vbuf.buffered.end(0), abuf.buffered.end(0));
       if (min_buf >= video.currentTime) {
-        return min_buf - video.currentTime;
+        const ret = min_buf - video.currentTime;
+        return parseFloat(ret.toFixed(3));
       }
     }
 
