@@ -489,6 +489,8 @@ void update_screen_size(WebSocketClient & client,
 void handle_client_init(WebSocketServer & server, WebSocketClient & client,
                         const ClientInitMsg & msg)
 {
+  client.set_last_msg_recv_ts(timestamp_ms());
+
   /* always set client's init_id when a client-init is received */
   client.set_init_id(msg.init_id);
 
@@ -538,6 +540,11 @@ void handle_client_info(WebSocketClient & client, const ClientInfoMsg & msg)
     cerr << client.signature() << ": warning: ignored messages with "
          << "invalid init_id (but should not have received)" << endl;
     return;
+  }
+
+  /* server does not count client-info timer as last_msg_recv_ts */
+  if (msg.event != ClientInfoMsg::Event::Timer) {
+    client.set_last_msg_recv_ts(timestamp_ms());
   }
 
   client.set_video_playback_buf(msg.video_buffer_len);
@@ -594,7 +601,7 @@ void handle_client_video_ack(WebSocketClient & client,
     return;
   }
 
-  uint64_t curr_time = time(nullptr);
+  client.set_last_msg_recv_ts(timestamp_ms());
 
   client.set_video_playback_buf(msg.video_buffer_len);
   client.set_audio_playback_buf(msg.audio_buffer_len);
@@ -622,6 +629,8 @@ void handle_client_video_ack(WebSocketClient & client,
   }
 
   if (enable_logging) {
+    const auto curr_time = time(nullptr);
+
     /* record video quality */
     string log_line = to_string(curr_time) + " " + client.username() + " "
         + msg.channel + " " + to_string(msg.timestamp) + " "
@@ -638,6 +647,8 @@ void handle_client_audio_ack(WebSocketClient & client,
          << "invalid init_id (but should not have received)" << endl;
     return;
   }
+
+  client.set_last_msg_recv_ts(timestamp_ms());
 
   client.set_video_playback_buf(msg.video_buffer_len);
   client.set_audio_playback_buf(msg.audio_buffer_len);
@@ -781,7 +792,6 @@ int main(int argc, char * argv[])
     {
       try {
         WebSocketClient & client = clients.at(connection_id);
-        client.set_last_msg_recv_ts(timestamp_ms());
 
         ClientMsgParser msg_parser(ws_msg.payload());
         if (msg_parser.msg_type() == ClientMsgParser::Type::Init) {
