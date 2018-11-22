@@ -1,14 +1,8 @@
-#include <exception>
 #include <memory>
-#include <cstdlib>
 #include <iostream>
-#include <vector>
-#include <array>
+
 #include <sndfile.hh>
-
 #include <opus/opus.h>
-
-#include "file_descriptor.hh"
 
 const unsigned int SAMPLE_RATE = 48000; /* Hz */
 const unsigned int NUM_CHANNELS = 2;
@@ -61,7 +55,7 @@ frame 2              :                     1608 .. 2567
 frame 3              :                     2568 .. 3527
 frame 4              :                     3528 .. 4487
 
-chunk #1: samples 3840 .. 8639 (80+20 ms)
+chunk #1: samples 4488 .. 8639 (80+20 ms)
 
 frame 1 (independent):                     4488 .. 5447
 frame 2              :                     5448 .. 6407
