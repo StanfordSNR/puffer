@@ -9,8 +9,9 @@ const MAX_RECONNECT_BACKOFF = 10000;
 var debug = false;
 
 var video = document.getElementById('tv-video');
-var video_playing = false;  /* if video is currently playing or rebuffering */
-var last_play_position = null;
+// after initialization, only set video_playing and last_play_position in timer
+var video_playing = false;  // if video is currently playing or rebuffering
+var last_play_position = null;  // last playback position (video.currentTime)
 
 var spinner = document.getElementById('tv-spinner');
 var player_error = document.getElementById('player-error');
@@ -589,12 +590,32 @@ function WebSocketClient(session_key, username, sysinfo) {
   };
 
   this.set_channel = function(channel) {
-    /* reset video state and start spinner once a new channel is selected */
+    /* reset video state used in timer */
     video_playing = false;
     last_play_position = null;
+
+    /* start the spinner once a new channel is selected */
     start_spinner();
 
     that.send_client_init(channel);
+  };
+
+  video.oncanplay = function() {
+    var play_promise = video.play();
+
+    if (play_promise) {
+      play_promise.then(function() {
+        // playback started
+        stop_spinner();
+        clear_player_error();
+      }).catch(function(error) {
+        // playback failed
+        start_spinner();
+        set_player_error(
+          'Error: failed to play the video. Please refresh the page, or try ' +
+          'another browser or device.');
+      });
+    }
   };
 
   video.onplaying = function() {
