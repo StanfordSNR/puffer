@@ -561,6 +561,10 @@ function WebSocketClient(session_key, username, sysinfo) {
         console.log('Reconnecting in ' + reconnect_backoff + 'ms');
 
         setTimeout(function() {
+          set_player_error(
+            'Error: failed to connect to server. Reconnecting...'
+          );
+
           if (av_source) {
             /* Try to resume the connection */
             that.connect(av_source.getChannel());
@@ -570,14 +574,15 @@ function WebSocketClient(session_key, username, sysinfo) {
         }, reconnect_backoff);
 
         reconnect_backoff = reconnect_backoff * 2;
+      } else {
+        set_player_error(
+          'Error: failed to connect to server. ' +
+          'Please try again or refresh the page.'
+        );
       }
     };
 
     ws.onerror = function(e) {
-      set_player_error(
-        'Error: failed to connect to server. Please refresh or try again later.'
-      );
-
       console.log('WebSocket error:', e);
       ws = null;
     };
