@@ -3,7 +3,7 @@
 const WS_OPEN = 1;
 
 const TIMER_INTERVAL = 250;
-const BASE_RECONNECT_BACKOFF = 500;
+const BASE_RECONNECT_BACKOFF = 250;
 const MAX_RECONNECT_BACKOFF = 10000;
 
 var debug = false;
