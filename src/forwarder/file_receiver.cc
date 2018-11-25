@@ -87,7 +87,7 @@ int main(int argc, char * argv[])
   listening_socket.set_reuseport();
   listening_socket.set_blocking(false);
   listening_socket.bind({"0", port});
-  listening_socket.listen();
+  listening_socket.listen(128);
   cerr << "Listening on " << listening_socket.local_address().str() << endl;
 
   uint64_t global_client_id = 0;
