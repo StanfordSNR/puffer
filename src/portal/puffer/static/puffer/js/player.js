@@ -155,6 +155,7 @@ function ControlBar() {
 
 function ChannelBar() {
   var that = this;
+
   /* callback function to be defined when channel is changed */
   this.on_channel_change = null;
 
@@ -312,11 +313,37 @@ function get_client_system_info() {
   };
 }
 
-function init_player(params_json) {
-  var params = JSON.parse(params_json);
+function set_player_error(error_message) {
+  var player_error = document.getElementById('player-error');
+  player_error.innerHTML = error_message;
+  player_error.style.display = 'block';
+}
 
-  var session_key = params.session_key;
-  var username = params.username;
+function clear_player_error() {
+  var player_error = document.getElementById('player-error');
+  player_error.innerHTML = '';
+  player_error.style.display = 'none';
+}
+
+/* start and display loading circle */
+function start_spinner() {
+  var spinner = document.getElementById('tv-spinner');
+  spinner.classList.remove('paused');
+  spinner.style.display = 'block';
+}
+
+/* pause and hide loading circle */
+function stop_spinner() {
+  var spinner = document.getElementById('tv-spinner');
+  spinner.classList.add('paused');
+  spinner.style.display = 'none';
+}
+
+function init_player(params_json) {
+  const params = JSON.parse(params_json);
+
+  const session_key = params.session_key;
+  const username = params.username;
   const settings_debug = params.debug;
 
   /* assert that session_key and username exist */
@@ -326,7 +353,7 @@ function init_player(params_json) {
   }
 
   /* client's system information (OS and browser) */
-  var sysinfo = get_client_system_info();
+  const sysinfo = get_client_system_info();
 
   var control_bar = new ControlBar();
   var channel_bar = new ChannelBar();
@@ -338,9 +365,8 @@ function init_player(params_json) {
   };
 
   load_script('/static/puffer/js/puffer.js').onload = function() {
-    /* start_puffer is defined in puffer.js */
-    var ws_client = start_puffer(session_key, username,
-                                 sysinfo, settings_debug);
+    var ws_client = new WebSocketClient(session_key, username,
+                                        settings_debug, sysinfo);
 
     channel_bar.on_channel_change = function(new_channel) {
       ws_client.set_channel(new_channel);

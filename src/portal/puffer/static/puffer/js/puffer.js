@@ -7,44 +7,7 @@ const BASE_RECONNECT_BACKOFF = 250;
 const MAX_RECONNECT_BACKOFF = 10000;
 
 var debug = false;
-
 var video = document.getElementById('tv-video');
-var spinner = document.getElementById('tv-spinner');
-
-var player_error = document.getElementById('player-error');
-var fatal_error = false;
-
-function set_player_error(error_message, fatal=false) {
-  /* set a new player error only if not already showing a fatal error */
-  if (!fatal_error) {
-    player_error.innerHTML = error_message;
-    player_error.style.display = 'block';
-  }
-
-  if (fatal) {
-    fatal_error = true;
-  }
-}
-
-function clear_player_error() {
-  /* clear non-fatal player error */
-  if (!fatal_error) {
-    player_error.innerHTML = '';
-    player_error.style.display = 'none';
-  }
-}
-
-function start_spinner() {
-  /* start and display loading circle */
-  spinner.classList.remove('paused');
-  spinner.style.display = 'block';
-}
-
-function stop_spinner() {
-  /* pause and hide loading circle */
-  spinner.classList.add('paused');
-  spinner.style.display = 'none';
-}
 
 /* Server messages are of the form: "short_metadata_len|metadata_json|data" */
 function parse_server_msg(data) {
@@ -105,8 +68,7 @@ function AVSource(ws_client, server_init) {
     set_player_error(
       'Error: Your browser does not support Media Source Extensions (MSE), ' +
       'which Puffer requires to stream media. Please try another browser or ' +
-      'device. Please note that no browsers for iOS currently support MSE.',
-      true // fatal
+      'device. Please note that no browsers for iOS currently support MSE.'
     );
 
     console.log(overlay_message);
@@ -345,15 +307,17 @@ function AVSource(ws_client, server_init) {
   };
 }
 
-function WebSocketClient(session_key, username, sysinfo) {
+function WebSocketClient(session_key, username, settings_debug, sysinfo) {
+  /* if DEBUG = True in settings.py, connect to non-secure WebSocket server */
+  debug = settings_debug;
+
   var that = this;
 
   var ws = null;
   var av_source = null;
 
-  /* increment every time a client-init is sent */
+  /* increment init_id every time a client-init is sent */
   var init_id = 0;
-  var channel_error = false;
 
   /* record the screen sizes reported to the server as they might change */
   var screen_height = null;
@@ -365,6 +329,9 @@ function WebSocketClient(session_key, username, sysinfo) {
   /* after initialization, only set the two variables below in timer event */
   var video_playing = false;  // if video is currently playing or rebuffering
   var last_play_position = null;  // last playback position (video.currentTime)
+
+  var fatal_error = false;
+  var channel_error = false;
 
   this.send_client_init = function(channel) {
     if (fatal_error) {
@@ -510,7 +477,7 @@ function WebSocketClient(session_key, username, sysinfo) {
       if (metadata.errorType == 'drop') {
         /* server is going to drop this connection
          * now disconnect and never reconnect */
-        set_player_error(metadata.errorMessage, true /* fatal */);
+        set_player_error(metadata.errorMessage);
         ws.close();
       } else {
         channel_error = true;
@@ -599,8 +566,7 @@ function WebSocketClient(session_key, username, sysinfo) {
       } else {
         set_player_error(
           'Error: failed to connect to server. ' +
-          'Please try again or refresh the page.',
-          true // fatal
+          'Please try again or refresh the page.'
         );
       }
     };
@@ -738,11 +704,4 @@ function WebSocketClient(session_key, username, sysinfo) {
     setTimeout(timer_helper, TIMER_INTERVAL);
   }
   timer_helper();
-}
-
-function start_puffer(session_key, username, sysinfo, settings_debug) {
-  /* if DEBUG = True in settings.py, connect to non-secure WebSocket server */
-  debug = settings_debug;
-
-  return new WebSocketClient(session_key, username, sysinfo);
 }
