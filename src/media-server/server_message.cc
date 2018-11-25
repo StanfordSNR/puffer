@@ -91,7 +91,7 @@ ServerErrorMsg::ServerErrorMsg(const unsigned int init_id,
   if (error_type == ErrorType::Channel) {
     error_type_str = "channel";
     error_message = "Sorry, the channel is not currently available. "
-      "Please refresh or try again later.";
+      "Please try another channel or refresh the page.";
   } else if (error_type == ErrorType::Drop) {
     error_type_str = "drop";
     error_message = "Your connection has been dropped after timeout. "

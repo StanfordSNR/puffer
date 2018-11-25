@@ -9,21 +9,29 @@ const MAX_RECONNECT_BACKOFF = 10000;
 var debug = false;
 
 var video = document.getElementById('tv-video');
-// after initialization, only set video_playing and last_play_position in timer
-var video_playing = false;  // if video is currently playing or rebuffering
-var last_play_position = null;  // last playback position (video.currentTime)
-
 var spinner = document.getElementById('tv-spinner');
-var player_error = document.getElementById('player-error');
 
-function set_player_error(error_message) {
-  player_error.innerHTML = error_message;
-  player_error.style.display = 'block';
+var player_error = document.getElementById('player-error');
+var fatal_error = false;
+
+function set_player_error(error_message, fatal=false) {
+  /* set a new player error only if not already showing a fatal error */
+  if (!fatal_error) {
+    player_error.innerHTML = error_message;
+    player_error.style.display = 'block';
+  }
+
+  if (fatal) {
+    fatal_error = true;
+  }
 }
 
 function clear_player_error() {
-  player_error.innerHTML = '';
-  player_error.style.display = 'none';
+  /* clear non-fatal player error */
+  if (!fatal_error) {
+    player_error.innerHTML = '';
+    player_error.style.display = 'none';
+  }
 }
 
 function start_spinner() {
@@ -97,8 +105,10 @@ function AVSource(ws_client, server_init) {
     set_player_error(
       'Error: Your browser does not support Media Source Extensions (MSE), ' +
       'which Puffer requires to stream media. Please try another browser or ' +
-      'device. Please note that no browsers for iOS currently support MSE.'
+      'device. Please note that no browsers for iOS currently support MSE.',
+      true // fatal
     );
+
     console.log(overlay_message);
   }
 
@@ -343,7 +353,7 @@ function WebSocketClient(session_key, username, sysinfo) {
 
   /* increment every time a client-init is sent */
   var init_id = 0;
-  var server_channel_error = false;  // if received server-error type 'channel'
+  var channel_error = false;
 
   /* record the screen sizes reported to the server as they might change */
   var screen_height = null;
@@ -352,13 +362,21 @@ function WebSocketClient(session_key, username, sysinfo) {
   /* exponential backoff to reconnect */
   var reconnect_backoff = BASE_RECONNECT_BACKOFF;
 
+  /* after initialization, only set the two variables below in timer event */
+  var video_playing = false;  // if video is currently playing or rebuffering
+  var last_play_position = null;  // last playback position (video.currentTime)
+
   this.send_client_init = function(channel) {
+    if (fatal_error) {
+      return;
+    }
+
     if (!(ws && ws.readyState === WS_OPEN)) {
       return;
     }
 
     init_id += 1;
-    server_channel_error = false;
+    channel_error = false;
 
     screen_height = screen.height;
     screen_width = screen.width;
@@ -388,17 +406,16 @@ function WebSocketClient(session_key, username, sysinfo) {
   };
 
   this.send_client_info = function(info_event) {
+    if (fatal_error || channel_error) {
+      return;
+    }
+
     if (!(ws && ws.readyState === WS_OPEN)) {
       return;
     }
 
     /* note that it is fine if av_source.isOpen() is false */
     if (!av_source) {
-      return;
-    }
-
-    /* send client-info only when not received server-error type 'channel' */
-    if (server_channel_error) {
       return;
     }
 
@@ -426,17 +443,16 @@ function WebSocketClient(session_key, username, sysinfo) {
 
   /* ack_type: 'client-vidack' or 'client-audack' */
   this.send_client_ack = function(ack_type, data_to_ack) {
+    if (fatal_error || channel_error) {
+      return;
+    }
+
     if (!(ws && ws.readyState === WS_OPEN)) {
       return;
     }
 
     /* note that it is fine if av_source.isOpen() is false */
     if (!av_source) {
-      return;
-    }
-
-    /* send client ack only when not received server-error type 'channel' */
-    if (server_channel_error) {
       return;
     }
 
@@ -491,15 +507,16 @@ function WebSocketClient(session_key, username, sysinfo) {
     }
 
     if (metadata.type === 'server-error') {
-      server_channel_error = true;
-      set_player_error(metadata.errorMessage);
-
       if (metadata.errorType == 'drop') {
         /* server is going to drop this connection
          * now disconnect and never reconnect */
-        reconnect_backoff = MAX_RECONNECT_BACKOFF;
+        set_player_error(metadata.errorMessage, true /* fatal */);
         ws.close();
+      } else {
+        channel_error = true;
+        set_player_error(metadata.errorMessage);
       }
+
     } else if (metadata.type === 'server-init') {
       /* return if client is able to resume */
       if (av_source && av_source.isOpen() && metadata.canResume) {
@@ -557,6 +574,10 @@ function WebSocketClient(session_key, username, sysinfo) {
       console.log('Closed connection to', ws_addr);
       ws = null;
 
+      if (fatal_error) {
+        return;
+      }
+
       if (reconnect_backoff < MAX_RECONNECT_BACKOFF) {
         /* Try to reconnect */
         console.log('Reconnecting in ' + reconnect_backoff + 'ms');
@@ -578,7 +599,8 @@ function WebSocketClient(session_key, username, sysinfo) {
       } else {
         set_player_error(
           'Error: failed to connect to server. ' +
-          'Please try again or refresh the page.'
+          'Please try again or refresh the page.',
+          true // fatal
         );
       }
     };
