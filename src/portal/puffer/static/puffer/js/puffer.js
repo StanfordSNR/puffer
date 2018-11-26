@@ -22,11 +22,24 @@ function set_fatal_error(error_message) {
 
 /* Server messages are of the form: "short_metadata_len|metadata_json|data" */
 function parse_server_msg(data) {
-  var header_len = new DataView(data, 0, 2).getUint16();
+  var metadata_len = new DataView(data, 0, 2).getUint16(0);
+
+  var byte_array = new Uint8Array(data);
+  var raw_metadata = byte_array.subarray(2, 2 + metadata_len);
+  var media_data = byte_array.subarray(2 + metadata_len);
+
+  /* parse metadata with JSON */
+  var metadata = null;
+  if (window.TextDecoder) {
+    metadata = JSON.parse(new TextDecoder().decode(raw_metadata));
+  } else {
+    /* fallback if TextDecoder is not supported on some browsers */
+    metadata = JSON.parse(String.fromCharCode.apply(null, raw_metadata));
+  }
+
   return {
-    metadata: JSON.parse(new TextDecoder().decode(
-        data.slice(2, 2 + header_len))),
-    data: data.slice(2 + header_len)
+    metadata: metadata,
+    data: media_data
   };
 }
 
