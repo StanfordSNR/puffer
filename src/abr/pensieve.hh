@@ -8,7 +8,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include "ipc_socket.hh"
-#include <nlohmann/json.hpp>
+#include "json.hpp"
 #include <endian.h>
 
 #include <deque>
