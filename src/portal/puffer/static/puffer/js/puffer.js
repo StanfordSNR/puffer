@@ -9,6 +9,17 @@ const MAX_RECONNECT_BACKOFF = 10000;
 var debug = false;
 var video = document.getElementById('tv-video');
 
+var fatal_error = false;
+function set_fatal_error(error_message) {
+  if (fatal_error) {
+    return;
+  }
+
+  fatal_error = true;
+  clear_player_errors();
+  add_player_error(error_message, 'fatal');
+}
+
 /* Server messages are of the form: "short_metadata_len|metadata_json|data" */
 function parse_server_msg(data) {
   var header_len = new DataView(data, 0, 2).getUint16();
@@ -65,10 +76,10 @@ function AVSource(ws_client, server_init) {
   if (window.MediaSource) {
     ms = new MediaSource();
   } else {
-    set_player_error(
-      'Error: Your browser does not support Media Source Extensions (MSE), ' +
+    set_fatal_error(
+      'Error: your browser does not support Media Source Extensions (MSE), ' +
       'which Puffer requires to stream media. Please try another browser or ' +
-      'device. Please note that no browsers for iOS currently support MSE.'
+      'device.'
     );
 
     console.log(overlay_message);
@@ -258,7 +269,7 @@ function AVSource(ws_client, server_init) {
 
   /* Get the number of seconds of buffered video */
   this.getVideoBufferLen = function() {
-    if (vbuf && vbuf.buffered.length == 1 &&
+    if (vbuf && vbuf.buffered.length === 1 &&
         vbuf.buffered.end(0) >= video.currentTime) {
       const ret = vbuf.buffered.end(0) - video.currentTime;
       return parseFloat(ret.toFixed(3));
@@ -269,8 +280,8 @@ function AVSource(ws_client, server_init) {
 
   /* Get the min number of seconds of buffered video and audio */
   this.getAudioBufferLen = function() {
-    if (vbuf && vbuf.buffered.length == 1 &&
-        abuf && abuf.buffered.length == 1) {
+    if (vbuf && vbuf.buffered.length === 1 &&
+        abuf && abuf.buffered.length === 1) {
       const min_buf = Math.min(vbuf.buffered.end(0), abuf.buffered.end(0));
       if (min_buf >= video.currentTime) {
         const ret = min_buf - video.currentTime;
@@ -330,7 +341,6 @@ function WebSocketClient(session_key, username, settings_debug, sysinfo) {
   var video_playing = false;  // if video is currently playing or rebuffering
   var last_play_position = null;  // last playback position (video.currentTime)
 
-  var fatal_error = false;
   var channel_error = false;
 
   this.send_client_init = function(channel) {
@@ -343,7 +353,6 @@ function WebSocketClient(session_key, username, settings_debug, sysinfo) {
     }
 
     init_id += 1;
-    channel_error = false;
 
     screen_height = screen.height;
     screen_width = screen.width;
@@ -438,11 +447,11 @@ function WebSocketClient(session_key, username, settings_debug, sysinfo) {
     /* byteLength is a new field we added to metadata */
     msg.byteLength = data_to_ack.byteLength;
 
-    if (ack_type == 'client-vidack') {
+    if (ack_type === 'client-vidack') {
       msg.ssim = data_to_ack.ssim;
 
       ws.send(format_client_msg(ack_type, msg));
-    } else if (ack_type == 'client-audack') {
+    } else if (ack_type === 'client-audack') {
       ws.send(format_client_msg(ack_type, msg));
     } else {
       console.log('invalid ack type:', ack_type);
@@ -460,30 +469,30 @@ function WebSocketClient(session_key, username, settings_debug, sysinfo) {
     const server_msg = parse_server_msg(e.data);
 
     var metadata = server_msg.metadata;
-    const data = server_msg.data;
-    /* always add one more field to metadata: total length of data */
-    metadata.byteLength = data.byteLength;
-
     /* ignore outdated messages from the server */
     if (metadata.initId !== init_id) {
       return;
     }
+
+    const data = server_msg.data;
+    /* always add one more field to metadata: total length of data */
+    metadata.byteLength = data.byteLength;
 
     if (debug) {
       console.log('received', metadata.type, metadata);
     }
 
     if (metadata.type === 'server-error') {
-      if (metadata.errorType == 'drop') {
+      if (metadata.errorType === 'drop') {
         /* server is going to drop this connection
          * now disconnect and never reconnect */
-        set_player_error(metadata.errorMessage);
+        set_fatal_error(metadata.errorMessage);
         ws.close();
-      } else {
+      } else if (metadata.errorType === 'channel') {
+        /* this channel is not currently available */
+        add_player_error(metadata.errorMessage, 'channel');
         channel_error = true;
-        set_player_error(metadata.errorMessage);
       }
-
     } else if (metadata.type === 'server-init') {
       /* return if client is able to resume */
       if (av_source && av_source.isOpen() && metadata.canResume) {
@@ -534,6 +543,8 @@ function WebSocketClient(session_key, username, settings_debug, sysinfo) {
 
     ws.onopen = function(e) {
       console.log('Connected to', ws_addr);
+      remove_player_error('connect');
+
       that.set_channel(channel);
     };
 
@@ -550,8 +561,8 @@ function WebSocketClient(session_key, username, settings_debug, sysinfo) {
         console.log('Reconnecting in ' + reconnect_backoff + 'ms');
 
         setTimeout(function() {
-          set_player_error(
-            'Error: failed to connect to server. Reconnecting...'
+          add_player_error(
+            'Error: failed to connect to server. Reconnecting...', 'connect'
           );
 
           if (av_source) {
@@ -564,9 +575,9 @@ function WebSocketClient(session_key, username, settings_debug, sysinfo) {
 
         reconnect_backoff = reconnect_backoff * 2;
       } else {
-        set_player_error(
+        set_fatal_error(
           'Error: failed to connect to server. ' +
-          'Please try again or refresh the page.'
+          'Please refresh the page or try again later.'
         );
       }
     };
@@ -578,12 +589,14 @@ function WebSocketClient(session_key, username, settings_debug, sysinfo) {
   };
 
   this.set_channel = function(channel) {
+    /* start the spinner */
+    start_spinner();
+
+    remove_player_error('channel');
+
     /* reset video state used in timer */
     video_playing = false;
     last_play_position = null;
-
-    /* start the spinner once a new channel is selected */
-    start_spinner();
 
     that.send_client_init(channel);
   };
@@ -595,13 +608,12 @@ function WebSocketClient(session_key, username, settings_debug, sysinfo) {
       play_promise.then(function() {
         // playback started
         stop_spinner();
-        clear_player_error();
+        remove_player_error('play');
       }).catch(function(error) {
         // playback failed
-        start_spinner();
-        set_player_error(
+        add_player_error(
           'Error: failed to play the video. Please refresh the page, or try ' +
-          'another browser or device.');
+          'another browser or device.', 'play');
       });
     }
   };
@@ -609,7 +621,7 @@ function WebSocketClient(session_key, username, settings_debug, sysinfo) {
   video.onplaying = function() {
     /* small optimization: make spinner and error messages disappear sooner */
     stop_spinner();
-    clear_player_error();
+    remove_player_error('play');
   };
 
   video.onwaiting = function() {
@@ -645,7 +657,7 @@ function WebSocketClient(session_key, username, settings_debug, sysinfo) {
 
       /* render UI */
       stop_spinner();
-      clear_player_error();
+      remove_player_error('play');
 
       /* inform server */
       that.send_client_info('play');

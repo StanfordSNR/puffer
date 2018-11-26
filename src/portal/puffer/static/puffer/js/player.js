@@ -313,16 +313,47 @@ function get_client_system_info() {
   };
 }
 
-function set_player_error(error_message) {
-  var player_error = document.getElementById('player-error');
-  player_error.innerHTML = error_message;
-  player_error.style.display = 'block';
+function add_player_error(error_message, error_id) {
+  var id = 'player-error-' + error_id;
+
+  var li = document.getElementById(id);
+  if (li) {
+    return;
+  }
+
+  var ul = document.getElementById('player-error-list');
+
+  li = document.createElement('li');
+  li.setAttribute('id', id);
+
+  var div = document.createElement('div');
+  div.setAttribute('class', 'alert alert-danger');
+  div.setAttribute('role', 'alert');
+  div.innerHTML = error_message;
+
+  li.append(div);
+  ul.appendChild(li);
 }
 
-function clear_player_error() {
-  var player_error = document.getElementById('player-error');
-  player_error.innerHTML = '';
-  player_error.style.display = 'none';
+function remove_player_error(error_id) {
+  var id = 'player-error-' + error_id;
+
+  var li = document.getElementById(id);
+  if (!li) {
+    return;
+  }
+
+  var ul = document.getElementById('player-error-list');
+  ul.removeChild(li);
+}
+
+/* clear all player errors */
+function clear_player_errors() {
+  var ul = document.getElementById('player-error-list');
+
+  while (ul.firstChild) {
+    ul.removeChild(ul.firstChild);
+  }
 }
 
 /* start and display loading circle */
