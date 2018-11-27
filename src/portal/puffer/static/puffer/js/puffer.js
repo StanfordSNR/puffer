@@ -173,7 +173,7 @@ function AVSource(ws_client, server_init) {
   });
 
   this.isOpen = function() {
-    return vbuf !== null && abuf !== null;
+    return ms !== null && vbuf !== null && abuf !== null;
   };
 
   /* call "close" to garbage collect MediaSource and SourceBuffers sooner */
@@ -307,6 +307,19 @@ function AVSource(ws_client, server_init) {
     return 0;
   };
 
+  /* If buffered *video or audio* is behind video.currentTime */
+  this.isRebuffering = function() {
+    if (vbuf && vbuf.buffered.length === 1 &&
+        abuf && abuf.buffered.length === 1) {
+      const min_buf = Math.min(vbuf.buffered.end(0), abuf.buffered.end(0));
+      if (min_buf < video.currentTime) {
+        return true;
+      }
+    }
+
+    return false;
+  };
+
   /* Get the expected timestamp of the next video chunk */
   this.getNextVideoTimestamp = function() {
     return next_video_timestamp;
@@ -352,9 +365,10 @@ function WebSocketClient(session_key, username, settings_debug, sysinfo) {
   /* exponential backoff to reconnect */
   var reconnect_backoff = BASE_RECONNECT_BACKOFF;
 
-  /* after initialization, only set the two variables below in timer event */
-  var video_playing = false;  // if video is currently playing or rebuffering
-  var last_play_position = null;  // last playback position (video.currentTime)
+  var set_channel_ts = null;  /* timestamp (in ms) of setting a channel */
+  var startup_delay_ms = null;
+  var rebuffer_start_ts = null;  /* timestamp(in ms) of starting to rebuffer */
+  var cumulative_rebuffer_ms = 0;
 
   var channel_error = false;
 
@@ -614,8 +628,10 @@ function WebSocketClient(session_key, username, settings_debug, sysinfo) {
     that.send_client_init(channel);
 
     /* reset stats */
-    video_playing = false;
-    last_play_position = null;
+    set_channel_ts = Date.now();
+    startup_delay_ms = null;
+    rebuffer_start_ts = null;
+    cumulative_rebuffer_ms = 0;
   };
 
   video.oncanplay = function() {
@@ -624,65 +640,58 @@ function WebSocketClient(session_key, username, settings_debug, sysinfo) {
     if (play_promise) {
       play_promise.then(function() {
         // playback started
-        stop_spinner();
-        remove_player_error('play');
       }).catch(function(error) {
         // playback failed
         add_player_error(
-          'Error: failed to play the video. Please refresh the page, or try ' +
-          'another browser or device.', 'play');
+          'Error: failed to play the video. Please try a different channel ' +
+          ' or refresh the page', 'channel');
       });
     }
   };
 
-  video.onplaying = function() {
-    /* small optimization: make spinner and error messages disappear sooner */
-    stop_spinner();
-    remove_player_error('play');
-  };
+  /* check if *video or audio* is rebuffering every 50 ms */
+  function check_rebuffering() {
+    if (!(av_source && av_source.isOpen())) {
+      return;
+    }
+    const rebuffering = av_source.isRebuffering();
 
-  video.onwaiting = function() {
-    /* small optimization: make spinner display sooner */
-    start_spinner();
-  };
+    if (startup_delay_ms === null) {
+      if (!rebuffering) {
+        /* this is the first time that the channel has started playing */
+        stop_spinner();
+        console.log('Channel starts playing');
 
-  /* check if video is playing or rebuffering every 100 ms */
-  const check_player_state_interval = 100;
-  function check_player_state() {
-    if (!last_play_position) {
-      last_play_position = video.currentTime;
+        /* calculate startup delay */
+        startup_delay_ms = Date.now() - set_channel_ts;
+      }
+
+      /* always return when startup_delay_ms is null */
       return;
     }
 
-    /* tolerate half-interval margin */
-    var threshold = (check_player_state_interval / 2) / 1000;
-    var diff = video.currentTime - last_play_position;
-    last_play_position = video.currentTime;
+    if (rebuffering) {
+      if (rebuffer_start_ts === null) {
+        /* channel stops playing and starts rebuffering */
+        start_spinner();
+        console.log('Channel starts rebuffering');
 
-    if (diff < threshold && video_playing) {
-      /* video starts rebuffering */
-      console.log('Video starts rebuffering');
-      video_playing = false;
+        /* record the starting point of rebuffering */
+        rebuffer_start_ts = Date.now();
+      }
+    } else {
+      if (rebuffer_start_ts !== null) {
+        /* the channel resumes playing from rebuffering */
+        stop_spinner();
+        console.log('Channel resumes playing');
 
-      /* render UI */
-      start_spinner();
-
-      /* inform server */
-      that.send_client_info('rebuffer');
-    } else if (diff >= threshold && !video_playing) {
-      /* video starts playing */
-      console.log('Video starts playing');
-      video_playing = true;
-
-      /* render UI */
-      stop_spinner();
-      remove_player_error('play');
-
-      /* inform server */
-      that.send_client_info('play');
+        /* update cumulative rebuffering time */
+        cumulative_rebuffer_ms += Date.now() - rebuffer_start_ts;
+        rebuffer_start_ts = null;
+      }
     }
   }
-  setInterval(check_player_state, check_player_state_interval);
+  setInterval(check_rebuffering, 50);
 
   /* send client-info timer every 250 ms */
   const send_client_info_timer_interval = 250;
