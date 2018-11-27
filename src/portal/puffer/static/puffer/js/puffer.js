@@ -2,7 +2,6 @@
 
 const WS_OPEN = 1;
 
-const TIMER_INTERVAL = 250;
 const BASE_RECONNECT_BACKOFF = 250;
 const MAX_RECONNECT_BACKOFF = 10000;
 
@@ -642,14 +641,16 @@ function WebSocketClient(session_key, username, settings_debug, sysinfo) {
     start_spinner();
   };
 
+  /* check if video is playing or rebuffering every 100 ms */
+  const check_player_state_interval = 100;
   function check_player_state() {
     if (!last_play_position) {
       last_play_position = video.currentTime;
       return;
     }
 
-    /* allow for 20 ms margin */
-    var threshold = (TIMER_INTERVAL - 20) / 1000;
+    /* tolerate half-interval margin */
+    var threshold = (check_player_state_interval / 2) / 1000;
     var diff = video.currentTime - last_play_position;
     last_play_position = video.currentTime;
 
@@ -674,21 +675,20 @@ function WebSocketClient(session_key, username, settings_debug, sysinfo) {
 
       /* inform server */
       that.send_client_info('play');
-    } else {
-      that.send_client_info('timer');
     }
   }
+  setInterval(check_player_state, check_player_state_interval);
 
-  var debug_info_cnt = 0;
+  /* send client-info timer every 250 ms */
+  const send_client_info_timer_interval = 250;
+  function send_client_info_timer() {
+    that.send_client_info('timer');
+  }
+  setInterval(send_client_info_timer, send_client_info_timer_interval);
 
+  /* update debug info every 500 ms */
+  const update_debug_info_interval = 500;
   function update_debug_info() {
-    if (debug_info_cnt != 0) {
-      debug_info_cnt = 0;
-      return;
-    }
-
-    debug_info_cnt = 1;
-
     if (av_source && av_source.isOpen()) {
       const na = 'N/A';
       var video_buf = document.getElementById('video-buf');
@@ -716,17 +716,5 @@ function WebSocketClient(session_key, username, settings_debug, sysinfo) {
       video_bitrate.innerHTML = vbitrate_val ? vbitrate_val.toFixed(2) : na;
     }
   }
-
-  /* send status updates to the server from time to time */
-  function timer_helper() {
-    /* check if the video is playing or rebuffering; send client-info */
-    check_player_state();
-
-    /* update debug info every 2 * TIMER_INTERVAL */
-    update_debug_info();
-
-    /* repeat firing timer */
-    setTimeout(timer_helper, TIMER_INTERVAL);
-  }
-  timer_helper();
+  setInterval(update_debug_info, update_debug_info_interval);
 }
