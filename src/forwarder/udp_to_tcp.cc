@@ -10,7 +10,7 @@
 using namespace std;
 using namespace PollerShortNames;
 
-static const int MAX_BUFFER_BYTES = 64 * 1000 * 1000;  /* 64 MB */
+static const int MAX_BUFFER_BYTES = 256 * 1000 * 1000;  /* 256 MB */
 
 void print_usage(const string & program_name)
 {
