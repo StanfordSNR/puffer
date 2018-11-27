@@ -93,8 +93,6 @@ function AVSource(ws_client, server_init) {
       'which Puffer requires to stream media. Please try another browser or ' +
       'device.'
     );
-
-    console.log(overlay_message);
   }
 
   /* used by handleVideo */
@@ -150,7 +148,10 @@ function AVSource(ws_client, server_init) {
     if (debug) {
       console.log('sourceopen: ' + ms.readyState, e);
     }
-    init_source_buffers();
+
+    if (ms) {  // safeguard
+      init_source_buffers();
+    }
   });
 
   ms.addEventListener('sourceended', function(e) {
@@ -175,17 +176,19 @@ function AVSource(ws_client, server_init) {
     return vbuf !== null && abuf !== null;
   };
 
-  /* Close the AV source, presumably it is being replaced */
+  /* call "close" to garbage collect MediaSource and SourceBuffers sooner */
   this.close = function() {
-    if (vbuf || abuf) {
+    if (ms) {
       console.log('Closing media source buffer');
     }
 
-    pending_video_chunks = [];
-    pending_audio_chunks = [];
-
+    /* assign null to (hopefully) trigger garbage collection */
+    ms = null;
     vbuf = null;
     abuf = null;
+
+    pending_video_chunks = [];
+    pending_audio_chunks = [];
   };
 
   this.handleVideo = function(metadata, data, msg_ts) {
@@ -287,10 +290,10 @@ function AVSource(ws_client, server_init) {
       return parseFloat(ret.toFixed(3));
     }
 
-    return -1;
+    return 0;
   };
 
-  /* Get the min number of seconds of buffered video and audio */
+  /* Set audio buffer as the min of buffered video and audio */
   this.getAudioBufferLen = function() {
     if (vbuf && vbuf.buffered.length === 1 &&
         abuf && abuf.buffered.length === 1) {
@@ -301,7 +304,7 @@ function AVSource(ws_client, server_init) {
       }
     }
 
-    return -1;
+    return 0;
   };
 
   /* Get the expected timestamp of the next video chunk */
@@ -513,9 +516,6 @@ function WebSocketClient(session_key, username, settings_debug, sysinfo) {
       }
 
       /* create a new AVSource if it does not exist or unable to resume */
-      if (av_source) {
-        av_source.close();
-      }
       av_source = new AVSource(that, metadata);
     } else if (metadata.type === 'server-video') {
       if (!av_source) {
@@ -601,16 +601,21 @@ function WebSocketClient(session_key, username, settings_debug, sysinfo) {
   };
 
   this.set_channel = function(channel) {
-    /* start the spinner */
-    start_spinner();
+    /* call 'close' to allocate a new MediaSource more quickly later */
+    if (av_source) {
+      av_source.close();
+    }
 
+    /* render UI */
+    start_spinner();
     remove_player_error('channel');
 
-    /* reset video state used in timer */
+    /* send client-init */
+    that.send_client_init(channel);
+
+    /* reset stats */
     video_playing = false;
     last_play_position = null;
-
-    that.send_client_init(channel);
   };
 
   video.oncanplay = function() {
