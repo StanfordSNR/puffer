@@ -576,7 +576,8 @@ function WebSocketClient(session_key, username, settings_debug, sysinfo) {
       console.log('Connected to', ws_addr);
       remove_player_error('connect');
 
-      that.set_channel(channel);
+      /* shouldn't call set_channel, which is reserved for channel switching */
+      set_channel_helper(channel);
     };
 
     ws.onclose = function(e) {
@@ -619,12 +620,7 @@ function WebSocketClient(session_key, username, settings_debug, sysinfo) {
     };
   };
 
-  this.set_channel = function(channel) {
-    /* call 'close' to allocate a new MediaSource more quickly later */
-    if (av_source) {
-      av_source.close();
-    }
-
+  function set_channel_helper(channel) {
     /* render UI */
     start_spinner();
     remove_player_error('channel');
@@ -639,6 +635,16 @@ function WebSocketClient(session_key, username, settings_debug, sysinfo) {
     rebuffer_start_ts = null;
     last_rebuffer_ts = null;
     cumulative_rebuffer_ms = 0;
+  }
+
+  /* used when switching channels */
+  this.set_channel = function(channel) {
+    /* call 'close' to allocate a new MediaSource more quickly later */
+    if (av_source) {
+      av_source.close();
+    }
+
+    set_channel_helper(channel);
   };
 
   video.oncanplay = function() {
