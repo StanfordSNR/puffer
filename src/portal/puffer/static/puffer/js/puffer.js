@@ -145,7 +145,7 @@ function AVSource(ws_client, server_init) {
   }
 
   ms.addEventListener('sourceopen', function(e) {
-    if (debug) {
+    if (debug && ms) {
       console.log('sourceopen: ' + ms.readyState, e);
     }
 
@@ -155,20 +155,22 @@ function AVSource(ws_client, server_init) {
   });
 
   ms.addEventListener('sourceended', function(e) {
-    if (debug) {
+    if (debug && ms) {
       console.log('sourceended: ' + ms.readyState, e);
     }
   });
 
   ms.addEventListener('sourceclose', function(e) {
-    if (debug) {
+    if (debug && ms) {
       console.log('sourceclose: ' + ms.readyState, e);
     }
     that.close();
   });
 
   ms.addEventListener('error', function(e) {
-    console.log('media source error: ' + ms.readyState, e);
+    if (ms) {
+      console.log('media source error: ' + ms.readyState, e);
+    }
     that.close();
   });
 
@@ -367,7 +369,9 @@ function WebSocketClient(session_key, username, settings_debug, sysinfo) {
 
   var set_channel_ts = null;  /* timestamp (in ms) of setting a channel */
   var startup_delay_ms = null;
-  var rebuffer_start_ts = null;  /* timestamp(in ms) of starting to rebuffer */
+
+  var rebuffer_start_ts = null;  /* timestamp (in ms) of starting to rebuffer */
+  var last_rebuffer_ts = null;  /* timestamp (in ms) of last rebuffer */
   var cumulative_rebuffer_ms = 0;
 
   var channel_error = false;
@@ -428,7 +432,8 @@ function WebSocketClient(session_key, username, settings_debug, sysinfo) {
       initId: init_id,
       event: info_event,
       videoBufferLen: av_source.getVideoBufferLen(),
-      audioBufferLen: av_source.getAudioBufferLen()
+      audioBufferLen: av_source.getAudioBufferLen(),
+      cumRebufferTime: cumulative_rebuffer_ms
     };
 
     /* include screen sizes if they have changed */
@@ -630,7 +635,9 @@ function WebSocketClient(session_key, username, settings_debug, sysinfo) {
     /* reset stats */
     set_channel_ts = Date.now();
     startup_delay_ms = null;
+
     rebuffer_start_ts = null;
+    last_rebuffer_ts = null;
     cumulative_rebuffer_ms = 0;
   };
 
@@ -655,6 +662,7 @@ function WebSocketClient(session_key, username, settings_debug, sysinfo) {
       return;
     }
     const rebuffering = av_source.isRebuffering();
+    const curr_ts = Date.now();
 
     if (startup_delay_ms === null) {
       if (!rebuffering) {
@@ -662,8 +670,11 @@ function WebSocketClient(session_key, username, settings_debug, sysinfo) {
         stop_spinner();
         console.log('Channel starts playing');
 
+        /* inform server */
+        that.send_client_info('play');
+
         /* calculate startup delay */
-        startup_delay_ms = Date.now() - set_channel_ts;
+        startup_delay_ms = curr_ts - set_channel_ts;
       }
 
       /* always return when startup_delay_ms is null */
@@ -676,19 +687,35 @@ function WebSocketClient(session_key, username, settings_debug, sysinfo) {
         start_spinner();
         console.log('Channel starts rebuffering');
 
+        /* inform server */
+        that.send_client_info('rebuffer');
+
         /* record the starting point of rebuffering */
-        rebuffer_start_ts = Date.now();
+        rebuffer_start_ts = curr_ts;
       }
+
+      /* update cumulative rebuffering */
+      if (last_rebuffer_ts !== null) {
+        cumulative_rebuffer_ms += curr_ts - last_rebuffer_ts;
+      }
+
+      /* record this rebuffering */
+      last_rebuffer_ts = curr_ts;
     } else {
       if (rebuffer_start_ts !== null) {
         /* the channel resumes playing from rebuffering */
         stop_spinner();
         console.log('Channel resumes playing');
 
-        /* update cumulative rebuffering time */
-        cumulative_rebuffer_ms += Date.now() - rebuffer_start_ts;
+        /* inform server */
+        that.send_client_info('play');
+
+        /* record that video resumes playing */
         rebuffer_start_ts = null;
       }
+
+      /* record that video is playing */
+      last_rebuffer_ts = null;
     }
   }
   setInterval(check_rebuffering, 50);
