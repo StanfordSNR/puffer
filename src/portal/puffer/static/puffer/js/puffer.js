@@ -624,6 +624,7 @@ function WebSocketClient(session_key, username, settings_debug, sysinfo) {
     /* render UI */
     start_spinner();
     remove_player_error('channel');
+    channel_error = false;
 
     /* send client-init */
     that.send_client_init(channel);
