@@ -1,21 +1,36 @@
 #include <iostream>
 #include <string>
 #include <memory>
+#include <crypto++/sha.h>
+#include <crypto++/hex.h>
 
 #include "yaml-cpp/yaml.h"
 #include "filesystem.hh"
 #include "path.hh"
 #include "child_process.hh"
+#include "system_runner.hh"
 #include "influxdb_client.hh"
 #include "util.hh"
 
 using namespace std;
+using namespace CryptoPP;
 
 void print_usage(const string & program_name)
 {
   cerr <<
   "Usage: " << program_name << " <YAML configuration> <number of servers>"
   << endl;
+}
+
+string sha256(const string & input)
+{
+  SHA256 hash;
+  string digest;
+  StringSource s(input, true,
+    new HashFilter(hash,
+      new HexEncoder(
+        new StringSink(digest))));
+  return digest;
 }
 
 int main(int argc, char * argv[])
@@ -30,8 +45,18 @@ int main(int argc, char * argv[])
   }
 
   string yaml_config = fs::absolute(argv[1]);
-  YAML::Node config = YAML::LoadFile(yaml_config);
 
+  const auto & src_path = fs::canonical(fs::path(
+      roost::readlink("/proc/self/exe")).parent_path().parent_path());
+
+  const auto & expt_json = src_path / "media-server/expt_json.py";
+  string json_str = run(expt_json, {expt_json, yaml_config}, true).first;
+
+  /* compute SHA-256 of json_str */
+  cout << json_str << endl;
+  cout << sha256(json_str) << endl;
+
+  YAML::Node config = YAML::LoadFile(yaml_config);
   int num_servers = stoi(argv[2]);
   if (num_servers <= 0) {
     cerr << "<number of servers>: a positive integer is required" << endl;
@@ -39,8 +64,6 @@ int main(int argc, char * argv[])
   }
 
   const bool enable_logging = config["enable_logging"].as<bool>();
-  const auto & src_path = fs::canonical(fs::path(
-      roost::readlink("/proc/self/exe")).parent_path().parent_path());
 
   ProcessManager proc_manager;
 
