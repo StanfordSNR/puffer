@@ -3,14 +3,16 @@
 #include <memory>
 #include <crypto++/sha.h>
 #include <crypto++/hex.h>
+#include <pqxx/pqxx>
 
-#include "yaml-cpp/yaml.h"
+#include "yaml.hh"
 #include "filesystem.hh"
 #include "path.hh"
 #include "child_process.hh"
 #include "system_runner.hh"
 #include "influxdb_client.hh"
 #include "util.hh"
+#include "exception.hh"
 
 using namespace std;
 using namespace CryptoPP;
@@ -33,6 +35,46 @@ string sha256(const string & input)
   return digest;
 }
 
+int retrieve_expt_id(const YAML::Node & config, const string & json_str)
+{
+  /* compute SHA-256 */
+  string hash = sha256(json_str);
+  cerr << "Experiment checksum: " << hash << endl;
+
+  try {
+    /* connect to PostgreSQL */
+    string db_conn_str = postgres_connection_string(config["postgres_connection"]);
+    pqxx::connection db_conn(db_conn_str);
+
+    /* prepare two statements */
+    db_conn.prepare("select_id",
+      "SELECT id FROM puffer_experiment WHERE hash = $1;");
+    db_conn.prepare("insert_json",
+      "INSERT INTO puffer_experiment (hash, data) VALUES ($1, $2) RETURNING id;");
+
+    pqxx::work db_work(db_conn);
+
+    /* try to fetch an existing row */
+    pqxx::result r = db_work.prepared("select_id")(hash).exec();
+    if (r.size() == 1 and r[0].size() == 1) {
+      /* the same hash already exists */
+      return r[0][0].as<int>();
+    }
+
+    /* insert if no record exists and return the ID of inserted row */
+    r = db_work.prepared("insert_json")(hash)(json_str).exec();
+    /* commit this transaction */
+    db_work.commit();
+    if (r.size() == 1 and r[0].size() == 1) {
+      return r[0][0].as<int>();
+    }
+  } catch (const exception & e) {
+    print_exception("retrieve_expt_id", e);
+  }
+
+  return -1;
+}
+
 int main(int argc, char * argv[])
 {
   if (argc < 1) {
@@ -45,6 +87,7 @@ int main(int argc, char * argv[])
   }
 
   string yaml_config = fs::absolute(argv[1]);
+  YAML::Node config = YAML::LoadFile(yaml_config);
 
   const auto & src_path = fs::canonical(fs::path(
       roost::readlink("/proc/self/exe")).parent_path().parent_path());
@@ -52,11 +95,10 @@ int main(int argc, char * argv[])
   const auto & expt_json = src_path / "media-server/expt_json.py";
   string json_str = run(expt_json, {expt_json, yaml_config}, true).first;
 
-  /* compute SHA-256 of json_str */
-  cout << json_str << endl;
-  cout << sha256(json_str) << endl;
+  /* upload JSON to and retrieve an experimental ID from PostgreSQL */
+  int expt_id = retrieve_expt_id(config, json_str);
+  cerr << "Experiment ID: " << expt_id << endl;
 
-  YAML::Node config = YAML::LoadFile(yaml_config);
   int num_servers = stoi(argv[2]);
   if (num_servers <= 0) {
     cerr << "<number of servers>: a positive integer is required" << endl;
