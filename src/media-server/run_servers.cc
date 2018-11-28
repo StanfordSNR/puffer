@@ -46,6 +46,14 @@ int retrieve_expt_id(const YAML::Node & config, const string & json_str)
     string db_conn_str = postgres_connection_string(config["postgres_connection"]);
     pqxx::connection db_conn(db_conn_str);
 
+    /* create table if not exists */
+    pqxx::work create_table(db_conn);
+    create_table.exec("CREATE TABLE IF NOT EXISTS puffer_experiment "
+                      "(id SERIAL PRIMARY KEY,"
+                      " hash VARCHAR(64) UNIQUE NOT NULL,"
+                      " data jsonb);");
+    create_table.commit();
+
     /* prepare two statements */
     db_conn.prepare("select_id",
       "SELECT id FROM puffer_experiment WHERE hash = $1;");
@@ -63,7 +71,6 @@ int retrieve_expt_id(const YAML::Node & config, const string & json_str)
 
     /* insert if no record exists and return the ID of inserted row */
     r = db_work.prepared("insert_json")(hash)(json_str).exec();
-    /* commit this transaction */
     db_work.commit();
     if (r.size() == 1 and r[0].size() == 1) {
       return r[0][0].as<int>();
