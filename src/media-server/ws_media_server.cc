@@ -37,34 +37,34 @@ using WebSocketServer = WebSocketTCPServer;
 using WebSocketServer = WebSocketSecureServer;
 #endif
 
-/* global settings */
-static const size_t MAX_WS_FRAME_B = 100 * 1024;  /* 10 KB */
-static const unsigned int DROP_NOTIFICATION_MS = 30000;
-static const unsigned int MAX_IDLE_MS = 60000;
-static fs::path media_dir;  /* base directory of media files */
-
+/* global variables */
+YAML::Node config;
 static map<string, shared_ptr<Channel>> channels;  /* key: channel name */
 static map<uint64_t, WebSocketClient> clients;  /* key: connection ID */
 
-static Timerfd global_timer;  /* non-blocking global timer fd for scheduling */
-static const int TIMER_PERIOD_MS = 100;  /* global timer fires every 100 ms */
+static const size_t MAX_WS_FRAME_B = 100 * 1024;  /* 10 KB */
+static const unsigned int DROP_NOTIFICATION_MS = 30000;
+static const unsigned int MAX_IDLE_MS = 60000;
 
 /* for logging */
 static bool enable_logging = false;
-static string server_id;
 static fs::path log_dir;  /* base directory for logging */
+static string server_id;
+static string expt_id;
+static string group_id;
 static map<string, FileDescriptor> log_fds;  /* map log name to fd */
 static const unsigned int MAX_LOG_FILESIZE = 10 * 1024 * 1024;  /* 10 MB */
 static time_t last_minute = 0;
 
 /* for enforcements */
-static bool enforce_moving_live_edge = false;
 static map<string, tuple<optional<uint64_t>, optional<time_t>>> live_edges;
 static const unsigned int MAX_UNCHANGED_LIVE_EDGE_S = 10;
 
 void print_usage(const string & program_name)
 {
-  cerr << program_name << " <YAML configuration> <server ID>" << endl;
+  cerr <<
+  program_name << " <YAML configuration> [<server ID> <expt ID> <group ID>]"
+  << endl;
 }
 
 /* return "connection_id,username" or "connection_id," (unknown username) */
@@ -80,6 +80,10 @@ string client_signature(const uint64_t connection_id)
 
 void append_to_log(const string & log_stem, const string & log_line)
 {
+  if (not enable_logging) {
+    throw runtime_error("append_to_log: enable_logging must be true");
+  }
+
   string log_name = log_stem + "." + server_id + ".log";
   string log_path = log_dir / log_name;
 
@@ -93,7 +97,7 @@ void append_to_log(const string & log_stem, const string & log_line)
 
   /* append a line to log */
   FileDescriptor & fd = log_it->second;
-  fd.write(log_line + " " + server_id + "\n");
+  fd.write(log_line + " " + server_id + " " + expt_id + " " + group_id + "\n");
 
   /* rotate log if filesize is too large */
   if (fd.curr_offset() > MAX_LOG_FILESIZE) {
@@ -347,10 +351,15 @@ void do_enforce_moving_live_edge()
   }
 }
 
-void start_global_timer(WebSocketServer & server)
+void start_global_timer(Timerfd & global_timer, WebSocketServer & server)
 {
+  bool enforce_moving_live_edge = false;
+  if (config["enforce_moving_live_edge"]) {
+    enforce_moving_live_edge = config["enforce_moving_live_edge"].as<bool>();
+  }
+
   server.poller().add_action(Poller::Action(global_timer, Direction::In,
-    [&server]()->Result {
+    [&global_timer, &server, enforce_moving_live_edge]()->Result {
       /* must read the timerfd, and check if timer has fired */
       if (global_timer.expirations() == 0) {
         return ResultType::Continue;
@@ -413,7 +422,8 @@ void start_global_timer(WebSocketServer & server)
     }
   ));
 
-  /* this timer fires every 100 ms */
+  /* this timer fires every 50 ms */
+  const int TIMER_PERIOD_MS = 50;
   global_timer.start(TIMER_PERIOD_MS, TIMER_PERIOD_MS);
 }
 
@@ -617,7 +627,7 @@ void handle_client_audio_ack(WebSocketClient & client,
   client.set_client_next_ats(msg.timestamp + client.channel()->aduration());
 }
 
-void create_channels(const YAML::Node & config, Inotify & inotify)
+void create_channels(Inotify & inotify)
 {
   fs::path media_dir = config["media_dir"].as<string>();
 
@@ -654,52 +664,39 @@ bool auth_client(const string & session_key, pqxx::nontransaction & db_work)
   }
 }
 
-int main(int argc, char * argv[])
+void validate_id(const string & id)
 {
-  if (argc < 1) {
-    abort();
-  }
+  int id_int = -1;
 
-  if (argc != 3) {
-    print_usage(argv[0]);
-    return EXIT_FAILURE;
-  }
-
-  /* obtain and validate server ID */
-  server_id = argv[2];
   try {
-    stoi(server_id);
+    id_int = stoi(id);
   } catch (const exception &) {
-    cerr << "invalid server ID: " << server_id << endl;
-    return EXIT_FAILURE;
+    throw runtime_error("server ID, expt ID, and group ID must be positive integers");
   }
 
-  /* load YAML settings */
-  YAML::Node config = YAML::LoadFile(argv[1]);
-  enable_logging = config["enable_logging"].as<bool>();
-  log_dir = config["log_dir"].as<string>();
+  if (id_int <= 0) {
+    throw runtime_error("server ID, expt ID, and group ID must be positive integers");
+  }
+}
 
-  if (config["enforce_moving_live_edge"]) {
-    enforce_moving_live_edge = config["enforce_moving_live_edge"].as<bool>();
+int run_websocket_server(pqxx::nontransaction & db_work)
+{
+  /* default congestion control and ABR algorithm */
+  string congestion_control = "default";
+  string abr_name = "linear_bba";
+
+  /* read congestion control and ABR from experimental settings */
+  if (not group_id.empty()) {
+    const auto & expt_config = config["experimental_groups"][group_id];
+    congestion_control = expt_config["congestion_control"].as<string>();
+    abr_name = expt_config["abr_algorithm"].as<string>();
   }
 
-  /* ignore SIGPIPE generated by SSL_write */
-  if (signal(SIGPIPE, SIG_IGN) == SIG_ERR) {
-    cerr << "signal: failed to ignore SIGPIPE" << endl;
-    return EXIT_FAILURE;
-  }
-
-  /* create a WebSocketServer instance */
   const string ip = "0.0.0.0";
   const uint16_t port = config["ws_port"].as<uint16_t>();
-  string congestion_control = "default";
-  if (config["congestion_control"]) {
-    congestion_control = config["congestion_control"].as<string>();
-  }
   WebSocketServer server {{ip, port}, congestion_control};
 
   const bool portal_debug = config["portal_settings"]["debug"].as<bool>();
-
   /* workaround using compiler macros (CXXFLAGS='-DNONSECURE') to create a
    * server with non-secure socket; secure socket is used by default */
   #ifdef NONSECURE
@@ -718,28 +715,9 @@ int main(int argc, char * argv[])
   }
   #endif
 
-  /* connect to the database for user authentication */
-  string db_conn_str = postgres_connection_string(config["postgres_connection"]);
-  pqxx::connection db_conn(db_conn_str);
-  cerr << "Connected to database: " << db_conn.hostname() << endl;
-
-  /* reuse the same nontransaction as the server reads the database only */
-  pqxx::nontransaction db_work(db_conn);
-
-  /* prepare a statement to check if the session_key in client-init is valid */
-  db_conn.prepare("auth", "SELECT EXISTS(SELECT 1 FROM django_session WHERE "
-    "session_key = $1 AND expire_date > now());");
-
   /* create Channels and mmap existing and newly created media files */
   Inotify inotify(server.poller());
-  create_channels(config, inotify);
-
-  /* load ABR algorithm */
-  string abr_name = "linear_bba";  /* default ABR */
-  if (config["abr_algorithm"]) {
-    abr_name = config["abr_algorithm"].as<string>();
-  }
-  const YAML::Node & abr_config = config["abr_configs"][abr_name];
+  create_channels(inotify);
 
   /* set server callbacks */
   server.set_message_callback(
@@ -822,7 +800,7 @@ int main(int argc, char * argv[])
   );
 
   server.set_open_callback(
-    [&server, &abr_name, &abr_config](const uint64_t connection_id)
+    [&server, &abr_name](const uint64_t connection_id)
     {
       try {
         cerr << connection_id << ": connection opened" << endl;
@@ -831,7 +809,8 @@ int main(int argc, char * argv[])
         clients.emplace(
             piecewise_construct,
             forward_as_tuple(connection_id),
-            forward_as_tuple(connection_id, abr_name, abr_config));
+            forward_as_tuple(connection_id, abr_name,
+                             config["abr_configs"][abr_name]));
       } catch (const exception & e) {
         cerr << client_signature(connection_id)
              << ": warning in open callback: " << e.what() << endl;
@@ -855,6 +834,60 @@ int main(int argc, char * argv[])
   );
 
   /* start a global timer to serve media to clients */
-  start_global_timer(server);
+  Timerfd global_timer;
+  start_global_timer(global_timer, server);
+
   return server.loop();
+}
+
+int main(int argc, char * argv[])
+{
+  if (argc < 1) {
+    abort();
+  }
+
+  if (argc != 2 and argc != 5) {
+    print_usage(argv[0]);
+    return EXIT_FAILURE;
+  }
+
+  /* load YAML settings */
+  config = YAML::LoadFile(argv[1]);
+  enable_logging = config["enable_logging"].as<bool>();
+
+  if (argc == 2 and enable_logging) {
+    cerr << "Must specify server ID, expt ID, and group ID "
+         << "if enable_logging is true" << endl;
+    return EXIT_FAILURE;
+  }
+
+  if (argc == 5 and enable_logging) {
+    log_dir = config["log_dir"].as<string>();
+    server_id = argv[2];
+    validate_id(server_id);
+    expt_id = argv[3];
+    validate_id(expt_id);
+    group_id = argv[4];
+    validate_id(group_id);
+  }
+
+  /* ignore SIGPIPE generated by SSL_write */
+  if (signal(SIGPIPE, SIG_IGN) == SIG_ERR) {
+    throw runtime_error("signal: failed to ignore SIGPIPE");
+  }
+
+  /* connect to the database for user authentication */
+  string db_conn_str = postgres_connection_string(config["postgres_connection"]);
+  pqxx::connection db_conn(db_conn_str);
+  cerr << "Connected to database: " << db_conn.hostname() << endl;
+
+  /* prepare a statement to check if the session_key in client-init is valid */
+  db_conn.prepare("auth", "SELECT EXISTS(SELECT 1 FROM django_session WHERE "
+    "session_key = $1 AND expire_date > now());");
+
+  /* reuse the same nontransaction as the server only reads the database */
+  pqxx::nontransaction db_work(db_conn);
+
+  /* run a WebSocketServer instance */
+  return run_websocket_server(db_work);
 }
