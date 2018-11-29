@@ -765,16 +765,19 @@ int run_websocket_server(pqxx::nontransaction & db_work)
             return;
           }
 
-          /* normally, client's channel should already be initialized */
-          if (client.channel()) {
-            const auto & channel = client.channel();
-
+          const auto channel = client.channel();
+          if (channel) {
             /* inform the client that the channel becomes not ready */
             if (not channel->ready_to_serve()) {
               send_server_error(server, client,
                                 ServerErrorMsg::ErrorType::Channel);
               return;
             }
+          } else {
+            /* client's channel should have been initialized */
+            send_server_error(server, client,
+                              ServerErrorMsg::ErrorType::Channel);
+            return;
           }
 
           switch (msg_parser.msg_type()) {
