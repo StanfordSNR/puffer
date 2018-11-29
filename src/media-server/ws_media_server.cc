@@ -508,6 +508,12 @@ void handle_client_info(WebSocketClient & client, const ClientInfoMsg & msg)
 
   client.set_video_playback_buf(msg.video_buffer_len);
   client.set_audio_playback_buf(msg.audio_buffer_len);
+  client.set_cum_rebuffer_ms(msg.cum_rebuffer_ms);
+
+  /* msg.cum_rebuffer_ms is startup delay when event is Startup */
+  if (msg.event == ClientInfoMsg::Event::Startup) {
+    client.set_startup_delay_ms(msg.cum_rebuffer_ms);
+  }
 
   /* check if client's screen size has changed */
   if (msg.screen_height and msg.screen_width) {

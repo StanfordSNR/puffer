@@ -46,7 +46,7 @@ ClientInfoMsg::ClientInfoMsg(const json & msg)
 
   video_buffer_len = msg.at("videoBufferLen").get<double>();
   audio_buffer_len = msg.at("audioBufferLen").get<double>();
-  cum_rebuffer_time_ms = msg.at("cumRebufferTime").get<uint64_t>();
+  cum_rebuffer_ms = msg.at("cumRebufferTime").get<uint64_t>();
 
   auto it = msg.find("screenHeight");
   if (it != msg.end()) {

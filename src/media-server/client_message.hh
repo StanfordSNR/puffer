@@ -64,7 +64,7 @@ public:
   std::string event_str {};
   double video_buffer_len {};  // in seconds
   double audio_buffer_len {};  // in seconds
-  uint64_t cum_rebuffer_time_ms {};  // in milliseconds
+  uint64_t cum_rebuffer_ms {}; // in milliseconds
 
   /* user's screen size might have changed while watching */
   std::optional<uint16_t> screen_height {};
