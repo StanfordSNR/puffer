@@ -34,6 +34,8 @@ ClientInfoMsg::ClientInfoMsg(const json & msg)
   event_str = msg.at("event").get<string>();
   if (event_str == "timer") {
     event = ClientInfoMsg::Event::Timer;
+  } else if (event_str == "startup") {
+    event = ClientInfoMsg::Event::Startup;
   } else if (event_str == "rebuffer") {
     event = ClientInfoMsg::Event::Rebuffer;
   } else if (event_str == "play") {

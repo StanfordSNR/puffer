@@ -50,9 +50,10 @@ class ClientInfoMsg : public ClientMsg
 {
 public:
   enum class Event {
-    Timer,
-    Rebuffer,
-    Play
+    Timer,    // 4Hz timer
+    Startup,  // channel starts playing
+    Rebuffer, // channel rebuffers
+    Play      // channel resumes playing
   };
 
   ClientInfoMsg(const json & msg);

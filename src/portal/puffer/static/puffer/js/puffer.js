@@ -677,11 +677,12 @@ function WebSocketClient(session_key, username, settings_debug, sysinfo) {
         stop_spinner();
         console.log('Channel starts playing');
 
-        /* inform server */
-        that.send_client_info('play');
-
         /* calculate startup delay */
         startup_delay_ms = curr_ts - set_channel_ts;
+        cumulative_rebuffer_ms += startup_delay_ms;
+
+        /* inform server of startup delay (via cumulative_rebuffer_ms) */
+        that.send_client_info('startup');
       }
 
       /* always return when startup_delay_ms is null */
