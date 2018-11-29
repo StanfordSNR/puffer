@@ -55,7 +55,6 @@ static string server_id;
 static fs::path log_dir;  /* base directory for logging */
 static map<string, FileDescriptor> log_fds;  /* map log name to fd */
 static const unsigned int MAX_LOG_FILESIZE = 10 * 1024 * 1024;  /* 10 MB */
-static unsigned int log_rebuffer_num = 0;
 static time_t last_minute = 0;
 
 /* for enforcements */
@@ -109,30 +108,6 @@ void append_to_log(const string & log_stem, const string & log_line)
 
     log_it->second = move(new_fd);
   }
-}
-
-void append_log_rebuffer_rate(uint64_t curr_time)
-{
-  double rebuffer_rate = 0;
-  if (clients.size() > 0) {
-    rebuffer_rate = (double) log_rebuffer_num / clients.size();
-  }
-  string log_line = to_string(curr_time) + " " + to_string(rebuffer_rate);
-  append_to_log("rebuffer_rate", log_line);
-}
-
-void reinit_log_data()
-{
-  /* reinit rebuffer_rate */
-  log_rebuffer_num = 0;
-  for (const auto & client_pair : clients) {
-    if (client_pair.second.is_rebuffering()) {
-      log_rebuffer_num++;
-    }
-  }
-
-  /* update corresponding logs */
-  append_log_rebuffer_rate(time(nullptr));
 }
 
 void serve_video_to_client(WebSocketServer & server, WebSocketClient & client)
@@ -525,11 +500,6 @@ void handle_client_init(WebSocketServer & server, WebSocketClient & client,
   /* update client's screen size after setting client's channel */
   update_screen_size(client, msg.screen_height, msg.screen_width);
 
-  if (enable_logging) {
-    /* reinit the log data */
-    reinit_log_data();
-  }
-
   send_server_init(server, client, false /* initialize rather than resume */);
   cerr << client.signature() << ": connection initialized" << endl;
 }
@@ -573,21 +543,6 @@ void handle_client_info(WebSocketClient & client, const ClientInfoMsg & msg)
       string log_line = to_string(curr_time) + " " + client.username() + " "
                         + client.channel()->name();
       append_to_log("rebuffer_event", log_line);
-    }
-
-    /* record rebuffer rates (TODO: still has flaws) */
-    if (not client.is_rebuffering() and
-        msg.event == ClientInfoMsg::Event::Rebuffer) {
-      log_rebuffer_num++;
-      client.set_rebuffering(true);
-      append_log_rebuffer_rate(curr_time);
-    }
-
-    if (client.is_rebuffering() and
-        msg.event == ClientInfoMsg::Event::Play) {
-      log_rebuffer_num--;
-      client.set_rebuffering(false);
-      append_log_rebuffer_rate(curr_time);
     }
   }
 }
@@ -892,11 +847,6 @@ int main(int argc, char * argv[])
         cerr << connection_id << ": connection closed" << endl;
 
         clients.erase(connection_id);
-
-        if (enable_logging) {
-          /* TODO: the logging of rebuffer rate still has flaws */
-          reinit_log_data();
-        }
       } catch (const exception & e) {
         cerr << client_signature(connection_id)
              << ": warning in close callback: " << e.what() << endl;
