@@ -555,6 +555,7 @@ void handle_client_video_ack(WebSocketClient & client,
 
   client.set_video_playback_buf(msg.video_buffer_len);
   client.set_audio_playback_buf(msg.audio_buffer_len);
+  client.set_cum_rebuffer_ms(msg.cum_rebuffer_ms);
 
   /* only interested in the event when the last segment is acked */
   if (msg.byte_offset + msg.byte_length != msg.total_byte_length) {
@@ -602,6 +603,7 @@ void handle_client_audio_ack(WebSocketClient & client,
 
   client.set_video_playback_buf(msg.video_buffer_len);
   client.set_audio_playback_buf(msg.audio_buffer_len);
+  client.set_cum_rebuffer_ms(msg.cum_rebuffer_ms);
 
   /* only interested in the event when the last segment is acked */
   if (msg.byte_offset + msg.byte_length != msg.total_byte_length) {
@@ -639,14 +641,12 @@ bool auth_client(const string & session_key, pqxx::nontransaction & db_work)
     if (r.size() == 1 and r[0].size() == 1) {
       /* returned record is valid containing only true or false */
       return r[0][0].as<bool>();
-    } else {
-      cerr << "Authentication failed due to invalid returned record" << endl;
-      return false;
     }
   } catch (const exception & e) {
     print_exception("auth_client", e);
-    return false;
   }
+
+  return false;
 }
 
 void validate_id(const string & id)

@@ -84,9 +84,9 @@ public:
   unsigned int byte_length {};  /* acked length */
   unsigned int total_byte_length {};  /* total length to expect */
 
-  /* video and audio buffer levels of client before it sends this ACK */
-  double video_buffer_len {};
-  double audio_buffer_len {};
+  double video_buffer_len {};  // in seconds
+  double audio_buffer_len {};  // in seconds
+  uint64_t cum_rebuffer_ms {}; // in milliseconds
 
 protected:
   /* prevent this class from being instantiated */

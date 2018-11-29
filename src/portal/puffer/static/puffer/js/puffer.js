@@ -433,7 +433,7 @@ function WebSocketClient(session_key, username, settings_debug, sysinfo) {
       event: info_event,
       videoBufferLen: av_source.getVideoBufferLen(),
       audioBufferLen: av_source.getAudioBufferLen(),
-      cumRebufferTime: cumulative_rebuffer_ms
+      cumRebufferMs: cumulative_rebuffer_ms
     };
 
     /* include screen sizes if they have changed */
@@ -469,7 +469,8 @@ function WebSocketClient(session_key, username, settings_debug, sysinfo) {
     var msg = {
       initId: init_id,
       videoBufferLen: av_source.getVideoBufferLen(),
-      audioBufferLen: av_source.getAudioBufferLen()
+      audioBufferLen: av_source.getAudioBufferLen(),
+      cumRebufferMs: cumulative_rebuffer_ms
     };
 
     msg.channel = data_to_ack.channel;
