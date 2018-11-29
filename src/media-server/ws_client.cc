@@ -13,23 +13,23 @@ WebSocketClient::WebSocketClient(const uint64_t connection_id,
   init_abr_algo();
 }
 
-void WebSocketClient::init(const shared_ptr<Channel> & channel,
-                           const uint64_t init_vts, const uint64_t init_ats)
+void WebSocketClient::init_channel(const shared_ptr<Channel> & channel,
+                                   const uint64_t init_vts,
+                                   const uint64_t init_ats)
 {
   channel_ = channel;
   next_vts_ = init_vts;
   next_ats_ = init_ats;
 
-  curr_vq_.reset();
-  curr_aq_.reset();
+  client_next_vts_ = init_vts;
+  client_next_ats_ = init_ats;
 
   video_playback_buf_ = 0;
   audio_playback_buf_ = 0;
 
-  client_next_vts_ = init_vts;
-  client_next_ats_ = init_ats;
+  curr_vq_.reset();
+  curr_aq_.reset();
 
-  rebuffering_ = false;
   last_video_send_ts_.reset();
 }
 

@@ -28,18 +28,19 @@ public:
   WebSocketClient(WebSocketClient && other) = delete;
   WebSocketClient & operator=(WebSocketClient && other) = delete;
 
-  void init(const std::shared_ptr<Channel> & channel,
-            const uint64_t init_vts, const uint64_t init_ats);
+  /* start streaming the requested channel to client */
+  void init_channel(const std::shared_ptr<Channel> & channel,
+                    const uint64_t init_vts, const uint64_t init_ats);
 
   /* accessors */
   uint64_t connection_id() const { return connection_id_; }
+
+  std::shared_ptr<Channel> channel() const { return channel_.lock(); }
 
   unsigned int init_id() const { return init_id_; }
   bool is_authenticated() const { return authenticated_; }
   std::string session_key() const { return session_key_; }
   std::string username() const { return username_; }
-
-  std::shared_ptr<Channel> channel() const { return channel_.lock(); }
 
   std::string signature() const {
     return std::to_string(connection_id_) + "," + username_;
@@ -68,8 +69,6 @@ public:
   std::optional<VideoFormat> curr_vq() const { return curr_vq_; }
   std::optional<AudioFormat> curr_aq() const { return curr_aq_; }
 
-  bool is_rebuffering() const { return rebuffering_; }
-
   std::optional<uint64_t> last_msg_recv_ts() const { return last_msg_recv_ts_; }
   std::optional<uint64_t> last_video_send_ts() const { return last_video_send_ts_; }
 
@@ -82,6 +81,7 @@ public:
   void set_browser(const std::string & browser) { browser_ = browser; }
   void set_os(const std::string & os) { os_ = os; }
   void set_address(const Address & address) { address_ = address; }
+
   void set_screen_size(const uint16_t screen_width, const uint16_t screen_height);
 
   void set_next_vts(const uint64_t next_vts) { next_vts_ = next_vts; }
@@ -96,11 +96,8 @@ public:
   void set_curr_vq(const VideoFormat & quality) { curr_vq_ = quality; }
   void set_curr_aq(const AudioFormat & quality) { curr_aq_ = quality; }
 
-  void set_rebuffering(const bool rebuffering) { rebuffering_ = rebuffering; }
-  void set_last_msg_recv_ts(const uint64_t recv_ts) { last_msg_recv_ts_ = recv_ts; }
-
-  void reset_last_video_send_ts() { last_video_send_ts_.reset(); }
-  void set_last_video_send_ts(const uint64_t send_ts) { last_video_send_ts_ = send_ts; }
+  void set_last_msg_recv_ts(const std::optional<uint64_t> recv_ts) { last_msg_recv_ts_ = recv_ts; }
+  void set_last_video_send_ts(const std::optional<uint64_t> send_ts) { last_video_send_ts_ = send_ts; }
 
   /* ABR related */
   void video_chunk_acked(const VideoFormat & format,
@@ -134,6 +131,7 @@ private:
   std::string browser_ {};
   std::string os_ {};
   Address address_ {};
+
   uint16_t screen_width_ {0xFFFF};
   uint16_t screen_height_ {0xFFFF};
 
@@ -141,17 +139,19 @@ private:
   std::optional<uint64_t> next_vts_ {};
   std::optional<uint64_t> next_ats_ {};
 
-  std::optional<VideoFormat> curr_vq_ {};
-  std::optional<AudioFormat> curr_aq_ {};
-
-  double video_playback_buf_ {0};
-  double audio_playback_buf_ {0};
-
   /* next video and audio timestamps requested from the client */
   std::optional<uint64_t> client_next_vts_ {};
   std::optional<uint64_t> client_next_ats_ {};
 
-  bool rebuffering_ {false};
+  /* playback buffer in seconds */
+  double video_playback_buf_ {0};
+  double audio_playback_buf_ {0};
+
+  /* current video and audio formats */
+  std::optional<VideoFormat> curr_vq_ {};
+  std::optional<AudioFormat> curr_aq_ {};
+
+  /* timestamp of last message (excluding timer) received from client */
   std::optional<uint64_t> last_msg_recv_ts_ {};
 
   /* sending time of last video chunk */

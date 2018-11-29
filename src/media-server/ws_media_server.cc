@@ -244,11 +244,11 @@ void reinit_laggy_client(WebSocketServer & server, WebSocketClient & client,
   uint64_t init_vts = channel->init_vts().value();
   uint64_t init_ats = channel->init_ats().value();
 
+  client.init_channel(channel, init_vts, init_ats);
+  send_server_init(server, client, false /* cannot resume */);
+
   cerr << client.signature() << ": reinitialize laggy client "
        << client.next_vts().value() << "->" << init_vts << endl;
-  client.init(channel, init_vts, init_ats);
-
-  send_server_init(server, client, false /* cannot resume */);
 }
 
 void serve_client(WebSocketServer & server, WebSocketClient & client)
@@ -447,7 +447,7 @@ bool resume_connection(WebSocketServer & server,
   }
 
   /* reinitialize the client */
-  client.init(channel, requested_vts, requested_ats);
+  client.init_channel(channel, requested_vts, requested_ats);
   send_server_init(server, client, true /* can resume */);
 
   cerr << client.signature() << ": connection resumed" << endl;
@@ -487,9 +487,9 @@ void handle_client_init(WebSocketServer & server, WebSocketClient & client,
 
   uint64_t init_vts = channel->init_vts().value();
   uint64_t init_ats = channel->init_ats().value();
-  client.init(channel, init_vts, init_ats);
-
+  client.init_channel(channel, init_vts, init_ats);
   send_server_init(server, client, false /* initialize rather than resume */);
+
   cerr << client.signature() << ": connection initialized" << endl;
 }
 
@@ -565,7 +565,7 @@ void handle_client_video_ack(WebSocketClient & client,
     /* notify the ABR algorithm that a video chunk is acked */
     client.video_chunk_acked(msg.video_format, msg.ssim,
                              msg.total_byte_length, trans_time);
-    client.reset_last_video_send_ts();
+    client.set_last_video_send_ts(nullopt);
   } else {
     cerr << client.signature() << ": error: server didn't send video but "
          << "received VideoAck" << endl;
