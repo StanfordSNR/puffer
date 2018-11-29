@@ -7,6 +7,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
   <link rel="stylesheet" href="{% static 'puffer/dist/css/bootstrap.min.css' %}">
+  <link rel="stylesheet" href="{% static 'puffer/css/common.css' %}">
   <title>Puffer</title>
   <link rel="icon" href="{% static 'puffer/dist/images/favicon.ico' %}">
 </head>
@@ -64,9 +65,9 @@
             <td class="text-monospace">{{ t.token }}</td>
             <td>{{ t.addon_cnt }}</td>
             <td>
-              <a href="#" onclick="share('{{ t.token }}', this, '{{ csrf_token }}')">
+              <span class="fake-link" onclick="share('{{ t.token }}', this, '{{ csrf_token }}')">
                 mark shared
-              </a>
+              </span>
             </td>
           </tr>
           {% endif %}
@@ -89,9 +90,9 @@
             <td class="text-monospace">{{ t.token }}</td>
             <td>{{ t.addon_cnt }}</td>
             <td>
-              <a href="#" onclick="unshare('{{ t.token }}', this, '{{ csrf_token }}')">
+              <span class="fake-link" onclick="unshare('{{ t.token }}', this, '{{ csrf_token }}')">
                 mark unshared
-              </a>
+              </span>
             </td>
           </tr>
           {% endif %}

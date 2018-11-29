@@ -3,3 +3,12 @@
   background-color: #f8d7da;
   border-color: #f5c6cb;
 }
+
+.fake-link {
+  color: #007bff;
+  cursor: pointer;
+}
+
+.fake-link:hover {
+  text-decoration: underline;
+}
