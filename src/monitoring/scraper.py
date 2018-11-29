@@ -36,6 +36,17 @@ OUTPUT_STATUS_REGEX = re.compile(
     r'.+?\s+'
     r'</tr>')
 
+RF_CHANNEL_MAP = {
+    7: 'abc',
+    12: 'nbc',
+    29: 'cbs',
+    30: 'pbs',
+    34: 'univision',
+    41: 'ion',
+    44: 'fox',
+    45: 'cw'
+}
+
 
 # Send SNR info and more to InfluxDB for monitoring
 def send_to_influx(status):
@@ -45,14 +56,14 @@ def send_to_influx(status):
     for k, v in status.items():
         json_body.append({
           'measurement': 'channel_status',
-          'tags': {'rf_channel': v['rf_channel']},
+          'tags': {'channel': v['channel']},
           'time': curr_time,
           'fields': {'snr': v['snr'],
                      'selected_rate': v['selected_rate']}
         })
 
         sys.stderr.write('channel {}, SNR {}, bitrate {}\n'.format(
-            v['rf_channel'], v['snr'], v['selected_rate']))
+            v['channel'], v['snr'], v['selected_rate']))
 
     client = InfluxDBClient('localhost', 8086, 'puffer', INFLUX_PWD)
     client.write_points(json_body, time_precision='s', database='puffer')
@@ -112,7 +123,7 @@ def parse_input_status(html, status):
         input = int(x[0])
         if input in status:
             status[input]['snr'] = float(x[1])
-            status[input]['rf_channel'] = int(x[2].split()[0])
+            status[input]['channel'] = RF_CHANNEL_MAP[int(x[2].split()[0])]
 
 
 def parse_output_status(html, status):
