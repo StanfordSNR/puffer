@@ -35,7 +35,7 @@ VideoFormat LinearBBA::select_video_format()
 
   for (size_t i = 0; i < vformats_cnt; i++) {
     const auto & vf = vformats[i];
-    if (not client_.is_format_capable(vf)) continue;
+    if (client_.is_format_overkill(vf)) continue;
 
     size_t chunk_size = get<1>(data_map.at(vf));
     if (chunk_size <= 0) continue;
@@ -71,7 +71,7 @@ VideoFormat LinearBBA::select_video_format()
 
   for (size_t i = 0; i < vformats_cnt; i++) {
     const auto & vf = vformats[i];
-    if (not client_.is_format_capable(vf)) continue;
+    if (client_.is_format_overkill(vf)) continue;
 
     size_t chunk_size = get<1>(data_map.at(vf));
     if (chunk_size <= 0 or chunk_size > max_serve_size) {

@@ -48,10 +48,10 @@ public:
   std::string browser() const { return browser_; }
   std::string os() const { return os_; }
   Address address() const { return address_; }
-  uint16_t screen_height() const { return screen_height_; }
-  uint16_t screen_width() const { return screen_width_; }
 
-  bool is_format_capable(const VideoFormat & format) const;
+  uint16_t screen_width() const { return screen_width_; }
+  uint16_t screen_height() const { return screen_height_; }
+  bool is_format_overkill(const VideoFormat & format) const;
 
   std::optional<uint64_t> next_vts() const { return next_vts_; }
   std::optional<uint64_t> next_ats() const { return next_ats_; }
@@ -82,10 +82,7 @@ public:
   void set_browser(const std::string & browser) { browser_ = browser; }
   void set_os(const std::string & os) { os_ = os; }
   void set_address(const Address & address) { address_ = address; }
-  void set_screen_height(const uint16_t screen_height) { screen_height_ = screen_height; }
-  void set_screen_width(const uint16_t screen_width) { screen_width_ = screen_width; }
-
-  void set_max_video_size(const std::vector<VideoFormat> & vfs);
+  void set_screen_size(const uint16_t screen_width, const uint16_t screen_height);
 
   void set_next_vts(const uint64_t next_vts) { next_vts_ = next_vts; }
   void set_next_ats(const uint64_t next_ats) { next_ats_ = next_ats; }
@@ -137,12 +134,8 @@ private:
   std::string browser_ {};
   std::string os_ {};
   Address address_ {};
-  uint16_t screen_height_ {0};
-  uint16_t screen_width_ {0};
-
-  /* max video size that is sufficient considering client's screen size */
-  uint16_t max_video_height_ {0};
-  uint16_t max_video_width_ {0};
+  uint16_t screen_width_ {0xFFFF};
+  uint16_t screen_height_ {0xFFFF};
 
   /* chunk timestamps in the process of being sent */
   std::optional<uint64_t> next_vts_ {};

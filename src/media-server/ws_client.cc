@@ -33,29 +33,16 @@ void WebSocketClient::init(const shared_ptr<Channel> & channel,
   last_video_send_ts_.reset();
 }
 
-void WebSocketClient::set_max_video_size(const std::vector<VideoFormat> & vfs)
+void WebSocketClient::set_screen_size(const uint16_t screen_width,
+                                      const uint16_t screen_height)
 {
-  max_video_height_ = 0;
-  max_video_width_ = 0;
-
-  for (const auto & vf : vfs) {
-    /* set max video height and width according to the given video formats */
-    if (screen_height_ and vf.height >= screen_height_ and
-        (not max_video_height_ or vf.height < max_video_height_) ) {
-        max_video_height_ = vf.height;
-    }
-
-    if (screen_width_ and vf.width >= screen_width_ and
-        (not max_video_width_ or vf.width < max_video_width_) ) {
-        max_video_width_ = vf.width;
-    }
-  }
+  screen_width_ = screen_width;
+  screen_height_ = screen_height;
 }
 
-bool WebSocketClient::is_format_capable(const VideoFormat & format) const
+bool WebSocketClient::is_format_overkill(const VideoFormat & format) const
 {
-  return (not max_video_width_ or format.width <= max_video_width_) and
-         (not max_video_height_ or format.height <= max_video_height_);
+  return format.width > screen_width_ and format.height > screen_height_;
 }
 
 optional<uint64_t> WebSocketClient::video_in_flight() const

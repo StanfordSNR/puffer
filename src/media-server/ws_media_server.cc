@@ -454,23 +454,6 @@ bool resume_connection(WebSocketServer & server,
   return true;
 }
 
-void update_screen_size(WebSocketClient & client,
-                        const uint16_t new_screen_height,
-                        const uint16_t new_screen_width)
-{
-  if (client.screen_height() == new_screen_height and
-      client.screen_width() == new_screen_width) {
-    return;
-  }
-
-  client.set_screen_height(new_screen_height);
-  client.set_screen_width(new_screen_width);
-
-  if (client.channel()) {
-    client.set_max_video_size(client.channel()->vformats());
-  }
-}
-
 void handle_client_init(WebSocketServer & server, WebSocketClient & client,
                         const ClientInitMsg & msg)
 {
@@ -504,11 +487,7 @@ void handle_client_init(WebSocketServer & server, WebSocketClient & client,
 
   uint64_t init_vts = channel->init_vts().value();
   uint64_t init_ats = channel->init_ats().value();
-
   client.init(channel, init_vts, init_ats);
-
-  /* update client's screen size after setting client's channel */
-  update_screen_size(client, msg.screen_height, msg.screen_width);
 
   send_server_init(server, client, false /* initialize rather than resume */);
   cerr << client.signature() << ": connection initialized" << endl;
@@ -532,7 +511,7 @@ void handle_client_info(WebSocketClient & client, const ClientInfoMsg & msg)
 
   /* check if client's screen size has changed */
   if (msg.screen_height and msg.screen_width) {
-    update_screen_size(client, *msg.screen_height, *msg.screen_width);
+    client.set_screen_size(*msg.screen_width, *msg.screen_height);
   }
 
   /* execute the code below only if logging is enabled */
@@ -740,9 +719,10 @@ int run_websocket_server(pqxx::nontransaction & db_work)
               client.set_username(msg.username);
               client.set_address(server.peer_addr(connection_id));
 
-              /* set client's system info (OS and browser) */
+              /* set client's system info (OS, browser and screen size) */
               client.set_os(msg.os);
               client.set_browser(msg.browser);
+              client.set_screen_size(msg.screen_width, msg.screen_height);
 
               cerr << connection_id << ": authentication succeeded" << endl;
               cerr << client.signature() << ": " << client.browser() << " on "
