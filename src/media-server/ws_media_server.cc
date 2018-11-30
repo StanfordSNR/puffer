@@ -93,7 +93,7 @@ void append_to_log(const string & log_stem, const string & log_line)
 
   /* append a line to log */
   FileDescriptor & fd = log_it->second;
-  fd.write(log_line + " " + server_id + " " + expt_id + " " + group_id + "\n");
+  fd.write(log_line + " " + expt_id + " " + group_id + "\n");
 
   /* rotate log if filesize is too large */
   if (fd.curr_offset() > MAX_LOG_FILESIZE) {
@@ -112,7 +112,7 @@ void append_to_log(const string & log_stem, const string & log_line)
 
 void serve_video_to_client(WebSocketServer & server, WebSocketClient & client)
 {
-  const auto & channel = client.channel();
+  const auto channel = client.channel();
   uint64_t next_vts = client.next_vts().value();
 
   if (not channel->vready_to_serve(next_vts)) {
@@ -161,7 +161,7 @@ void serve_video_to_client(WebSocketServer & server, WebSocketClient & client)
 
 void serve_audio_to_client(WebSocketServer & server, WebSocketClient & client)
 {
-  const auto & channel = client.channel();
+  const auto channel = client.channel();
   uint64_t next_ats = client.next_ats().value();
 
   if (not channel->aready_to_serve(next_ats)) {
@@ -208,7 +208,7 @@ void serve_audio_to_client(WebSocketServer & server, WebSocketClient & client)
 void send_server_init(WebSocketServer & server, WebSocketClient & client,
                       const bool can_resume)
 {
-  const auto & channel = client.channel();
+  const auto channel = client.channel();
 
   ServerInitMsg init(client.init_id(), channel->name(),
                      channel->vcodec(), channel->acodec(),
@@ -251,7 +251,7 @@ void reinit_laggy_client(WebSocketServer & server, WebSocketClient & client,
 
 void serve_client(WebSocketServer & server, WebSocketClient & client)
 {
-  const auto & channel = client.channel();
+  const auto channel = client.channel();
 
   /* channel may become not ready */
   if (not channel->ready_to_serve()) {
@@ -287,9 +287,10 @@ void log_active_streams(const time_t this_minute)
   map<string, unsigned int> active_streams_count;
 
   for (const auto & client_pair : clients) {
-    const auto & client = client_pair.second;
-    if (client.channel()) {
-      string channel_name = client.channel()->name();
+    const auto channel = client_pair.second.channel();
+
+    if (channel) {
+      string channel_name = channel->name();
 
       auto map_it = active_streams_count.find(channel_name);
       if (map_it == active_streams_count.end()) {
@@ -483,9 +484,9 @@ void handle_client_info(WebSocketClient & client, const ClientInfoMsg & msg)
   if (enable_logging) {
     uint64_t curr_time = time(nullptr);
 
-    /* convert video playback buffer to string (%.1f) */
+    /* convert video playback buffer to string (%.3f) */
     double vbuf_len = max(msg.video_buffer_len, 0.0);
-    string vbuf_len_str = double_to_string(vbuf_len, 1);
+    string vbuf_len_str = double_to_string(vbuf_len, 3);
 
     /* record playback buffer levels */
     string log_line = to_string(curr_time) + " " + client.username() + " "
@@ -494,9 +495,8 @@ void handle_client_info(WebSocketClient & client, const ClientInfoMsg & msg)
 
     /* record rebuffer events */
     if (msg.event == ClientInfoMsg::Event::Rebuffer) {
-      string log_line = to_string(curr_time) + " " + client.username() + " "
-                        + client.channel()->name();
-      append_to_log("rebuffer_event", log_line);
+      string log_line = to_string(curr_time) + " " + client.channel()->name();
+      append_to_log("rebuffer_events", log_line);
     }
   }
 }
