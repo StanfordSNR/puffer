@@ -357,8 +357,8 @@ function WebSocketClient(session_key, username, settings_debug, sysinfo) {
   var ws = null;
   var av_source = null;
 
-  /* increment init_id every time a client-init is sent */
-  var init_id = 0;
+  /* init as a random uint16 and increment every time a client-init is sent */
+  var init_id = Math.floor(Math.random() * 65536);
 
   /* record the screen sizes reported to the server as they might change */
   var screen_height = null;
