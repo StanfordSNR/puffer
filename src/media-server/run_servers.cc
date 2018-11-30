@@ -107,8 +107,7 @@ int manage_experiment(const int expt_id)
   /* will run log reporters only if enable_logging is true */
   auto log_reporter = src_path / "monitoring/log_reporter";
   vector<string> log_stems {
-    "active_streams", "playback_buffer", "rebuffer_event", "rebuffer_rate",
-    "video_quality"};
+    "active_streams", "rebuffer_events", "client_video", "client_buffer"};
 
   /* run media servers in each experimental group */
   const auto & ws_media_server = src_path / "media-server/ws_media_server";

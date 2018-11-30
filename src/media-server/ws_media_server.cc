@@ -119,7 +119,7 @@ void serve_video_to_client(WebSocketServer & server, WebSocketClient & client)
     return;
   }
 
-  /* select a video quality using ABR algorithm */
+  /* select a video format using ABR algorithm */
   const VideoFormat & next_vformat = client.select_video_format();
   double ssim = channel->vssim(next_vts).at(next_vformat);
 
@@ -168,7 +168,7 @@ void serve_audio_to_client(WebSocketServer & server, WebSocketClient & client)
     return;
   }
 
-  /* select an audio quality using ABR algorithm */
+  /* select an audio format using ABR algorithm */
   const AudioFormat & next_aformat = client.select_audio_format();
 
   /* check if a new init segment is needed */
@@ -545,14 +545,13 @@ void handle_client_video_ack(WebSocketClient & client,
     return;
   }
 
+  /* record client's received video */
   if (enable_logging) {
-    const auto curr_time = time(nullptr);
-
-    /* record video quality */
-    string log_line = to_string(curr_time) + " " + client.username() + " "
-        + msg.channel + " " + to_string(msg.timestamp) + " "
-        + msg.quality + " " + double_to_string(msg.ssim, 2);
-    append_to_log("video_quality", log_line);
+    string log_line = to_string(time(nullptr)) + " " + msg.channel + " "
+      + expt_id + " " + group_id + " " + client.username() + " "
+      + to_string(msg.init_id) + " " + msg.format + " "
+      + double_to_string(msg.ssim, 2);
+    append_to_log("client_video", log_line);
   }
 }
 
