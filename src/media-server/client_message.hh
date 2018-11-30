@@ -62,9 +62,9 @@ public:
 
   Event event {};
   std::string event_str {};
-  double video_buffer_len {};  // in seconds
-  double audio_buffer_len {};  // in seconds
-  uint64_t cum_rebuffer_ms {}; // in milliseconds
+  double video_buffer {};
+  double audio_buffer {};
+  double cum_rebuffer {};
 
   /* user's screen size might have changed while watching */
   std::optional<uint16_t> screen_height {};
@@ -84,9 +84,9 @@ public:
   unsigned int byte_length {};  /* acked length */
   unsigned int total_byte_length {};  /* total length to expect */
 
-  double video_buffer_len {};  // in seconds
-  double audio_buffer_len {};  // in seconds
-  uint64_t cum_rebuffer_ms {}; // in milliseconds
+  double video_buffer {};
+  double audio_buffer {};
+  double cum_rebuffer {};
 
 protected:
   /* prevent this class from being instantiated */

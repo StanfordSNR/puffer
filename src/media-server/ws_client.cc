@@ -27,8 +27,8 @@ void WebSocketClient::init_channel(const shared_ptr<Channel> & channel,
   video_playback_buf_ = 0;
   audio_playback_buf_ = 0;
 
-  startup_delay_ms_.reset();
-  cum_rebuffer_ms_ = 0;
+  startup_delay_.reset();
+  cum_rebuffer_ = 0;
 
   curr_vformat_.reset();
   curr_aformat_.reset();

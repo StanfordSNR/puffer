@@ -285,24 +285,22 @@ function AVSource(ws_client, server_init) {
   };
 
   /* Get the number of seconds of buffered video */
-  this.getVideoBufferLen = function() {
+  this.getVideoBuffer = function() {
     if (vbuf && vbuf.buffered.length === 1 &&
         vbuf.buffered.end(0) >= video.currentTime) {
-      const ret = vbuf.buffered.end(0) - video.currentTime;
-      return parseFloat(ret.toFixed(3));
+      return vbuf.buffered.end(0) - video.currentTime;
     }
 
     return 0;
   };
 
   /* Set audio buffer as the min of buffered video and audio */
-  this.getAudioBufferLen = function() {
+  this.getAudioBuffer = function() {
     if (vbuf && vbuf.buffered.length === 1 &&
         abuf && abuf.buffered.length === 1) {
       const min_buf = Math.min(vbuf.buffered.end(0), abuf.buffered.end(0));
       if (min_buf >= video.currentTime) {
-        const ret = min_buf - video.currentTime;
-        return parseFloat(ret.toFixed(3));
+        return min_buf - video.currentTime;
       }
     }
 
@@ -372,7 +370,7 @@ function WebSocketClient(session_key, username, settings_debug, sysinfo) {
 
   var rebuffer_start_ts = null;  /* timestamp (in ms) of starting to rebuffer */
   var last_rebuffer_ts = null;  /* timestamp (in ms) of last rebuffer */
-  var cumulative_rebuffer_ms = 0;
+  var cum_rebuffer_ms = 0;
 
   var channel_error = false;
 
@@ -431,9 +429,9 @@ function WebSocketClient(session_key, username, settings_debug, sysinfo) {
     var msg = {
       initId: init_id,
       event: info_event,
-      videoBufferLen: av_source.getVideoBufferLen(),
-      audioBufferLen: av_source.getAudioBufferLen(),
-      cumRebufferMs: cumulative_rebuffer_ms
+      videoBuffer: parseFloat(av_source.getVideoBuffer().toFixed(3)),
+      audioBuffer: parseFloat(av_source.getAudioBuffer().toFixed(3)),
+      cumRebuffer: cum_rebuffer_ms / 1000.0,
     };
 
     /* include screen sizes if they have changed */
@@ -468,9 +466,9 @@ function WebSocketClient(session_key, username, settings_debug, sysinfo) {
 
     var msg = {
       initId: init_id,
-      videoBufferLen: av_source.getVideoBufferLen(),
-      audioBufferLen: av_source.getAudioBufferLen(),
-      cumRebufferMs: cumulative_rebuffer_ms
+      videoBuffer: parseFloat(av_source.getVideoBuffer().toFixed(3)),
+      audioBuffer: parseFloat(av_source.getAudioBuffer().toFixed(3)),
+      cumRebuffer: cum_rebuffer_ms / 1000.0,
     };
 
     msg.channel = data_to_ack.channel;
@@ -636,7 +634,7 @@ function WebSocketClient(session_key, username, settings_debug, sysinfo) {
 
     rebuffer_start_ts = null;
     last_rebuffer_ts = null;
-    cumulative_rebuffer_ms = 0;
+    cum_rebuffer_ms = 0;
   }
 
   /* used when switching channels */
@@ -680,9 +678,9 @@ function WebSocketClient(session_key, username, settings_debug, sysinfo) {
 
         /* calculate startup delay */
         startup_delay_ms = curr_ts - set_channel_ts;
-        cumulative_rebuffer_ms += startup_delay_ms;
+        cum_rebuffer_ms += startup_delay_ms;
 
-        /* inform server of startup delay (via cumulative_rebuffer_ms) */
+        /* inform server of startup delay (via cum_rebuffer_ms) */
         that.send_client_info('startup');
       }
 
@@ -705,7 +703,7 @@ function WebSocketClient(session_key, username, settings_debug, sysinfo) {
 
       /* update cumulative rebuffering */
       if (last_rebuffer_ts !== null) {
-        cumulative_rebuffer_ms += curr_ts - last_rebuffer_ts;
+        cum_rebuffer_ms += curr_ts - last_rebuffer_ts;
       }
 
       /* record this rebuffering */
@@ -742,8 +740,7 @@ function WebSocketClient(session_key, username, settings_debug, sysinfo) {
     if (av_source && av_source.isOpen()) {
       const na = 'N/A';
       var video_buf = document.getElementById('video-buf');
-      const vbuf_val = av_source.getVideoBufferLen();
-      video_buf.innerHTML = vbuf_val >= 0 ? vbuf_val.toFixed(1) : na;
+      video_buf.innerHTML = av_source.getVideoBuffer().toFixed(1);
 
       var video_res = document.getElementById('video-res');
       var video_crf = document.getElementById('video-crf');

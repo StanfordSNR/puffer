@@ -44,9 +44,9 @@ ClientInfoMsg::ClientInfoMsg(const json & msg)
     throw runtime_error("Invalid client info event");
   }
 
-  video_buffer_len = msg.at("videoBufferLen").get<double>();
-  audio_buffer_len = msg.at("audioBufferLen").get<double>();
-  cum_rebuffer_ms = msg.at("cumRebufferMs").get<uint64_t>();
+  video_buffer = msg.at("videoBuffer").get<double>();
+  audio_buffer = msg.at("audioBuffer").get<double>();
+  cum_rebuffer = msg.at("cumRebuffer").get<double>();
 
   auto it = msg.find("screenHeight");
   if (it != msg.end()) {
@@ -71,9 +71,9 @@ ClientAckMsg::ClientAckMsg(const json & msg)
   byte_length = msg.at("byteLength").get<unsigned int>();
   total_byte_length = msg.at("totalByteLength").get<unsigned int>();
 
-  video_buffer_len = msg.at("videoBufferLen").get<double>();
-  audio_buffer_len = msg.at("audioBufferLen").get<double>();
-  cum_rebuffer_ms = msg.at("cumRebufferMs").get<uint64_t>();
+  video_buffer = msg.at("videoBufferLen").get<double>();
+  audio_buffer = msg.at("audioBufferLen").get<double>();
+  cum_rebuffer = msg.at("cumRebuffer").get<double>();
 }
 
 ClientVidAckMsg::ClientVidAckMsg(const json & msg)

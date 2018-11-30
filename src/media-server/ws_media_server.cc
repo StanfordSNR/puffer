@@ -466,13 +466,13 @@ void handle_client_info(WebSocketClient & client, const ClientInfoMsg & msg)
     client.set_last_msg_recv_ts(timestamp_ms());
   }
 
-  client.set_video_playback_buf(msg.video_buffer_len);
-  client.set_audio_playback_buf(msg.audio_buffer_len);
-  client.set_cum_rebuffer_ms(msg.cum_rebuffer_ms);
+  client.set_video_playback_buf(msg.video_buffer);
+  client.set_audio_playback_buf(msg.audio_buffer);
+  client.set_cum_rebuffer(msg.cum_rebuffer);
 
-  /* msg.cum_rebuffer_ms is startup delay when event is Startup */
+  /* msg.cum_rebuffer is startup delay when event is Startup */
   if (msg.event == ClientInfoMsg::Event::Startup) {
-    client.set_startup_delay_ms(msg.cum_rebuffer_ms);
+    client.set_startup_delay(msg.cum_rebuffer);
   }
 
   /* check if client's screen size has changed */
@@ -484,13 +484,10 @@ void handle_client_info(WebSocketClient & client, const ClientInfoMsg & msg)
   if (enable_logging) {
     uint64_t curr_time = time(nullptr);
 
-    /* convert video playback buffer to string (%.3f) */
-    double vbuf_len = max(msg.video_buffer_len, 0.0);
-    string vbuf_len_str = double_to_string(vbuf_len, 3);
-
     /* record playback buffer levels */
     string log_line = to_string(curr_time) + " " + client.username() + " "
-        + client.channel()->name() + " " + msg.event_str + " " + vbuf_len_str;
+        + client.channel()->name() + " " + msg.event_str + " "
+        + to_string(msg.video_buffer);
     append_to_log("playback_buffer", log_line);
 
     /* record rebuffer events */
@@ -512,9 +509,9 @@ void handle_client_video_ack(WebSocketClient & client,
 
   client.set_last_msg_recv_ts(timestamp_ms());
 
-  client.set_video_playback_buf(msg.video_buffer_len);
-  client.set_audio_playback_buf(msg.audio_buffer_len);
-  client.set_cum_rebuffer_ms(msg.cum_rebuffer_ms);
+  client.set_video_playback_buf(msg.video_buffer);
+  client.set_audio_playback_buf(msg.audio_buffer);
+  client.set_cum_rebuffer(msg.cum_rebuffer);
 
   /* only interested in the event when the last segment is acked */
   if (msg.byte_offset + msg.byte_length != msg.total_byte_length) {
@@ -560,9 +557,9 @@ void handle_client_audio_ack(WebSocketClient & client,
 
   client.set_last_msg_recv_ts(timestamp_ms());
 
-  client.set_video_playback_buf(msg.video_buffer_len);
-  client.set_audio_playback_buf(msg.audio_buffer_len);
-  client.set_cum_rebuffer_ms(msg.cum_rebuffer_ms);
+  client.set_video_playback_buf(msg.video_buffer);
+  client.set_audio_playback_buf(msg.audio_buffer);
+  client.set_cum_rebuffer(msg.cum_rebuffer);
 
   /* only interested in the event when the last segment is acked */
   if (msg.byte_offset + msg.byte_length != msg.total_byte_length) {

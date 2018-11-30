@@ -66,8 +66,8 @@ public:
   double video_playback_buf() const { return video_playback_buf_; }
   double audio_playback_buf() const { return audio_playback_buf_; }
 
-  std::optional<uint64_t> startup_delay_ms() const { return startup_delay_ms_; }
-  uint64_t cum_rebuffer_ms() const { return cum_rebuffer_ms_; }
+  std::optional<double> startup_delay() const { return startup_delay_; }
+  double cum_rebuffer() const { return cum_rebuffer_; }
 
   std::optional<VideoFormat> curr_vformat() const { return curr_vformat_; }
   std::optional<AudioFormat> curr_aformat() const { return curr_aformat_; }
@@ -96,8 +96,8 @@ public:
   void set_video_playback_buf(const double buf) { video_playback_buf_ = buf; }
   void set_audio_playback_buf(const double buf) { audio_playback_buf_ = buf; }
 
-  void set_startup_delay_ms(const uint64_t delay) { startup_delay_ms_ = delay; }
-  void set_cum_rebuffer_ms(const uint64_t cum_rebuf) { cum_rebuffer_ms_ = cum_rebuf; }
+  void set_startup_delay(const double delay) { startup_delay_ = delay; }
+  void set_cum_rebuffer(const double cum_rebuf) { cum_rebuffer_ = cum_rebuf; }
 
   void set_curr_vformat(const VideoFormat & quality) { curr_vformat_ = quality; }
   void set_curr_aformat(const AudioFormat & quality) { curr_aformat_ = quality; }
@@ -153,10 +153,10 @@ private:
   double video_playback_buf_ {0};
   double audio_playback_buf_ {0};
 
-  std::optional<uint64_t> startup_delay_ms_ {};
+  std::optional<double> startup_delay_ {};
 
-  /* cumulative rebuffering time in ms, including startup_delay_ms_ */
-  uint64_t cum_rebuffer_ms_ {};
+  /* cumulative rebuffering time, including startup_delay_ */
+  double cum_rebuffer_ {};
 
   /* current video and audio formats */
   std::optional<VideoFormat> curr_vformat_ {};
