@@ -30,8 +30,8 @@ void WebSocketClient::init_channel(const shared_ptr<Channel> & channel,
   startup_delay_ms_.reset();
   cum_rebuffer_ms_ = 0;
 
-  curr_vq_.reset();
-  curr_aq_.reset();
+  curr_vformat_.reset();
+  curr_aformat_.reset();
 
   last_video_send_ts_.reset();
 }

@@ -7,6 +7,7 @@
 #include "file_descriptor.hh"
 #include "yaml.hh"
 #include "exception.hh"
+#include "timestamp.hh"
 
 using namespace std;
 
@@ -112,7 +113,7 @@ uint64_t Channel::floor_ats(const uint64_t ts) const
 
 bool Channel::ready_to_serve() const
 {
-  return not paused_ and init_vts().has_value();
+  return available_ and init_vts().has_value();
 }
 
 bool Channel::vready_to_serve(const uint64_t ts) const
@@ -131,6 +132,30 @@ bool Channel::aready_to_serve(const uint64_t ts) const
   }
 
   return false;
+}
+
+void Channel::enforce_moving_live_edge()
+{
+  /* start enforcement only after live edge has value */
+  if (not live_ or not live_edge()) {
+    return;
+  }
+
+  const auto curr_live_edge = *live_edge();
+  const auto curr_time_ms = timestamp_ms();
+
+  if (not last_live_edge_ or not last_live_edge_ts_
+      or curr_live_edge > *last_live_edge_) {
+    last_live_edge_ = curr_live_edge;
+    last_live_edge_ts_ = curr_time_ms;
+    available_ = true;
+    return;
+  }
+
+  /* live edge still has not moved; mark as not available on timeout */
+  if (curr_time_ms - *last_live_edge_ts_ > MAX_UNCHANGED_LIVE_EDGE_MS) {
+    available_ = false;
+  }
 }
 
 bool Channel::vready(const uint64_t ts) const

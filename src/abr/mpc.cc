@@ -74,7 +74,7 @@ void MPC::reinit()
   curr_buffer_ = discretize_buffer(client_.video_playback_buf());
 
   /* get the current format */
-  auto curr_format = *client_.curr_vq();
+  auto curr_format = *client_.curr_vformat();
   curr_format_ = 0;
   for (size_t i = 0; i < num_formats_; i++) {
     if (vformats[i] == curr_format) {

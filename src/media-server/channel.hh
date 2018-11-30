@@ -30,9 +30,12 @@ public:
 
   /* if channel is ready to serve */
   bool ready_to_serve() const;
-  void set_paused(const bool paused) { paused_ = paused; }
   bool vready_to_serve(const uint64_t ts) const;
   bool aready_to_serve(const uint64_t ts) const;
+
+  /* call this function to check if live edge has advanced since last call
+   * mark the channel as not available if */
+  void enforce_moving_live_edge();
 
   mmap_t vinit(const VideoFormat & format) const;
   mmap_t vdata(const VideoFormat & format, const uint64_t ts) const;
@@ -65,10 +68,16 @@ public:
   std::optional<uint64_t> vclean_frontier() const;
   std::optional<uint64_t> aclean_frontier() const;
 
+  static constexpr unsigned int MAX_UNCHANGED_LIVE_EDGE_MS = 10000;
+
 private:
   bool live_ {false};
   std::string name_ {};
-  bool paused_ {false};
+
+  /* set by enforce_moving_live_edge */
+  bool available_ {true};
+  std::optional<uint64_t> last_live_edge_ {};
+  std::optional<uint64_t> last_live_edge_ts_ {};
 
   fs::path input_path_ {};
   std::vector<VideoFormat> vformats_ {};

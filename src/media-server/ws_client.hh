@@ -69,8 +69,8 @@ public:
   std::optional<uint64_t> startup_delay_ms() const { return startup_delay_ms_; }
   uint64_t cum_rebuffer_ms() const { return cum_rebuffer_ms_; }
 
-  std::optional<VideoFormat> curr_vq() const { return curr_vq_; }
-  std::optional<AudioFormat> curr_aq() const { return curr_aq_; }
+  std::optional<VideoFormat> curr_vformat() const { return curr_vformat_; }
+  std::optional<AudioFormat> curr_aformat() const { return curr_aformat_; }
 
   std::optional<uint64_t> last_msg_recv_ts() const { return last_msg_recv_ts_; }
   std::optional<uint64_t> last_video_send_ts() const { return last_video_send_ts_; }
@@ -99,8 +99,8 @@ public:
   void set_startup_delay_ms(const uint64_t delay) { startup_delay_ms_ = delay; }
   void set_cum_rebuffer_ms(const uint64_t cum_rebuf) { cum_rebuffer_ms_ = cum_rebuf; }
 
-  void set_curr_vq(const VideoFormat & quality) { curr_vq_ = quality; }
-  void set_curr_aq(const AudioFormat & quality) { curr_aq_ = quality; }
+  void set_curr_vformat(const VideoFormat & quality) { curr_vformat_ = quality; }
+  void set_curr_aformat(const AudioFormat & quality) { curr_aformat_ = quality; }
 
   void set_last_msg_recv_ts(const std::optional<uint64_t> recv_ts) { last_msg_recv_ts_ = recv_ts; }
   void set_last_video_send_ts(const std::optional<uint64_t> send_ts) { last_video_send_ts_ = send_ts; }
@@ -159,8 +159,8 @@ private:
   uint64_t cum_rebuffer_ms_ {};
 
   /* current video and audio formats */
-  std::optional<VideoFormat> curr_vq_ {};
-  std::optional<AudioFormat> curr_aq_ {};
+  std::optional<VideoFormat> curr_vformat_ {};
+  std::optional<AudioFormat> curr_aformat_ {};
 
   /* timestamp of last message (excluding timer) received from client */
   std::optional<uint64_t> last_msg_recv_ts_ {};

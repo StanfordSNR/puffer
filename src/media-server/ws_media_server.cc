@@ -53,12 +53,8 @@ static string server_id;
 static string expt_id;
 static string group_id;
 static map<string, FileDescriptor> log_fds;  /* map log name to fd */
-static const unsigned int MAX_LOG_FILESIZE = 10 * 1024 * 1024;  /* 10 MB */
+static const unsigned int MAX_LOG_FILESIZE = 100 * 1024 * 1024;  /* 100 MB */
 static time_t last_minute = 0;
-
-/* for enforcements */
-static map<string, tuple<optional<uint64_t>, optional<time_t>>> live_edges;
-static const unsigned int MAX_UNCHANGED_LIVE_EDGE_S = 10;
 
 void print_usage(const string & program_name)
 {
@@ -124,24 +120,25 @@ void serve_video_to_client(WebSocketServer & server, WebSocketClient & client)
   }
 
   /* select a video quality using ABR algorithm */
-  const VideoFormat & next_vq = client.select_video_format();
-  double ssim = channel->vssim(next_vts).at(next_vq);
+  const VideoFormat & next_vformat = client.select_video_format();
+  double ssim = channel->vssim(next_vts).at(next_vformat);
 
   /* check if a new init segment is needed */
   optional<mmap_t> init_mmap;
-  if (not client.curr_vq() or next_vq != client.curr_vq().value()) {
-    init_mmap = channel->vinit(next_vq);
+  if (not client.curr_vformat() or
+      next_vformat != *client.curr_vformat()) {
+    init_mmap = channel->vinit(next_vformat);
   }
 
   /* construct the next segment to send */
-  const auto & data_mmap = channel->vdata(next_vq, next_vts);
-  VideoSegment next_vsegment {next_vq, data_mmap, init_mmap};
+  const auto & data_mmap = channel->vdata(next_vformat, next_vts);
+  VideoSegment next_vsegment {next_vformat, data_mmap, init_mmap};
 
   /* divide the next segment into WebSocket frames and send */
   while (not next_vsegment.done()) {
     ServerVideoMsg video_msg(client.init_id(),
                              channel->name(),
-                             next_vq.to_string(),
+                             next_vformat.to_string(),
                              next_vts,
                              next_vsegment.offset(),
                              next_vsegment.length(),
@@ -155,11 +152,11 @@ void serve_video_to_client(WebSocketServer & server, WebSocketClient & client)
 
   /* finish sending */
   client.set_next_vts(next_vts + channel->vduration());
-  client.set_curr_vq(next_vq);
+  client.set_curr_vformat(next_vformat);
   client.set_last_video_send_ts(timestamp_ms());
 
   cerr << client.signature() << ": channel " << channel->name()
-       << ", video " << next_vts << " " << next_vq << " " << ssim << endl;
+       << ", video " << next_vts << " " << next_vformat << " " << ssim << endl;
 }
 
 void serve_audio_to_client(WebSocketServer & server, WebSocketClient & client)
@@ -172,23 +169,24 @@ void serve_audio_to_client(WebSocketServer & server, WebSocketClient & client)
   }
 
   /* select an audio quality using ABR algorithm */
-  const AudioFormat & next_aq = client.select_audio_format();
+  const AudioFormat & next_aformat = client.select_audio_format();
 
   /* check if a new init segment is needed */
   optional<mmap_t> init_mmap;
-  if (not client.curr_aq() or next_aq != client.curr_aq().value()) {
-    init_mmap = channel->ainit(next_aq);
+  if (not client.curr_aformat() or
+      next_aformat != *client.curr_aformat()) {
+    init_mmap = channel->ainit(next_aformat);
   }
 
   /* construct the next segment to send */
-  const auto & data_mmap = channel->adata(next_aq, next_ats);
-  AudioSegment next_asegment {next_aq, data_mmap, init_mmap};
+  const auto & data_mmap = channel->adata(next_aformat, next_ats);
+  AudioSegment next_asegment {next_aformat, data_mmap, init_mmap};
 
   /* divide the next segment into WebSocket frames and send */
   while (not next_asegment.done()) {
     ServerAudioMsg audio_msg(client.init_id(),
                              channel->name(),
-                             next_aq.to_string(),
+                             next_aformat.to_string(),
                              next_ats,
                              next_asegment.offset(),
                              next_asegment.length());
@@ -201,10 +199,10 @@ void serve_audio_to_client(WebSocketServer & server, WebSocketClient & client)
 
   /* finish sending */
   client.set_next_ats(next_ats + channel->aduration());
-  client.set_curr_aq(next_aq);
+  client.set_curr_aformat(next_aformat);
 
   cerr << client.signature() << ": channel " << channel->name()
-       << ", audio " << next_ats << " " << next_aq << endl;
+       << ", audio " << next_ats << " " << next_aformat << endl;
 }
 
 void send_server_init(WebSocketServer & server, WebSocketClient & client,
@@ -272,29 +270,14 @@ void serve_client(WebSocketServer & server, WebSocketClient & client)
   }
 
   /* wait for VideoAck and AudioAck before sending the next chunk */
-  const bool can_send_video =
-      client.video_playback_buf() <= WebSocketClient::MAX_BUFFER_S and
-      client.video_in_flight().value() == 0;
-  const bool can_send_audio =
-      client.audio_playback_buf() <= WebSocketClient::MAX_BUFFER_S and
-      client.audio_in_flight().value() == 0;
+  if (client.video_playback_buf() <= WebSocketClient::MAX_BUFFER_S and
+      client.video_in_flight().value() == 0) {
+    serve_video_to_client(server, client);
+  }
 
-  if (client.next_vts().value() > client.next_ats().value()) {
-    /* prioritize audio */
-    if (can_send_audio) {
-      serve_audio_to_client(server, client);
-    }
-    if (can_send_video) {
-      serve_video_to_client(server, client);
-    }
-  } else {
-    /* prioritize video */
-    if (can_send_video) {
-      serve_video_to_client(server, client);
-    }
-    if (can_send_audio) {
-      serve_audio_to_client(server, client);
-    }
+  if (client.audio_playback_buf() <= WebSocketClient::MAX_BUFFER_S and
+      client.audio_in_flight().value() == 0) {
+    serve_audio_to_client(server, client);
   }
 }
 
@@ -324,33 +307,6 @@ void log_active_streams(const time_t this_minute)
   }
 }
 
-void do_enforce_moving_live_edge()
-{
-  const auto curr_time = time(nullptr);
-
-  /* iterate over all live channels and check if their live edges are moving */
-  for (const auto & [channel_name, channel] : channels) {
-    if (not channel->live() or not channel->live_edge()) {
-      continue;
-    }
-    const auto curr_live_edge = *channel->live_edge();
-
-    auto & [last_live_edge, last_time] = live_edges[channel_name];
-    if (not last_live_edge or not last_time
-        or curr_live_edge > *last_live_edge) {
-      last_live_edge = curr_live_edge;
-      last_time = curr_time;
-      channel->set_paused(false);
-      continue;
-    }
-
-    if (curr_time - *last_time > MAX_UNCHANGED_LIVE_EDGE_S) {
-      /* stop the channel from serving clients */
-      channel->set_paused(true);
-    }
-  }
-}
-
 void start_global_timer(Timerfd & global_timer, WebSocketServer & server)
 {
   bool enforce_moving_live_edge = false;
@@ -365,9 +321,11 @@ void start_global_timer(Timerfd & global_timer, WebSocketServer & server)
         return ResultType::Continue;
       }
 
+      /* mark channel as not available if live edge not advanced for a while */
       if (enforce_moving_live_edge) {
-        /* mark channel as not available if live edge is not moving forward */
-        do_enforce_moving_live_edge();
+        for (const auto & channel_it : channels) {
+          channel_it.second->enforce_moving_live_edge();
+        }
       }
 
       /* iterate over all connections */
@@ -396,7 +354,7 @@ void start_global_timer(Timerfd & global_timer, WebSocketServer & server)
         }
 
         if (client.channel()) {
-          /* only serve clients from which server has received client-init */
+          /* only serve clients whose channel has been initialized */
           serve_client(server, client);
         }
       }
@@ -409,7 +367,8 @@ void start_global_timer(Timerfd & global_timer, WebSocketServer & server)
       if (enable_logging) {
         /* perform some tasks once per minute */
         const auto curr_time = time(nullptr);
-        time_t this_minute = curr_time - curr_time % 60;
+        const auto this_minute = curr_time - curr_time % 60;
+
         if (this_minute > last_minute) {
           last_minute = this_minute;
 
