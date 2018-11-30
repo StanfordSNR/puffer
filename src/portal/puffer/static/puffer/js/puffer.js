@@ -18,6 +18,7 @@ function set_fatal_error(error_message) {
   fatal_error = true;
   clear_player_errors();
   add_player_error(error_message, 'fatal');
+  stop_spinner();
 }
 
 /* Server messages are of the form: "short_metadata_len|metadata_json|data" */
@@ -502,10 +503,28 @@ function WebSocketClient(session_key, username, settings_debug, sysinfo) {
 
   /* handle a WebSocket message from the server */
   function handle_ws_msg(e) {
+    if (fatal_error) {
+      return;
+    }
+
     const msg_ts = e.timeStamp;
     const server_msg = parse_server_msg(e.data);
-
     var metadata = server_msg.metadata;
+
+    if (debug) {
+      console.log('received', metadata.type, metadata);
+    }
+
+    /* check fatal errors regardless of init_id */
+    if (metadata.type === 'server-error') {
+      if (metadata.errorType === 'drop' ||
+          metadata.errorType === 'maintenance') {
+        set_fatal_error(metadata.errorMessage);
+        ws.close();
+        return;
+      }
+    }
+
     /* ignore outdated messages from the server */
     if (metadata.initId !== init_id) {
       return;
@@ -515,17 +534,8 @@ function WebSocketClient(session_key, username, settings_debug, sysinfo) {
     /* always add one more field to metadata: total length of data */
     metadata.byteLength = data.byteLength;
 
-    if (debug) {
-      console.log('received', metadata.type, metadata);
-    }
-
     if (metadata.type === 'server-error') {
-      if (metadata.errorType === 'drop') {
-        /* server is going to drop this connection
-         * now disconnect and never reconnect */
-        set_fatal_error(metadata.errorMessage);
-        ws.close();
-      } else if (metadata.errorType === 'channel') {
+      if (metadata.errorType === 'channel') {
         /* this channel is not currently available */
         add_player_error(metadata.errorMessage, 'channel');
         channel_error = true;
@@ -567,6 +577,10 @@ function WebSocketClient(session_key, username, settings_debug, sysinfo) {
   }
 
   this.connect = function(channel) {
+    if (fatal_error) {
+      return;
+    }
+
     const ws_host_port = location.hostname + ':9361';
     const ws_addr = nonsecure ? 'ws://' + ws_host_port
                               : 'wss://' + ws_host_port;
@@ -643,6 +657,10 @@ function WebSocketClient(session_key, username, settings_debug, sysinfo) {
 
   /* used when switching channels */
   this.set_channel = function(channel) {
+    if (fatal_error) {
+      return;
+    }
+
     /* call 'close' to allocate a new MediaSource more quickly later */
     if (av_source) {
       av_source.close();
@@ -668,9 +686,10 @@ function WebSocketClient(session_key, username, settings_debug, sysinfo) {
 
   /* check if *video or audio* is rebuffering every 50 ms */
   function check_rebuffering() {
-    if (!(av_source && av_source.isOpen())) {
+    if (fatal_error || !av_source || !av_source.isOpen()) {
       return;
     }
+
     const rebuffering = av_source.isRebuffering();
     const curr_ts = Date.now();
 
@@ -733,6 +752,10 @@ function WebSocketClient(session_key, username, settings_debug, sysinfo) {
 
   /* send client-info timer every 250 ms */
   function send_client_info_timer() {
+    if (fatal_error) {
+      return;
+    }
+
     /* send timer after channel starts playing */
     if (startup_delay_ms !== null) {
       that.send_client_info('timer');
@@ -742,6 +765,10 @@ function WebSocketClient(session_key, username, settings_debug, sysinfo) {
 
   /* update debug info every 500 ms */
   function update_debug_info() {
+    if (fatal_error) {
+      return;
+    }
+
     const na = 'N/A';
     var video_buf = document.getElementById('video-buf');
     var video_res = document.getElementById('video-res');
