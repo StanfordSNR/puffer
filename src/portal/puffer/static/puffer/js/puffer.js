@@ -6,6 +6,7 @@ const BASE_RECONNECT_BACKOFF = 250;
 const MAX_RECONNECT_BACKOFF = 10000;
 
 var debug = false;
+var nonsecure = false;
 var video = document.getElementById('tv-video');
 
 var fatal_error = false;
@@ -349,6 +350,7 @@ function AVSource(ws_client, server_init) {
 function WebSocketClient(session_key, username, settings_debug, sysinfo) {
   /* if DEBUG = True in settings.py, connect to non-secure WebSocket server */
   debug = settings_debug;
+  nonsecure = settings_debug;
 
   var that = this;
 
@@ -564,8 +566,8 @@ function WebSocketClient(session_key, username, settings_debug, sysinfo) {
 
   this.connect = function(channel) {
     const ws_host_port = location.hostname + ':9361';
-    const ws_addr = debug ? 'ws://' + ws_host_port
-                          : 'wss://' + ws_host_port;
+    const ws_addr = nonsecure ? 'ws://' + ws_host_port
+                              : 'wss://' + ws_host_port;
     ws = new WebSocket(ws_addr);
 
     ws.binaryType = 'arraybuffer';
