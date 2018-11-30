@@ -731,7 +731,10 @@ function WebSocketClient(session_key, username, settings_debug, sysinfo) {
 
   /* send client-info timer every 250 ms */
   function send_client_info_timer() {
-    that.send_client_info('timer');
+    /* send timer after channel starts playing */
+    if (startup_delay_ms !== null) {
+      that.send_client_info('timer');
+    }
   }
   setInterval(send_client_info_timer, 250);
 
