@@ -730,22 +730,23 @@ function WebSocketClient(session_key, username, settings_debug, sysinfo) {
   setInterval(check_rebuffering, 50);
 
   /* send client-info timer every 250 ms */
-  const send_client_info_timer_interval = 250;
   function send_client_info_timer() {
     that.send_client_info('timer');
   }
-  setInterval(send_client_info_timer, send_client_info_timer_interval);
+  setInterval(send_client_info_timer, 250);
 
   /* update debug info every 500 ms */
-  const update_debug_info_interval = 500;
   function update_debug_info() {
+    const na = 'N/A';
+    var video_buf = document.getElementById('video-buf');
+    var video_res = document.getElementById('video-res');
+    var video_crf = document.getElementById('video-crf');
+    var video_ssim = document.getElementById('video-ssim');
+    var video_bitrate = document.getElementById('video-bitrate');
+
     if (av_source && av_source.isOpen()) {
-      const na = 'N/A';
-      var video_buf = document.getElementById('video-buf');
       video_buf.innerHTML = av_source.getVideoBuffer().toFixed(1);
 
-      var video_res = document.getElementById('video-res');
-      var video_crf = document.getElementById('video-crf');
       var vformat_val = av_source.getVideoFormat();
       if (vformat_val) {
         const [vres_val, vcrf_val] = vformat_val.split('-');
@@ -756,14 +757,18 @@ function WebSocketClient(session_key, username, settings_debug, sysinfo) {
         video_crf.innerHTML = na;
       }
 
-      var video_ssim = document.getElementById('video-ssim');
       const vssim_val = av_source.getSSIM();
       video_ssim.innerHTML = vssim_val ? vssim_val.toFixed(2) : na;
 
-      var video_bitrate = document.getElementById('video-bitrate');
       const vbitrate_val = av_source.getVideoBitrate();
       video_bitrate.innerHTML = vbitrate_val ? vbitrate_val.toFixed(2) : na;
+    } else {
+      video_buf.innerHTML = na;
+      video_res.innerHTML = na;
+      video_crf.innerHTML = na;
+      video_ssim.innerHTML = na;
+      video_bitrate.innerHTML = na;
     }
   }
-  setInterval(update_debug_info, update_debug_info_interval);
+  setInterval(update_debug_info, 500);
 }
