@@ -302,8 +302,8 @@ void log_active_streams(const time_t this_minute)
   }
 
   for (const auto & [channel_name, count] : active_streams_count) {
-    string log_line = to_string(this_minute) + " " + channel_name + " " +
-                      to_string(count) + " " + server_id;
+    string log_line = to_string(this_minute) + " " + channel_name + " "
+      + expt_id + " " + group_id + " " +  server_id + " " + to_string(count);
     append_to_log("active_streams", log_line);
   }
 }
@@ -504,7 +504,7 @@ void handle_client_info(WebSocketClient & client, const ClientInfoMsg & msg)
     /* record rebuffer events */
     if (msg.event == ClientInfoMsg::Event::Rebuffer) {
       string log_line = to_string(curr_time) + " " + channel_name + " "
-                        + server_id;
+        + expt_id + " " + group_id + " " + server_id;
       append_to_log("rebuffer_events", log_line);
     }
   }
