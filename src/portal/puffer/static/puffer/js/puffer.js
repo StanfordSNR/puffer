@@ -62,10 +62,6 @@ function concat_arraybuffers(arr, len) {
 function AVSource(ws_client, server_init) {
   var that = this;
 
-  /* SourceBuffers for audio and video */
-  var vbuf = null;
-  var abuf = null;
-
   var channel = server_init.channel;
   const video_codec = server_init.videoCodec;
   const audio_codec = server_init.audioCodec;
@@ -84,7 +80,10 @@ function AVSource(ws_client, server_init) {
   var pending_video_chunks = [];
   var pending_audio_chunks = [];
 
+  /* MediaSource and SourceBuffers */
   var ms = null;
+  var vbuf = null;
+  var abuf = null;
 
   if (window.MediaSource) {
     ms = new MediaSource();
@@ -112,6 +111,9 @@ function AVSource(ws_client, server_init) {
   /* Initialize video and audio source buffers, and set the initial offset */
   function init_source_buffers() {
     console.log('Initializing new media source buffer');
+
+    /* https://developers.google.com/web/fundamentals/media/mse/basics */
+    URL.revokeObjectURL(video.src);
 
     video.currentTime = init_seek_ts / timescale;
 
