@@ -359,8 +359,8 @@ function WebSocketClient(session_key, username, settings_debug, sysinfo) {
   var init_id = Math.floor(Math.random() * 65536);
 
   /* record the screen sizes reported to the server as they might change */
-  var screen_height = null;
   var screen_width = null;
+  var screen_height = null;
 
   /* exponential backoff to reconnect */
   var reconnect_backoff = BASE_RECONNECT_BACKOFF;
@@ -385,8 +385,8 @@ function WebSocketClient(session_key, username, settings_debug, sysinfo) {
 
     init_id += 1;
 
-    screen_height = screen.height;
     screen_width = screen.width;
+    screen_height = screen.height;
 
     var msg = {
       initId: init_id,
@@ -395,8 +395,8 @@ function WebSocketClient(session_key, username, settings_debug, sysinfo) {
       channel: channel,
       os: sysinfo.os,
       browser: sysinfo.browser,
-      screenHeight: screen_height,
-      screenWidth: screen_width
+      screenWidth: screen_width,
+      screenHeight: screen_height
     };
 
     /* try resuming if the client is already watching the same channel */
@@ -435,11 +435,11 @@ function WebSocketClient(session_key, username, settings_debug, sysinfo) {
     };
 
     /* include screen sizes if they have changed */
-    if (screen.height !== screen_height || screen.width !== screen_width) {
-      screen_height = screen.height;
+    if (screen.width !== screen_width || screen.height !== screen_height) {
       screen_width = screen.width;
-      msg.screenHeight = screen_height;
+      screen_height = screen.height;
       msg.screenWidth = screen_width;
+      msg.screenHeight = screen_height;
     }
 
     ws.send(format_client_msg('client-info', msg));

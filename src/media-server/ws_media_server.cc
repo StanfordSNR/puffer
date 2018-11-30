@@ -484,7 +484,7 @@ void handle_client_info(WebSocketClient & client, const ClientInfoMsg & msg)
   }
 
   /* check if client's screen size has changed */
-  if (msg.screen_height and msg.screen_width) {
+  if (msg.screen_width and msg.screen_height) {
     client.set_screen_size(*msg.screen_width, *msg.screen_height);
   }
 
@@ -497,7 +497,8 @@ void handle_client_info(WebSocketClient & client, const ClientInfoMsg & msg)
     string log_line = to_string(curr_time) + " " + channel_name + " "
       + expt_id + " " + group_id + " " + client.username() + " "
       + to_string(msg.init_id) + " " + msg.event_str + " "
-      + to_string(msg.video_buffer) + " " + to_string(msg.cum_rebuffer);
+      + double_to_string(msg.video_buffer, 3) + " "
+      + double_to_string(msg.cum_rebuffer, 3);
     append_to_log("client_buffer", log_line);
 
     /* record rebuffer events */
@@ -550,7 +551,7 @@ void handle_client_video_ack(WebSocketClient & client,
     string log_line = to_string(time(nullptr)) + " " + msg.channel + " "
       + expt_id + " " + group_id + " " + client.username() + " "
       + to_string(msg.init_id) + " " + msg.format + " "
-      + double_to_string(msg.ssim, 2);
+      + double_to_string(msg.ssim, 3);
     append_to_log("client_video", log_line);
   }
 }

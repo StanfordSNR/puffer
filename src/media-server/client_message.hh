@@ -38,8 +38,8 @@ public:
   std::string os {};
   std::string browser {};
 
-  uint16_t screen_height {};
   uint16_t screen_width {};
+  uint16_t screen_height {};
 
   /* next timestamps to expect; used to resume connection only */
   std::optional<uint64_t> next_vts {};
@@ -67,8 +67,8 @@ public:
   double cum_rebuffer {};
 
   /* user's screen size might have changed while watching */
-  std::optional<uint16_t> screen_height {};
   std::optional<uint16_t> screen_width {};
+  std::optional<uint16_t> screen_height {};
 };
 
 class ClientAckMsg : public ClientMsg

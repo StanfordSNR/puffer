@@ -13,8 +13,8 @@ ClientInitMsg::ClientInitMsg(const json & msg)
   os = msg.at("os").get<string>();
   browser = msg.at("browser").get<string>();
 
-  screen_height = msg.at("screenHeight").get<uint16_t>();
   screen_width = msg.at("screenWidth").get<uint16_t>();
+  screen_height = msg.at("screenHeight").get<uint16_t>();
 
   auto it = msg.find("nextVts");
   if (it != msg.end()) {
@@ -48,14 +48,14 @@ ClientInfoMsg::ClientInfoMsg(const json & msg)
   audio_buffer = msg.at("audioBuffer").get<double>();
   cum_rebuffer = msg.at("cumRebuffer").get<double>();
 
-  auto it = msg.find("screenHeight");
-  if (it != msg.end()) {
-    screen_height = it->get<uint16_t>();
-  }
-
-  it = msg.find("screenWidth");
+  auto it = msg.find("screenWidth");
   if (it != msg.end()) {
     screen_width = it->get<uint16_t>();
+  }
+
+  it = msg.find("screenHeight");
+  if (it != msg.end()) {
+    screen_height = it->get<uint16_t>();
   }
 }
 
@@ -71,8 +71,8 @@ ClientAckMsg::ClientAckMsg(const json & msg)
   byte_length = msg.at("byteLength").get<unsigned int>();
   total_byte_length = msg.at("totalByteLength").get<unsigned int>();
 
-  video_buffer = msg.at("videoBufferLen").get<double>();
-  audio_buffer = msg.at("audioBufferLen").get<double>();
+  video_buffer = msg.at("videoBuffer").get<double>();
+  audio_buffer = msg.at("audioBuffer").get<double>();
   cum_rebuffer = msg.at("cumRebuffer").get<double>();
 }
 
