@@ -756,7 +756,7 @@ int run_websocket_server(pqxx::nontransaction & db_work)
   );
 
   server.set_open_callback(
-    [&server, &abr_name](const uint64_t connection_id)
+    [&server, abr_name](const uint64_t connection_id)
     {
       try {
         cerr << connection_id << ": connection opened" << endl;

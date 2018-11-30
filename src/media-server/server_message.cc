@@ -96,6 +96,10 @@ ServerErrorMsg::ServerErrorMsg(const unsigned int init_id,
     error_type_str = "drop";
     error_message = "Your connection has been dropped after timeout. "
       "Please refresh the page.";
+  } else if (error_type == ErrorType::Maintenance) {
+    error_type_str = "maintenance";
+    error_message = "Sorry, Puffer is down for maintenance right now. "
+      "Please try again later.";
   }
 
   msg_ = {

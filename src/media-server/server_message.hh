@@ -66,8 +66,9 @@ class ServerErrorMsg : public ServerMsg
 {
 public:
   enum class ErrorType {
-    Channel,  /* error in the current channel */
-    Drop      /* connection to be dropped */
+    Channel,    /* error in the current channel */
+    Drop,       /* connection to be dropped */
+    Maintenance /* server is under maintenance */
   };
 
   ServerErrorMsg(const unsigned int init_id, const ErrorType error_type);

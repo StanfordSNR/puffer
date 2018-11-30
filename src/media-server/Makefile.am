@@ -4,7 +4,7 @@ AM_CPPFLAGS = $(CXX17_FLAGS) $(SSL_CFLAGS)  $(POSTGRES_CFLAGS) \
 	-isystem$(srcdir)/../../third_party/json.upstream/single_include/nlohmann
 AM_CXXFLAGS = $(PICKY_CXXFLAGS) $(EXTRA_CXXFLAGS)
 
-bin_PROGRAMS = ws_media_server run_servers
+bin_PROGRAMS = ws_media_server run_servers maintenance_server
 
 ws_media_server_SOURCES = ws_media_server.cc \
 	ws_client.hh ws_client.cc channel.hh channel.cc \
@@ -22,3 +22,8 @@ run_servers_SOURCES = run_servers.cc \
 	../monitoring/influxdb_client.hh ../monitoring/influxdb_client.cc
 run_servers_LDADD = ../util/libutil.a ../net/libnet.a \
 	$(POSTGRES_LIBS) $(SSL_LIBS) $(CRYPTO_LIBS) $(YAML_LIBS) -lstdc++fs
+
+maintenance_server_SOURCES = maintenance_server.cc \
+	server_message.hh server_message.cc
+maintenance_server_LDADD = ../util/libutil.a ../net/libnet.a ../util/libutil.a \
+	$(SSL_LIBS) $(CRYPTO_LIBS) $(YAML_LIBS)
