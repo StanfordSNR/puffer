@@ -93,7 +93,7 @@ void append_to_log(const string & log_stem, const string & log_line)
 
   /* append a line to log */
   FileDescriptor & fd = log_it->second;
-  fd.write(log_line + " " + expt_id + " " + group_id + "\n");
+  fd.write(log_line + "\n");
 
   /* rotate log if filesize is too large */
   if (fd.curr_offset() > MAX_LOG_FILESIZE) {
@@ -301,9 +301,9 @@ void log_active_streams(const time_t this_minute)
     }
   }
 
-  for (const auto & channel_count : active_streams_count) {
-    string log_line = to_string(this_minute) + " " + channel_count.first
-                      + " " + to_string(channel_count.second);
+  for (const auto & [channel_name, count] : active_streams_count) {
+    string log_line = to_string(this_minute) + " " + channel_name + " " +
+                      to_string(count);
     append_to_log("active_streams", log_line);
   }
 }
@@ -440,6 +440,14 @@ void handle_client_init(WebSocketServer & server, WebSocketClient & client,
     return;
   }
 
+  /* record client-init */
+  if (enable_logging) {
+    string log_line = to_string(time(nullptr)) + " " + msg.channel + " "
+      + expt_id + " " + group_id + " " + client.username() + " "
+      + to_string(msg.init_id) + " init 0 0" /* event buffer cum_rebuf */;
+    append_to_log("client_buffer", log_line);
+  }
+
   /* check if the streaming can be resumed */
   if (resume_connection(server, client, msg, channel)) {
     return;
@@ -483,16 +491,18 @@ void handle_client_info(WebSocketClient & client, const ClientInfoMsg & msg)
   /* execute the code below only if logging is enabled */
   if (enable_logging) {
     uint64_t curr_time = time(nullptr);
+    const auto channel_name = client.channel()->name();
 
-    /* record playback buffer levels */
-    string log_line = to_string(curr_time) + " " + client.username() + " "
-        + client.channel()->name() + " " + msg.event_str + " "
-        + to_string(msg.video_buffer);
-    append_to_log("playback_buffer", log_line);
+    /* record client-info */
+    string log_line = to_string(curr_time) + " " + channel_name + " "
+      + expt_id + " " + group_id + " " + client.username() + " "
+      + to_string(msg.init_id) + " " + msg.event_str + " "
+      + to_string(msg.video_buffer) + " " + to_string(msg.cum_rebuffer);
+    append_to_log("client_buffer", log_line);
 
     /* record rebuffer events */
     if (msg.event == ClientInfoMsg::Event::Rebuffer) {
-      string log_line = to_string(curr_time) + " " + client.channel()->name();
+      string log_line = to_string(curr_time) + " " + channel_name;
       append_to_log("rebuffer_events", log_line);
     }
   }
