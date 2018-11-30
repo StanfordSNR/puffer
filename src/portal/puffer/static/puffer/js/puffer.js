@@ -96,13 +96,13 @@ function AVSource(ws_client, server_init) {
   }
 
   /* used by handleVideo */
-  var curr_video_quality = null;
+  var curr_video_format = null;
   var curr_ssim = null;
   var curr_video_bitrate = null;  // kbps
   var partial_video_chunks = null;
 
   /* used by handleAudio */
-  var curr_audio_quality = null;
+  var curr_audio_format = null;
   var partial_audio_chunks = null;
 
   video.src = URL.createObjectURL(ms);
@@ -203,8 +203,8 @@ function AVSource(ws_client, server_init) {
     ws_client.send_client_ack('client-vidack', metadata);
 
     /* New segment or server aborted sending */
-    if (curr_video_quality !== metadata.quality) {
-      curr_video_quality = metadata.quality;
+    if (curr_video_format !== metadata.format) {
+      curr_video_format = metadata.format;
       partial_video_chunks = [];
     }
     partial_video_chunks.push(data);
@@ -240,8 +240,8 @@ function AVSource(ws_client, server_init) {
     ws_client.send_client_ack('client-audack', metadata);
 
     /* New segment or server aborted sending */
-    if (curr_audio_quality !== metadata.quality) {
-      curr_audio_quality = metadata.quality;
+    if (curr_audio_format !== metadata.format) {
+      curr_audio_format = metadata.format;
       partial_audio_chunks = [];
     }
     partial_audio_chunks.push(data);
@@ -268,8 +268,8 @@ function AVSource(ws_client, server_init) {
     return channel;
   };
 
-  this.getVideoQuality = function() {
-    return curr_video_quality;
+  this.getVideoFormat = function() {
+    return curr_video_format;
   };
 
   this.getSSIM = function() {
@@ -280,8 +280,8 @@ function AVSource(ws_client, server_init) {
     return curr_video_bitrate;
   };
 
-  this.getAudioQuality = function() {
-    return curr_audio_quality;
+  this.getAudioFormat = function() {
+    return curr_audio_format;
   };
 
   /* Get the number of seconds of buffered video */
@@ -472,7 +472,7 @@ function WebSocketClient(session_key, username, settings_debug, sysinfo) {
     };
 
     msg.channel = data_to_ack.channel;
-    msg.quality = data_to_ack.quality;
+    msg.format = data_to_ack.format;
     msg.timestamp = data_to_ack.timestamp;
 
     msg.byteOffset = data_to_ack.byteOffset;
@@ -744,9 +744,9 @@ function WebSocketClient(session_key, username, settings_debug, sysinfo) {
 
       var video_res = document.getElementById('video-res');
       var video_crf = document.getElementById('video-crf');
-      var vqual_val = av_source.getVideoQuality();
-      if (vqual_val) {
-        const [vres_val, vcrf_val] = vqual_val.split('-');
+      var vformat_val = av_source.getVideoFormat();
+      if (vformat_val) {
+        const [vres_val, vcrf_val] = vformat_val.split('-');
         video_res.innerHTML = vres_val;
         video_crf.innerHTML = vcrf_val;
       } else {

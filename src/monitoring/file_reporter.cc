@@ -60,7 +60,7 @@ void report_ssim(const string & channel_name,
           return;
         }
 
-        string log_line = "ssim,channel=" + channel_name + ",quality="
+        string log_line = "ssim,channel=" + channel_name + ",format="
           + vformat + " timestamp=" + ts + "i,ssim=" + line
           + " " + to_string(time(nullptr));
         influxdb_client.post(log_line);
@@ -93,7 +93,7 @@ void report_video_size(const string & channel_name,
         string ts = filepath.stem();
         const auto filesize = fs::file_size(filepath);
 
-        string log_line = "video_size,channel=" + channel_name + ",quality="
+        string log_line = "video_size,channel=" + channel_name + ",format="
           + vformat + " timestamp=" + ts + "i,size=" + to_string(filesize)
           + "i " + to_string(time(nullptr));
         influxdb_client.post(log_line);

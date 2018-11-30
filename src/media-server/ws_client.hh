@@ -99,8 +99,8 @@ public:
   void set_startup_delay(const double delay) { startup_delay_ = delay; }
   void set_cum_rebuffer(const double cum_rebuf) { cum_rebuffer_ = cum_rebuf; }
 
-  void set_curr_vformat(const VideoFormat & quality) { curr_vformat_ = quality; }
-  void set_curr_aformat(const AudioFormat & quality) { curr_aformat_ = quality; }
+  void set_curr_vformat(const VideoFormat & format) { curr_vformat_ = format; }
+  void set_curr_aformat(const AudioFormat & format) { curr_aformat_ = format; }
 
   void set_last_msg_recv_ts(const std::optional<uint64_t> recv_ts) { last_msg_recv_ts_ = recv_ts; }
   void set_last_video_send_ts(const std::optional<uint64_t> send_ts) { last_video_send_ts_ = send_ts; }

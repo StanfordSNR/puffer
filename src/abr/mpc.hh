@@ -39,7 +39,7 @@ private:
   double rebuffer_length_coeff_ {REBUFFER_LENGTH_COEFF};
   double ssim_diff_coeff_ {SSIM_DIFF_COEFF};
 
-  /* for the current buffer length and quality */
+  /* for the current buffer length and format */
   size_t curr_buffer_ {};
   size_t curr_format_ {};
 

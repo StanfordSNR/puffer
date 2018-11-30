@@ -44,7 +44,7 @@ class ServerVideoMsg : public ServerMsg
 public:
   ServerVideoMsg(const unsigned int init_id,
                  const std::string & channel,
-                 const std::string & quality,
+                 const std::string & format,
                  const uint64_t timestamp,
                  const unsigned int byte_offset,
                  const unsigned int total_byte_length,
@@ -56,7 +56,7 @@ class ServerAudioMsg : public ServerMsg
 public:
   ServerAudioMsg(const unsigned int init_id,
                  const std::string & channel,
-                 const std::string & quality,
+                 const std::string & format,
                  const uint64_t timestamp,
                  const unsigned int byte_offset,
                  const unsigned int total_byte_length);

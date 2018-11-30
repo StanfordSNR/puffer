@@ -64,7 +64,7 @@ ClientAckMsg::ClientAckMsg(const json & msg)
   init_id = msg.at("initId").get<unsigned int>();
 
   channel = msg.at("channel").get<string>();
-  quality = msg.at("quality").get<string>();
+  format = msg.at("format").get<string>();
   timestamp = msg.at("timestamp").get<uint64_t>();
 
   byte_offset = msg.at("byteOffset").get<unsigned int>();
@@ -77,13 +77,13 @@ ClientAckMsg::ClientAckMsg(const json & msg)
 }
 
 ClientVidAckMsg::ClientVidAckMsg(const json & msg)
-  : ClientAckMsg(msg), video_format(quality)
+  : ClientAckMsg(msg), video_format(format)
 {
   ssim = msg.at("ssim").get<double>();
 }
 
 ClientAudAckMsg::ClientAudAckMsg(const json & msg)
-  : ClientAckMsg(msg), audio_format(quality)
+  : ClientAckMsg(msg), audio_format(format)
 {}
 
 ClientMsgParser::ClientMsgParser(const string & data)

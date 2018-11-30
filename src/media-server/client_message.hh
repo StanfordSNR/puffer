@@ -77,7 +77,7 @@ public:
   unsigned int init_id {};
 
   std::string channel {};  /* acked channel */
-  std::string quality {};  /* acked quality */
+  std::string format {};   /* acked format */
   uint64_t timestamp {};   /* acked timestamp */
 
   unsigned int byte_offset {};  /* acked offset */
