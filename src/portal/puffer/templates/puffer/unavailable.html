@@ -11,20 +11,21 @@
   <link rel="icon" href="{% static 'puffer/dist/images/favicon.ico' %}">
 </head>
 
-<body>
+<body style="background-color:#f5f5f5">
   <!-- Navigation -->
   {% include "puffer/navigation.html" %}
 
-  <!-- Jumbotron -->
-  <div class="jumbotron bg-black">
+  <div class="d-flex flex-row align-items-center" style="min-height:60vh">
     <div class="container">
-      <div class="d-flex justify-content-center">
-        <img class="mr-5" src="{% static 'puffer/dist/images/logo-tv.svg' %}" alt="" height="140px">
-        <div>
-          <h2 class="mt-5 font-weight-light">Welcome to Puffer!</h2>
-          <a role="button" class="btn btn-primary" href="{% url 'player' %}">Watch Live TV</a>
+        <div class="row justify-content-center">
+            <div class="col-md-12 text-center">
+                <span class="display-1 d-block">404</span>
+                <div class="mb-4 lead">
+                  Sorry, the requested page is not currently available.
+                </div>
+                <a class="btn btn-link" href="{% url 'index' %}">Back to Home</a>
+            </div>
         </div>
-      </div>
     </div>
   </div>
 
