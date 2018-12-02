@@ -16,7 +16,7 @@ using namespace PollerShortNames;
 using namespace CryptoPP;
 
 static string WS_MAGIC_STRING = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
-static unsigned int MAX_CONNECTION_NUM = 60;
+static unsigned int MAX_CONNECTION_NUM = 100;
 
 bool is_valid_handshake_request(const HTTPRequest & request)
 {

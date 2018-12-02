@@ -253,7 +253,7 @@ void serve_client(WebSocketServer & server, WebSocketClient & client)
   const auto channel = client.channel();
 
   /* channel may become not ready */
-  if (not channel->ready_to_serve()) {
+  if (not channel or not channel->ready_to_serve()) {
     return;
   }
 
@@ -307,17 +307,37 @@ void log_active_streams(const uint64_t this_minute)
   }
 }
 
-void start_global_timer(Timerfd & global_timer, WebSocketServer & server)
+void start_fast_timer(Timerfd & fast_timer, WebSocketServer & server)
+{
+  server.poller().add_action(Poller::Action(fast_timer, Direction::In,
+    [&fast_timer, &server]()->Result {
+      /* must read the timerfd, and check if timer has fired */
+      if (fast_timer.expirations() == 0) {
+        return ResultType::Continue;
+      }
+
+      /* iterate over all connections */
+      for (auto & client_pair : clients) {
+        WebSocketClient & client = client_pair.second;
+        serve_client(server, client);
+      }
+
+      return ResultType::Continue;
+    }
+  ));
+}
+
+void start_slow_timer(Timerfd & slow_timer, WebSocketServer & server)
 {
   bool enforce_moving_live_edge = false;
   if (config["enforce_moving_live_edge"]) {
     enforce_moving_live_edge = config["enforce_moving_live_edge"].as<bool>();
   }
 
-  server.poller().add_action(Poller::Action(global_timer, Direction::In,
-    [&global_timer, &server, enforce_moving_live_edge]()->Result {
+  server.poller().add_action(Poller::Action(slow_timer, Direction::In,
+    [&slow_timer, &server, enforce_moving_live_edge]()->Result {
       /* must read the timerfd, and check if timer has fired */
-      if (global_timer.expirations() == 0) {
+      if (slow_timer.expirations() == 0) {
         return ResultType::Continue;
       }
 
@@ -328,12 +348,9 @@ void start_global_timer(Timerfd & global_timer, WebSocketServer & server)
         }
       }
 
-      /* iterate over all connections */
-      set<uint64_t> connections_to_close;
-      for (auto & client_pair : clients) {
-        uint64_t connection_id = client_pair.first;
-        WebSocketClient & client = client_pair.second;
+      set<uint64_t> connections_to_clean;
 
+      for (auto & [connection_id, client] : clients) {
         /* have not received messages from client for a while */
         const auto last_msg_recv_ts = client.last_msg_recv_ts();
         if (last_msg_recv_ts) {
@@ -341,26 +358,21 @@ void start_global_timer(Timerfd & global_timer, WebSocketServer & server)
 
           assert(MAX_IDLE_MS > DROP_NOTIFICATION_MS);
           if (elapsed > MAX_IDLE_MS) {
-            /* don't erase the client (in close callback) until after for loop */
-            connections_to_close.emplace(connection_id);
+            connections_to_clean.emplace(connection_id);
             cerr << client.signature() << ": cleaned idle connection" << endl;
             continue;
           } else if (elapsed > DROP_NOTIFICATION_MS) {
             /* notify that the connection is going to be dropped */
             send_server_error(server, client, ServerErrorMsg::ErrorType::Drop);
-            cerr << client.signature() << ": connection going to be dropped" << endl;
+            cerr << client.signature() << ": notified client to drop" << endl;
             continue;
           }
         }
-
-        if (client.channel()) {
-          /* only serve clients whose channel has been initialized */
-          serve_client(server, client);
-        }
       }
 
-      /* clients can be safely erased now */
-      for (const uint64_t connection_id : connections_to_close) {
+      /* connections can be safely cleaned now */
+      for (const uint64_t connection_id : connections_to_clean) {
+        clients.erase(connection_id);
         server.clean_idle_connection(connection_id);
       }
 
@@ -380,10 +392,6 @@ void start_global_timer(Timerfd & global_timer, WebSocketServer & server)
       return ResultType::Continue;
     }
   ));
-
-  /* this timer fires every 50 ms */
-  const int TIMER_PERIOD_MS = 50;
-  global_timer.start(TIMER_PERIOD_MS, TIMER_PERIOD_MS);
 }
 
 bool resume_connection(WebSocketServer & server,
@@ -717,15 +725,8 @@ int run_websocket_server(pqxx::nontransaction & db_work)
           }
 
           const auto channel = client.channel();
-          if (channel) {
-            /* inform the client that the channel becomes not ready */
-            if (not channel->ready_to_serve()) {
-              send_server_error(server, client,
-                                ServerErrorMsg::ErrorType::Channel);
-              return;
-            }
-          } else {
-            /* client's channel should have been initialized */
+          if (not channel or not channel->ready_to_serve()) {
+            /* notify the client that the requested channel is not available */
             send_server_error(server, client,
                               ServerErrorMsg::ErrorType::Channel);
             return;
@@ -777,9 +778,8 @@ int run_websocket_server(pqxx::nontransaction & db_work)
     [](const uint64_t connection_id)
     {
       try {
-        cerr << connection_id << ": connection closed" << endl;
-
         clients.erase(connection_id);
+        cerr << connection_id << ": connection closed" << endl;
       } catch (const exception & e) {
         cerr << client_signature(connection_id)
              << ": warning in close callback: " << e.what() << endl;
@@ -787,9 +787,16 @@ int run_websocket_server(pqxx::nontransaction & db_work)
     }
   );
 
-  /* start a global timer to serve media to clients */
-  Timerfd global_timer;
-  start_global_timer(global_timer, server);
+  /* start a fast timer that fires once per 50ms to serve media to clients */
+  Timerfd fast_timer;
+  start_fast_timer(fast_timer, server);
+
+  /* start a slow timer to perform some other tasks */
+  Timerfd slow_timer;
+  start_slow_timer(slow_timer, server);
+
+  fast_timer.start(100, 100);    /* fast timer fires every 100 ms */
+  slow_timer.start(1000, 1000);  /* slow timer fires every second */
 
   return server.loop();
 }
