@@ -130,7 +130,7 @@ void serve_video_to_client(WebSocketServer & server, WebSocketClient & client)
   }
 
   /* construct the next segment to send */
-  const auto & data_mmap = channel->vdata(next_vformat, next_vts);
+  const auto data_mmap = channel->vdata(next_vformat, next_vts);
   VideoSegment next_vsegment {next_vformat, data_mmap, init_mmap};
 
   /* divide the next segment into WebSocket frames and send */
@@ -178,7 +178,7 @@ void serve_audio_to_client(WebSocketServer & server, WebSocketClient & client)
   }
 
   /* construct the next segment to send */
-  const auto & data_mmap = channel->adata(next_aformat, next_ats);
+  const auto data_mmap = channel->adata(next_aformat, next_ats);
   AudioSegment next_asegment {next_aformat, data_mmap, init_mmap};
 
   /* divide the next segment into WebSocket frames and send */

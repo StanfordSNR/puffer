@@ -118,7 +118,8 @@ bool Channel::ready_to_serve() const
 
 bool Channel::vready_to_serve(const uint64_t ts) const
 {
-  if (is_valid_vts(ts) and vready_frontier_ and ts <= *vready_frontier_) {
+  /* do not serve chunks beyond vready_frontier_ */
+  if (vready_frontier_ and ts <= *vready_frontier_ and vready(ts)) {
     return true;
   }
 
@@ -127,7 +128,8 @@ bool Channel::vready_to_serve(const uint64_t ts) const
 
 bool Channel::aready_to_serve(const uint64_t ts) const
 {
-  if (is_valid_ats(ts) and aready_frontier_ and ts <= *aready_frontier_) {
+  /* do not serve chunks beyond aready_frontier_ */
+  if (aready_frontier_ and ts <= *aready_frontier_ and aready(ts)) {
     return true;
   }
 
