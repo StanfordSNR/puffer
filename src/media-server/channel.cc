@@ -113,7 +113,7 @@ uint64_t Channel::floor_ats(const uint64_t ts) const
 
 bool Channel::ready_to_serve() const
 {
-  return available_ and init_vts().has_value();
+  return available_ and init_vts() and init_ats();
 }
 
 bool Channel::vready_to_serve(const uint64_t ts) const

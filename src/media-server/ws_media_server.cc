@@ -111,9 +111,10 @@ void append_to_log(const string & log_stem, const string & log_line)
 
 void serve_video_to_client(WebSocketServer & server, WebSocketClient & client)
 {
-  const auto channel = client.channel();
-  uint64_t next_vts = client.next_vts().value();
+  if (not client.next_vts()) { return; }
+  uint64_t next_vts = *client.next_vts();
 
+  const auto channel = client.channel();
   if (not channel->vready_to_serve(next_vts)) {
     return;
   }
@@ -160,9 +161,10 @@ void serve_video_to_client(WebSocketServer & server, WebSocketClient & client)
 
 void serve_audio_to_client(WebSocketServer & server, WebSocketClient & client)
 {
-  const auto channel = client.channel();
-  uint64_t next_ats = client.next_ats().value();
+  if (not client.next_ats()) { return; }
+  uint64_t next_ats = *client.next_ats();
 
+  const auto channel = client.channel();
   if (not channel->aready_to_serve(next_ats)) {
     return;
   }
@@ -207,13 +209,18 @@ void serve_audio_to_client(WebSocketServer & server, WebSocketClient & client)
 void send_server_init(WebSocketServer & server, WebSocketClient & client,
                       const bool can_resume)
 {
+  /* client should already have valid next_vts and next_ats */
+  if (not client.next_vts() or not client.next_ats()) {
+    return;
+  }
+
   const auto channel = client.channel();
 
   ServerInitMsg init(client.init_id(), channel->name(),
                      channel->vcodec(), channel->acodec(),
                      channel->timescale(),
                      channel->vduration(), channel->aduration(),
-                     client.next_vts().value(), client.next_ats().value(),
+                     *client.next_vts(), *client.next_ats(),
                      can_resume);
   WSFrame frame {true, WSFrame::OpCode::Binary, init.to_string()};
 
@@ -241,11 +248,10 @@ void reinit_laggy_client(WebSocketServer & server, WebSocketClient & client,
   uint64_t init_vts = channel->init_vts().value();
   uint64_t init_ats = channel->init_ats().value();
 
-  cerr << client.signature() << ": reinitialize laggy client "
-       << client.next_vts().value() << "->" << init_vts << endl;
-
   client.init_channel(channel, init_vts, init_ats);
   send_server_init(server, client, false /* cannot resume */);
+
+  cerr << client.signature() << ": reinitialize laggy client" << endl;
 }
 
 void serve_client(WebSocketServer & server, WebSocketClient & client)
@@ -259,10 +265,10 @@ void serve_client(WebSocketServer & server, WebSocketClient & client)
 
   if (channel->live()) {
     /* reinit client if clean frontiers have caught up */
-    if ((channel->vclean_frontier() and
-         client.next_vts().value() <= *channel->vclean_frontier()) or
-        (channel->aclean_frontier() and
-         client.next_ats().value() <= *channel->aclean_frontier())) {
+    if ((channel->vclean_frontier() and client.next_vts() and
+         *client.next_vts() <= *channel->vclean_frontier()) or
+        (channel->aclean_frontier() and client.next_ats() and
+         *client.next_ats() <= *channel->aclean_frontier())) {
       reinit_laggy_client(server, client, channel);
       return;
     }
@@ -270,12 +276,12 @@ void serve_client(WebSocketServer & server, WebSocketClient & client)
 
   /* wait for VideoAck and AudioAck before sending the next chunk */
   if (client.video_playback_buf() <= WebSocketClient::MAX_BUFFER_S and
-      client.video_in_flight().value() == 0) {
+      client.video_in_flight() and *client.video_in_flight() == 0) {
     serve_video_to_client(server, client);
   }
 
   if (client.audio_playback_buf() <= WebSocketClient::MAX_BUFFER_S and
-      client.audio_in_flight().value() == 0) {
+      client.audio_in_flight() and *client.audio_in_flight() == 0) {
     serve_audio_to_client(server, client);
   }
 }
@@ -462,6 +468,7 @@ void handle_client_init(WebSocketServer & server, WebSocketClient & client,
 
   uint64_t init_vts = channel->init_vts().value();
   uint64_t init_ats = channel->init_ats().value();
+
   client.init_channel(channel, init_vts, init_ats);
   send_server_init(server, client, false /* initialize rather than resume */);
 
