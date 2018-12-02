@@ -2,7 +2,6 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cmath>
-#include <ctime>
 #include <fcntl.h>
 #include <signal.h>
 
@@ -54,7 +53,7 @@ static string expt_id;
 static string group_id;
 static map<string, FileDescriptor> log_fds;  /* map log name to fd */
 static const unsigned int MAX_LOG_FILESIZE = 100 * 1024 * 1024;  /* 100 MB */
-static time_t last_minute = 0;
+static uint64_t last_minute = 0;  /* in ms; multiple of 60000 */
 
 void print_usage(const string & program_name)
 {
@@ -281,7 +280,7 @@ void serve_client(WebSocketServer & server, WebSocketClient & client)
   }
 }
 
-void log_active_streams(const time_t this_minute)
+void log_active_streams(const uint64_t this_minute)
 {
   /* channel name -> count */
   map<string, unsigned int> active_streams_count;
@@ -367,8 +366,8 @@ void start_global_timer(Timerfd & global_timer, WebSocketServer & server)
 
       if (enable_logging) {
         /* perform some tasks once per minute */
-        const auto curr_time = time(nullptr);
-        const auto this_minute = curr_time - curr_time % 60;
+        const auto curr_time = timestamp_ms();
+        const auto this_minute = curr_time - curr_time % 60000;
 
         if (this_minute > last_minute) {
           last_minute = this_minute;
@@ -442,7 +441,7 @@ void handle_client_init(WebSocketServer & server, WebSocketClient & client,
 
   /* record client-init */
   if (enable_logging) {
-    string log_line = to_string(time(nullptr)) + " " + msg.channel + " "
+    string log_line = to_string(timestamp_ms()) + " " + msg.channel + " "
       + expt_id + " " + group_id + " " + client.username() + " "
       + to_string(msg.init_id) + " init 0 0" /* event buffer cum_rebuf */;
     append_to_log("client_buffer", log_line);
@@ -490,11 +489,10 @@ void handle_client_info(WebSocketClient & client, const ClientInfoMsg & msg)
 
   /* execute the code below only if logging is enabled */
   if (enable_logging) {
-    uint64_t curr_time = time(nullptr);
     const auto channel_name = client.channel()->name();
 
     /* record client-info */
-    string log_line = to_string(curr_time) + " " + channel_name + " "
+    string log_line = to_string(timestamp_ms()) + " " + channel_name + " "
       + expt_id + " " + group_id + " " + client.username() + " "
       + to_string(msg.init_id) + " " + msg.event_str + " "
       + double_to_string(msg.video_buffer, 3) + " "
@@ -503,7 +501,7 @@ void handle_client_info(WebSocketClient & client, const ClientInfoMsg & msg)
 
     /* record rebuffer events */
     if (msg.event == ClientInfoMsg::Event::Rebuffer) {
-      string log_line = to_string(curr_time) + " " + channel_name + " "
+      string log_line = to_string(timestamp_ms()) + " " + channel_name + " "
         + expt_id + " " + group_id + " " + server_id;
       append_to_log("rebuffer_events", log_line);
     }
@@ -549,7 +547,7 @@ void handle_client_video_ack(WebSocketClient & client,
 
   /* record client's received video */
   if (enable_logging) {
-    string log_line = to_string(time(nullptr)) + " " + msg.channel + " "
+    string log_line = to_string(timestamp_ms()) + " " + msg.channel + " "
       + expt_id + " " + group_id + " " + client.username() + " "
       + to_string(msg.init_id) + " " + msg.format + " "
       + double_to_string(msg.ssim, 3);
