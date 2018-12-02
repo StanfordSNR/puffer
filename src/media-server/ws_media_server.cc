@@ -241,11 +241,11 @@ void reinit_laggy_client(WebSocketServer & server, WebSocketClient & client,
   uint64_t init_vts = channel->init_vts().value();
   uint64_t init_ats = channel->init_ats().value();
 
-  client.init_channel(channel, init_vts, init_ats);
-  send_server_init(server, client, false /* cannot resume */);
-
   cerr << client.signature() << ": reinitialize laggy client "
        << client.next_vts().value() << "->" << init_vts << endl;
+
+  client.init_channel(channel, init_vts, init_ats);
+  send_server_init(server, client, false /* cannot resume */);
 }
 
 void serve_client(WebSocketServer & server, WebSocketClient & client)
