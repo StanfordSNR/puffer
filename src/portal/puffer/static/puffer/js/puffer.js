@@ -405,7 +405,7 @@ function WebSocketClient(session_key, username, settings_debug, sysinfo) {
     };
 
     /* try resuming if the client is already watching the same channel */
-    if (av_source && av_source.getChannel() === channel) {
+    if (av_source && av_source.isOpen() && av_source.getChannel() === channel) {
       msg.nextVts = av_source.getNextVideoTimestamp();
       msg.nextAts = av_source.getNextAudioTimestamp();
     }
