@@ -438,6 +438,7 @@ void handle_client_init(WebSocketServer & server, WebSocketClient & client,
   /* ignore invalid channel request */
   auto it = channels.find(msg.channel);
   if (it == channels.end()) {
+    send_server_error(server, client, ServerErrorMsg::ErrorType::Channel);
     cerr << client.signature() << ": requested channel "
          << msg.channel << " not found" << endl;
     return;
