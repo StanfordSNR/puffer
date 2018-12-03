@@ -32,10 +32,13 @@ VideoFormat LinearBBA::select_video_format()
   /* get max and min chunk size for the next video ts */
   size_t max_size = 0, min_size = SIZE_MAX;
   size_t max_idx = vformats_cnt, min_idx = vformats_cnt;
+  bool format_available = false;
 
   for (size_t i = 0; i < vformats_cnt; i++) {
     const auto & vf = vformats[i];
+
     if (client_.is_format_overkill(vf)) continue;
+    format_available = true;
 
     size_t chunk_size = get<1>(data_map.at(vf));
     if (chunk_size <= 0) continue;
@@ -49,6 +52,23 @@ VideoFormat LinearBBA::select_video_format()
       min_size = chunk_size;
       min_idx = i;
     }
+  }
+
+  /* make sure the server won't crash when all formats are overkill */
+  if (not format_available) {
+    for (size_t i = 0; i < vformats_cnt; i++) {
+      const auto & vf = vformats[i];
+      size_t chunk_size = get<1>(data_map.at(vf));
+      if (chunk_size <= 0) continue;
+
+      if (chunk_size < min_size) {
+        min_size = chunk_size;
+        min_idx = i;
+      }
+    }
+
+    assert(min_idx < vformats_cnt);
+    return vformats[min_idx];
   }
 
   assert(max_idx < vformats_cnt);
