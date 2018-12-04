@@ -298,14 +298,11 @@ function AVSource(ws_client, server_init) {
     return 0;
   };
 
-  /* Set audio buffer as the min of buffered video and audio */
+  /* Get the number of seconds of buffered audio */
   this.getAudioBuffer = function() {
-    if (vbuf && vbuf.buffered.length === 1 &&
-        abuf && abuf.buffered.length === 1) {
-      const min_buf = Math.min(vbuf.buffered.end(0), abuf.buffered.end(0));
-      if (min_buf >= video.currentTime) {
-        return min_buf - video.currentTime;
-      }
+    if (abuf && abuf.buffered.length === 1 &&
+        abuf.buffered.end(0) >= video.currentTime) {
+      return abuf.buffered.end(0) - video.currentTime;
     }
 
     return 0;
