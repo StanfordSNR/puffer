@@ -145,6 +145,7 @@ void WSServer<TCPSocket>::Connection::write()
       break;
     } else {
       send_buffer.pop_front();
+      send_buffer_front_idx = 0;
     }
   }
 }
