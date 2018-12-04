@@ -59,7 +59,7 @@ int main(int argc, char * argv[])
       cerr << connection_id << ": connection opened" << endl;
 
       /* maintenance error message can have an arbitrary init_id */
-      ServerErrorMsg err_msg(0, ServerErrorMsg::ErrorType::Maintenance);
+      ServerErrorMsg err_msg(0, ServerErrorMsg::Type::Maintenance);
       WSFrame frame {true, WSFrame::OpCode::Binary, err_msg.to_string()};
       server.queue_frame(connection_id, frame);
       server.close_connection(connection_id);

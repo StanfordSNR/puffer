@@ -83,23 +83,26 @@ ServerAudioMsg::ServerAudioMsg(const unsigned int init_id,
 }
 
 ServerErrorMsg::ServerErrorMsg(const unsigned int init_id,
-                               const ErrorType error_type)
+                               const Type error_type)
 {
   string error_type_str;
   string error_message;
 
-  if (error_type == ErrorType::Channel) {
-    error_type_str = "channel";
-    error_message = "Sorry, the channel is not currently available. "
-      "Please try another channel or refresh the page.";
-  } else if (error_type == ErrorType::Drop) {
+  if (error_type == Type::Drop) {
     error_type_str = "drop";
     error_message = "Your connection has been dropped after timeout. "
       "Please refresh the page.";
-  } else if (error_type == ErrorType::Maintenance) {
+  } else if (error_type == Type::Maintenance) {
     error_type_str = "maintenance";
     error_message = "Sorry, Puffer is down for maintenance right now. "
       "Please try again later.";
+  } else if (error_type == Type::Reinit) {
+    error_type_str = "reinit";
+    error_message = "Your video has been lagging and is going to be reset.";
+  } else if (error_type == Type::Unavailable) {
+    error_type_str = "unavailable";
+    error_message = "Sorry, the channel is not currently available. "
+      "Please try another channel or refresh the page.";
   }
 
   msg_ = {

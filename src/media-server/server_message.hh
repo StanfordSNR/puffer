@@ -65,13 +65,14 @@ public:
 class ServerErrorMsg : public ServerMsg
 {
 public:
-  enum class ErrorType {
-    Channel,    /* error in the current channel */
-    Drop,       /* connection to be dropped */
-    Maintenance /* server is under maintenance */
+  enum class Type {
+    Drop,        /* connection to be dropped */
+    Maintenance, /* server is under maintenance */
+    Reinit,      /* channel needs to be reinitialized */
+    Unavailable  /* channel is not available */
   };
 
-  ServerErrorMsg(const unsigned int init_id, const ErrorType error_type);
+  ServerErrorMsg(const unsigned int init_id, const Type error_type);
 };
 
 class MediaSegment

@@ -240,7 +240,7 @@ void send_server_init(WebSocketServer & server, WebSocketClient & client,
 }
 
 void send_server_error(WebSocketServer & server, WebSocketClient & client,
-                       const ServerErrorMsg::ErrorType error_type)
+                       const ServerErrorMsg::Type error_type)
 {
   ServerErrorMsg err_msg(client.init_id(), error_type);
   WSFrame frame {true, WSFrame::OpCode::Binary, err_msg.to_string()};
@@ -249,18 +249,6 @@ void send_server_error(WebSocketServer & server, WebSocketClient & client,
   server.clear_buffer(client.connection_id());
 
   server.queue_frame(client.connection_id(), frame);
-}
-
-void reinit_laggy_client(WebSocketServer & server, WebSocketClient & client,
-                         const shared_ptr<Channel> & channel)
-{
-  uint64_t init_vts = channel->init_vts().value();
-  uint64_t init_ats = channel->init_ats().value();
-
-  client.init_channel(channel, init_vts, init_ats);
-  send_server_init(server, client, false /* cannot resume */);
-
-  cerr << client.signature() << ": reinitialize laggy client" << endl;
 }
 
 void serve_client(WebSocketServer & server, WebSocketClient & client)
@@ -278,7 +266,8 @@ void serve_client(WebSocketServer & server, WebSocketClient & client)
          *client.next_vts() <= *channel->vclean_frontier()) or
         (channel->aclean_frontier() and client.next_ats() and
          *client.next_ats() <= *channel->aclean_frontier())) {
-      reinit_laggy_client(server, client, channel);
+      send_server_error(server, client, ServerErrorMsg::Type::Reinit);
+      cerr << client.signature() << ": reinitialize laggy client" << endl;
       return;
     }
   }
@@ -378,7 +367,7 @@ void start_slow_timer(Timerfd & slow_timer, WebSocketServer & server)
             continue;
           } else if (elapsed > DROP_NOTIFICATION_MS) {
             /* notify that the connection is going to be dropped */
-            send_server_error(server, client, ServerErrorMsg::ErrorType::Drop);
+            send_server_error(server, client, ServerErrorMsg::Type::Drop);
             cerr << client.signature() << ": notified client to drop" << endl;
             continue;
           }
@@ -447,7 +436,7 @@ void handle_client_init(WebSocketServer & server, WebSocketClient & client,
   /* ignore invalid channel request */
   auto it = channels.find(msg.channel);
   if (it == channels.end()) {
-    send_server_error(server, client, ServerErrorMsg::ErrorType::Channel);
+    send_server_error(server, client, ServerErrorMsg::Type::Unavailable);
     cerr << client.signature() << ": requested channel "
          << msg.channel << " not found" << endl;
     return;
@@ -457,7 +446,7 @@ void handle_client_init(WebSocketServer & server, WebSocketClient & client,
 
   /* reply that the channel is not ready */
   if (not channel->ready_to_serve()) {
-    send_server_error(server, client, ServerErrorMsg::ErrorType::Channel);
+    send_server_error(server, client, ServerErrorMsg::Type::Unavailable);
     cerr << client.signature() << ": requested channel " << channel->name()
          << " is not ready" << endl;
     return;
@@ -745,7 +734,7 @@ int run_websocket_server(pqxx::nontransaction & db_work)
           if (not channel or not channel->ready_to_serve()) {
             /* notify the client that the requested channel is not available */
             send_server_error(server, client,
-                              ServerErrorMsg::ErrorType::Channel);
+                              ServerErrorMsg::Type::Unavailable);
             return;
           }
 
@@ -804,7 +793,7 @@ int run_websocket_server(pqxx::nontransaction & db_work)
     }
   );
 
-  /* start a fast timer that fires once per 50ms to serve media to clients */
+  /* start a fast timer to serve media to clients */
   Timerfd fast_timer;
   start_fast_timer(fast_timer, server);
 

@@ -532,7 +532,15 @@ function WebSocketClient(session_key, username, settings_debug, sysinfo) {
     metadata.byteLength = data.byteLength;
 
     if (metadata.type === 'server-error') {
-      if (metadata.errorType === 'channel') {
+      if (metadata.errorType === 'reinit') {
+        add_player_error(metadata.errorMessage, 'channel');
+        channel_error = true;
+
+        /* send a client-init requesting the same channel (without resuming) */
+        if (av_source) {
+          that.set_channel(av_source.getChannel());
+        }
+      } else if (metadata.errorType === 'unavailable') {
         /* this channel is not currently available */
         add_player_error(metadata.errorMessage, 'channel');
         channel_error = true;
@@ -590,8 +598,8 @@ function WebSocketClient(session_key, username, settings_debug, sysinfo) {
       console.log('Connected to', ws_addr);
       remove_player_error('connect');
 
-      /* shouldn't call set_channel, which is reserved for channel switching */
-      set_channel_helper(channel);
+      /* try to resume if possible, so shouldn't call set_channel */
+      soft_set_channel(channel);
     };
 
     ws.onclose = function(e) {
@@ -634,7 +642,8 @@ function WebSocketClient(session_key, username, settings_debug, sysinfo) {
     };
   };
 
-  function set_channel_helper(channel) {
+  /* set to a channel without closing av_source; resume if possible */
+  function soft_set_channel(channel) {
     /* render UI */
     start_spinner();
     remove_player_error('channel');
@@ -652,7 +661,7 @@ function WebSocketClient(session_key, username, settings_debug, sysinfo) {
     cum_rebuffer_ms = 0;
   }
 
-  /* used when switching channels */
+  /* set to a channel and reset av_source */
   this.set_channel = function(channel) {
     if (fatal_error) {
       return;
@@ -663,7 +672,7 @@ function WebSocketClient(session_key, username, settings_debug, sysinfo) {
       av_source.close();
     }
 
-    set_channel_helper(channel);
+    soft_set_channel(channel);
   };
 
   video.oncanplay = function() {
