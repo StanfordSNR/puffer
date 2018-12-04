@@ -164,16 +164,17 @@ void serve_audio_to_client(WebSocketServer & server, WebSocketClient & client)
   if (not client.next_ats()) { return; }
   uint64_t next_ats = *client.next_ats();
 
-  if (not client.next_vts()) { return; }
-  uint64_t next_vts = *client.next_vts();
-
-  /* never send an audio chunk ahead of the video */
-  if (next_ats > next_vts) {
+  const auto channel = client.channel();
+  if (not channel->aready_to_serve(next_ats)) {
     return;
   }
 
-  const auto channel = client.channel();
-  if (not channel->aready_to_serve(next_ats)) {
+  /* never send an audio chunk ahead of video */
+  if (not client.next_vts()) { return; }
+  uint64_t next_vts = *client.next_vts();
+
+  /* next_vts - channel->vduration() is the most recently sent video chunk */
+  if (next_ats + channel->vduration() > next_vts) {
     return;
   }
 
@@ -288,8 +289,8 @@ void serve_client(WebSocketServer & server, WebSocketClient & client)
     serve_video_to_client(server, client);
   }
 
-  if (client.audio_playback_buf() <= WebSocketClient::MAX_BUFFER_S and
-      client.audio_in_flight() and *client.audio_in_flight() == 0) {
+  /* don't need to check audio_playback_buf */
+  if (client.audio_in_flight() and *client.audio_in_flight() == 0) {
     serve_audio_to_client(server, client);
   }
 }
