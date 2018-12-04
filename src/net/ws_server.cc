@@ -208,7 +208,7 @@ void WSServer<SocketType>::init_listener_socket()
               return ResultType::CancelAll;
             }
 
-            if (not conn.ws_handshake_parser.empty()) {
+            while (not conn.ws_handshake_parser.empty()) {
               auto request = move(conn.ws_handshake_parser.front());
               conn.ws_handshake_parser.pop();
 
@@ -234,7 +234,7 @@ void WSServer<SocketType>::init_listener_socket()
               wait_close_connection(conn_id);
             }
 
-            if (not conn.ws_message_parser.empty()) {
+            while (not conn.ws_message_parser.empty()) {
               WSMessage message = move(conn.ws_message_parser.front());
               conn.ws_message_parser.pop();
 
@@ -280,7 +280,7 @@ void WSServer<SocketType>::init_listener_socket()
               return ResultType::CancelAll;
             }
 
-            if (not conn.ws_message_parser.empty()) {
+            while (not conn.ws_message_parser.empty()) {
               WSMessage message = move(conn.ws_message_parser.front());
               conn.ws_message_parser.pop();
 
