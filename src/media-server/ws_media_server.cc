@@ -164,6 +164,14 @@ void serve_audio_to_client(WebSocketServer & server, WebSocketClient & client)
   if (not client.next_ats()) { return; }
   uint64_t next_ats = *client.next_ats();
 
+  if (not client.next_vts()) { return; }
+  uint64_t next_vts = *client.next_vts();
+
+  /* never send an audio chunk ahead of the video */
+  if (next_ats > next_vts) {
+    return;
+  }
+
   const auto channel = client.channel();
   if (not channel->aready_to_serve(next_ats)) {
     return;
