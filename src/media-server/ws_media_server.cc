@@ -278,8 +278,8 @@ void serve_client(WebSocketServer & server, WebSocketClient & client)
     serve_video_to_client(server, client);
   }
 
-  /* don't need to check audio_playback_buf */
-  if (client.audio_in_flight() and *client.audio_in_flight() == 0) {
+  if (client.audio_playback_buf() <= WebSocketClient::MAX_BUFFER_S and
+      client.audio_in_flight() and *client.audio_in_flight() == 0) {
     serve_audio_to_client(server, client);
   }
 }

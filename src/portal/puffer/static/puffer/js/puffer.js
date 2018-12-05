@@ -19,6 +19,7 @@ function set_fatal_error(error_message) {
   clear_player_errors();
   add_player_error(error_message, 'fatal');
   stop_spinner();
+  video.style.display = 'none';
 }
 
 /* Server messages are of the form: "short_metadata_len|metadata_json|data" */
@@ -680,7 +681,8 @@ function WebSocketClient(session_key, username, settings_debug, sysinfo) {
 
     if (play_promise) {
       play_promise.then(function() {
-        // playback started
+        // playback started; only render UI here
+        stop_spinner();
       }).catch(function(error) {
         // playback failed
         add_player_error(
@@ -688,6 +690,11 @@ function WebSocketClient(session_key, username, settings_debug, sysinfo) {
           ' or refresh the page', 'channel');
       });
     }
+  };
+
+  video.onwaiting = function() {
+    // playback stalled; only render UI here
+    start_spinner();
   };
 
   /* check if *video or audio* is rebuffering every 50 ms */
