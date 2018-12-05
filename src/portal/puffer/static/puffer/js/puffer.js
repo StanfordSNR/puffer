@@ -311,15 +311,17 @@ function AVSource(ws_client, server_init) {
 
   /* If buffered *video or audio* is behind video.currentTime */
   this.isRebuffering = function() {
+    const tolerance = 0.1; // seconds
+
     if (vbuf && vbuf.buffered.length === 1 &&
         abuf && abuf.buffered.length === 1) {
       const min_buf = Math.min(vbuf.buffered.end(0), abuf.buffered.end(0));
-      if (min_buf < video.currentTime) {
-        return true;
+      if (min_buf - video.currentTime >= tolerance) {
+        return false;
       }
     }
 
-    return false;
+    return true;
   };
 
   /* Get the expected timestamp of the next video chunk */
