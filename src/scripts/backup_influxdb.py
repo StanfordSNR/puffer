@@ -3,6 +3,8 @@
 import sys
 import time
 import math
+import argparse
+from os import path
 from datetime import datetime, timedelta
 from subprocess import check_call
 
@@ -11,6 +13,10 @@ backup_hour = 11  # back up at 11 AM (UTC) every day
 
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('output_dir')
+    args = parser.parse_args()
+
     # the script is preferred to be run after 'backup_hour' AM (UTC)
     ts = datetime.utcnow()
     end_ts = datetime(ts.year, ts.month, ts.day, backup_hour, 0)
@@ -30,8 +36,8 @@ def main():
     end_ts_str = end_ts.strftime(time_str)
     start_ts_str = start_ts.strftime(time_str)
 
-    dst_dir = (start_ts.strftime(short_time_str) + '-' +
-               end_ts.strftime(short_time_str))
+    dst_dir = path.join(args.output_dir,
+        start_ts.strftime(short_time_str) + '-' + end_ts.strftime(short_time_str))
 
     # back up InfluxDB
     cmd = ('influxd backup -portable -database puffer -start {} -end {} {}'
