@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import os
 import sys
 import time
 import math
@@ -14,8 +15,12 @@ backup_hour = 11  # back up at 11 AM (UTC) every day
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('output_dir')
+    parser.add_argument('working_dir')
     args = parser.parse_args()
+
+    # change to working directory first
+    working_dir = args.working_dir
+    os.chdir(working_dir)
 
     # the script is preferred to be run after 'backup_hour' AM (UTC)
     ts = datetime.utcnow()
@@ -27,6 +32,7 @@ def main():
                          .format(backup_hour))
         time.sleep(math.ceil((end_ts - ts).total_seconds()))
 
+    # back up the data collected in the last 24 hours
     start_ts = end_ts - timedelta(days=1)
 
     # convert datetime to time strings
@@ -36,8 +42,7 @@ def main():
     end_ts_str = end_ts.strftime(time_str)
     start_ts_str = start_ts.strftime(time_str)
 
-    dst_dir = path.join(args.output_dir,
-        start_ts.strftime(short_time_str) + '-' + end_ts.strftime(short_time_str))
+    dst_dir = start_ts.strftime(short_time_str) + '_' + end_ts.strftime(short_time_str)
 
     # back up InfluxDB
     cmd = ('influxd backup -portable -database puffer -start {} -end {} {}'
