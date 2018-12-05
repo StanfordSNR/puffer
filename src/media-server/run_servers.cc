@@ -198,7 +198,7 @@ int main(int argc, char * argv[])
       roost::readlink("/proc/self/exe")).parent_path().parent_path());
 
   /* run expt_json.py to represent experimental settings as a JSON string */
-  const auto & expt_json = src_path / "media-server/expt_json.py";
+  const auto & expt_json = src_path / "scripts/expt_json.py";
   string json_str = run(expt_json, {expt_json, yaml_config}, true).first;
 
   /* upload JSON to and retrieve an experimental ID from PostgreSQL */
