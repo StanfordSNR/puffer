@@ -14,7 +14,8 @@ backup_hour = 11  # back up at 11 AM (UTC) every day
 
 
 def main():
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(
+        'Run this script at 11 AM (UTC) every day to back up local InfluxDB')
     parser.add_argument('working_dir')
     args = parser.parse_args()
 
