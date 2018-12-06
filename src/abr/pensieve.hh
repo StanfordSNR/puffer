@@ -67,6 +67,7 @@ private:
     sock.bind("/tmp/pensieve");
     // TODO: Configurable paths etc., use settings.yml
     sock.listen();
+    // TODO: Close this using pclose() during client teardown
     auto result = popen("python2 /home/hudson/puffer/third_party/pensieve/multi_video_sim/rl_test.py /home/hudson/nn_model_ep_110400.ckpt", "r");
     std::cout << result << std::endl;
     std::cout << "waiting for connection" << std::endl;

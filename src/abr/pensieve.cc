@@ -34,18 +34,23 @@ void Pensieve::video_chunk_acked(const VideoFormat & format,
 
     uint64_t next_vts = client_.next_vts().value();
     const auto & data_map = channel->vdata(next_vts);
-    vector<double> next_chunk_sizes;
+    vector<pair<double, size_t>> next_chunk_sizes; //Store pairs of chunk size, corresponding vf index
     for (size_t i = 0; i < vformats_cnt; i++) {
       const auto & vf = vformats[i];
       if (not client_.is_format_capable(vf)) continue;
 
       size_t chunk_size = get<1>(data_map.at(vf)); //units?
       double chunk_size_mb = (((double)chunk_size) / 1000000); // MB //TODO: CHeck unit above
-      next_chunk_sizes.push_back(chunk_size_mb);
+      next_chunk_sizes.push_back(make_pair(chunk_size_mb, i));
     }
-    sort(next_chunk_sizes.begin(), next_chunk_sizes.end());
-    cout << "smallest sorted chunk size: " << next_chunk_sizes[0] << endl;
-    cout << "largest sorted chunk size: " << next_chunk_sizes[7] << endl;
+    sort(next_chunk_sizes.begin(), next_chunk_sizes.end()); // sorts pairs by first element
+    vector<double> next_chunk_sizes_bare; // just first element of next_chunk_sizes pair
+    for (size_t i = 0; i < vformats_cnt; i++) {
+      next_chunk_sizes_bare.push_back(get<0>(next_chunk_sizes[i]));
+    }
+
+    cout << "smallest sorted chunk size: " << get<0>(next_chunk_sizes[0]) << endl;
+    cout << "largest sorted chunk size: " << get<0>(next_chunk_sizes[7]) << endl;
     // Use this to set delivery time for last video packet
     // Pensieve is going to consider all video packets as
     // also containing the audio associated with those
@@ -62,11 +67,11 @@ void Pensieve::video_chunk_acked(const VideoFormat & format,
     json j;
     j["delay"] = trans_time; // ms
     j["playback_buf"] = client_.video_playback_buf(); // seconds
-    j["rebuf_time"] = 0.150; // cum seconds spent rebuffering up till now //TODO: Get this from client
+    j["rebuf_time"] = ((double)client_.get_total_rebuf_time()) / 1000; // cum seconds spent rebuffering up till now
     j["last_chunk_size"] = ((double)size) / 1000000; // MB (is this right or is this a power of 2 thing?)
-    // j["next_chunk_sizes"] = {0.181801, 0.450283, 0.668286, 1.034108, 1.728879, 2.354772, 2.83424, 3.1289123}; //MB
-    j["next_chunk_sizes"] = next_chunk_sizes; //MB
+    j["next_chunk_sizes"] = next_chunk_sizes_bare; //MB
     uint16_t json_len = j.dump().length();
+    cout << j.dump() << endl;
 
     connection_.write(put_field2(json_len) + j.dump());
 
@@ -75,8 +80,11 @@ void Pensieve::video_chunk_acked(const VideoFormat & format,
     if (read_data.empty()) {
         cout << "Empty read, ERROR" << endl;
     } else {
-        cout << "next_quality: " << read_data << endl;
-        next_format_ = std::stoi( read_data );
+        // TODO: Get this as JSON not raw
+        // TODO: bitrate instead of index
+        size_t index_in_bitrate_ladder = std::stoi( read_data );
+        next_format_ = get<1>(next_chunk_sizes[index_in_bitrate_ladder]); //Works bc next_chunk_size is sorted
+        cout << "next_format: " << vformats[next_format_] << endl;
     }
 }
 
