@@ -16,26 +16,29 @@
   {% include "puffer/navigation.html" %}
 
   <!-- FAQ Section -->
-  <div class="container pt-5">
-    <div class="text-center mb-5">
-      <h4>Frequently Asked Questions</h4>
-    </div>
+  <div class="container py-4">
+    <h3 class="font-weight-normal mt-3">Frequently Asked Questions</h3>
+    <br>
 
-    <h5 class="mb-2">What is Puffer?</h5>
-    <p class="mb-4">Puffer is a Stanford University research project aiming to improve live
-    streaming of video over the Internet. (Insert IRB info etc.)</p>
+    <h5>What is Puffer?</h5>
+    <p>
+    Puffer is a Stanford University research project aiming to improve live
+    streaming of video over the Internet. (Insert IRB info etc.)
+    </p>
 
-    <h5 class="mb-2">How can I sign up?</h5>
-    <p class="mb-4">
+    <h5>How can I sign up?</h5>
+    <p>
     Puffer is limiting growth to ensure we do not overwhelm our research-oriented infrastructure.
     To do so, we require that users possess invitation tokens in order to create new accounts.
     To request an invitation token <a href="{% url 'participate' %}">visit this page.</a>
-    Finally, please keep in mind that Puffer is only available to users in the United States.</p>
+    Finally, please keep in mind that Puffer is only available to users in the United States.
+    </p>
 
-    <h5 class="mb-2">What channels can I watch?</h5>
-    <p class="mb-4">
+    <h5>What channels can I watch?</h5>
+    <p>
     Puffer rebroadcasts over-the-air television channels available in the Bay Area. Currently,
-    we rebroadcast local affiliates of CBS, NBC, ABC, Fox, Univision, and PBS.</p>
+    we rebroadcast local affiliates of CBS, NBC, ABC, Fox, Univision, and PBS.
+    </p>
   </div>
 
   <script src="{% static 'puffer/dist/js/jquery-3.3.1.slim.min.js' %}"></script>

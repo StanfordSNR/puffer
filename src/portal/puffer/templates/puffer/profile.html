@@ -17,13 +17,15 @@
   {% include "puffer/navigation.html" %}
 
   <!-- User Info -->
-  <div class="container py-5">
+  <div class="container py-4">
     <p>Your username: {{ user.username }}</p>
     <p>
       Puffer uses an invitation token based system to allow users to invite other users.
       If you have any invitation tokens, they will show up below. Feel free to share them with
       friends who would also like to use Puffer.
     </p>
+    <p><a href="{% url 'participate' %}">Have friends interested in Puffer?</a></p>
+
     {% if user.is_superuser %}
     <form class="form-inline" method="post" action="{% url 'profile' %}">
       {% csrf_token %}
@@ -100,8 +102,6 @@
         </tbody>
       </table>
     </div>
-    {% elif not user.is_superuser %}
-    <a href="{% url 'participate' %}">Have friends interested in Puffer?</a>
     {% endif %}
   </div>
 

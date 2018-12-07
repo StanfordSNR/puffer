@@ -1,6 +1,6 @@
 {% load static %}
 
-<nav class="navbar navbar-expand-md navbar-light border-bottom p-3" style="background-color:white">
+<nav class="navbar navbar-expand-md navbar-light border-bottom py-3">
   <div class="container d-flex">
     <a class="navbar-brand" href="{% url 'index' %}">
       <img src="{% static 'puffer/dist/images/logo-text.svg' %}"
@@ -18,11 +18,6 @@
         <li class="nav-item">
           <a class="nav-link text-dark" href="{% url 'player' %}">Player</a>
         </li>
-        <!--
-        <li class="nav-item">
-          <a class="nav-link text-dark" href="{% url 'monitoring' %}" target="_blank">Monitoring</a>
-        </li>
-        -->
         <li class="nav-item">
           <a class="nav-link text-dark" href="{% url 'faq' %}">FAQ</a>
         </li>

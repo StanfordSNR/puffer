@@ -19,7 +19,6 @@ function set_fatal_error(error_message) {
   clear_player_errors();
   add_player_error(error_message, 'fatal');
   stop_spinner();
-  video.style.display = 'none';
 }
 
 /* Server messages are of the form: "short_metadata_len|metadata_json|data" */

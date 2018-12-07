@@ -8,15 +8,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
   <link rel="stylesheet" href="{% static 'puffer/dist/css/bootstrap.min.css' %}">
   <link rel="stylesheet" href="{% static 'puffer/css/common.css' %}">
-  <link rel="stylesheet" href="{% static 'puffer/css/accounts.css' %}">
   <title>Puffer</title>
 </head>
 
-<body>
-  <div class="container">
+<body style="background-color:#f5f5f5">
+  <div class="container py-5">
     <!-- Success or error messages -->
     {% if messages %}
-    <ul class="list-unstyled mb-3">
+    <ul class="list-unstyled">
     {% for msg in messages %}
       <li>
         <div class="alert alert-{{msg.level_tag}}" role="alert">
@@ -40,9 +39,9 @@
     {% endif %}
 
     <div class="text-center">
-      <a href="{% url 'index' %}" >
-        <img class="mb-4" src="{% static 'puffer/dist/images/logo-full.svg' %}"
-             alt="Puffer" height="200px">
+      <a href="{% url 'index' %}">
+        <img class="mt-3 mb-4" src="{% static 'puffer/dist/images/logo-full.svg' %}"
+             alt="Puffer" height="160px">
       </a>
     </div>
 
@@ -96,16 +95,6 @@
       <div class='text-center'>
         Don't have an invitation token? <a href="{% url 'participate'%}">Request one here.</a>
       </div>
-
-      <!--
-      <div class="row justify-content-center">
-        <div class="col-sm-6">
-          <p>Before signing up, please reference our
-          <a href="#"> Terms of Use </a> to learn what information we
-          collect about you.</p>
-        </div>
-      </div>
-      -->
 
       <div class="text-center">
         <button type="submit" class="btn btn-primary btn-lg mt-4">Sign up</button>

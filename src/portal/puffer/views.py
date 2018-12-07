@@ -98,11 +98,11 @@ def monitoring(request):
     snapshot = GrafanaSnapshot.objects.order_by('-created_on').first()
 
     if not snapshot:
-        return render(request, 'puffer/unavailable.html')
+        return render(request, 'puffer/404.html')
 
     # only display a snapshot newer than 1 hour ago
     time_diff = datetime.utcnow() - snapshot.created_on
     if time_diff.total_seconds() > 3600:
-        return render(request, 'puffer/unavailable.html')
+        return render(request, 'puffer/404.html')
 
     return redirect(snapshot.url)

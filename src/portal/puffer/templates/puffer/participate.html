@@ -17,10 +17,10 @@
   {% include "puffer/navigation.html" %}
 
   <!-- Participate Form -->
-  <div class="container py-5">
+  <div class="container py-4">
     <!-- Success or error messages -->
     {% if messages %}
-    <ul class="list-unstyled mb-3">
+    <ul class="list-unstyled">
     {% for msg in messages %}
       <li>
         <div class="alert alert-{{msg.level_tag}}" role="alert">
@@ -34,7 +34,7 @@
     </ul>
     {% endif %}
 
-    <h3 class="font-weight-normal">Sign up to watch Puffer</h3>
+    <h3 class="font-weight-normal mt-3">Sign Up to Watch Puffer</h3>
     <br>
 
     <p>
@@ -57,7 +57,7 @@
 
       <div class="form-group">
         <input type="text" class="form-control mr-3" name="email-field" id="email-field"
-               placeholder="Please enter your email" style="width:250px" required></input>
+               placeholder="Please enter your email" style="width:300px" required></input>
       </div>
       <button type="submit" class="btn btn-primary">Request a token</button>
     </form></p>

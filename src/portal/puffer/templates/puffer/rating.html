@@ -18,10 +18,10 @@
   {% include "puffer/navigation.html" %}
 
   <!-- Rating -->
-  <div class="container py-5">
+  <div class="container py-4">
     <!-- Success or error messages -->
     {% if messages %}
-    <ul class="list-unstyled mb-3">
+    <ul class="list-unstyled">
     {% for msg in messages %}
       <li>
         <div class="alert alert-{{msg.level_tag}}" role="alert">
@@ -35,7 +35,7 @@
     </ul>
     {% endif %}
 
-    <h4 class="font-weight-normal">Rating:</h4>
+    <h3 class="font-weight-normal mt-3">Rating:</h3>
 
     <form method="post" action="{% url 'rating' %}">
       {% csrf_token %}
