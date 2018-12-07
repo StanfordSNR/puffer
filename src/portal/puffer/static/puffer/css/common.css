@@ -12,3 +12,7 @@
 .fake-link:hover {
   text-decoration: underline;
 }
+
+#img-email {
+  height: 20px;
+}
