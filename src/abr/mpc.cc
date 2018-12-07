@@ -161,7 +161,7 @@ double MPC::get_qvalue(size_t i, size_t curr_buffer, size_t curr_format,
 {
   double real_rebuffer = curr_sending_time_[i+1][next_format]
                          - real_buffer_[curr_buffer];
-  double next_buffer = discretize_buffer(max(0.0, -real_rebuffer) + chunk_length_);
+  size_t next_buffer = discretize_buffer(max(0.0, -real_rebuffer) + chunk_length_);
   return curr_ssims_[i][curr_format]
          - ssim_diff_coeff_ * fabs(curr_ssims_[i][curr_format]
                                    - curr_ssims_[i+1][next_format])
