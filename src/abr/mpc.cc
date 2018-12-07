@@ -59,12 +59,12 @@ void MPC::reinit()
   const auto & channel = client_.channel();
   const auto & vformats = channel->vformats();
   const unsigned int vduration = channel->vduration();
-  const uint64_t curr_ts = *client_.next_vts() - vduration;
+  const uint64_t curr_ts = client_.next_vts().value() - vduration;
 
   chunk_length_ = (double) vduration / channel->timescale();
   num_formats_ = vformats.size();
   lookahead_horizon_ = min(max_lookahead_horizon_,
-                       (*channel->vready_frontier() - curr_ts) / vduration);
+                       (channel->vready_frontier().value() - curr_ts) / vduration);
 
   /* initialization failed if there is no ready chunk ahead */
   if (lookahead_horizon_ == 0) {
