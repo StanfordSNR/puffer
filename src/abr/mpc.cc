@@ -82,6 +82,11 @@ void MPC::reinit()
 
   for (size_t i = 1; i <= lookahead_horizon_; i++) {
     for (size_t j = 0; j < num_formats_; j++) {
+      if (client_.is_format_overkill(vformats[j])) {
+        curr_ssims_[i][j] = 0;
+        continue;
+      }
+
       try {
         curr_ssims_[i][j] = channel->vssim(vformats[j], curr_ts + vduration * i);
       } catch (const exception & e) {
