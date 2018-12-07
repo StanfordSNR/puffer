@@ -30,10 +30,10 @@ class Rating(models.Model):
 class Participate(models.Model):
     email = models.CharField(max_length=255)
     request_date = models.DateTimeField('date requested')
+    sent = models.BooleanField(default=False)
 
     def __str__(self):
-        return '{}, {}'.format(self.request_date.strftime('%Y-%m-%d %H:%M'),
-                               self.email)
+        return self.email
 
 
 def user_logged_in_handler(sender, request, user, **kwargs):
