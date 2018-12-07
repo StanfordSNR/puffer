@@ -67,7 +67,7 @@ void MPC::reinit()
                        (channel->vready_frontier().value() - curr_ts) / vduration);
 
   /* initialization failed if there is no ready chunk ahead */
-  if (lookahead_horizon_ == 0) {
+  if (lookahead_horizon_ == 0 || num_formats_ == 0) {
     throw runtime_error("no ready chunk ahead");
   }
 
