@@ -12,7 +12,7 @@ ws_media_server_SOURCES = ws_media_server.cc \
 	client_message.hh client_message.cc server_message.hh server_message.cc \
 	../notifier/inotify.hh ../notifier/inotify.cc \
 	../abr/abr_algo.hh ../abr/linear_bba.hh ../abr/linear_bba.cc \
-	../abr/mpc.hh ../abr/mpc.cc \
+	../abr/mpc.hh ../abr/mpc.cc ../abr/mpc_search.hh ../abr/mpc_search.cc \
 	../../third_party/json.upstream/single_include/nlohmann/json.hpp
 ws_media_server_LDADD = ../util/libutil.a ../net/libnet.a ../util/libutil.a \
 	$(POSTGRES_LIBS) $(SSL_LIBS) $(CRYPTO_LIBS) $(YAML_LIBS) -lstdc++fs
