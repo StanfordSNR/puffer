@@ -68,6 +68,9 @@ def rating(request):
 
 
 def participate(request):
+    # redirect participate to signup
+    return redirect('signup')
+
     if request.method != 'POST':
         return render(request, 'puffer/participate.html')
 

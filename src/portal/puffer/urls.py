@@ -10,4 +10,5 @@ urlpatterns = [
          name='favicon'),
     path('player/', views.player, name='player'),
     path('faq/', views.faq, name='faq'),
+    path('participate/', views.participate, name='participate'),
 ]
