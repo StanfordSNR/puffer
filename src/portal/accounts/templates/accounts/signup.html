@@ -96,6 +96,19 @@
         Don't have an invitation token? <a href="{% url 'participate'%}">Request one here.</a>
       </div>
 
+      <div class='text-center mt-3'>
+        <iframe src="{% static 'puffer/dist/docs/terms-of-participation.pdf' %}"
+                style="width:800px; height:400px"></iframe>
+
+        <div class="custom-control custom-checkbox form-group">
+          <input type="checkbox" class="custom-control-input" id="terms" required>
+          <label class="custom-control-label" for="terms">
+            I have read and agree to the
+            <a href="{% static 'puffer/dist/docs/terms-of-participation.pdf' %}">terms of participation.</a>
+          </label>
+        </div>
+      </div>
+
       <div class="text-center">
         <button type="submit" class="btn btn-primary btn-lg mt-4">Sign up</button>
       </div>
