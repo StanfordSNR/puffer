@@ -151,3 +151,12 @@
   color: #212529;
   cursor: pointer;
 }
+
+.list-group-item.active {
+  background-color: #d1ecf1;
+  border-color: #d1ecf1;
+}
+
+.list-group-item:focus {
+  outline: none;
+}
