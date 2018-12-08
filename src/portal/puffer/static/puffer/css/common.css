@@ -20,3 +20,7 @@
 .list-unstyled {
   margin-bottom: 0;
 }
+
+.errorlist {
+  color: #dc3545;
+}
