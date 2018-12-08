@@ -24,3 +24,10 @@
 .errorlist {
   color: #dc3545;
 }
+
+.question {
+  color: #a81c22;
+  margin-top: 20px;
+  margin-bottom: 5px;
+  font-weight: 500;
+}
