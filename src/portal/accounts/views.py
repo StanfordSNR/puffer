@@ -17,24 +17,7 @@ def signup(request):
         form = SignUpForm(request.POST)
 
         if form.is_valid():
-            invite_token = form.cleaned_data.get('invite_token')
-            try:
-                match_token = InvitationToken.objects.get(token=invite_token)
-            except ObjectDoesNotExist:
-                messages.error(request, 'Failed to validate the token.')
-                return redirect('signup')
-
-            # save the user if the token is validated
             user = form.save()
-
-            # create "addon_cnt" tokens with addon_cnt=0
-            if match_token.addon_cnt:
-                for _ in range(match_token.addon_cnt):
-                    InvitationToken.objects.create(
-                            token=random_token(), holder=user)
-
-            # delete used tokens
-            match_token.delete()
 
             messages.success(request,
                 'Your account has been created successfully! Please log in.')

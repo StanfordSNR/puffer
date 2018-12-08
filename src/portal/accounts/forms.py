@@ -14,9 +14,6 @@ class InviteTokenField(forms.CharField):
 
 
 class SignUpForm(UserCreationForm):
-    invite_token = InviteTokenField(
-        max_length=64, help_text='A valid invitation token is required.')
-
     class Meta:
         model = User
-        fields = ('username', 'password1', 'password2', 'invite_token')
+        fields = ('username', 'password1', 'password2')
