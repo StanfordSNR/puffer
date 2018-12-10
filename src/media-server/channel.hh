@@ -68,8 +68,6 @@ public:
   std::optional<uint64_t> vclean_frontier() const;
   std::optional<uint64_t> aclean_frontier() const;
 
-  static constexpr unsigned int MAX_UNCHANGED_LIVE_EDGE_MS = 10000;
-
 private:
   bool live_ {false};
   std::string name_ {};
