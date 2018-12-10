@@ -26,6 +26,11 @@ with open(yaml_config_path, 'r') as fh:
 portal_config = yaml_config['portal_settings']
 postgres_config = yaml_config['postgres_connection']
 
+# INFLUXDB is used for error reporting
+INFLUXDB = None
+if yaml_config['enable_logging'] and 'influxdb_connection' in yaml_config:
+    INFLUXDB = yaml_config['influxdb_connection']
+
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/2.0/howto/deployment/checklist/
 

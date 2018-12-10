@@ -7,6 +7,8 @@ const MAX_RECONNECT_BACKOFF = 10000;
 
 var debug = false;
 var nonsecure = false;
+var username = '';
+var csrf_token = '';
 var video = document.getElementById('tv-video');
 
 var fatal_error = false;
@@ -19,6 +21,18 @@ function set_fatal_error(error_message) {
   clear_player_errors();
   add_player_error(error_message, 'fatal');
   stop_spinner();
+}
+
+function report_error(init_id, error_description) {
+  var xhr = new XMLHttpRequest();
+  xhr.open('POST', '/error_reporting/');
+  xhr.setRequestHeader('Content-Type', 'application/json');
+  xhr.setRequestHeader('X-CSRFToken', csrf_token);
+  xhr.send(JSON.stringify({
+    'username': username,
+    'init_id': init_id,
+    'error': error_description
+  }));
 }
 
 /* Server messages are of the form: "short_metadata_len|metadata_json|data" */
@@ -94,6 +108,7 @@ function AVSource(ws_client, server_init) {
       'which Puffer requires to stream media. Please try another browser or ' +
       'device.'
     );
+    report_error(0 /* init_id is not important */, 'MSE not supported');
   }
 
   /* used by handleVideo */
@@ -349,10 +364,14 @@ function AVSource(ws_client, server_init) {
   };
 }
 
-function WebSocketClient(session_key, username, settings_debug, sysinfo) {
+function WebSocketClient(session_key, username_in, settings_debug,
+                         csrf_token_in, sysinfo) {
   /* if DEBUG = True in settings.py, connect to non-secure WebSocket server */
   debug = settings_debug;
   nonsecure = settings_debug;
+
+  username = username_in;
+  csrf_token = csrf_token_in;
 
   var that = this;
 
@@ -516,6 +535,9 @@ function WebSocketClient(session_key, username, settings_debug, sysinfo) {
 
     /* check fatal errors regardless of init_id */
     if (metadata.type === 'server-error') {
+      /* report received server-error */
+      report_error(init_id, 'server-error: ' + metadata.errorType);
+
       if (metadata.errorType === 'drop' ||
           metadata.errorType === 'maintenance') {
         set_fatal_error(metadata.errorMessage);
@@ -620,6 +642,7 @@ function WebSocketClient(session_key, username, settings_debug, sysinfo) {
           add_player_error(
             'Error: failed to connect to server. Reconnecting...', 'connect'
           );
+          report_error(init_id, 'reconnect');
 
           if (av_source) {
             /* Try to resume the connection */
@@ -635,6 +658,7 @@ function WebSocketClient(session_key, username, settings_debug, sysinfo) {
           'Error: failed to connect to server. ' +
           'Please refresh the page or try again later.'
         );
+        report_error(init_id, 'abort reconnect');
       }
     };
 
@@ -689,6 +713,7 @@ function WebSocketClient(session_key, username, settings_debug, sysinfo) {
         add_player_error(
           'Error: failed to play the video. Please try a different channel ' +
           ' or refresh the page', 'channel');
+        report_error(init_id, 'video.play() failed');
       });
     }
   };

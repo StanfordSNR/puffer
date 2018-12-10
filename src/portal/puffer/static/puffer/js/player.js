@@ -370,7 +370,7 @@ function stop_spinner() {
   spinner.style.display = 'none';
 }
 
-function init_player(params_json) {
+function init_player(params_json, csrf_token) {
   const params = JSON.parse(params_json);
 
   const session_key = params.session_key;
@@ -397,7 +397,7 @@ function init_player(params_json) {
 
   load_script('/static/puffer/js/puffer.js').onload = function() {
     var ws_client = new WebSocketClient(session_key, username,
-                                        settings_debug, sysinfo);
+                                        settings_debug, csrf_token, sysinfo);
 
     channel_bar.on_channel_change = function(new_channel) {
       ws_client.set_channel(new_channel);

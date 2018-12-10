@@ -110,7 +110,7 @@
   <script src="{% static 'puffer/js/player.js' %}"></script>
   {% if params_json %}
   <script type="text/javascript">
-    init_player("{{ params_json|escapejs }}");
+    init_player("{{ params_json|escapejs }}", "{{ csrf_token }}");
   </script>
   {% endif %}
 </body>

@@ -1,5 +1,7 @@
+import os
 import json
 from datetime import datetime
+from influxdb import InfluxDBClient
 
 from django.shortcuts import render, redirect
 from django.contrib import messages
@@ -7,6 +9,7 @@ from django.contrib.auth.decorators import login_required
 from django.core.validators import validate_email
 from django.core.exceptions import ValidationError
 from django.conf import settings
+from django.http import HttpResponse
 from accounts.models import InvitationToken
 from accounts.utils import random_token
 
@@ -27,6 +30,31 @@ def player(request):
 
     return render(request, 'puffer/player.html', context)
 
+@login_required(login_url='/accounts/login/')
+def error_reporting(request):
+    if request.method == 'POST':
+        influx = settings.INFLUXDB
+        # ignore reported error if no InfluxDB has been set up
+        if influx is None:
+            return HttpResponse(status=204)
+
+        ts = datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S.%fZ')
+        error_json = json.loads(request.body.decode())
+
+        json_body = [{
+            'measurement': 'client_error',
+            'tags': {'user': error_json['username']},
+            'time': ts,
+            'fields': {'init_id': error_json['init_id'],
+                       'error': error_json['error']}
+        }]
+
+        client = InfluxDBClient(
+            influx['host'], influx['port'], influx['user'],
+            os.environ[influx['password']], influx['dbname'])
+        client.write_points(json_body, time_precision='ms')
+
+    return HttpResponse(status=204)
 
 @login_required(login_url='/accounts/login/')
 def profile(request):
