@@ -177,8 +177,8 @@ void WSServer<SocketType>::init_listener_socket()
   poller_.add_action(Poller::Action(listener_socket_, Direction::In,
     [this]()->ResultType
     {
-      /* incoming connection (client inherits non-blocking) */
       TCPSocket client = listener_socket_.accept();
+      client.set_blocking(false);
 
       const uint64_t conn_id = last_connection_id_++;
       connections_.emplace(piecewise_construct,
