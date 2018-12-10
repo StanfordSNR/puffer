@@ -161,17 +161,24 @@ function ChannelBar() {
 
   /* find initial channel */
   var channel_list = document.querySelectorAll('#channel-list .list-group-item');
-  var active_idx = null;
-  var init_channel_name = null;
-  for (var i = 0; i < channel_list.length; i++) {
-    if (channel_list[i].classList.contains('active')) {
-      active_idx = i;
-      init_channel_name = channel_list[i].getAttribute('name');
-      break;
+  var active_idx = 0;  // index of the active channel
+
+  /* restore the previously watched channel if there is any */
+  if (window.name) {
+    var prev_channel = window.name;
+    for (var i = 0; i < channel_list.length; i++) {
+      if (channel_list[i].getAttribute('name') === prev_channel) {
+        active_idx = i;
+        break;
+      }
     }
   }
 
+  var init_channel_name = channel_list[active_idx].getAttribute('name');
+  channel_list[active_idx].classList.add('active');
   console.log('Initial channel:', init_channel_name);
+  window.name = init_channel_name;  // save current channel in window.name
+
   this.get_init_channel = function() {
     return init_channel_name;
   };
@@ -191,10 +198,13 @@ function ChannelBar() {
     old_channel.classList.remove('active');
     new_channel.classList.add('active');
 
-    console.log('Set channel:', new_channel.innerText);
+    var new_channel_name = new_channel.getAttribute('name');
+    console.log('Set channel:', new_channel_name);
+    window.name = new_channel_name;  // save current channel in window.name
+
     if (that.on_channel_change) {
       /* call on_channel_change callback */
-      that.on_channel_change(new_channel.getAttribute('name'));
+      that.on_channel_change(new_channel_name);
     } else {
       console.log('Warning: on_channel_change callback has not been defined');
     }
