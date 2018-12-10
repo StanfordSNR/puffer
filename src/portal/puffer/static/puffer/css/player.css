@@ -43,7 +43,7 @@
   left: 0;
   right: 0;
   padding: 5px;
-  background-color: #FFFFFF;
+  background-color: white;
 }
 
 #mute-button {
@@ -51,7 +51,7 @@
   width: 25px;
   height: 25px;
   border: 0;
-  background-color: #FFFFFF;
+  background-color: white;
   position: absolute;
   left: 5px;
   padding: 5px;
@@ -67,7 +67,7 @@
   width: 100px;
   height: 10px;
   border-radius: 5px;
-  background: #AAAAAA;
+  background: #aaaaaa;
   outline: none;
   -webkit-transition: .2s;
   transition: opacity .2s;
@@ -93,7 +93,7 @@
   width: 25px;
   height: 25px;
   border-radius: 50%;
-  background: #000000;
+  background: black;
   cursor: pointer;
 }
 
@@ -103,7 +103,7 @@
   width: 25px;
   height: 25px;
   border: 0;
-  background-color: #FFFFFF;
+  background-color: white;
   position: absolute;
   top: 5px;
   right: 5px;
@@ -131,7 +131,7 @@
   height: 50px;
   margin: -25px 0px 0px -25px;
   border: 5px solid #f3f3f3;
-  border-top: 5px solid #555;
+  border-top: 5px solid #555555;
   border-radius: 50%;
   animation: spin 1s linear infinite;
 }
@@ -143,18 +143,14 @@
   animation-play-state:paused;
 }
 
-.list-group p {
-  color: #212529;
-}
-
 .list-group button:not([disabled]).list-group-item {
-  color: #212529;
+  color: #0c5460;
   cursor: pointer;
 }
 
 .list-group-item.active {
   background-color: #d1ecf1;
-  border-color: #d1ecf1;
+  border-color: #bee5eb;
 }
 
 .list-group-item:focus {
