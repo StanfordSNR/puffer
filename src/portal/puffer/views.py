@@ -36,7 +36,7 @@ def error_reporting(request):
         influx = settings.INFLUXDB
         # ignore reported error if no InfluxDB has been set up
         if influx is None:
-            return HttpResponse(status=204)
+            return HttpResponse(status=204)  # No Content
 
         ts = datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S.%fZ')
         error_json = json.loads(request.body.decode())
@@ -54,7 +54,9 @@ def error_reporting(request):
             os.environ[influx['password']], influx['dbname'])
         client.write_points(json_body, time_precision='ms')
 
-    return HttpResponse(status=204)
+        return HttpResponse(status=204)  # No Content
+    else:
+        return HttpResponse(status=405)  # Method Not Allowed
 
 @login_required(login_url='/accounts/login/')
 def profile(request):
