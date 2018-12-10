@@ -44,9 +44,9 @@
     </a>
 
     {% if next %}
-    <form class="form-signin mx-auto" method="post" action="{% url 'login' %}?next={{next}}">
+    <form class="form-signin" method="post" action="{% url 'login' %}?next={{next}}">
     {% else %}
-    <form class="form-signin mx-auto" method="post" action="{% url 'login' %}">
+    <form class="form-signin" method="post" action="{% url 'login' %}">
     {% endif %}
       {% csrf_token %}
 
@@ -71,8 +71,8 @@
         </label>
       </div>
 
-      <div class="text-center">
-        <button type="submit" class="btn btn-primary btn-lg mt-3">Sign in</button>
+      <div class="text-center my-3">
+        <button type="submit" class="btn btn-primary btn-lg">Sign in</button>
       </div>
       <input type="hidden" name="next" value="{{ next }}">
     </form>
