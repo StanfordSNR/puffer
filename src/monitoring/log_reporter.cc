@@ -64,13 +64,23 @@ int tail_loop(const YAML::Node & config, const string & log_path)
 
           /* find new lines iteratively */
           size_t pos = 0;
+          string payload;
+
           while ((pos = buf.find("\n")) != string::npos) {
             const string & line = buf.substr(0, pos);
             vector<string> values = split(line, " ");
-            influxdb_client.post(formatter.format(values));
+
+            /* aggregate multiple points and separate by new lines */
+            if (not payload.empty()) {
+              payload += "\n";
+            }
+            payload += formatter.format(values);
 
             buf = buf.substr(pos + 1);
           }
+
+          /* post aggregated lines */
+          influxdb_client.post(payload);
         } else if (event.mask & IN_CLOSE_WRITE) {
           /* old log was closed; open and watch new log in next loop */
           log_rotated = true;
