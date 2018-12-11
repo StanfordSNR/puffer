@@ -13,6 +13,7 @@
 #include "influxdb_client.hh"
 #include "util.hh"
 #include "exception.hh"
+#include "timestamp.hh"
 
 using namespace std;
 using namespace CryptoPP;
@@ -136,7 +137,7 @@ int manage_experiment(const int expt_id)
           if (influxdb_client) {
             /* at least one media server have failed */
             influxdb_client->post("server_state state=1i "
-                                  + to_string(time(nullptr)));
+                                  + to_string(timestamp_ms()));
           }
         }
       );
@@ -158,7 +159,7 @@ int manage_experiment(const int expt_id)
               cerr << "Error in log reporter: " << log_stem << endl;
               /* at least one log reporter have failed */
               influxdb_client->post("log_reporter_state state=1i "
-                                    + to_string(time(nullptr)));
+                                    + to_string(timestamp_ms()));
             }
           );
         }
@@ -170,11 +171,11 @@ int manage_experiment(const int expt_id)
   if (influxdb_client) {
     /* indicate that media servers are running */
     influxdb_client->post("server_state state=0i "
-                          + to_string(time(nullptr)));
+                          + to_string(timestamp_ms()));
 
     /* indicate that log reporters are running */
     influxdb_client->post("log_reporter_state state=0i "
-                          + to_string(time(nullptr)));
+                          + to_string(timestamp_ms()));
   }
 
   return proc_manager.wait();

@@ -12,6 +12,7 @@
 #include "poller.hh"
 #include "inotify.hh"
 #include "filesystem.hh"
+#include "timestamp.hh"
 #include "influxdb_client.hh"
 
 using namespace std;
@@ -62,7 +63,7 @@ void report_ssim(const string & channel_name,
 
         string log_line = "ssim,channel=" + channel_name + ",format="
           + vformat + " timestamp=" + ts + "i,ssim=" + line
-          + " " + to_string(time(nullptr));
+          + " " + to_string(timestamp_ms());
         influxdb_client.post(log_line);
       }
     }
@@ -95,7 +96,7 @@ void report_video_size(const string & channel_name,
 
         string log_line = "video_size,channel=" + channel_name + ",format="
           + vformat + " timestamp=" + ts + "i,size=" + to_string(filesize)
-          + "i " + to_string(time(nullptr));
+          + "i " + to_string(timestamp_ms());
         influxdb_client.post(log_line);
       }
     }
@@ -136,7 +137,7 @@ void report_backlog(const set<string> & channel_set,
         string log_line = "backlog,channel=" + channel_name
           + " working_cnt=" + to_string(working_cnt)
           + "i,canonical_cnt=" + to_string(canonical_cnt)
-          + "i " + to_string(time(nullptr));
+          + "i " + to_string(timestamp_ms());
         influxdb_client.post(log_line);
       }
 
