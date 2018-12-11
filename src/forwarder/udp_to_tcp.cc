@@ -57,6 +57,7 @@ int main(int argc, char * argv[])
   /* start forwarding */
   deque<string> buffer;
   uint64_t buffer_size = 0;
+  size_t buffer_front_idx = 0;
 
   Poller poller;
 
@@ -65,8 +66,10 @@ int main(int argc, char * argv[])
     [&udp_socket, &buffer, &buffer_size]() {
       string data = udp_socket.read();
 
-      /* assert that there isn't nothing to read */
-      assert(not udp_socket.eof());
+      if (data.empty()) {
+        cerr << "Received empty data from UDP socket" << endl;
+        return ResultType::Exit;
+      }
 
       buffer_size += data.size();
       if (buffer_size >= MAX_BUFFER_BYTES) {
@@ -82,21 +85,40 @@ int main(int argc, char * argv[])
 
   /* write datagrams to TCP client socket from the buffer */
   poller.add_action(Poller::Action(client, Direction::Out,
-    [&client, &buffer, &buffer_size]() {
-      /* assert that the callback is active only when buffer is not empty */
-      assert(not buffer.empty());
+    [&client, &buffer, &buffer_size, &buffer_front_idx]() {
+      while (not buffer.empty()) {
+        const string & data = buffer.front();
+        /* convert to string_view to avoid copy */
+        string_view data_view = data;
 
-      const string & data = buffer.front();
-      buffer_size -= data.size();
+        /* set write_all to false because socket might be unable to write all */
+        const auto view_it = client.write(
+            data_view.substr(buffer_front_idx), false);
 
-      client.write(data);
+        if (view_it != data_view.cend()) {
+          /* update buffer_size */
+          auto new_idx = view_it - data_view.cbegin();
+          buffer_size -= new_idx - buffer_front_idx;
 
-      buffer.pop_front();
+          /* save the index of the remaining string */
+          buffer_front_idx = new_idx;
+          break;
+        } else {
+          /* update buffer_size */
+          buffer_size -= data.size() - buffer_front_idx;
+
+          /* move onto the next item in the deque */
+          buffer_front_idx = 0;
+          buffer.pop_front();
+        }
+      }
 
       return ResultType::Continue;
     },
     /* interested only when buffer is not empty */
-    [&buffer]() { return not buffer.empty(); }
+    [&buffer]() {
+      return not buffer.empty();
+    }
   ));
 
   /* check if TCP client socket has closed */

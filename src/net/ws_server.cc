@@ -130,7 +130,7 @@ template<>
 void WSServer<TCPSocket>::Connection::write()
 {
   while (not send_buffer.empty()) {
-    string & buffer = send_buffer.front();
+    const string & buffer = send_buffer.front();
 
     /* need to convert to string_view iterator to avoid copy */
     string_view buffer_view = buffer;
@@ -144,8 +144,9 @@ void WSServer<TCPSocket>::Connection::write()
       send_buffer_front_idx = view_it - buffer_view.cbegin();
       break;
     } else {
-      send_buffer.pop_front();
+      /* move onto the next item in the deque */
       send_buffer_front_idx = 0;
+      send_buffer.pop_front();
     }
   }
 }
