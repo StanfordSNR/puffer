@@ -1,4 +1,5 @@
 #include <string>
+#include <deque>
 
 #include "socket.hh"
 #include "poller.hh"
@@ -19,5 +20,7 @@ private:
   TCPSocket sock_ {};
 
   std::string http_request_line_ {};
-  std::string payload_ {};
+
+  std::deque<std::string> buffer_ {};
+  size_t buffer_front_idx_ {0};
 };

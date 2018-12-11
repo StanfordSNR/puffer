@@ -31,29 +31,44 @@ InfluxDBClient::InfluxDBClient(Poller & poller,
 
   poller.add_action(Poller::Action(sock_, Direction::Out,
     [this]()->Result {
-      /* send POST request to InfluxDB */
-      HTTPRequest request;
-      request.set_first_line(http_request_line_);
-      request.add_header(HTTPHeader{"Host", influxdb_addr_.str()});
-      request.add_header(HTTPHeader{"Content-Type",
-                                    "application/x-www-form-urlencoded"});
-      request.add_header(HTTPHeader{"Content-Length",
-                                    to_string(payload_.size())});
-      request.done_with_headers();
-      request.read_in_body(payload_);
+      while (not buffer_.empty()) {
+        const string & data = buffer_.front();
+        /* convert to string_view to avoid copy */
+        string_view data_view = data;
 
-      sock_.write(request.str());
-      payload_.clear();
+        /* set write_all to false because socket might be unable to write all */
+        const auto view_it = sock_.write(
+            data_view.substr(buffer_front_idx_), false);
+
+        if (view_it != data_view.cend()) {
+          /* save the index of the remaining string */
+          buffer_front_idx_ = view_it - data_view.cbegin();
+          break;
+        } else {
+          /* move onto the next item in the deque */
+          buffer_front_idx_ = 0;
+          buffer_.pop_front();
+        }
+      }
 
       return ResultType::Continue;
     },
     [this]()->bool {
-      return not payload_.empty();
+      return not buffer_.empty();
     }
   ));
 }
 
 void InfluxDBClient::post(const string & payload)
 {
-  payload_ += payload + "\n";
+  HTTPRequest request;
+  request.set_first_line(http_request_line_);
+  request.add_header(HTTPHeader{"Host", influxdb_addr_.str()});
+  request.add_header(HTTPHeader{"Content-Type",
+                                "application/x-www-form-urlencoded"});
+  request.add_header(HTTPHeader{"Content-Length",
+                                to_string(payload.size())});
+  request.done_with_headers();
+  request.read_in_body(payload);
+  buffer_.emplace_back(request.str());
 }
