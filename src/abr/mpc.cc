@@ -71,7 +71,8 @@ void MPC::reinit()
     throw runtime_error("no ready chunk ahead");
   }
 
-  curr_buffer_ = discretize_buffer(client_.video_playback_buf());
+  curr_buffer_ = min(dis_buf_length_,
+                     discretize_buffer(client_.video_playback_buf()));
 
   /* init curr_ssims */
   if (past_chunks_.size() > 0) {
@@ -162,6 +163,7 @@ double MPC::get_qvalue(size_t i, size_t curr_buffer, size_t curr_format,
   double real_rebuffer = curr_sending_time_[i+1][next_format]
                          - real_buffer_[curr_buffer];
   size_t next_buffer = discretize_buffer(max(0.0, -real_rebuffer) + chunk_length_);
+  next_buffer = min(next_buffer, dis_buf_length_);
   return curr_ssims_[i][curr_format]
          - ssim_diff_coeff_ * fabs(curr_ssims_[i][curr_format]
                                    - curr_ssims_[i+1][next_format])
@@ -179,6 +181,5 @@ double MPC::get_value(size_t i, size_t curr_buffer, size_t curr_format)
 
 size_t MPC::discretize_buffer(double buf)
 {
-  size_t dis_buffer = (buf + unit_buf_length_ * 0.5) / unit_buf_length_;
-  return max((size_t)0, min(dis_buf_length_, dis_buffer));
+  return (buf + unit_buf_length_ * 0.5) / unit_buf_length_;
 }

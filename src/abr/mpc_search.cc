@@ -80,7 +80,7 @@ void MPCSearch::reinit()
     throw runtime_error("no ready chunk ahead");
   }
 
-  curr_buffer_ = client_.video_playback_buf();
+  curr_buffer_ = min(WebSocketClient::MAX_BUFFER_S ,client_.video_playback_buf());
   if (is_discrete_buf_) {
     curr_buffer_ = discretize_buffer(curr_buffer_);
   }
@@ -149,7 +149,8 @@ double MPCSearch::get_qvalue(size_t i, double curr_buffer, size_t curr_format,
                        size_t next_format)
 {
   double real_rebuffer = curr_sending_time_[i+1][next_format] - curr_buffer;
-  double next_buffer = max(0.0, -real_rebuffer) + chunk_length_;
+  double next_buffer = min(WebSocketClient::MAX_BUFFER_S,
+                           max(0.0, -real_rebuffer) + chunk_length_);
   if (is_discrete_buf_) {
     next_buffer = discretize_buffer(next_buffer);
   }
@@ -169,6 +170,9 @@ double MPCSearch::get_value(size_t i, double curr_buffer, size_t curr_format)
   double max_qvalue = 0;
   for (size_t next_format = 0; next_format < num_formats_; next_format++) {
     double qvalue = get_qvalue(i, curr_buffer, curr_format, next_format);
+    if (next_format == 0) {
+      max_qvalue = qvalue;
+    }
     max_qvalue = max(max_qvalue, qvalue);
   }
   return max_qvalue;
@@ -176,6 +180,6 @@ double MPCSearch::get_value(size_t i, double curr_buffer, size_t curr_format)
 
 double MPCSearch::discretize_buffer(double buf)
 {
-  size_t dis_buffer = (buf + unit_buf_length_ * 0.5) / unit_buf_length_;
-  return real_buffer_[max((size_t)0, min(dis_buf_length_, dis_buffer))];
+  size_t dis_buf = (buf + unit_buf_length_ * 0.5) / unit_buf_length_;
+  return dis_buf * unit_buf_length_;
 }
