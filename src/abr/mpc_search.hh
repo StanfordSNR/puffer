@@ -5,13 +5,6 @@
 
 #include <deque>
 
-static const size_t MAX_NUM_PAST_CHUNKS = 5;
-static const size_t MAX_LOOKAHEAD_HORIZON = 10;
-static const size_t MAX_DIS_BUF_LENGTH = 100;
-static const double REBUFFER_LENGTH_COEFF = 5;
-static const double SSIM_DIFF_COEFF = 0.3;
-static const size_t MAX_NUM_FORMATS = 20;
-
 class MPCSearch : public ABRAlgo
 {
 public:
@@ -25,6 +18,13 @@ public:
   VideoFormat select_video_format() override;
 
 private:
+  static constexpr size_t MAX_NUM_PAST_CHUNKS = 5;
+  static constexpr size_t MAX_LOOKAHEAD_HORIZON = 10;
+  static constexpr size_t MAX_DIS_BUF_LENGTH = 100;
+  static constexpr double REBUFFER_LENGTH_COEFF = 5;
+  static constexpr double SSIM_DIFF_COEFF = 0.3;
+  static constexpr size_t MAX_NUM_FORMATS = 20;
+
   /* past chunks and max number of them */
   size_t max_num_past_chunks_ {MAX_NUM_PAST_CHUNKS};
   std::deque<Chunk> past_chunks_ {};
