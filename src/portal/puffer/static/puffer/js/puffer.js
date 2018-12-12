@@ -1,7 +1,6 @@
 'use strict';
 
 const WS_OPEN = 1;
-
 const BASE_RECONNECT_BACKOFF = 250;
 const MAX_RECONNECT_BACKOFF = 10000;
 
@@ -100,6 +99,9 @@ function AVSource(ws_client, server_init) {
   var vbuf = null;
   var abuf = null;
 
+  var vbuf_couple = [];
+  var abuf_couple = [];
+
   if (window.MediaSource) {
     ms = new MediaSource();
   } else {
@@ -136,7 +138,15 @@ function AVSource(ws_client, server_init) {
     vbuf = ms.addSourceBuffer(video_codec);
     abuf = ms.addSourceBuffer(audio_codec);
 
-    vbuf.addEventListener('updateend', that.vbuf_update);
+    vbuf.addEventListener('updateend', function(e) {
+      if (vbuf_couple.length > 0) {
+        var data_to_ack = vbuf_couple.shift();
+        /* send the last ack here after buffer length is updated */
+        ws_client.send_client_ack('client-vidack', data_to_ack);
+      }
+
+      that.vbuf_update();
+    });
 
     vbuf.addEventListener('error', function(e) {
       console.log('video source buffer error:', e);
@@ -147,7 +157,15 @@ function AVSource(ws_client, server_init) {
       console.log('video source buffer abort:', e);
     });
 
-    abuf.addEventListener('updateend', that.abuf_update);
+    abuf.addEventListener('updateend', function(e) {
+      if (abuf_couple.length > 0) {
+        var data_to_ack = abuf_couple.shift();
+        /* send the last ack here after buffer length is updated */
+        ws_client.send_client_ack('client-audack', data_to_ack);
+      }
+
+      that.abuf_update();
+    });
 
     abuf.addEventListener('error', function(e) {
       console.log('audio source buffer error:', e);
@@ -208,6 +226,9 @@ function AVSource(ws_client, server_init) {
     vbuf = null;
     abuf = null;
 
+    vbuf_couple = [];
+    abuf_couple = [];
+
     pending_video_chunks = [];
     pending_audio_chunks = [];
   };
@@ -217,9 +238,6 @@ function AVSource(ws_client, server_init) {
       console.log('error: should have ignored data from incorrect channel');
       return;
     }
-
-    /* send vidack */
-    ws_client.send_client_ack('client-vidack', metadata);
 
     /* New segment or server aborted sending */
     if (curr_video_format !== metadata.format) {
@@ -246,6 +264,9 @@ function AVSource(ws_client, server_init) {
 
       /* try updating vbuf */
       that.vbuf_update();
+    } else {
+      /* send vidack immediately for fragments except for the last one */
+      ws_client.send_client_ack('client-vidack', metadata);
     }
   };
 
@@ -254,9 +275,6 @@ function AVSource(ws_client, server_init) {
       console.log('error: should have ignored data from incorrect channel');
       return;
     }
-
-    /* send audack */
-    ws_client.send_client_ack('client-audack', metadata);
 
     /* New segment or server aborted sending */
     if (curr_audio_format !== metadata.format) {
@@ -279,6 +297,9 @@ function AVSource(ws_client, server_init) {
 
       /* try updating abuf */
       that.abuf_update();
+    } else {
+      /* send audack immediately for fragments except for the last one */
+      ws_client.send_client_ack('client-audack', metadata);
     }
   };
 
@@ -353,6 +374,7 @@ function AVSource(ws_client, server_init) {
     if (vbuf && !vbuf.updating && pending_video_chunks.length > 0) {
       var next_video = pending_video_chunks.shift();
       vbuf.appendBuffer(next_video.data);
+      vbuf_couple.push(next_video.metadata);
     }
   };
 
@@ -360,6 +382,7 @@ function AVSource(ws_client, server_init) {
     if (abuf && !abuf.updating && pending_audio_chunks.length > 0) {
       var next_audio = pending_audio_chunks.shift();
       abuf.appendBuffer(next_audio.data);
+      abuf_couple.push(next_audio.metadata);
     }
   };
 }
