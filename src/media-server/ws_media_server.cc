@@ -120,20 +120,15 @@ unsigned int serve_video_to_client(WebSocketServer & server,
   const VideoFormat & next_vformat = client.select_video_format();
   double ssim = channel->vssim(next_vts).at(next_vformat);
 
-  /* size to return: total bytes enqueued */
-  unsigned int send_size = 0;
-
   /* check if a new init segment is needed */
   optional<mmap_t> init_mmap;
   if (not client.curr_vformat() or
       next_vformat != *client.curr_vformat()) {
     init_mmap = channel->vinit(next_vformat);
-    send_size += get<1>(*init_mmap);
   }
 
   /* construct the next segment to send */
   const auto data_mmap = channel->vdata(next_vformat, next_vts);
-  send_size += get<1>(data_mmap);
   VideoSegment next_vsegment {next_vformat, data_mmap, init_mmap};
 
   /* divide the next segment into WebSocket frames and send */
@@ -160,7 +155,18 @@ unsigned int serve_video_to_client(WebSocketServer & server,
   cerr << client.signature() << ": channel " << channel->name()
        << ", video " << next_vts << " " << next_vformat << " " << ssim << endl;
 
-  return send_size;
+  if (enable_logging) {
+    string log_line = to_string(timestamp_ms()) + " " + channel->name() + " "
+      + expt_id + " " + group_id + " " + client.username() + " "
+      + to_string(client.init_id()) + " send " + next_vformat.to_string() + " "
+      + double_to_string(ssim, 3) + " "
+      + to_string(next_vsegment.length()) + " "
+      + double_to_string(client.video_playback_buf(), 3) + " "
+      + double_to_string(client.cum_rebuffer(), 3);
+    append_to_log("client_video", log_line);
+  }
+
+  return next_vsegment.length();
 }
 
 /* return total bytes to be sent */
@@ -173,20 +179,15 @@ unsigned int serve_audio_to_client(WebSocketServer & server,
   /* select an audio format using ABR algorithm */
   const AudioFormat & next_aformat = client.select_audio_format();
 
-  /* size to return: total bytes enqueued */
-  unsigned int send_size = 0;
-
   /* check if a new init segment is needed */
   optional<mmap_t> init_mmap;
   if (not client.curr_aformat() or
       next_aformat != *client.curr_aformat()) {
     init_mmap = channel->ainit(next_aformat);
-    send_size += get<1>(*init_mmap);
   }
 
   /* construct the next segment to send */
   const auto data_mmap = channel->adata(next_aformat, next_ats);
-  send_size += get<1>(data_mmap);
   AudioSegment next_asegment {next_aformat, data_mmap, init_mmap};
 
   /* divide the next segment into WebSocket frames and send */
@@ -211,7 +212,7 @@ unsigned int serve_audio_to_client(WebSocketServer & server,
   cerr << client.signature() << ": channel " << channel->name()
        << ", audio " << next_ats << " " << next_aformat << endl;
 
-  return send_size;
+  return next_asegment.length();
 }
 
 void send_server_init(WebSocketServer & server, WebSocketClient & client,
@@ -571,8 +572,11 @@ void handle_client_video_ack(WebSocketClient & client,
   if (enable_logging) {
     string log_line = to_string(timestamp_ms()) + " " + msg.channel + " "
       + expt_id + " " + group_id + " " + client.username() + " "
-      + to_string(msg.init_id) + " " + msg.format + " "
-      + double_to_string(msg.ssim, 3);
+      + to_string(msg.init_id) + " ack " + msg.format + " "
+      + double_to_string(msg.ssim, 3) + " "
+      + to_string(msg.total_byte_length) + " "
+      + double_to_string(msg.video_buffer, 3) + " "
+      + double_to_string(msg.cum_rebuffer, 3);
     append_to_log("client_video", log_line);
   }
 }
