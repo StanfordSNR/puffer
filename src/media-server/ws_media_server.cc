@@ -255,13 +255,17 @@ void serve_client(WebSocketServer & server, WebSocketClient & client)
 {
   const auto channel = client.channel();
 
-  /* channel may become not ready */
-  if (not channel or not channel->ready_to_serve()) {
+  /* unlikely: client has not initialized channel correctly */
+  if (not channel or not client.video_in_flight()
+      or not client.audio_in_flight()) {
     return;
   }
 
-  /* client has not initialized channel correctly */
-  if (not client.video_in_flight() or not client.audio_in_flight()) {
+  /* notify the client that the requested channel is not available */
+  if (not channel->ready_to_serve()) {
+    send_server_error(server, client, ServerErrorMsg::Type::Unavailable);
+    cerr << client.signature() << ": requested channel "
+         << channel->name() << " is not available" << endl;
     return;
   }
 
@@ -318,26 +322,6 @@ void log_active_streams(const uint64_t this_minute)
       + expt_id + " " + group_id + " " +  server_id + " " + to_string(count);
     append_to_log("active_streams", log_line);
   }
-}
-
-void start_fast_timer(Timerfd & fast_timer, WebSocketServer & server)
-{
-  server.poller().add_action(Poller::Action(fast_timer, Direction::In,
-    [&fast_timer, &server]()->Result {
-      /* must read the timerfd, and check if timer has fired */
-      if (fast_timer.expirations() == 0) {
-        return ResultType::Continue;
-      }
-
-      /* iterate over all connections */
-      for (auto & client_pair : clients) {
-        WebSocketClient & client = client_pair.second;
-        serve_client(server, client);
-      }
-
-      return ResultType::Continue;
-    }
-  ));
 }
 
 void start_slow_timer(Timerfd & slow_timer, WebSocketServer & server)
@@ -442,22 +426,22 @@ void handle_client_init(WebSocketServer & server, WebSocketClient & client,
   /* always set client's init_id when a client-init is received */
   client.set_init_id(msg.init_id);
 
-  /* ignore invalid channel request */
+  /* invalid channel request */
   auto it = channels.find(msg.channel);
   if (it == channels.end()) {
     send_server_error(server, client, ServerErrorMsg::Type::Unavailable);
     cerr << client.signature() << ": requested channel "
-         << msg.channel << " not found" << endl;
+         << msg.channel << " is not found" << endl;
     return;
   }
 
-  const auto & channel = it->second;
+  const auto channel = it->second;
 
   /* reply that the channel is not ready */
   if (not channel->ready_to_serve()) {
     send_server_error(server, client, ServerErrorMsg::Type::Unavailable);
-    cerr << client.signature() << ": requested channel " << channel->name()
-         << " is not ready" << endl;
+    cerr << client.signature() << ": requested channel "
+         << msg.channel << " is not ready" << endl;
     return;
   }
 
@@ -742,14 +726,6 @@ int run_websocket_server(pqxx::nontransaction & db_work)
             return;
           }
 
-          const auto channel = client.channel();
-          if (not channel or not channel->ready_to_serve()) {
-            /* notify the client that the requested channel is not available */
-            send_server_error(server, client,
-                              ServerErrorMsg::Type::Unavailable);
-            return;
-          }
-
           switch (msg_parser.msg_type()) {
           case ClientMsgParser::Type::Info:
             handle_client_info(client, msg_parser.parse_client_info());
@@ -764,6 +740,9 @@ int run_websocket_server(pqxx::nontransaction & db_work)
             throw runtime_error("invalid client message");
           }
         }
+
+        /* try serving media to this client */
+        serve_client(server, client);
       } catch (const exception & e) {
         cerr << client_signature(connection_id)
              << ": warning in message callback: " << e.what() << endl;
@@ -805,15 +784,10 @@ int run_websocket_server(pqxx::nontransaction & db_work)
     }
   );
 
-  /* start a fast timer to serve media to clients */
-  Timerfd fast_timer;
-  start_fast_timer(fast_timer, server);
-
-  /* start a slow timer to perform some other tasks */
+  /* start a slow timer to perform some tasks */
   Timerfd slow_timer;
   start_slow_timer(slow_timer, server);
 
-  fast_timer.start(50, 50);      /* fast timer fires every 50 ms */
   slow_timer.start(1000, 1000);  /* slow timer fires every second */
 
   return server.loop();
