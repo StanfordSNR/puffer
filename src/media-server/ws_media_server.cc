@@ -156,9 +156,9 @@ unsigned int serve_video_to_client(WebSocketServer & server,
        << ", video " << next_vts << " " << next_vformat << " " << ssim << endl;
 
   if (enable_logging) {
-    string log_line = to_string(timestamp_ms()) + " " + channel->name() + " "
-      + expt_id + " " + group_id + " " + client.username() + " "
-      + to_string(client.init_id()) + " send " + next_vformat.to_string() + " "
+    string log_line = to_string(timestamp_ms()) + " " + channel->name()
+      + " send " + expt_id + " " + group_id + " " + client.username() + " "
+      + to_string(client.init_id()) + " " + next_vformat.to_string() + " "
       + double_to_string(ssim, 3) + " "
       + to_string(next_vsegment.length()) + " "
       + double_to_string(client.video_playback_buf(), 3) + " "
@@ -447,9 +447,9 @@ void handle_client_init(WebSocketServer & server, WebSocketClient & client,
 
   /* record client-init */
   if (enable_logging) {
-    string log_line = to_string(timestamp_ms()) + " " + msg.channel + " "
+    string log_line = to_string(timestamp_ms()) + " " + msg.channel + " init "
       + expt_id + " " + group_id + " " + client.username() + " "
-      + to_string(msg.init_id) + " init 0 0" /* event buffer cum_rebuf */;
+      + to_string(msg.init_id) + " 0 0" /* buffer cum_rebuf */;
     append_to_log("client_buffer", log_line);
   }
 
@@ -500,8 +500,8 @@ void handle_client_info(WebSocketClient & client, const ClientInfoMsg & msg)
 
     /* record client-info */
     string log_line = to_string(timestamp_ms()) + " " + channel_name + " "
-      + expt_id + " " + group_id + " " + client.username() + " "
-      + to_string(msg.init_id) + " " + msg.event_str + " "
+      + msg.event_str + " " + expt_id + " " + group_id + " "
+      + client.username() + " " + to_string(msg.init_id) + " "
       + double_to_string(msg.video_buffer, 3) + " "
       + double_to_string(msg.cum_rebuffer, 3);
     append_to_log("client_buffer", log_line);
@@ -554,9 +554,9 @@ void handle_client_video_ack(WebSocketClient & client,
 
   /* record client's received video */
   if (enable_logging) {
-    string log_line = to_string(timestamp_ms()) + " " + msg.channel + " "
+    string log_line = to_string(timestamp_ms()) + " " + msg.channel + " ack "
       + expt_id + " " + group_id + " " + client.username() + " "
-      + to_string(msg.init_id) + " ack " + msg.format + " "
+      + to_string(msg.init_id) + " " + msg.format + " "
       + double_to_string(msg.ssim, 3) + " "
       + to_string(msg.total_byte_length) + " "
       + double_to_string(msg.video_buffer, 3) + " "
