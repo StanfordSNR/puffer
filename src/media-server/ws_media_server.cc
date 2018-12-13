@@ -109,29 +109,31 @@ void append_to_log(const string & log_stem, const string & log_line)
   }
 }
 
-void serve_video_to_client(WebSocketServer & server, WebSocketClient & client)
+/* return total bytes to be sent */
+unsigned int serve_video_to_client(WebSocketServer & server,
+                                   WebSocketClient & client)
 {
-  if (not client.next_vts()) { return; }
-  uint64_t next_vts = *client.next_vts();
-
   const auto channel = client.channel();
-  if (not channel->vready_to_serve(next_vts)) {
-    return;
-  }
+  uint64_t next_vts = client.next_vts().value();
 
   /* select a video format using ABR algorithm */
   const VideoFormat & next_vformat = client.select_video_format();
   double ssim = channel->vssim(next_vts).at(next_vformat);
+
+  /* size to return: total bytes enqueued */
+  unsigned int send_size = 0;
 
   /* check if a new init segment is needed */
   optional<mmap_t> init_mmap;
   if (not client.curr_vformat() or
       next_vformat != *client.curr_vformat()) {
     init_mmap = channel->vinit(next_vformat);
+    send_size += get<1>(*init_mmap);
   }
 
   /* construct the next segment to send */
   const auto data_mmap = channel->vdata(next_vformat, next_vts);
+  send_size += get<1>(data_mmap);
   VideoSegment next_vsegment {next_vformat, data_mmap, init_mmap};
 
   /* divide the next segment into WebSocket frames and send */
@@ -157,39 +159,34 @@ void serve_video_to_client(WebSocketServer & server, WebSocketClient & client)
 
   cerr << client.signature() << ": channel " << channel->name()
        << ", video " << next_vts << " " << next_vformat << " " << ssim << endl;
+
+  return send_size;
 }
 
-void serve_audio_to_client(WebSocketServer & server, WebSocketClient & client)
+/* return total bytes to be sent */
+unsigned int serve_audio_to_client(WebSocketServer & server,
+                                   WebSocketClient & client)
 {
-  if (not client.next_ats()) { return; }
-  uint64_t next_ats = *client.next_ats();
-
   const auto channel = client.channel();
-  if (not channel->aready_to_serve(next_ats)) {
-    return;
-  }
-
-  /* never send an audio chunk ahead of video */
-  if (not client.next_vts()) { return; }
-  uint64_t next_vts = *client.next_vts();
-
-  /* next_vts - channel->vduration() is the most recently sent video chunk */
-  if (next_ats + channel->vduration() > next_vts) {
-    return;
-  }
+  uint64_t next_ats = client.next_ats().value();
 
   /* select an audio format using ABR algorithm */
   const AudioFormat & next_aformat = client.select_audio_format();
+
+  /* size to return: total bytes enqueued */
+  unsigned int send_size = 0;
 
   /* check if a new init segment is needed */
   optional<mmap_t> init_mmap;
   if (not client.curr_aformat() or
       next_aformat != *client.curr_aformat()) {
     init_mmap = channel->ainit(next_aformat);
+    send_size += get<1>(*init_mmap);
   }
 
   /* construct the next segment to send */
   const auto data_mmap = channel->adata(next_aformat, next_ats);
+  send_size += get<1>(data_mmap);
   AudioSegment next_asegment {next_aformat, data_mmap, init_mmap};
 
   /* divide the next segment into WebSocket frames and send */
@@ -213,6 +210,8 @@ void serve_audio_to_client(WebSocketServer & server, WebSocketClient & client)
 
   cerr << client.signature() << ": channel " << channel->name()
        << ", audio " << next_ats << " " << next_aformat << endl;
+
+  return send_size;
 }
 
 void send_server_init(WebSocketServer & server, WebSocketClient & client,
@@ -260,27 +259,36 @@ void serve_client(WebSocketServer & server, WebSocketClient & client)
     return;
   }
 
+  /* client has not initialized channel correctly */
+  if (not client.video_in_flight() or not client.audio_in_flight()) {
+    return;
+  }
+
+  /* it is now valid to directly use client.next_vts() and client.next_ats() */
+  uint64_t next_vts = *client.next_vts();
+  uint64_t next_ats = *client.next_ats();
+
+  /* reinit client if clean frontiers have caught up */
   if (channel->live()) {
-    /* reinit client if clean frontiers have caught up */
-    if ((channel->vclean_frontier() and client.next_vts() and
-         *client.next_vts() <= *channel->vclean_frontier()) or
-        (channel->aclean_frontier() and client.next_ats() and
-         *client.next_ats() <= *channel->aclean_frontier())) {
+    if ((channel->vclean_frontier() and
+         next_vts <= *channel->vclean_frontier()) or
+        (channel->aclean_frontier() and
+         next_ats <= *channel->aclean_frontier())) {
       send_server_error(server, client, ServerErrorMsg::Type::Reinit);
       cerr << client.signature() << ": reinitialize laggy client" << endl;
       return;
     }
   }
 
-  /* wait for VideoAck and AudioAck before sending the next chunk */
-  if (client.video_playback_buf() <= WebSocketClient::MAX_BUFFER_S and
-      client.video_in_flight() and *client.video_in_flight() == 0) {
-    serve_video_to_client(server, client);
+  if (client.audio_playback_buf() <= WebSocketClient::MAX_BUFFER_S and
+      *client.audio_in_flight() == 0 and channel->aready_to_serve(next_ats)
+      and next_ats <= next_vts) {
+    serve_audio_to_client(server, client);
   }
 
-  if (client.audio_playback_buf() <= WebSocketClient::MAX_BUFFER_S and
-      client.audio_in_flight() and *client.audio_in_flight() == 0) {
-    serve_audio_to_client(server, client);
+  if (client.video_playback_buf() <= WebSocketClient::MAX_BUFFER_S and
+      *client.video_in_flight() == 0 and channel->vready_to_serve(next_vts)) {
+    serve_video_to_client(server, client);
   }
 }
 
@@ -801,7 +809,7 @@ int run_websocket_server(pqxx::nontransaction & db_work)
   Timerfd slow_timer;
   start_slow_timer(slow_timer, server);
 
-  fast_timer.start(100, 100);    /* fast timer fires every 100 ms */
+  fast_timer.start(50, 50);      /* fast timer fires every 50 ms */
   slow_timer.start(1000, 1000);  /* slow timer fires every second */
 
   return server.loop();
