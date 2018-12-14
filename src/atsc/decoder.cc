@@ -13,6 +13,7 @@
 #include <optional>
 #include <cmath>
 
+#include <unistd.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -33,6 +34,8 @@ extern "C" {
 #include "file_descriptor.hh"
 #include "exception.hh"
 #include "filesystem.hh"
+#include "strict_conversions.hh"
+#include "socket.hh"
 
 using namespace std;
 
@@ -46,17 +49,18 @@ static const unsigned int audio_samples_per_block = 256;
 
 /* if tmp_dir is not empty, output to tmp_dir first and move output chunks
  * to video_output_dir or audio_output_dir */
-static string tmp_dir = "";
+static string tmp_dir;
 
 void print_usage( const string & program_name )
 {
   cerr <<
   "Usage: " << program_name << " video_pid audio_pid format "
   "frames_per_chunk audio_blocks_per_chunk "
-  "video_output_dir audio_output_dir [--tmp TMP]\n\n"
+  "video_output_dir audio_output_dir [--tmp TMP] [--tcp IP:PORT]\n\n"
   "format = \"1080i30\" | \"720p60\"\n"
-  "--tmp TMP: output to TMP directory first and then move output chunks "
-  "to video_output_dir or audio_output_dir"
+  "--tmp TMP : output to TMP directory first and then move output chunks "
+  "to video_output_dir or audio_output_dir\n"
+  "--tcp IP:PORT : establish a TCP connection and read input from IP:PORT"
   << endl;
 }
 
@@ -1274,13 +1278,16 @@ int main( int argc, char *argv[] )
       abort();
     }
 
+    string tcp_addr;
+
     const option cmd_line_opts[] = {
       { "tmp",    required_argument, nullptr, 't' },
+      { "tcp",    required_argument, nullptr, 'c' },
       { nullptr,  0,                 nullptr,  0  }
     };
 
     while ( true ) {
-      const int opt = getopt_long( argc, argv, "t:", cmd_line_opts, nullptr );
+      const int opt = getopt_long( argc, argv, "t:c:", cmd_line_opts, nullptr );
       if ( opt == -1 ) {
         break;
       }
@@ -1288,6 +1295,9 @@ int main( int argc, char *argv[] )
       switch ( opt ) {
       case 't':
         tmp_dir = optarg;
+        break;
+      case 'c':
+        tcp_addr = optarg;
         break;
       default:
         print_usage( argv[0] );
@@ -1309,7 +1319,20 @@ int main( int argc, char *argv[] )
     const string video_directory = argv[ optind++ ];
     const string audio_directory = argv[ optind++ ];
 
-    FileDescriptor stdin { 0 };
+    shared_ptr<FileDescriptor> input;
+    if ( tcp_addr.empty() ) {
+      /* read from stdin if a remote address is not provided */
+      input = make_shared<FileDescriptor>( STDIN_FILENO );
+    } else {
+      auto idx = tcp_addr.find( ':' );
+      string ip = tcp_addr.substr( 0, idx );
+      uint16_t port = narrow_cast<uint16_t>( stoi( tcp_addr.substr( idx + 1 ) ) );
+
+      input = make_shared<TCPSocket>();
+      auto sock = dynamic_pointer_cast<TCPSocket>( input );
+      sock->connect( { ip, port } );
+      cerr << "Connected to " << tcp_addr << endl;
+    }
 
     TSParser video_parser { video_pid, true };
     TSParser audio_parser { audio_pid, false };
@@ -1363,7 +1386,7 @@ int main( int argc, char *argv[] )
 
     while ( true ) {
       /* parse transport stream packets into video and audio PES packets */
-      const string chunk = stdin.read_exactly( ts_packet_length * packets_in_chunk );
+      const string chunk = input->read_exactly( ts_packet_length * packets_in_chunk );
       const string_view chunk_view { chunk };
 
       for ( unsigned packet_no = 0; packet_no < packets_in_chunk; packet_no++ ) {
