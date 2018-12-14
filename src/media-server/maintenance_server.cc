@@ -34,7 +34,7 @@ int main(int argc, char * argv[])
 
   const string ip = "0.0.0.0";
   const uint16_t port = config["ws_port"].as<uint16_t>();
-  WebSocketServer server {{ip, port}, "default"};
+  WebSocketServer server {{ip, port}, "cubic"};
 
   const bool portal_debug = config["portal_settings"]["debug"].as<bool>();
   #ifdef NONSECURE
