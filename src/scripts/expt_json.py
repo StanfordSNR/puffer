@@ -7,7 +7,7 @@ from os import path
 from subprocess import check_output
 
 
-def get_git_commit_hash():
+def git_commit_hash():
     curr_dir = path.dirname(path.abspath(__file__))
     return check_output(['git', 'rev-parse', 'HEAD'],
                         cwd=curr_dir).decode().strip()
@@ -15,18 +15,16 @@ def get_git_commit_hash():
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('yaml_settings')
+    parser.add_argument('yaml_string')
     args = parser.parse_args()
 
-    git_commit_hash = get_git_commit_hash()
+    parsed_yaml = yaml.safe_load(args.yaml_string)
 
     # add git commit hash to YAML
-    with open(args.yaml_settings, 'r') as fh:
-        yaml_settings = yaml.safe_load(fh)
-    yaml_settings['git_commit_hash'] = git_commit_hash
+    parsed_yaml['git_commit'] = git_commit_hash()
 
-    # convert YAML to JSON-compatible string
-    print(json.dumps(yaml_settings))
+    # convert YAML-compatible string to JSON-compatible string
+    print(json.dumps(parsed_yaml))
 
 
 if __name__ == '__main__':
