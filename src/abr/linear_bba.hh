@@ -12,7 +12,7 @@ public:
   VideoFormat select_video_format() override;
 
 private:
-  static constexpr double LOWER_RESERVOIR = 0.2;
+  static constexpr double LOWER_RESERVOIR = 0.1;
   static constexpr double UPPER_RESERVOIR = 0.9;
 
   double lower_reservoir_ {LOWER_RESERVOIR};

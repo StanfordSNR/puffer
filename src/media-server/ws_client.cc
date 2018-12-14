@@ -5,7 +5,7 @@
 
 using namespace std;
 
-static constexpr double LOWER_RESERVOIR = 0.2;
+static constexpr double LOWER_RESERVOIR = 0.1;
 static constexpr double UPPER_RESERVOIR = 0.9;
 
 WebSocketClient::WebSocketClient(const uint64_t connection_id,

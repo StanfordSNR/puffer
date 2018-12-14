@@ -50,7 +50,6 @@ static bool enable_logging = false;
 static fs::path log_dir;  /* base directory for logging */
 static string server_id;
 static string expt_id;
-static string group_id;
 static map<string, FileDescriptor> log_fds;  /* map log name to fd */
 static const unsigned int MAX_LOG_FILESIZE = 100 * 1024 * 1024;  /* 100 MB */
 static uint64_t last_minute = 0;  /* in ms; multiple of 60000 */
@@ -58,7 +57,7 @@ static uint64_t last_minute = 0;  /* in ms; multiple of 60000 */
 void print_usage(const string & program_name)
 {
   cerr <<
-  program_name << " <YAML configuration> [<server ID> <expt ID> <group ID>]"
+  program_name << " <YAML configuration> [<server ID> <expt ID>]"
   << endl;
 }
 
@@ -157,7 +156,7 @@ unsigned int serve_video_to_client(WebSocketServer & server,
 
   if (enable_logging) {
     string log_line = to_string(timestamp_ms()) + " " + channel->name()
-      + " send " + expt_id + " " + group_id + " " + client.username() + " "
+      + " send " + expt_id + " " + client.username() + " "
       + to_string(client.init_id()) + " " + next_vformat.to_string() + " "
       + double_to_string(ssim, 3) + " "
       + to_string(next_vsegment.length()) + " "
@@ -319,7 +318,7 @@ void log_active_streams(const uint64_t this_minute)
 
   for (const auto & [channel_name, count] : active_streams_count) {
     string log_line = to_string(this_minute) + " " + channel_name + " "
-      + expt_id + " " + group_id + " " +  server_id + " " + to_string(count);
+      + expt_id + " " + server_id + " " + to_string(count);
     append_to_log("active_streams", log_line);
   }
 }
@@ -448,7 +447,7 @@ void handle_client_init(WebSocketServer & server, WebSocketClient & client,
   /* record client-init */
   if (enable_logging) {
     string log_line = to_string(timestamp_ms()) + " " + msg.channel + " init "
-      + expt_id + " " + group_id + " " + client.username() + " "
+      + expt_id + " " + client.username() + " "
       + to_string(msg.init_id) + " 0 0" /* buffer cum_rebuf */;
     append_to_log("client_buffer", log_line);
   }
@@ -500,7 +499,7 @@ void handle_client_info(WebSocketClient & client, const ClientInfoMsg & msg)
 
     /* record client-info */
     string log_line = to_string(timestamp_ms()) + " " + channel_name + " "
-      + msg.event_str + " " + expt_id + " " + group_id + " "
+      + msg.event_str + " " + expt_id + " "
       + client.username() + " " + to_string(msg.init_id) + " "
       + double_to_string(msg.video_buffer, 3) + " "
       + double_to_string(msg.cum_rebuffer, 3);
@@ -509,7 +508,7 @@ void handle_client_info(WebSocketClient & client, const ClientInfoMsg & msg)
     /* record rebuffer events */
     if (msg.event == ClientInfoMsg::Event::Rebuffer) {
       string log_line = to_string(timestamp_ms()) + " " + channel_name + " "
-        + expt_id + " " + group_id + " " + server_id;
+        + expt_id + " " + server_id;
       append_to_log("rebuffer_events", log_line);
     }
   }
@@ -555,7 +554,7 @@ void handle_client_video_ack(WebSocketClient & client,
   /* record client's received video */
   if (enable_logging) {
     string log_line = to_string(timestamp_ms()) + " " + msg.channel + " ack "
-      + expt_id + " " + group_id + " " + client.username() + " "
+      + expt_id + " " + client.username() + " "
       + to_string(msg.init_id) + " " + msg.format + " "
       + double_to_string(msg.ssim, 3) + " "
       + to_string(msg.total_byte_length) + " "
@@ -631,30 +630,49 @@ void validate_id(const string & id)
   try {
     id_int = stoi(id);
   } catch (const exception &) {
-    throw runtime_error("server ID, expt ID, and group ID must be positive integers");
+    throw runtime_error("server ID and expt ID must be positive integers");
   }
 
   if (id_int <= 0) {
-    throw runtime_error("server ID, expt ID, and group ID must be positive integers");
+    throw runtime_error("server ID and expt ID must be positive integers");
   }
 }
 
 int run_websocket_server(pqxx::nontransaction & db_work)
 {
   /* default congestion control and ABR algorithm */
-  string congestion_control = "default";
+  string cc_name = "cubic";
   string abr_name = "linear_bba";
+  YAML::Node abr_config;
 
   /* read congestion control and ABR from experimental settings */
-  if (not group_id.empty()) {
-    const auto & expt_config = config["experimental_groups"][group_id];
-    congestion_control = expt_config["congestion_control"].as<string>();
-    abr_name = expt_config["abr_algorithm"].as<string>();
+  if (not server_id.empty()) {
+    int cum_servers = 0;
+    int server_id_int = stoi(server_id);
+    YAML::Node fingerprint;
+
+    for (const auto & node : config["experiments"]) {
+      cum_servers += node["num_servers"].as<unsigned int>();
+      if (server_id_int <= cum_servers) {
+        fingerprint = node["fingerprint"];
+        break;
+      }
+    }
+
+    if (server_id_int > cum_servers) {
+      throw runtime_error("Invalid server ID " + server_id);
+    }
+
+    cc_name = fingerprint["cc"].as<string>();
+    abr_name = fingerprint["abr"].as<string>();
+    if (fingerprint["abr_config"]) {
+      abr_config = fingerprint["abr_config"];
+    }
   }
 
   const string ip = "0.0.0.0";
   const uint16_t port = config["ws_port"].as<uint16_t>();
-  WebSocketServer server {{ip, port}, congestion_control};
+  WebSocketServer server {{ip, port}, cc_name};
 
   const bool portal_debug = config["portal_settings"]["debug"].as<bool>();
   /* workaround using compiler macros (CXXFLAGS='-DNONSECURE') to create a
@@ -752,7 +770,7 @@ int run_websocket_server(pqxx::nontransaction & db_work)
   );
 
   server.set_open_callback(
-    [&server, abr_name](const uint64_t connection_id)
+    [&server, &abr_name, &abr_config](const uint64_t connection_id)
     {
       try {
         cerr << connection_id << ": connection opened" << endl;
@@ -761,8 +779,7 @@ int run_websocket_server(pqxx::nontransaction & db_work)
         clients.emplace(
             piecewise_construct,
             forward_as_tuple(connection_id),
-            forward_as_tuple(connection_id, abr_name,
-                             config["abr_configs"][abr_name]));
+            forward_as_tuple(connection_id, abr_name, abr_config));
       } catch (const exception & e) {
         cerr << client_signature(connection_id)
              << ": warning in open callback: " << e.what() << endl;
@@ -799,7 +816,7 @@ int main(int argc, char * argv[])
     abort();
   }
 
-  if (argc != 2 and argc != 5) {
+  if (argc != 2 and argc != 4) {
     print_usage(argv[0]);
     return EXIT_FAILURE;
   }
@@ -809,19 +826,16 @@ int main(int argc, char * argv[])
   enable_logging = config["enable_logging"].as<bool>();
 
   if (argc == 2 and enable_logging) {
-    cerr << "Must specify server ID, expt ID, and group ID "
-         << "if enable_logging is true" << endl;
+    cerr << "Must provide server ID and expt ID if enable_logging is true" << endl;
     return EXIT_FAILURE;
   }
 
-  if (argc == 5 and enable_logging) {
+  if (argc == 4 and enable_logging) {
     log_dir = config["log_dir"].as<string>();
     server_id = argv[2];
     validate_id(server_id);
     expt_id = argv[3];
     validate_id(expt_id);
-    group_id = argv[4];
-    validate_id(group_id);
   }
 
   /* ignore SIGPIPE generated by SSL_write */
