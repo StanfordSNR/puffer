@@ -10,8 +10,9 @@ MPC::MPC(const WebSocketClient & client,
   : ABRAlgo(client, abr_name)
 {
   if (abr_config["max_lookahead_horizon"]) {
-    max_lookahead_horizon_ = min(max_lookahead_horizon_,
-                             abr_config["max_lookahead_horizon"].as<size_t>());
+    max_lookahead_horizon_ = min(
+      max_lookahead_horizon_,
+      abr_config["max_lookahead_horizon"].as<size_t>());
   }
 
   if (abr_config["dis_buf_length"]) {
@@ -59,17 +60,19 @@ void MPC::reinit()
   const auto & channel = client_.channel();
   const auto & vformats = channel->vformats();
   const unsigned int vduration = channel->vduration();
-  const uint64_t curr_ts = client_.next_vts().value() - vduration;
+  const uint64_t next_ts = client_.next_vts().value();
 
   chunk_length_ = (double) vduration / channel->timescale();
   num_formats_ = vformats.size();
-  lookahead_horizon_ = min(max_lookahead_horizon_,
-                       (channel->vready_frontier().value() - curr_ts) / vduration);
 
   /* initialization failed if there is no ready chunk ahead */
-  if (lookahead_horizon_ == 0 || num_formats_ == 0) {
+  if (channel->vready_frontier().value() < next_ts || num_formats_ == 0) {
     throw runtime_error("no ready chunk ahead");
   }
+
+  lookahead_horizon_ = min(
+    max_lookahead_horizon_,
+    (channel->vready_frontier().value() - next_ts) / vduration + 1);
 
   curr_buffer_ = min(dis_buf_length_,
                      discretize_buffer(client_.video_playback_buf()));
@@ -89,10 +92,11 @@ void MPC::reinit()
       }
 
       try {
-        curr_ssims_[i][j] = channel->vssim(vformats[j], curr_ts + vduration * i);
+        curr_ssims_[i][j] = channel->vssim(vformats[j],
+                                           next_ts + vduration * (i - 1));
       } catch (const exception & e) {
         cerr << "Error occurs when getting the ssim of "
-             << curr_ts + vduration * i << " " << vformats[j] << endl;
+             << next_ts + vduration * (i - 1) << " " << vformats[j] << endl;
         curr_ssims_[i][j] = 0;
       }
     }
@@ -119,7 +123,7 @@ void MPC::reinit()
       unit_sending_time_[i + num_past_chunks] = HIGH_SENDING_TIME;
     }
 
-    const auto & data_map = channel->vdata(curr_ts + vduration * i);
+    const auto & data_map = channel->vdata(next_ts + vduration * (i - 1));
 
     for (size_t j = 0; j < num_formats_; j++) {
       try {
@@ -127,7 +131,7 @@ void MPC::reinit()
                                    * unit_sending_time_[i + num_past_chunks];
       } catch (const exception & e) {
         cerr << "Error occurs when getting the video size of "
-             << curr_ts + vduration * i << " " << vformats[j] << endl;
+             << next_ts + vduration * (i - 1) << " " << vformats[j] << endl;
         curr_sending_time_[i][j] = HIGH_SENDING_TIME;
       }
     }
@@ -160,13 +164,13 @@ size_t MPC::update_value(size_t i, size_t curr_buffer, size_t curr_format)
 double MPC::get_qvalue(size_t i, size_t curr_buffer, size_t curr_format,
                        size_t next_format)
 {
-  double real_rebuffer = curr_sending_time_[i+1][next_format]
+  double real_rebuffer = curr_sending_time_[i + 1][next_format]
                          - real_buffer_[curr_buffer];
   size_t next_buffer = discretize_buffer(max(0.0, -real_rebuffer) + chunk_length_);
   next_buffer = min(next_buffer, dis_buf_length_);
   return curr_ssims_[i][curr_format]
          - ssim_diff_coeff_ * fabs(curr_ssims_[i][curr_format]
-                                   - curr_ssims_[i+1][next_format])
+                                   - curr_ssims_[i + 1][next_format])
          - rebuffer_length_coeff_ * max(0.0, real_rebuffer)
          + get_value(i + 1, next_buffer, next_format);
 }
