@@ -146,7 +146,7 @@ int main(int argc, char * argv[])
     int expt_id = retrieve_expt_id(json_str);
     unsigned int num_servers = expt["num_servers"].as<unsigned int>();
 
-    cout << "Running experiment " << expt_id << " on "
+    cerr << "Running experiment " << expt_id << " on "
          << num_servers << " servers" << endl;
 
     for (unsigned int i = 0; i < num_servers; i++) {

@@ -66,6 +66,10 @@ def collect_ssim(client_video_result, postgres_cursor):
     # process InfluxDB data
     x = {}
     for pt in client_video_result['client_video']:
+        # only interested in video received by clients
+        if pt['event'] != 'ack':
+            continue
+
         expt_id = pt['expt_id']
         expt_config = retrieve_expt_config(postgres_cursor, expt_id)
         # index x by (abr, cc)
