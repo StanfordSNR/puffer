@@ -12,7 +12,7 @@
 </head>
 
 <body style="background-color:#f5f5f5">
-  <div class="container text-center pt-4 pb-5">
+  <div class="container text-center py-4">
     <!-- Success or error messages -->
     {% if messages %}
     <ul class="list-unstyled">
@@ -71,11 +71,18 @@
         </label>
       </div>
 
-      <div class="text-center my-4">
+      <div class="text-center mt-4 mb-2">
         <button type="submit" class="btn btn-primary btn-lg">Sign in</button>
       </div>
       <input type="hidden" name="next" value="{{ next }}">
     </form>
+
+    <div class="row justify-content-center">
+      <div class="col-sm-5">
+        <hr>
+        <p>Don't have an account? <a href="{% url 'signup' %}">Sign up</a></p>
+      </div>
+    </div>
   </div>
 
   <script src="{% static 'puffer/dist/js/jquery-3.3.1.slim.min.js' %}"></script>

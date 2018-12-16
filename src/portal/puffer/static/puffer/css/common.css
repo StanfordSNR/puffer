@@ -34,6 +34,10 @@
 }
 
 .scroll {
-  max-height: 300px;
+  max-height: 210px;
   overflow-y: auto;
+}
+
+.form-signup .form-group {
+  margin-bottom: 0.5rem;
 }
