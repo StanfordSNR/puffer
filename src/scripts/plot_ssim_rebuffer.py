@@ -91,9 +91,20 @@ def collect_ssim(client_video_result, postgres_cursor):
     return ssim
 
 
+def try_parsing_time(timestamp):
+    time_fmts = ['%Y-%m-%dT%H:%M:%S.%fZ', '%Y-%m-%dT%H:%M:%SZ']
+
+    for fmt in time_fmts:
+        try:
+            return datetime.strptime(timestamp, fmt)
+        except ValueError:
+            pass
+
+    raise ValueError('No valid format found to parse ' + timestamp)
+
+
 def collect_rebuffer(client_buffer_result, postgres_cursor):
     # process InfluxDB data
-    time_str = "%Y-%m-%dT%H:%M:%S.%fZ"
     x = {}
     for pt in client_buffer_result['client_buffer']:
         expt_id = pt['expt_id']
@@ -113,7 +124,7 @@ def collect_rebuffer(client_buffer_result, postgres_cursor):
 
         # shorthand variable
         y = x[abr_cc][session]
-        ts = datetime.strptime(pt['time'], time_str)
+        ts = try_parsing_time(pt['time'])
         cum_rebuf = float(pt['cum_rebuf'])
 
         if y['min_time'] is None or ts < y['min_time']:
@@ -165,8 +176,8 @@ def plot_ssim_rebuffer(ssim, rebuffer, curr_ts, output, days_str):
             sys.exit('Error: {} does not exist both ssim and rebuffer'
                      .format(abr_cc_str))
 
-        x = ssim[abr_cc]
-        y = rebuffer[abr_cc]
+        x = rebuffer[abr_cc]
+        y = ssim[abr_cc]
         ax.scatter(x, y)
         ax.annotate(abr_cc_str, (x, y))
 
