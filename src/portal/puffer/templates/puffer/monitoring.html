@@ -1,0 +1,32 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <!-- Global site tag (gtag.js) - Google Analytics -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=UA-117951942-2"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'UA-117951942-2');
+  </script>
+  <link rel="stylesheet" href="{% static 'puffer/css/common.css' %}">
+  <title>Puffer</title>
+  <link rel="icon" href="{% static 'puffer/dist/images/favicon.ico' %}">
+</head>
+
+<body class="m-0">
+  <iframe class="fullscreen" src="{{ snapshot_url }}">
+    <p>
+      Your browser does not support iframe, which Puffer requires to display Grafana snapshots
+      without redirecting. Please <a href="{{ snapshot_url }}">click here</a> instead.
+    </p>
+  </iframe>
+</body>
+
+</html>

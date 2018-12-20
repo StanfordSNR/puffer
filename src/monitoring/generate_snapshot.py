@@ -61,7 +61,7 @@ def main():
         driver.find_element_by_xpath(xpath).clear()
         xpath = ("(.//*[normalize-space(text()) and normalize-space(.)"
                  "='Timeout (seconds)'])[1]/following::input[1]")
-        driver.find_element_by_xpath(xpath).send_keys("300")
+        driver.find_element_by_xpath(xpath).send_keys("60")
         # end code to set timeout
         xpath = ("(.//*[normalize-space(text()) and normalize-space(.)"
                  "='Timeout (seconds)'])[1]/following::button[1]")

@@ -127,6 +127,7 @@ def faq(request):
     return render(request, 'puffer/faq.html')
 
 
+@login_required(login_url='/accounts/login/')
 def monitoring(request):
     snapshot = GrafanaSnapshot.objects.order_by('-created_on').first()
 
@@ -138,4 +139,5 @@ def monitoring(request):
     if time_diff.total_seconds() > 3600:
         return render(request, 'puffer/404.html')
 
-    return redirect(snapshot.url)
+    context = {'snapshot_url': snapshot.url}
+    return render(request, 'puffer/monitoring.html', context)

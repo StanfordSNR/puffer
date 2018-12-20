@@ -41,3 +41,14 @@
 .form-signup .form-group {
   margin-bottom: 0.5rem;
 }
+
+.m-0 {
+  margin: 0;
+}
+
+.fullscreen {
+  display: block;
+  border: none;
+  width: 100vw;
+  height: 100vh;
+}
