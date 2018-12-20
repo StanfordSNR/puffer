@@ -4,7 +4,7 @@ import os
 import sys
 import argparse
 import yaml
-from datetime import datetime
+from datetime import datetime, timedelta
 import numpy as np
 from influxdb import InfluxDBClient
 import psycopg2
@@ -158,11 +158,15 @@ def collect_rebuffer(client_buffer_result, postgres_cursor):
     return rebuffer
 
 
-def plot_ssim_rebuffer(ssim, rebuffer, curr_ts, output, days_str):
-    curr_ts_str = curr_ts.strftime("%Y-%m-%d")
+def plot_ssim_rebuffer(ssim, rebuffer, output, days):
+    time_str = '%Y-%m-%d'
+    curr_ts = datetime.utcnow()
+    start_ts = curr_ts - timedelta(days=days)
+    curr_ts_str = curr_ts.strftime(time_str)
+    start_ts_str = start_ts.strftime(time_str)
 
-    title = ('Performance over the last {} of {} (UTC)'
-             .format(days_str, curr_ts_str))
+    title = ('Performance in [{}, {}) (UTC)'
+             .format(start_ts_str, curr_ts_str))
 
     fig, ax = plt.subplots()
     ax.set_title(title)
@@ -196,15 +200,9 @@ def main():
 
     if days < 1:
         sys.exit('-d/--days must be a positive integer')
-    if days == 1:
-        days_str = 'day'
-    else:
-        days_str = '{} days'.format(days)
 
     with open(args.yaml_settings, 'r') as fh:
         yaml_settings = yaml.safe_load(fh)
-
-    curr_ts = datetime.utcnow()
 
     # create an InfluxDB client and perform queries
     influx_client = connect_to_influxdb(yaml_settings)
@@ -224,10 +222,10 @@ def main():
     rebuffer = collect_rebuffer(client_buffer_result, postgres_cursor)
 
     if not ssim or not rebuffer:
-        sys.exit('Error: no data found in the last {}'.format(days_str))
+        sys.exit('Error: no data found in the queried range')
 
     # plot ssim vs rebuffer
-    plot_ssim_rebuffer(ssim, rebuffer, curr_ts, output, days_str)
+    plot_ssim_rebuffer(ssim, rebuffer, output, days)
 
     postgres_cursor.close()
 

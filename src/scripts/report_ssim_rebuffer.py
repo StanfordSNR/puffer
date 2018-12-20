@@ -5,7 +5,7 @@ import sys
 import requests
 import argparse
 from os import path
-from datetime import datetime
+from datetime import datetime, timedelta
 from subprocess import check_call
 
 
@@ -17,13 +17,17 @@ def main():
     curr_dir = path.dirname(path.abspath(__file__))
     plot_src = path.join(curr_dir, 'plot_ssim_rebuffer.py')
 
+    days = 1
+    time_str = '%Y-%m-%d'
     curr_ts = datetime.utcnow()
-    curr_ts_str = curr_ts.strftime("%Y-%m-%d")
-    output_fig_name = curr_ts_str + '.png'
+    start_ts = curr_ts - timedelta(days=days)
+
+    time_range = start_ts.strftime(time_str) + '_' + curr_ts.strftime(time_str)
+    output_fig_name = time_range + '.png'
     output_fig = path.join(curr_dir, output_fig_name)
 
     # run plot_ssim_rebuffer.py
-    cmd = [plot_src, args.yaml_settings, '-o', output_fig]
+    cmd = [plot_src, args.yaml_settings, '-d', str(days), '-o', output_fig]
     sys.stderr.write(' '.join(cmd) + '\n')
     check_call(cmd)
 
