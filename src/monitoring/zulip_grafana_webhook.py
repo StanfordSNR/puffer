@@ -27,7 +27,7 @@ def webhook():
     title_icon = ''
     if hook_data['state'] == 'ok':
         title_icon = ' :check_mark:'
-    if hook_data['state'] == 'alerting':
+    else:
         title_icon = ' :warning:'
 
     metrics = ''.join(['* ' + x['metric'] + ': ' + str(x['value']) + '\n'
@@ -43,7 +43,7 @@ def webhook():
     data = [
         ('type', 'stream'),
         ('to', 'puffer-alert'),
-        ('subject', 'Test'),
+        ('subject', 'Alert'),
         ('content', title + title_icon + '\n' + message + metrics + '\n' + details)
     ]
 

@@ -147,13 +147,15 @@ def collect_rebuffer(client_buffer_result, postgres_cursor):
     return rebuffer
 
 
-def plot_ssim_rebuffer(ssim, rebuffer, curr_ts, hours):
-    curr_ts_str = curr_ts.strftime("%Y-%m-%dT%H:%M")
+def plot_ssim_rebuffer(ssim, rebuffer, curr_ts, output, days_str):
+    curr_ts_str = curr_ts.strftime("%Y-%m-%d")
+
+    title = ('Performance over the last {} of {} (UTC)'
+             .format(days_str, curr_ts_str))
 
     fig, ax = plt.subplots()
-    ax.set_title('Performance in the last {}h of {} (UTC)'
-                 .format(hours, curr_ts_str))
-    ax.set_xlabel('Rebuffer rate (%)')
+    ax.set_title(title)
+    ax.set_xlabel('Time spent stalled (%)')
     ax.set_ylabel('Average SSIM (dB)')
     ax.grid()
 
@@ -168,18 +170,25 @@ def plot_ssim_rebuffer(ssim, rebuffer, curr_ts, hours):
         ax.scatter(x, y)
         ax.annotate(abr_cc_str, (x, y))
 
-    output_file = curr_ts_str + '.png'
-    fig.savefig(output_file, dpi=300, bbox_inches='tight', pad_inches=0.2)
-    sys.stderr.write('Saved plot to {}\n'.format(output_file))
+    fig.savefig(output, dpi=300, bbox_inches='tight', pad_inches=0.2)
+    sys.stderr.write('Saved plot to {}\n'.format(output))
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        'Run this script every hour to plot SSIM vs rebuffer rate')
+    parser = argparse.ArgumentParser()
     parser.add_argument('yaml_settings')
-    parser.add_argument('--hours', type=int, default=1)
+    parser.add_argument('-o', '--output', required=True)
+    parser.add_argument('-d', '--days', type=int, default=1)
     args = parser.parse_args()
-    hours = args.hours
+    output = args.output
+    days = args.days
+
+    if days < 1:
+        sys.exit('-d/--days must be a positive integer')
+    if days == 1:
+        days_str = 'day'
+    else:
+        days_str = '{} days'.format(days)
 
     with open(args.yaml_settings, 'r') as fh:
         yaml_settings = yaml.safe_load(fh)
@@ -191,9 +200,9 @@ def main():
 
     # query client_video and client_buffer
     client_video_result = influx_client.query(
-        'SELECT * FROM client_video WHERE time >= now() - {}h'.format(hours))
+        'SELECT * FROM client_video WHERE time >= now() - {}d'.format(days))
     client_buffer_result = influx_client.query(
-        'SELECT * FROM client_buffer WHERE time >= now() - {}h'.format(hours))
+        'SELECT * FROM client_buffer WHERE time >= now() - {}d'.format(days))
 
     # create a Postgres client and perform queries
     postgres_client = connect_to_postgres(yaml_settings)
@@ -204,10 +213,10 @@ def main():
     rebuffer = collect_rebuffer(client_buffer_result, postgres_cursor)
 
     if not ssim or not rebuffer:
-        sys.exit('Error: no data found in the last {} hours'.format(hours))
+        sys.exit('Error: no data found in the last {}'.format(days_str))
 
     # plot ssim vs rebuffer
-    plot_ssim_rebuffer(ssim, rebuffer, curr_ts, hours)
+    plot_ssim_rebuffer(ssim, rebuffer, curr_ts, output, days_str)
 
     postgres_cursor.close()
 
