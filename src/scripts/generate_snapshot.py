@@ -8,6 +8,7 @@ Django can access it and redirect users to the URL of the most recent snap
 '''
 
 import os
+import sys
 import argparse
 import yaml
 from datetime import datetime
@@ -52,13 +53,14 @@ def main():
     parser.add_argument('yaml_settings')
     args = parser.parse_args()
 
+    time = datetime.utcnow()
     with open(args.yaml_settings, 'r') as fh:
         yaml_settings = yaml.safe_load(fh)
 
     options = Options()
     options.set_headless(headless=True)
     driver = webdriver.Firefox(firefox_options=options)
-    driver.implicitly_wait(10)
+    driver.implicitly_wait(150)
     try:
         driver.get("https://puffer.stanford.edu/grafana/login/")
         driver.find_element_by_name("username").click()
@@ -99,26 +101,31 @@ def main():
         driver.find_element_by_xpath(xpath).click()
         prefix = "https://puffer.stanford.edu/grafana/dashboard/snapshot/"
         snapshot_url = driver.find_element_by_partial_link_text(prefix).text
-        print("Generated snapshot: ", snapshot_url)
+        sys.stderr.write("Generated snapshot: {}\n".format(snapshot_url))
         driver.quit()
     except NoSuchElementException:
         driver.quit()
-        print("Error generating snapshot.")
-        return
+        sys.exit("Error generating snapshot")
 
     # Now, add this link to postgres, and delete old links from the table
-    postgres_client = connect_to_postgres(yaml_settings)
-    cur = postgres_client.cursor()
+    conn = None
+    try:
+        conn = connect_to_postgres(yaml_settings)
+        cur = conn.cursor()
 
-    time = datetime.utcnow()
-    add_snap_cmd = ("INSERT INTO puffer_grafanasnapshot "
-                    "(url, created_on) VALUES (%s, %s)")
-    cur.execute(add_snap_cmd, (snapshot_url, time))
-    del_old_snap_cmd = "DELETE FROM puffer_grafanasnapshot WHERE (url) != (%s)"
-    cur.execute(del_old_snap_cmd, (snapshot_url,))
+        add_snap_cmd = ("INSERT INTO puffer_grafanasnapshot "
+                        "(url, created_on) VALUES (%s, %s)")
+        cur.execute(add_snap_cmd, (snapshot_url, time))
+        del_old_snap_cmd = "DELETE FROM puffer_grafanasnapshot WHERE (url) != (%s)"
+        cur.execute(del_old_snap_cmd, (snapshot_url,))
 
-    conn.commit()
-    cur.close()
+        conn.commit()
+        cur.close()
+    except:
+        sys.stderr.write("Failed to post data to PostgreSQL\n")
+    finally:
+        if conn is not None:
+            conn.close()
 
 
 if __name__ == '__main__':
