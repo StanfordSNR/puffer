@@ -8,6 +8,8 @@ Django can access it and redirect users to the URL of the most recent snap
 '''
 
 import os
+import argparse
+import yaml
 from datetime import datetime
 
 import psycopg2
@@ -19,15 +21,44 @@ from selenium.webdriver.firefox.options import Options
 from selenium.common.exceptions import NoSuchElementException
 
 
-PUFFER_PORTAL_DB_KEY = os.environ["PUFFER_PORTAL_DB_KEY"]
 GRAFANA_PWD = os.environ["GRAFANA_PASSWORD"]
 
 
+def connect_to_postgres(yaml_settings):
+    postgres = yaml_settings['postgres_connection']
+
+    kwargs = {
+        'host': postgres['host'],
+        'port': postgres['port'],
+        'database': postgres['dbname'],
+        'user': postgres['user'],
+        'password': os.environ[postgres['password']]
+    }
+
+    if 'sslmode' in postgres:
+        kwargs['sslmode'] = postgres['sslmode']
+        kwargs['sslrootcert'] = postgres['sslrootcert']
+        kwargs['sslcert'] = postgres['sslcert']
+        kwargs['sslkey'] = postgres['sslkey']
+
+    postgres_client = psycopg2.connect(**kwargs)
+    sys.stderr.write('Connected to the PostgreSQL at {}:{}\n'
+                     .format(postgres['host'], postgres['port']))
+    return postgres_client
+
+
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('yaml_settings')
+    args = parser.parse_args()
+
+    with open(args.yaml_settings, 'r') as fh:
+        yaml_settings = yaml.safe_load(fh)
+
     options = Options()
     options.set_headless(headless=True)
     driver = webdriver.Firefox(firefox_options=options)
-    driver.implicitly_wait(150)
+    driver.implicitly_wait(10)
     try:
         driver.get("https://puffer.stanford.edu/grafana/login/")
         driver.find_element_by_name("username").click()
@@ -61,14 +92,14 @@ def main():
         driver.find_element_by_xpath(xpath).clear()
         xpath = ("(.//*[normalize-space(text()) and normalize-space(.)"
                  "='Timeout (seconds)'])[1]/following::input[1]")
-        driver.find_element_by_xpath(xpath).send_keys("60")
+        driver.find_element_by_xpath(xpath).send_keys("300")
         # end code to set timeout
         xpath = ("(.//*[normalize-space(text()) and normalize-space(.)"
                  "='Timeout (seconds)'])[1]/following::button[1]")
         driver.find_element_by_xpath(xpath).click()
         prefix = "https://puffer.stanford.edu/grafana/dashboard/snapshot/"
         snapshot_url = driver.find_element_by_partial_link_text(prefix).text
-        print(snapshot_url)
+        print("Generated snapshot: ", snapshot_url)
         driver.quit()
     except NoSuchElementException:
         driver.quit()
@@ -76,21 +107,16 @@ def main():
         return
 
     # Now, add this link to postgres, and delete old links from the table
+    postgres_client = connect_to_postgres(yaml_settings)
+    cur = postgres_client.cursor()
+
     time = datetime.utcnow()
-    conn = psycopg2.connect(
-        host="35.236.47.112", port="5432", database="puffer",
-        user="puffer", password=PUFFER_PORTAL_DB_KEY,
-        sslmode="verify-ca",
-        sslrootcert="/home/puffer/.ssl/puffer-postgres/server-ca.pem",
-        sslcert="/home/puffer/.ssl/puffer-postgres/client-cert.pem",
-        sslkey="/home/puffer/.ssl/puffer-postgres/client-key.pem")
-    cur = conn.cursor()
     add_snap_cmd = ("INSERT INTO puffer_grafanasnapshot "
                     "(url, created_on) VALUES (%s, %s)")
     cur.execute(add_snap_cmd, (snapshot_url, time))
-    conn.commit()
     del_old_snap_cmd = "DELETE FROM puffer_grafanasnapshot WHERE (url) != (%s)"
     cur.execute(del_old_snap_cmd, (snapshot_url,))
+
     conn.commit()
     cur.close()
 

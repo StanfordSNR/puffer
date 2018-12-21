@@ -4,6 +4,8 @@ import os
 import sys
 import time
 import math
+import yaml
+import shutil
 import argparse
 from os import path
 from datetime import datetime, timedelta
@@ -14,14 +16,12 @@ backup_hour = 11  # back up at 11 AM (UTC) every day
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        'Run this script at 11 AM (UTC) every day to back up local InfluxDB')
-    parser.add_argument('working_dir')
+    parser = argparse.ArgumentParser()
+    parser.add_argument('yaml_settings')
     args = parser.parse_args()
 
-    # change to working directory first
-    working_dir = args.working_dir
-    os.chdir(working_dir)
+    with open(args.yaml_settings, 'r') as fh:
+        yaml_settings = yaml.safe_load(fh)
 
     # the script is preferred to be run after 'backup_hour' AM (UTC)
     ts = datetime.utcnow()
@@ -46,8 +46,9 @@ def main():
     dst_dir = start_ts.strftime(short_time_str) + '_' + end_ts.strftime(short_time_str)
 
     # back up InfluxDB
-    cmd = ('influxd backup -portable -database puffer -start {} -end {} {}'
-           .format(start_ts_str, end_ts_str, dst_dir))
+    influx = yaml_settings['influxdb_connection']
+    cmd = ('influxd backup -portable -database {} -start {} -end {} {}'
+           .format(influx['dbname'], start_ts_str, end_ts_str, dst_dir))
     sys.stderr.write(cmd + '\n')
     check_call(cmd, shell=True)
 
@@ -62,7 +63,9 @@ def main():
     check_call(cmd, shell=True)
 
     # remove files
-    check_call('rm -rf {0} {0}.tar.gz'.format(dst_dir), shell=True)
+    shutil.rmtree(dst_dir)
+    os.remove('{}.tar.gz'.format(dst_dir))
+    sys.stderr.write('Deleted {0} and {0}.tar.gz\n'.format(dst_dir))
 
 
 if __name__ == '__main__':

@@ -5,6 +5,7 @@ import sys
 import argparse
 import re
 import time
+import yaml
 import subprocess
 import requests
 
@@ -14,7 +15,6 @@ from influxdb import InfluxDBClient
 
 USERNAME = os.environ['BLONDER_TONGUE_USERNAME']
 PASSWORD = os.environ['BLONDER_TONGUE_PASSWORD']
-INFLUX_PWD = os.environ['INFLUXDB_PASSWORD']
 
 SESSION_ID_REGEX = re.compile(r'<input type="hidden" name="session_id" value="(\d+)">')
 LOGGED_IN_STR = 'Welcome puffer!  Please wait while retrieving information.'
@@ -48,8 +48,18 @@ RF_CHANNEL_MAP = {
 }
 
 
+def connect_to_influxdb(yaml_settings):
+    influx = yaml_settings['influxdb_connection']
+    influx_client = InfluxDBClient(
+        influx['host'], influx['port'], influx['user'],
+        os.environ[influx['password']], influx['dbname'])
+    sys.stderr.write('Connected to the InfluxDB at {}:{}\n'
+                     .format(influx['host'], influx['port']))
+    return influx_client
+
+
 # Send SNR info and more to InfluxDB for monitoring
-def send_to_influx(status):
+def send_to_influx(status, yaml_settings):
     curr_time = datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')
 
     json_body = []
@@ -65,7 +75,7 @@ def send_to_influx(status):
         sys.stderr.write('channel {}, SNR {}, bitrate {}\n'.format(
             v['channel'], v['snr'], v['selected_rate']))
 
-    client = InfluxDBClient('localhost', 8086, 'puffer', INFLUX_PWD)
+    client = connect_to_influxdb(yaml_settings)
     client.write_points(json_body, time_precision='s', database='puffer')
 
 
@@ -139,8 +149,14 @@ def parse_output_status(html, status):
 
 def main():
     parser = argparse.ArgumentParser()
+    parser.add_argument('yaml_settings')
     parser.add_argument('host_and_port', help='HOST:PORT of server to scrape')
-    host_and_port = parser.parse_args().host_and_port
+    args = parser.parse_args()
+
+    with open(args.yaml_settings, 'r') as fh:
+        yaml_settings = yaml.safe_load(fh)
+
+    host_and_port = args.host_and_port
     login_url = 'http://{}/cgi-bin/login.cgi'.format(host_and_port)
 
     client = requests.session()
@@ -158,7 +174,7 @@ def main():
     parse_output_status(status_html, status)
 
     # send snr info to influxdb
-    send_to_influx(status)
+    send_to_influx(status, yaml_settings)
 
 
 if __name__ == '__main__':
