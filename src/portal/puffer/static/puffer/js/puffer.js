@@ -431,8 +431,9 @@ function WebSocketClient(session_key, username_in, settings_debug,
 
     init_id += 1;
 
-    screen_width = screen.width;
-    screen_height = screen.height;
+    const screen_size = get_screen_size();
+    screen_width = screen_size[0];
+    screen_height = screen_size[1];
 
     var msg = {
       initId: init_id,
@@ -481,9 +482,10 @@ function WebSocketClient(session_key, username_in, settings_debug,
     };
 
     /* include screen sizes if they have changed */
-    if (screen.width !== screen_width || screen.height !== screen_height) {
-      screen_width = screen.width;
-      screen_height = screen.height;
+    const screen_size = get_screen_size();
+    if (screen_size[0] !== screen_width || screen_size[1] !== screen_height) {
+      screen_width = screen_size[0];
+      screen_height = screen_size[1];
       msg.screenWidth = screen_width;
       msg.screenHeight = screen_height;
     }

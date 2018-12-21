@@ -380,6 +380,16 @@ function stop_spinner() {
   spinner.style.display = 'none';
 }
 
+function get_screen_size() {
+  const raw_screen_width = screen.width;
+  const raw_screen_height = screen.height;
+
+  var screen_width = Math.max(raw_screen_width, raw_screen_height);
+  var screen_height = Math.min(raw_screen_width, raw_screen_height);
+
+  return [screen_width, screen_height];
+}
+
 function init_player(params_json, csrf_token) {
   const params = JSON.parse(params_json);
 
