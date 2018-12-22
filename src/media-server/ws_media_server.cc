@@ -42,8 +42,7 @@ static map<string, shared_ptr<Channel>> channels;  /* key: channel name */
 static map<uint64_t, WebSocketClient> clients;  /* key: connection ID */
 
 static const size_t MAX_WS_FRAME_B = 100 * 1024;  /* 10 KB */
-static const unsigned int DROP_NOTIFICATION_MS = 30000;
-static const unsigned int MAX_IDLE_MS = 60000;
+static const unsigned int MAX_IDLE_MS = 60000; /* clean idle connections */
 
 /* for logging */
 static bool enable_logging = false;
@@ -377,15 +376,9 @@ void start_slow_timer(Timerfd & slow_timer, WebSocketServer & server)
         if (last_msg_recv_ts) {
           const auto elapsed = timestamp_ms() - *last_msg_recv_ts;
 
-          assert(MAX_IDLE_MS > DROP_NOTIFICATION_MS);
           if (elapsed > MAX_IDLE_MS) {
             connections_to_clean.emplace(connection_id);
             cerr << client.signature() << ": cleaned idle connection" << endl;
-            continue;
-          } else if (elapsed > DROP_NOTIFICATION_MS) {
-            /* notify that the connection is going to be dropped */
-            send_server_error(server, client, ServerErrorMsg::Type::Drop);
-            cerr << client.signature() << ": notified client to drop" << endl;
             continue;
           }
         }
@@ -448,8 +441,6 @@ bool resume_connection(WebSocketServer & server,
 void handle_client_init(WebSocketServer & server, WebSocketClient & client,
                         const ClientInitMsg & msg)
 {
-  client.set_last_msg_recv_ts(timestamp_ms());
-
   /* always set client's init_id when a client-init is received */
   client.set_init_id(msg.init_id);
 
@@ -502,11 +493,6 @@ void handle_client_info(WebSocketClient & client, const ClientInfoMsg & msg)
     return;
   }
 
-  /* server does not count client-info timer as last_msg_recv_ts */
-  if (msg.event != ClientInfoMsg::Event::Timer) {
-    client.set_last_msg_recv_ts(timestamp_ms());
-  }
-
   client.set_video_playback_buf(msg.video_buffer);
   client.set_audio_playback_buf(msg.audio_buffer);
   client.set_cum_rebuffer(msg.cum_rebuffer);
@@ -554,8 +540,6 @@ void handle_client_video_ack(WebSocketClient & client,
     return;
   }
 
-  client.set_last_msg_recv_ts(timestamp_ms());
-
   client.set_video_playback_buf(msg.video_buffer);
   client.set_audio_playback_buf(msg.audio_buffer);
   client.set_cum_rebuffer(msg.cum_rebuffer);
@@ -601,8 +585,6 @@ void handle_client_audio_ack(WebSocketClient & client,
          << "invalid init_id (but should not have received)" << endl;
     return;
   }
-
-  client.set_last_msg_recv_ts(timestamp_ms());
 
   client.set_video_playback_buf(msg.video_buffer);
   client.set_audio_playback_buf(msg.audio_buffer);
@@ -732,6 +714,7 @@ int run_websocket_server(pqxx::nontransaction & db_work)
     {
       try {
         WebSocketClient & client = clients.at(connection_id);
+        client.set_last_msg_recv_ts(timestamp_ms());
 
         ClientMsgParser msg_parser(ws_msg.payload());
         if (msg_parser.msg_type() == ClientMsgParser::Type::Init) {

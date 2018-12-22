@@ -580,8 +580,7 @@ function WebSocketClient(session_key, username_in, settings_debug,
       /* report received server-error */
       report_error(init_id, 'server-error: ' + metadata.errorType);
 
-      if (metadata.errorType === 'drop' ||
-          metadata.errorType === 'maintenance') {
+      if (metadata.errorType === 'maintenance') {
         set_fatal_error(metadata.errorMessage);
         ws.close();
         return;

@@ -66,7 +66,6 @@ class ServerErrorMsg : public ServerMsg
 {
 public:
   enum class Type {
-    Drop,        /* connection to be dropped */
     Maintenance, /* server is under maintenance */
     Reinit,      /* channel needs to be reinitialized */
     Unavailable  /* channel is not available */
