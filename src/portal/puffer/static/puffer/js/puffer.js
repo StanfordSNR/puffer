@@ -3,6 +3,7 @@
 const WS_OPEN = 1;
 const BASE_RECONNECT_BACKOFF = 250;
 const MAX_RECONNECT_BACKOFF = 10000;
+const CONN_TIMEOUT = 30000; /* close the connection after 30-second timeout */
 
 var debug = false;
 var nonsecure = false;
@@ -429,6 +430,9 @@ function WebSocketClient(session_key, username_in, settings_debug,
   var last_rebuffer_ts = null;  /* timestamp (in ms) of last rebuffer */
   var cum_rebuffer_ms = 0;
 
+  /* last timestamp when received a message from server */
+  var last_msg_recv_ts = null;
+
   var channel_error = false;
 
   this.send_client_init = function(channel) {
@@ -561,6 +565,8 @@ function WebSocketClient(session_key, username_in, settings_debug,
       return;
     }
 
+    last_msg_recv_ts = Date.now();
+
     const msg_ts = e.timeStamp;
     const server_msg = parse_server_msg(e.data);
     var metadata = server_msg.metadata;
@@ -657,6 +663,8 @@ function WebSocketClient(session_key, username_in, settings_debug,
     ws.onopen = function(e) {
       console.log('Connected to', ws_addr);
       remove_player_error('connect');
+
+      last_msg_recv_ts = Date.now();
 
       /* try to resume if possible, so shouldn't call set_channel */
       soft_set_channel(channel);
@@ -837,6 +845,20 @@ function WebSocketClient(session_key, username_in, settings_debug,
     }
   }
   setInterval(send_client_info_timer, 250);
+
+  /* check if the connection is timed out every second */
+  function check_conn_timeout() {
+    if (fatal_error || last_msg_recv_ts === null) {
+      return;
+    }
+
+    if (Date.now() - last_msg_recv_ts > CONN_TIMEOUT) {
+      set_fatal_error('Your connection has been closed after timeout. ' +
+                      'Please fresh the page.');
+      ws.close();
+    }
+  }
+  setInterval(check_conn_timeout, 1000);
 
   /* update debug info every 500 ms */
   function update_debug_info() {
