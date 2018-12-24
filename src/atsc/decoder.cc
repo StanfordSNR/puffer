@@ -41,7 +41,6 @@ using namespace std;
 
 static const size_t ts_packet_length = 188;
 static const char ts_packet_sync_byte = 0x47;
-static const size_t packets_in_chunk = 512;
 static const unsigned int atsc_audio_sample_rate = 48000;
 static const unsigned int audio_block_duration = 144000;
 /* units -v '(256 / (48 kHz)) * (27 megahertz)' -> 144000 */
@@ -1384,9 +1383,19 @@ int main( int argc, char *argv[] )
       initialized = false;
     };
 
-    while ( true ) {
+    string input_buffer;
+
+    while ( not input->eof() ) {
       /* parse transport stream packets into video and audio PES packets */
-      const string chunk = input->read_exactly( ts_packet_length * packets_in_chunk );
+      input_buffer.append( input->read() );
+
+      if ( input_buffer.size() < ts_packet_length ) {
+        continue;
+      }
+
+      const unsigned int packets_in_chunk = input_buffer.size() / ts_packet_length;
+      const string chunk = input_buffer.substr( 0, packets_in_chunk * ts_packet_length );
+      input_buffer.erase( 0, packets_in_chunk * ts_packet_length );
       const string_view chunk_view { chunk };
 
       for ( unsigned packet_no = 0; packet_no < packets_in_chunk; packet_no++ ) {
