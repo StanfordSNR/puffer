@@ -1270,6 +1270,178 @@ public:
   }
 };
 
+class AudioVideoDecoder
+{
+  TSParser video_parser;
+  TSParser audio_parser;
+  queue<TimestampedPESPacket> video_PES_packets {}; /* output of TSParser */
+  queue<TimestampedPESPacket> audio_PES_packets {}; /* output of TSParser */
+
+  VideoParameters params;
+
+  MPEG2VideoDecoder video_decoder { params };
+  queue<VideoField> decoded_fields {}; /* output of MPEG2VideoDecoder */
+  Y4M_Writer y4m_writer;
+
+  A52AudioDecoder audio_decoder {};
+  queue<AudioBlock> decoded_samples {}; /* output of A52AudioDecoder */
+  WavWriter wav_writer;
+
+  bool outputs_initialized = false;
+  optional<VideoOutput> video_output {};
+  optional<AudioOutput> audio_output {};
+
+  string input_buffer {};
+
+  void resync()
+  {
+    /* synchronize the outputs before the resync */
+
+    /* first: advance video to go just beyond audio */
+    while ( y4m_writer.outer_timestamp() < wav_writer.outer_timestamp() ) {
+      video_output->write_filler_field( y4m_writer );
+    }
+
+    /* step 1.5: make sure we end on a bottom field */
+    if ( not y4m_writer.next_field_is_top() ) {
+      video_output->write_filler_field( y4m_writer );
+    }
+
+    /* second: advance audio to go just beyond video */
+    while ( wav_writer.outer_timestamp() < y4m_writer.outer_timestamp() ) {
+      audio_output->write_silence( wav_writer );
+    }
+
+    /* because the audio blocks are shorter than video fields, this will get us the closest sync */
+
+    /* next: reset everything and let it resync on next video field */
+    video_output.reset();
+    audio_output.reset();
+    y4m_writer.reset_sync_tracking();
+    wav_writer.reset_sync_tracking();
+    outputs_initialized = false;
+  }
+
+public:
+  AudioVideoDecoder( const unsigned int video_pid,
+                     const unsigned int audio_pid,
+                     const VideoParameters & params,
+                     const unsigned int frames_per_chunk,
+                     const unsigned int audio_blocks_per_chunk,
+                     const string & video_directory,
+                     const string & audio_directory )
+    : video_parser( video_pid, true ),
+      audio_parser( audio_pid, false ),
+      params( params ),
+      y4m_writer( video_directory, frames_per_chunk, params ),
+      wav_writer( audio_directory, audio_blocks_per_chunk )
+  {}
+
+  void process_input( const string & new_chunk )
+  {
+    /* parse transport stream packets into video and audio PES packets */
+    input_buffer.append( new_chunk );
+
+    if ( input_buffer.size() < ts_packet_length ) {
+      return;
+    }
+
+    const unsigned int packets_in_chunk = input_buffer.size() / ts_packet_length;
+    const string chunk = input_buffer.substr( 0, packets_in_chunk * ts_packet_length );
+    input_buffer.erase( 0, packets_in_chunk * ts_packet_length );
+    const string_view chunk_view { chunk };
+
+    for ( unsigned packet_no = 0; packet_no < packets_in_chunk; packet_no++ ) {
+      try {
+        video_parser.parse( chunk_view.substr( packet_no * ts_packet_length,
+                                               ts_packet_length ),
+                            video_PES_packets );
+        audio_parser.parse( chunk_view.substr( packet_no * ts_packet_length,
+                                               ts_packet_length ),
+                            audio_PES_packets );
+      } catch ( const non_fatal_exception & e ) {
+        print_exception( "transport stream input", e );
+      }
+    }
+
+    /* decode video */
+    while ( not video_PES_packets.empty() ) {
+      try {
+        TimestampedPESPacket PES_packet { move( video_PES_packets.front() ) };
+        video_PES_packets.pop();
+        video_decoder.decode_frame( PES_packet, decoded_fields );
+      } catch ( const non_fatal_exception & e ) {
+        print_exception( "video decode", e );
+        video_decoder = MPEG2VideoDecoder( params );
+      }
+    }
+
+    /* decode audio */
+    while ( not audio_PES_packets.empty() ) {
+      try {
+        TimestampedPESPacket PES_packet { move( audio_PES_packets.front() ) };
+        audio_PES_packets.pop();
+        audio_decoder.decode_frames( PES_packet, decoded_samples );
+      } catch ( const non_fatal_exception & e ) {
+        print_exception( "audio decode", e );
+        audio_decoder = A52AudioDecoder();
+      }
+    }
+
+    /* output fields? */
+    while ( not decoded_fields.empty() ) {
+      /* initialize audio and video outputs with earliest video field as first timestamp */
+      if ( not outputs_initialized ) {
+        if ( decoded_fields.front().top_field != y4m_writer.next_field_is_top() ) {
+          decoded_fields.pop();
+          continue;
+        }
+        video_output.emplace( params, decoded_fields.front().presentation_time_stamp );
+        audio_output.emplace( decoded_fields.front().presentation_time_stamp );
+        decoded_samples = {}; /* don't confuse newly resynced audio output with old audio samples
+                                 (which may be old enough, relative to the new video frame, to
+                                 cause a HugeTimestampDifference exception) */
+        outputs_initialized = true;
+      }
+
+      try {
+        video_output.value().write( decoded_fields.front(), y4m_writer );
+      } catch ( const HugeTimestampDifference & e ) {
+        /* need to reinitialize inner timestamps */
+        print_exception( "video output", e );
+        resync();
+      }
+      decoded_fields.pop();
+    }
+
+    /* output audio? */
+    while ( not decoded_samples.empty() ) {
+      /* only initialize timestamps on valid video */
+      if ( not outputs_initialized ) {
+        break;
+      }
+
+      try {
+        audio_output.value().write( decoded_samples.front(), wav_writer );
+      } catch ( const HugeTimestampDifference & e ) {
+        /* need to reinitialize inner timestamps */
+        print_exception( "audio output", e );
+        resync();
+      }
+      decoded_samples.pop();
+    }
+
+    /* check a/v sync */
+    if ( y4m_writer.last_offset() and wav_writer.last_offset() ) {
+      uint64_t diff = abs( *y4m_writer.last_offset() - *wav_writer.last_offset() );
+      if ( diff > 1080000 /* 40 ms */ ) {
+        cerr << "Warning: a/v sync is off by " << (diff / 27000.0) << " ms\n";
+        throw runtime_error( "BUG: a/v sync failure" );
+      }
+    }
+  }
+};
+
 int main( int argc, char *argv[] )
 {
   try {
@@ -1333,160 +1505,15 @@ int main( int argc, char *argv[] )
       cerr << "Connected to " << tcp_addr << endl;
     }
 
-    TSParser video_parser { video_pid, true };
-    TSParser audio_parser { audio_pid, false };
-    queue<TimestampedPESPacket> video_PES_packets; /* output of TSParser */
-    queue<TimestampedPESPacket> audio_PES_packets; /* output of TSParser */
+    AudioVideoDecoder decoder { video_pid, audio_pid, params,
+                                frames_per_chunk, audio_blocks_per_chunk,
+                                video_directory, audio_directory };
 
-    MPEG2VideoDecoder video_decoder { params };
-    queue<VideoField> decoded_fields; /* output of MPEG2VideoDecoder */
-    Y4M_Writer y4m_writer { video_directory, frames_per_chunk, params };
-
-    A52AudioDecoder audio_decoder;
-    queue<AudioBlock> decoded_samples; /* output of A52AudioDecoder */
-    WavWriter wav_writer { audio_directory, audio_blocks_per_chunk };
-
-    bool outputs_initialized = false;
-    optional<VideoOutput> video_output;
-    optional<AudioOutput> audio_output;
-
-    /* helper to reset/resync outputs and writers */
-    const auto resync = [] ( optional<VideoOutput> & v,
-                             optional<AudioOutput> & a,
-                             Y4M_Writer & y,
-                             WavWriter & w,
-                             bool & initialized ) {
-      /* synchronize the outputs before the resync */
-
-      /* first: advance video to go just beyond audio */
-      while ( y.outer_timestamp() < w.outer_timestamp() ) {
-        v->write_filler_field( y );
-      }
-
-      /* step 1.5: make sure we end on a bottom field */
-      if ( not y.next_field_is_top() ) {
-        v->write_filler_field( y );
-      }
-
-      /* second: advance audio to go just beyond video */
-      while ( w.outer_timestamp() < y.outer_timestamp() ) {
-        a->write_silence( w );
-      }
-
-      /* because the audio blocks are shorter than video fields, this will get us the closest sync */
-
-      /* next: reset everything and let it resync on next video field */
-      v.reset();
-      a.reset();
-      y.reset_sync_tracking();
-      w.reset_sync_tracking();
-      initialized = false;
-    };
-
-    string input_buffer;
-
+    /* the actual main loop! */
     while ( not input->eof() ) {
-      /* parse transport stream packets into video and audio PES packets */
-      input_buffer.append( input->read() );
-
-      if ( input_buffer.size() < ts_packet_length ) {
-        continue;
-      }
-
-      const unsigned int packets_in_chunk = input_buffer.size() / ts_packet_length;
-      const string chunk = input_buffer.substr( 0, packets_in_chunk * ts_packet_length );
-      input_buffer.erase( 0, packets_in_chunk * ts_packet_length );
-      const string_view chunk_view { chunk };
-
-      for ( unsigned packet_no = 0; packet_no < packets_in_chunk; packet_no++ ) {
-        try {
-          video_parser.parse( chunk_view.substr( packet_no * ts_packet_length,
-                                                 ts_packet_length ),
-                              video_PES_packets );
-          audio_parser.parse( chunk_view.substr( packet_no * ts_packet_length,
-                                                 ts_packet_length ),
-                              audio_PES_packets );
-        } catch ( const non_fatal_exception & e ) {
-          print_exception( "transport stream input", e );
-        }
-      }
-
-      /* decode video */
-      while ( not video_PES_packets.empty() ) {
-        try {
-          TimestampedPESPacket PES_packet { move( video_PES_packets.front() ) };
-          video_PES_packets.pop();
-          video_decoder.decode_frame( PES_packet, decoded_fields );
-        } catch ( const non_fatal_exception & e ) {
-          print_exception( "video decode", e );
-          video_decoder = MPEG2VideoDecoder( params );
-        }
-      }
-
-      /* decode audio */
-      while ( not audio_PES_packets.empty() ) {
-        try {
-          TimestampedPESPacket PES_packet { move( audio_PES_packets.front() ) };
-          audio_PES_packets.pop();
-          audio_decoder.decode_frames( PES_packet, decoded_samples );
-        } catch ( const non_fatal_exception & e ) {
-          print_exception( "audio decode", e );
-          audio_decoder = A52AudioDecoder();
-        }
-      }
-
-      /* output fields? */
-      while ( not decoded_fields.empty() ) {
-        /* initialize audio and video outputs with earliest video field as first timestamp */
-        if ( not outputs_initialized ) {
-          if ( decoded_fields.front().top_field != y4m_writer.next_field_is_top() ) {
-            decoded_fields.pop();
-            continue;
-          }
-          video_output.emplace( params, decoded_fields.front().presentation_time_stamp );
-          audio_output.emplace( decoded_fields.front().presentation_time_stamp );
-          decoded_samples = {}; /* don't confuse newly resynced audio output with old audio samples
-                                   (which may be old enough, relative to the new video frame, to
-                                   cause a HugeTimestampDifference exception) */
-          outputs_initialized = true;
-        }
-
-        try {
-          video_output.value().write( decoded_fields.front(), y4m_writer );
-        } catch ( const HugeTimestampDifference & e ) {
-          /* need to reinitialize inner timestamps */
-          print_exception( "video output", e );
-          resync( video_output, audio_output, y4m_writer, wav_writer, outputs_initialized );
-        }
-        decoded_fields.pop();
-      }
-
-      /* output audio? */
-      while ( not decoded_samples.empty() ) {
-        /* only initialize timestamps on valid video */
-        if ( not outputs_initialized ) {
-          break;
-        }
-
-        try {
-          audio_output.value().write( decoded_samples.front(), wav_writer );
-        } catch ( const HugeTimestampDifference & e ) {
-          /* need to reinitialize inner timestamps */
-          print_exception( "audio output", e );
-          resync( video_output, audio_output, y4m_writer, wav_writer, outputs_initialized );
-        }
-        decoded_samples.pop();
-      }
-
-      /* check a/v sync */
-      if ( y4m_writer.last_offset() and wav_writer.last_offset() ) {
-        uint64_t diff = abs( *y4m_writer.last_offset() - *wav_writer.last_offset() );
-        if ( diff > 1080000 /* 40 ms */ ) {
-          cerr << "Warning: a/v sync is off by " << (diff / 27000.0) << " ms\n";
-          throw runtime_error( "BUG: a/v sync failure" );
-        }
-      }
+      decoder.process_input( input->read() );
     }
+
   } catch ( const exception & e ) {
     print_exception( argv[ 0 ], e );
     return EXIT_FAILURE;
