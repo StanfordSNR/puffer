@@ -1337,7 +1337,7 @@ public:
       wav_writer( audio_directory, audio_blocks_per_chunk )
   {}
 
-  void process_input( const string & new_chunk )
+  void parse_input( const string & new_chunk )
   {
     /* parse transport stream packets into video and audio PES packets */
     input_buffer.append( new_chunk );
@@ -1363,8 +1363,10 @@ public:
         print_exception( "transport stream input", e );
       }
     }
+  }
 
-    /* decode video */
+  void decode_video()
+  {
     while ( not video_PES_packets.empty() ) {
       try {
         TimestampedPESPacket PES_packet { move( video_PES_packets.front() ) };
@@ -1375,8 +1377,10 @@ public:
         video_decoder = MPEG2VideoDecoder( params );
       }
     }
+  }
 
-    /* decode audio */
+  void decode_audio()
+  {
     while ( not audio_PES_packets.empty() ) {
       try {
         TimestampedPESPacket PES_packet { move( audio_PES_packets.front() ) };
@@ -1387,8 +1391,10 @@ public:
         audio_decoder = A52AudioDecoder();
       }
     }
+  }
 
-    /* output fields? */
+  void output_video()
+  {
     while ( not decoded_fields.empty() ) {
       /* initialize audio and video outputs with earliest video field as first timestamp */
       if ( not outputs_initialized ) {
@@ -1413,8 +1419,10 @@ public:
       }
       decoded_fields.pop();
     }
+  }
 
-    /* output audio? */
+  void output_audio()
+  {
     while ( not decoded_samples.empty() ) {
       /* only initialize timestamps on valid video */
       if ( not outputs_initialized ) {
@@ -1430,7 +1438,10 @@ public:
       }
       decoded_samples.pop();
     }
+  }
 
+  void check_av_sync()
+  {
     /* check a/v sync */
     if ( y4m_writer.last_offset() and wav_writer.last_offset() ) {
       uint64_t diff = abs( *y4m_writer.last_offset() - *wav_writer.last_offset() );
@@ -1511,7 +1522,12 @@ int main( int argc, char *argv[] )
 
     /* the actual main loop! */
     while ( not input->eof() ) {
-      decoder.process_input( input->read() );
+      decoder.parse_input( input->read() );
+      decoder.decode_video();
+      decoder.decode_audio();
+      decoder.output_video();
+      decoder.output_audio();
+      decoder.check_av_sync();
     }
 
   } catch ( const exception & e ) {
