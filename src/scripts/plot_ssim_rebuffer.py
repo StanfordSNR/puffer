@@ -9,6 +9,7 @@ import numpy as np
 from influxdb import InfluxDBClient
 import psycopg2
 import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
 
@@ -184,6 +185,12 @@ def plot_ssim_rebuffer(ssim, rebuffer, output, days):
         y = ssim[abr_cc]
         ax.scatter(x, y)
         ax.annotate(abr_cc_str, (x, y))
+
+    # clamp x-axis to [0, 100]
+    xmin, xmax = ax.get_xlim()
+    xmin = max(xmin, 0)
+    xmax = min(xmax, 100)
+    ax.set_xlim(xmin, xmax)
 
     fig.savefig(output, dpi=300, bbox_inches='tight', pad_inches=0.2)
     sys.stderr.write('Saved plot to {}\n'.format(output))
