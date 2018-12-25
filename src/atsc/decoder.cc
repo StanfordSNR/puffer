@@ -36,6 +36,7 @@ extern "C" {
 #include "filesystem.hh"
 #include "strict_conversions.hh"
 #include "socket.hh"
+#include "timestamp.hh"
 
 using namespace std;
 
@@ -879,6 +880,7 @@ class Y4M_Writer
 private:
   bool next_field_is_top_ { true };
 
+  uint64_t wallclock_time_for_outer_timestamp_zero_;
   uint64_t pending_chunk_outer_timestamp_ {};
   unsigned int pending_chunk_index_ {};
   vector<Raster> pending_chunk_;
@@ -901,7 +903,8 @@ private:
   {
     if ( pending_chunk_index_ == 0 ) {
       pending_chunk_outer_timestamp_ = outer_timestamp_ / 300;
-      cerr << "Starting new video chunk with outer timestamp = " << pending_chunk_outer_timestamp_ << "\n";
+      cerr << "Starting new video chunk with outer timestamp = " << pending_chunk_outer_timestamp_ << ", with ";
+      cerr << wallclock_ms_until_next_chunk_is_due() << " ms until this chunk is due.\n";
     }
 
     if ( pending_chunk_index_ == pending_chunk_.size() - 1 ) {
@@ -911,6 +914,7 @@ private:
       string output_dir = tmp_dir.empty() ? directory_ : tmp_dir;
 
       cerr << "Writing " << output_dir + "/" + filename << " ... ";
+      cerr << "(due in " << wallclock_ms_until_next_chunk_is_due() << " ms) ";
 
       FileDescriptor directory_fd_ { CheckSystemCall( "open " + output_dir, open( output_dir.c_str(),
                                                                                   O_DIRECTORY ) ) };
@@ -942,6 +946,11 @@ private:
       }
 
       cerr << "done.\n";
+
+      /* if we wrote the chunk out early, consumers might read it and depend on this new timebase */
+      if ( wallclock_ms_until_next_chunk_is_due() > 0 ) {
+        wallclock_time_for_outer_timestamp_zero_ -= wallclock_ms_until_next_chunk_is_due();
+      }
     }
 
     /* advance virtual clock */
@@ -951,10 +960,12 @@ private:
   }
 
 public:
-  Y4M_Writer( const string directory,
+  Y4M_Writer( const uint64_t initial_wallclock_timestamp,
+              const string directory,
               const unsigned int frames_per_chunk,
               const VideoParameters & params )
-    : pending_chunk_(),
+    : wallclock_time_for_outer_timestamp_zero_( initial_wallclock_timestamp ),
+      pending_chunk_(),
       frame_interval_( params.frame_interval ),
       directory_( directory ),
       y4m_header_( "YUV4MPEG2 W" + to_string( params.width )
@@ -964,6 +975,13 @@ public:
     for ( unsigned int i = 0; i < frames_per_chunk; i++ ) {
       pending_chunk_.emplace_back( params.width, params.height );
     }
+  }
+
+  int wallclock_ms_until_next_chunk_is_due() const
+  {
+    const int next_chunk_is_due_wallclock_ms
+      = pending_chunk_outer_timestamp_ / 90 + wallclock_time_for_outer_timestamp_zero_;
+    return next_chunk_is_due_wallclock_ms - timestamp_ms();
   }
 
   bool next_field_is_top() const { return next_field_is_top_; }
@@ -1095,6 +1113,7 @@ public:
 class WavWriter
 {
 private:
+  uint64_t wallclock_time_for_outer_timestamp_zero_;
   uint64_t pending_chunk_outer_timestamp_ {};
   unsigned int pending_chunk_index_ {};
   vector<AudioBlock> pending_chunk_;
@@ -1107,9 +1126,11 @@ private:
   optional<int64_t> last_offset_ {};
 
 public:
-  WavWriter( const string directory,
+  WavWriter( const uint64_t initial_wallclock_timestamp,
+             const string directory,
              const unsigned int audio_blocks_per_chunk )
-    : pending_chunk_(),
+    : wallclock_time_for_outer_timestamp_zero_( initial_wallclock_timestamp ),
+      pending_chunk_(),
       directory_( directory ),
       wav_header_()
   {
@@ -1149,13 +1170,21 @@ public:
     wav_header_ += string( reinterpret_cast<const char *>( &SubChunk2Size ), sizeof( SubChunk2Size ) );
   }
 
+  int wallclock_ms_until_next_chunk_is_due() const
+  {
+    const int next_chunk_is_due_wallclock_ms
+      = pending_chunk_outer_timestamp_ / 90 + wallclock_time_for_outer_timestamp_zero_;
+    return next_chunk_is_due_wallclock_ms - timestamp_ms();
+  }
+
   void write_raw( const AudioBlock & audio_block )
   {
     pending_chunk_.at( pending_chunk_index_ ) = audio_block;
 
     if ( pending_chunk_index_ == 0 ) {
       pending_chunk_outer_timestamp_ = outer_timestamp_ / 300;
-      cerr << "Starting new audio chunk with outer timestamp = " << pending_chunk_outer_timestamp_ << "\n";
+      cerr << "Starting new audio chunk with outer timestamp = " << pending_chunk_outer_timestamp_ << ", with ";
+      cerr << wallclock_ms_until_next_chunk_is_due() << " ms until this chunk is due.\n";
     }
 
     if ( pending_chunk_index_ == pending_chunk_.size() - 1 ) {
@@ -1165,6 +1194,7 @@ public:
       string output_dir = tmp_dir.empty() ? directory_ : tmp_dir;
 
       cerr << "Writing " << output_dir + "/" + filename << " ... ";
+      cerr << "(due in " << wallclock_ms_until_next_chunk_is_due() << " ms) ";
 
       FileDescriptor directory_fd_ { CheckSystemCall( "open " + output_dir, open( output_dir.c_str(),
                                                                                   O_DIRECTORY ) ) };
@@ -1196,6 +1226,11 @@ public:
       }
 
       cerr << "done.\n";
+
+      /* if we wrote the chunk out early, consumers might read it and depend on this new timebase */
+      if ( wallclock_ms_until_next_chunk_is_due() > 0 ) {
+        wallclock_time_for_outer_timestamp_zero_ -= wallclock_ms_until_next_chunk_is_due();
+      }
     }
 
     /* advance virtual clock */
@@ -1334,12 +1369,13 @@ public:
                      const unsigned int frames_per_chunk,
                      const unsigned int audio_blocks_per_chunk,
                      const string & video_directory,
-                     const string & audio_directory )
+                     const string & audio_directory,
+                     const uint64_t initial_wallclock_timestamp )
     : video_parser( video_pid, true ),
       audio_parser( audio_pid, false ),
       params( params ),
-      y4m_writer( video_directory, frames_per_chunk, params ),
-      wav_writer( audio_directory, audio_blocks_per_chunk )
+      y4m_writer( initial_wallclock_timestamp, video_directory, frames_per_chunk, params ),
+      wav_writer( initial_wallclock_timestamp, audio_directory, audio_blocks_per_chunk )
   {}
 
   void parse_input( const string & new_chunk )
@@ -1523,7 +1559,8 @@ int main( int argc, char *argv[] )
 
     AudioVideoDecoder decoder { video_pid, audio_pid, params,
                                 frames_per_chunk, audio_blocks_per_chunk,
-                                video_directory, audio_directory };
+                                video_directory, audio_directory,
+                                timestamp_ms() };
 
     /* the actual main loop! */
     while ( not input->eof() ) {
