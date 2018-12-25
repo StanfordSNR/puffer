@@ -37,8 +37,10 @@ extern "C" {
 #include "strict_conversions.hh"
 #include "socket.hh"
 #include "timestamp.hh"
+#include "poller.hh"
 
 using namespace std;
+using namespace PollerShortNames;
 
 static const size_t ts_packet_length = 188;
 static const char ts_packet_sync_byte = 0x47;
@@ -1501,6 +1503,20 @@ public:
       }
     }
   }
+
+  /* don't let audio or video get more than five seconds behind wallclock time */
+  void enforce_wallclock_lag_limit()
+  {
+    if ( y4m_writer.wallclock_ms_until_next_chunk_is_due() < -5000 ) {
+      cerr << "Video lags by " << -y4m_writer.wallclock_ms_until_next_chunk_is_due() << " ms, resyncing.\n";
+      resync();
+    }
+
+    if ( wav_writer.wallclock_ms_until_next_chunk_is_due() < -5000 ) {
+      cerr << "Audio lags by " << -wav_writer.wallclock_ms_until_next_chunk_is_due() << " ms, resyncing.\n";
+      resync();
+    }
+  }
 };
 
 int main( int argc, char *argv[] )
@@ -1571,16 +1587,26 @@ int main( int argc, char *argv[] )
                                 video_directory, audio_directory,
                                 timestamp_ms() };
 
-    /* the actual main loop! */
-    while ( not input->eof() ) {
-      decoder.parse_input( input->read() );
-      decoder.decode_video();
-      decoder.decode_audio();
+    Poller poller;
+    poller.add_action( { *input, Direction::In,
+                         [&decoder, &input] {
+                           decoder.parse_input( input->read() );
+                           decoder.decode_video();
+                           decoder.decode_audio();
+                           return ResultType::Continue;
+                         } } );
+
+    while ( true ) {
+      const auto ret = poller.poll( 500 );
+      if ( ret.result == Poller::Result::Type::Exit ) {
+        return EXIT_SUCCESS;
+      }
+
       decoder.output_video();
       decoder.output_audio();
       decoder.check_av_sync();
+      decoder.enforce_wallclock_lag_limit();
     }
-
   } catch ( const exception & e ) {
     print_exception( argv[ 0 ], e );
     return EXIT_FAILURE;
