@@ -45,7 +45,7 @@ private:
 
     /* outgoing messages */
     std::deque<std::string> send_buffer {};
-    size_t send_buffer_front_idx {0};
+    size_t send_buffer_offset {0};
 
     Connection(TCPSocket && sock, SSLContext & ssl_context);
 

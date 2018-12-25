@@ -38,15 +38,15 @@ InfluxDBClient::InfluxDBClient(Poller & poller,
 
         /* set write_all to false because socket might be unable to write all */
         const auto view_it = sock_.write(
-            data_view.substr(buffer_front_idx_), false);
+            data_view.substr(buffer_offset_), false);
 
         if (view_it != data_view.cend()) {
-          /* save the index of the remaining string */
-          buffer_front_idx_ = view_it - data_view.cbegin();
+          /* save the offset of the remaining string */
+          buffer_offset_ = view_it - data_view.cbegin();
           break;
         } else {
           /* move onto the next item in the deque */
-          buffer_front_idx_ = 0;
+          buffer_offset_ = 0;
           buffer_.pop_front();
         }
       }

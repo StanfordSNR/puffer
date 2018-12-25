@@ -57,7 +57,7 @@ int main(int argc, char * argv[])
   /* start forwarding */
   deque<string> buffer;
   uint64_t buffer_size = 0;
-  size_t buffer_front_idx = 0;
+  size_t buffer_offset = 0;
 
   Poller poller;
 
@@ -85,7 +85,7 @@ int main(int argc, char * argv[])
 
   /* write datagrams to TCP client socket from the buffer */
   poller.add_action(Poller::Action(client, Direction::Out,
-    [&client, &buffer, &buffer_size, &buffer_front_idx]() {
+    [&client, &buffer, &buffer_size, &buffer_offset]() {
       while (not buffer.empty()) {
         const string & data = buffer.front();
         /* convert to string_view to avoid copy */
@@ -93,22 +93,22 @@ int main(int argc, char * argv[])
 
         /* set write_all to false because socket might be unable to write all */
         const auto view_it = client.write(
-            data_view.substr(buffer_front_idx), false);
+            data_view.substr(buffer_offset), false);
 
         if (view_it != data_view.cend()) {
           /* update buffer_size */
-          auto new_idx = view_it - data_view.cbegin();
-          buffer_size -= new_idx - buffer_front_idx;
+          auto new_offset = view_it - data_view.cbegin();
+          buffer_size -= new_offset - buffer_offset;
 
-          /* save the index of the remaining string */
-          buffer_front_idx = new_idx;
+          /* save the offset of the remaining string */
+          buffer_offset = new_offset;
           break;
         } else {
           /* update buffer_size */
-          buffer_size -= data.size() - buffer_front_idx;
+          buffer_size -= data.size() - buffer_offset;
 
           /* move onto the next item in the deque */
-          buffer_front_idx = 0;
+          buffer_offset = 0;
           buffer.pop_front();
         }
       }
