@@ -2,6 +2,7 @@
 
 #include <memory>
 #include <iostream>
+#include <vector>
 
 #include <sndfile.hh>
 #include <opus/opus.h>
@@ -9,9 +10,12 @@
 const unsigned int SAMPLE_RATE = 48000; /* Hz */
 const unsigned int NUM_CHANNELS = 2;
 const unsigned int NUM_SAMPLES_IN_OPUS_FRAME = 960;
-const unsigned int NUM_SAMPLES_IN_FILE = 230400 + NUM_SAMPLES_IN_OPUS_FRAME; /* 48kHz * 4.8s + 20ms */
+const unsigned int NUM_SAMPLES_IN_FILE = 230400; /* 48kHz * 4.8s */
 const unsigned int EXPECTED_LOOKAHEAD = 312; /* 6.5 ms * 48 kHz */
 const unsigned int MAX_COMPRESSED_FRAME_SIZE = 131072; /* bytes */
+const unsigned int SILENT_SAMPLES_TO_PREPEND = NUM_SAMPLES_IN_OPUS_FRAME - EXPECTED_LOOKAHEAD;
+
+static_assert( SILENT_SAMPLES_TO_PREPEND < NUM_SAMPLES_IN_OPUS_FRAME );
 
 /* make sure file length is integer number of Opus frames */
 static_assert( (NUM_SAMPLES_IN_FILE / NUM_SAMPLES_IN_OPUS_FRAME) * NUM_SAMPLES_IN_OPUS_FRAME
@@ -22,9 +26,9 @@ const unsigned int NUM_FRAMES_IN_FILE = NUM_SAMPLES_IN_FILE / NUM_SAMPLES_IN_OPU
 /* make sure file is long enough */
 static_assert( NUM_SAMPLES_IN_FILE > 4 * NUM_SAMPLES_IN_OPUS_FRAME );
 
-/* storage for raw input and compressed output */
-using wav_frame_t = std::array<int16_t, NUM_SAMPLES_IN_OPUS_FRAME>;
-using opus_frame_t = std::pair<size_t, std::array<uint8_t, MAX_COMPRESSED_FRAME_SIZE>>;
+/* view of raw input, and storage for compressed output */
+using wav_frame_t = std::basic_string_view<int16_t>;
+using opus_frame_t = std::pair<size_t, std::array<uint8_t, MAX_COMPRESSED_FRAME_SIZE>>; // length, buffer
 
 /*
 
@@ -127,6 +131,10 @@ public:
 
   void encode( const wav_frame_t & wav_frame, opus_frame_t & opus_frame )
   {
+    if ( wav_frame.size() != NUM_CHANNELS * NUM_SAMPLES_IN_OPUS_FRAME ) {
+      throw runtime_error( "wav_frame is not 20 ms long" );
+    }
+
     opus_frame.first = opus_check( opus_encode( encoder_.get(),
                                                 wav_frame.data(),
                                                 NUM_SAMPLES_IN_OPUS_FRAME,
@@ -139,10 +147,12 @@ public:
 class WavWrapper
 {
   SndfileHandle handle_;
+  vector<int16_t> samples_;
 
 public:
   WavWrapper( const string & filename )
-    : handle_( filename )
+    : handle_( filename ),
+      samples_( NUM_CHANNELS * ( SILENT_SAMPLES_TO_PREPEND + NUM_SAMPLES_IN_FILE ) )
   {
     if ( handle_.error() ) {
       throw runtime_error( filename + ": " + handle_.strError() );
@@ -163,22 +173,37 @@ public:
     if ( handle_.frames() != NUM_SAMPLES_IN_FILE ) {
       throw runtime_error( filename + " length is " + to_string( handle_.frames() ) + ", not " + to_string( NUM_SAMPLES_IN_FILE ) + " samples" );
     }
-  }
 
-  void read_into( wav_frame_t & frame )
-  {
-    const auto retval = handle_.read( frame.data(), NUM_CHANNELS * NUM_SAMPLES_IN_OPUS_FRAME );
-    if ( retval != NUM_CHANNELS * NUM_SAMPLES_IN_OPUS_FRAME ) {
+    /* read file into memory */
+    const auto retval = handle_.read( samples_.data() + NUM_CHANNELS * SILENT_SAMPLES_TO_PREPEND, NUM_CHANNELS * NUM_SAMPLES_IN_FILE );
+    if ( retval != NUM_CHANNELS * NUM_SAMPLES_IN_FILE ) {
       throw runtime_error( "unexpected read of " + to_string( retval ) + " samples" );
     }
-  }
 
-  void verify_eof()
-  {
-    wav_frame_t dummy;
-    if ( 0 != handle_.read( dummy.data(), NUM_CHANNELS * NUM_SAMPLES_IN_OPUS_FRAME ) ) {
+    /* verify EOF */
+    int16_t dummy;
+    if ( 0 != handle_.read( &dummy, 1 ) ) {
       throw runtime_error( "unexpected extra data in WAV file" );
     }
+  }
+
+  wav_frame_t view( const size_t offset )
+  {
+    if ( offset > samples_.size() ) {
+      throw out_of_range( "offset > samples_.size()" );
+    }
+
+    const size_t member_length = NUM_CHANNELS * NUM_SAMPLES_IN_OPUS_FRAME;
+
+    if ( offset + member_length > samples_.size() ) {
+      throw out_of_range( "offset + len > samples_.size()" );
+    }
+
+    /* second bounds check */
+    int16_t first_sample __attribute((unused)) = samples_.at( offset );
+    int16_t last_sample __attribute((unused)) = samples_.at( offset + member_length - 1 );
+
+    return { samples_.data() + offset, member_length };
   }
 };
 
@@ -200,36 +225,25 @@ void opus_encode( int argc, char *argv[] ) {
   /* create Opus encoder */
   OpusEncoderWrapper encoder;
 
-  /* allocate memory for 20 ms of WAV input */
-  wav_frame_t wav_frame;
-
   /* allocate memory for 20 ms of compressed Opus output */
   opus_frame_t opus_frame;
 
-  /* step 1: encode two frames with prediction disabled, ignoring the first */
+  /* encode the whole file, outputting every frame except the first,
+     and with prediction disabled until frame #2 */
+
   encoder.disable_prediction();
 
-  /* frame 0 (ignore) */
-  wav_file.read_into( wav_frame );
-  encoder.encode( wav_frame, opus_frame );
+  for ( unsigned int frame_no = 0; frame_no < NUM_FRAMES_IN_FILE; frame_no++ ) {
+    if ( frame_no == 2 ) {
+      encoder.enable_prediction();
+    }
 
-  /* frame 1 */
-  wav_file.read_into( wav_frame );
-  encoder.encode( wav_frame, opus_frame );
-  write( opus_frame );
+    encoder.encode( wav_file.view( frame_no * NUM_CHANNELS * NUM_SAMPLES_IN_OPUS_FRAME ), opus_frame );
 
-  /* step 2: encode rest of file with prediction enabled, except the last */
-  encoder.enable_prediction();
-
-  for ( unsigned int frame_no = 2; frame_no < NUM_FRAMES_IN_FILE - 1; frame_no++ ) {
-    wav_file.read_into( wav_frame );
-    encoder.encode( wav_frame, opus_frame );
-    write( opus_frame );
+    if ( frame_no > 0 ) {
+      write( opus_frame );
+    }
   }
-
-  /* step 3: read the final frame, then make sure we're at the end of the file */
-  wav_file.read_into( wav_frame );
-  wav_file.verify_eof();
 }
 
 int main( int argc, char *argv[] )
