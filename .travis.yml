@@ -19,6 +19,8 @@ addons:
     - opus-tools
     - libopus-dev
     - libsndfile-dev
+    - libavformat-dev
+    - libavutil-dev
 
 before_install:
   # download a static-built ffmpeg
