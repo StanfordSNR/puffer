@@ -1337,6 +1337,15 @@ class AudioVideoDecoder
   {
     /* synchronize the outputs before the resync */
 
+    /* step 0: advance video and audio to "catch up" to real wallclock time */
+    while ( y4m_writer.wallclock_ms_until_next_chunk_is_due() < 0 ) {
+      video_output->write_filler_field( y4m_writer );
+    }
+
+    while ( wav_writer.wallclock_ms_until_next_chunk_is_due() < 0 ) {
+      audio_output->write_silence( wav_writer );
+    }
+
     /* first: advance video to go just beyond audio */
     while ( y4m_writer.outer_timestamp() < wav_writer.outer_timestamp() ) {
       video_output->write_filler_field( y4m_writer );
