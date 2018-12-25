@@ -91,42 +91,16 @@ struct Raster
          or (width % 2 != 0) ) {
       throw runtime_error( "width or height is not multiple of 2" );
     }
+
+    clear();
   }
-};
 
-class non_fatal_exception : public runtime_error
-{
-public:
-  using runtime_error::runtime_error;
-};
-
-class InvalidMPEG : public non_fatal_exception
-{
-public:
-  using non_fatal_exception::non_fatal_exception;
-};
-
-class UnsupportedMPEG : public non_fatal_exception
-{
-public:
-  using non_fatal_exception::non_fatal_exception;
-};
-
-class StreamMismatch : public non_fatal_exception
-{
-public:
-  using non_fatal_exception::non_fatal_exception;
-};
-
-class HugeTimestampDifference : public non_fatal_exception
-{
-public:
-  using non_fatal_exception::non_fatal_exception;
-};
-
-struct FieldBuffer : public Raster
-{
-  using Raster::Raster;
+  void clear()
+  {
+    memset( Y.get(),  16,   height    *  width );
+    memset( Cb.get(), 128, (height/2) * (width/2) );
+    memset( Cr.get(), 128, (height/2) * (width/2) );
+  }
 
   void read_from_frame( const bool top_field,
                         const unsigned int physical_luma_width,
@@ -165,34 +139,64 @@ struct FieldBuffer : public Raster
   }
 };
 
-class FieldBufferPool;
-
-class FieldBufferDeleter
+class non_fatal_exception : public runtime_error
 {
-private:
-  FieldBufferPool * buffer_pool_ = nullptr;
-
 public:
-  void operator()( FieldBuffer * buffer ) const;
-
-  void set_buffer_pool( FieldBufferPool * pool );
+  using runtime_error::runtime_error;
 };
 
-typedef unique_ptr<FieldBuffer, FieldBufferDeleter> FieldBufferHandle;
+class InvalidMPEG : public non_fatal_exception
+{
+public:
+  using non_fatal_exception::non_fatal_exception;
+};
 
-class FieldBufferPool
+class UnsupportedMPEG : public non_fatal_exception
+{
+public:
+  using non_fatal_exception::non_fatal_exception;
+};
+
+class StreamMismatch : public non_fatal_exception
+{
+public:
+  using non_fatal_exception::non_fatal_exception;
+};
+
+class HugeTimestampDifference : public non_fatal_exception
+{
+public:
+  using non_fatal_exception::non_fatal_exception;
+};
+
+class RasterPool;
+
+class RasterDeleter
 {
 private:
-  queue<FieldBufferHandle> unused_buffers_ {};
+  RasterPool * buffer_pool_ = nullptr;
 
 public:
-  FieldBufferHandle make_buffer( const unsigned int luma_width,
-                                 const unsigned int field_luma_height )
+  void operator()( Raster * buffer ) const;
+
+  void set_buffer_pool( RasterPool * pool );
+};
+
+typedef unique_ptr<Raster, RasterDeleter> RasterHandle;
+
+class RasterPool
+{
+private:
+  queue<RasterHandle> unused_buffers_ {};
+
+public:
+  RasterHandle make_buffer( const unsigned int luma_width,
+                            const unsigned int field_luma_height )
   {
-    FieldBufferHandle ret;
+    RasterHandle ret;
 
     if ( unused_buffers_.empty() ) {
-      ret.reset( new FieldBuffer( luma_width, field_luma_height ) );
+      ret.reset( new Raster( luma_width, field_luma_height ) );
     } else {
       if ( (unused_buffers_.front()->width != luma_width)
            or (unused_buffers_.front()->height != field_luma_height) ) {
@@ -201,13 +205,14 @@ public:
 
       ret = move( unused_buffers_.front() );
       unused_buffers_.pop();
+      ret->clear();
     }
 
     ret.get_deleter().set_buffer_pool( this );
     return ret;
   }
 
-  void free_buffer( FieldBuffer * buffer )
+  void free_buffer( Raster * buffer )
   {
     if ( not buffer ) {
       throw runtime_error( "attempt to free null buffer" );
@@ -217,7 +222,7 @@ public:
   }
 };
 
-void FieldBufferDeleter::operator()( FieldBuffer * buffer ) const
+void RasterDeleter::operator()( Raster * buffer ) const
 {
   if ( buffer_pool_ ) {
     buffer_pool_->free_buffer( buffer );
@@ -226,7 +231,7 @@ void FieldBufferDeleter::operator()( FieldBuffer * buffer ) const
   }
 }
 
-void FieldBufferDeleter::set_buffer_pool( FieldBufferPool * pool )
+void RasterDeleter::set_buffer_pool( RasterPool * pool )
 {
   if ( buffer_pool_ ) {
     throw runtime_error( "buffer_pool already set" );
@@ -235,9 +240,9 @@ void FieldBufferDeleter::set_buffer_pool( FieldBufferPool * pool )
   buffer_pool_ = pool;
 }
 
-FieldBufferPool & global_buffer_pool()
+RasterPool & global_buffer_pool()
 {
-  static FieldBufferPool pool;
+  static RasterPool pool;
   return pool;
 }
 
@@ -245,7 +250,7 @@ struct VideoField
 {
   uint64_t presentation_time_stamp;
   bool top_field;
-  FieldBufferHandle contents;
+  RasterHandle contents;
 
   VideoField( const uint64_t presentation_time_stamp,
               const bool top_field,
