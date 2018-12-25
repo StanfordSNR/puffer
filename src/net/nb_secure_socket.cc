@@ -96,29 +96,44 @@ void NBSecureSocket::continue_SSL_accept()
 
 void NBSecureSocket::continue_SSL_write()
 {
-  try {
-    SecureSocket::write(write_buffer_.size() ? write_buffer_.front() : string(),
-                        state_ == State::needs_ssl_read_to_write);
-  }
-  catch (ssl_error & s) {
-    switch (s.error_code()) {
-    case SSL_ERROR_WANT_READ:
-      state_ = State::needs_ssl_read_to_write;
-      break;
+  while (not write_buffer_.empty()) {
+    const string & data = write_buffer_.front();
+    string_view data_view = data;
 
-    case SSL_ERROR_WANT_WRITE:
-      state_ = State::needs_ssl_write_to_write;
-      break;
+    unsigned int bytes_written = 0;
+    try {
+      bytes_written = SecureSocket::write(data_view.substr(buffer_offset_),
+                                          state_ == State::needs_ssl_read_to_write);
+    }
+    catch (ssl_error & s) {
+      switch (s.error_code()) {
+      case SSL_ERROR_WANT_READ:
+        state_ = State::needs_ssl_read_to_write;
+        break;
 
-    default:
-      throw;
+      case SSL_ERROR_WANT_WRITE:
+        state_ = State::needs_ssl_write_to_write;
+        break;
+
+      default:
+        throw;
+      }
+
+      return;
     }
 
-    return;
-  }
+    /* bytes_written > 0 here, so try SSL_write again in the next loop even if
+     * partial writes occurred; partial writes are always performed with the
+     * size of a message block and don't imply EAGAIN */
+    state_ = State::ready;
 
-  write_buffer_.pop_front();
-  state_ = State::ready;
+    if (buffer_offset_ + bytes_written == data_view.length()) {
+      write_buffer_.pop_front();
+      buffer_offset_ = 0;
+    } else {
+      buffer_offset_ += bytes_written;
+    }
+  }
 }
 
 void NBSecureSocket::continue_SSL_read()

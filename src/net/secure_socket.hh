@@ -4,6 +4,7 @@
 
 #pragma once
 #include <memory>
+#include <string_view>
 #include <openssl/ssl.h>
 #include <openssl/err.h>
 
@@ -46,7 +47,7 @@ public:
     void accept( const bool register_as_write = false );
 
     std::string read( const bool register_as_write = false );
-    void write( const std::string & message, const bool register_as_read = false );
+    int write( const std::string_view & message, const bool register_as_read = false );
     int get_error( const int return_value );
 };
 

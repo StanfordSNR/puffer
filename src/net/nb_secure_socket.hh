@@ -37,6 +37,7 @@ private:
   State state_ {State::not_connected};
 
   std::deque<std::string> write_buffer_ {};
+  size_t buffer_offset_ {0};
   std::string read_buffer_ {};
 
 public:

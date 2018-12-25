@@ -79,9 +79,9 @@ SecureSocket::SecureSocket( TCPSocket && sock, SSL * ssl )
         throw ssl_error( "SSL_set_fd" );
     }
 
-    /* enable read/write to return only after handshake/renegotiation and successful completion */
     SSL_set_mode( ssl_.get(), SSL_MODE_AUTO_RETRY );
     SSL_set_mode( ssl_.get(), SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER );
+    SSL_set_mode( ssl_.get(), SSL_MODE_ENABLE_PARTIAL_WRITE );
 }
 
 SecureSocket SSLContext::new_secure_socket( TCPSocket && sock )
@@ -130,7 +130,7 @@ string SecureSocket::read( const bool register_as_write )
     char buffer[ SSL_max_record_length ];
 
     ERR_clear_error();
-    ssize_t bytes_read = SSL_read( ssl_.get(), buffer, SSL_max_record_length );
+    int bytes_read = SSL_read( ssl_.get(), buffer, SSL_max_record_length );
 
     /* Make sure that we really are reading from the underlying fd */
     assert( 0 == SSL_pending( ssl_.get() ) );
@@ -159,11 +159,11 @@ string SecureSocket::read( const bool register_as_write )
     }
 }
 
-void SecureSocket::write( const string & message, const bool register_as_read )
+int SecureSocket::write( const string_view & message, const bool register_as_read )
 {
-    /* SSL_write returns with success if complete contents of message are written */
+    /* SSL_write returns with success if complete or partial contents are written */
     ERR_clear_error();
-    ssize_t bytes_written = SSL_write( ssl_.get(), message.data(), message.length() );
+    int bytes_written = SSL_write( ssl_.get(), message.data(), message.length() );
 
     if ( bytes_written <= 0 ) {
         int error_return = SSL_get_error( ssl_.get(), bytes_written );
@@ -176,6 +176,8 @@ void SecureSocket::write( const string & message, const bool register_as_read )
     }
 
     register_service( not register_as_read );
+
+    return bytes_written;
 }
 
 int SecureSocket::get_error( const int return_value )
