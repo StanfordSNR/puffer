@@ -1050,7 +1050,7 @@ public:
                                                field.presentation_time_stamp );
 
     /* gap is too big -> bomb out and force reinitialization */
-    if ( abs( diff ) > frame_interval_ * 60 * 3 ) {
+    if ( abs( diff ) > frame_interval_ * 60 * 6 ) {
       throw HugeTimestampDifference( "huge video timestamp difference, expected = " + to_string( expected_inner_timestamp_ ) + " vs. actual = " + to_string( field.presentation_time_stamp )  );
     }
 
@@ -1240,7 +1240,7 @@ public:
                                                audio_block.presentation_time_stamp );
 
     /* gap is too big -> bomb out and force reinitialization */
-    if ( abs( diff ) > audio_block_duration * 187 * 3 ) {
+    if ( abs( diff ) > audio_block_duration * 187 * 6 ) {
       throw HugeTimestampDifference( "huge audio timestamp difference, expected = " + to_string( expected_inner_timestamp_ ) + " vs. actual = " + to_string( audio_block.presentation_time_stamp )  );
     }
 
@@ -1440,7 +1440,7 @@ public:
     }
   }
 
-  void check_av_sync()
+  void check_av_sync() const
   {
     /* check a/v sync */
     if ( y4m_writer.last_offset() and wav_writer.last_offset() ) {
