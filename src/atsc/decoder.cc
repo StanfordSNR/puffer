@@ -1504,15 +1504,15 @@ public:
     }
   }
 
-  /* don't let audio or video get more than five seconds behind wallclock time */
+  /* don't let audio or video get more than N seconds behind wallclock time */
   void enforce_wallclock_lag_limit()
   {
-    if ( y4m_writer.wallclock_ms_until_next_chunk_is_due() < -5000 ) {
+    if ( y4m_writer.wallclock_ms_until_next_chunk_is_due() < -3500 ) {
       cerr << "Video lags by " << -y4m_writer.wallclock_ms_until_next_chunk_is_due() << " ms, resyncing.\n";
       resync();
     }
 
-    if ( wav_writer.wallclock_ms_until_next_chunk_is_due() < -5000 ) {
+    if ( wav_writer.wallclock_ms_until_next_chunk_is_due() < -6300 ) {
       cerr << "Audio lags by " << -wav_writer.wallclock_ms_until_next_chunk_is_due() << " ms, resyncing.\n";
       resync();
     }
