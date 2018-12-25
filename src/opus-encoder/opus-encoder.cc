@@ -26,45 +26,55 @@ using opus_frame_t = std::pair<size_t, std::array<uint8_t, MAX_COMPRESSED_FRAME_
 
 /*
 
-Theory of operation. Starting with:
+Theory of operation.
 
-chunk #0: samples 0 .. 4799 (80+20 ms)
+Starting with:
 
-frame 0 (independent): 312 of ignore, then 0    .. 647                       (chop!)
-frame 1 (independent):                     648  .. 1607
-frame 2              :                     1608 .. 2567
-frame 3              :                     2568 .. 3527
-frame 4              :                     3528 .. 4487
-frame 5              :                     4488 .. 4799, then 648 of ignore  (chop!)
+   chunk #0: samples 0      .. 230399 (4.8 s)
+   chunk #1: samples 230400 .. 460799 (4.8 s)
 
-chunk #1: samples 3840 .. 8639 (80+20 ms)
+Then prepend 648 samples of silence to each chunk:
 
-frame 0 (independent): 312 of ignore, then 3840 .. 4487                      (chop!)
-frame 1 (independent):                     4488 .. 5447
-frame 2              :                     5448 .. 6407
-frame 3              :                     6408 .. 7367
-frame 4              :                     7368 .. 8327
-frame 5              :                     8328 .. 8639, then 648 of ignore  (chop!)
+   chunk #0: 648 silent + 0      .. 230399 (4.8135 s)
+   chunk #1: 648 silent + 230400 .. 460799 (4.8135 s)
+
+Now encode as Opus with first two frames independent:
+
+ chunk #0:
+   frame 0 (independent): 312 of ignore, then 648 silent                     (chop!)
+   frame 1 (independent):                0      .. 959
+   frame 2              :                960    .. 1919
+   frame 3              :                1920   .. 2879
+   ...
+   frame 240            :                229400 .. 230399
+
+ chunk #1:
+   frame 0 (independent): 312 of ignore, then 648 silent                     (chop!)
+   frame 1 (independent):                230400 .. 231359
+   frame 2              :                231360 .. 232319
+   frame 3              :                232320 .. 233279
+   ...
+   frame 240            :                459840 .. 460799
 
 Chopping produces:
 
-chunk #0: samples 0 .. 4799 (80+20 ms)
+ chunk #0:
+   frame 1 (independent):                0      .. 959
+   frame 2              :                960    .. 1919
+   frame 3              :                1920   .. 2879
+   ...
+   frame 240            :                229400 .. 230399
 
-frame 1 (independent):                     648  .. 1607
-frame 2              :                     1608 .. 2567
-frame 3              :                     2568 .. 3527
-frame 4              :                     3528 .. 4487
+ chunk #1:
+   frame 1 (independent):                230400 .. 231359
+   frame 2              :                231360 .. 232319
+   frame 3              :                232320 .. 233279
+   ...
+   frame 240            :                459840 .. 460799
 
-chunk #1: samples 4488 .. 8639 (80+20 ms)
-
-frame 1 (independent):                     4488 .. 5447
-frame 2              :                     5448 .. 6407
-frame 3              :                     6408 .. 7367
-frame 4              :                     7368 .. 8327
-
-So, for gapless playback, we encode the first two frames as
-independent (no prediction), and chop the first of them.  We also chop
-the last frame.
+So, for gapless playback, we prepend 648 silent samples, then encode
+the first two frames as independent (no prediction), and chop the
+first of them.
 
 */
 
