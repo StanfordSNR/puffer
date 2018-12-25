@@ -886,6 +886,7 @@ private:
   uint64_t pending_chunk_outer_timestamp_ {};
   unsigned int pending_chunk_index_ {};
   vector<Raster> pending_chunk_;
+  unsigned int filler_field_count_ {};
 
   unsigned int frame_interval_;
 
@@ -911,6 +912,7 @@ private:
 
     if ( pending_chunk_index_ == pending_chunk_.size() - 1 ) {
       const string filename = to_string( pending_chunk_outer_timestamp_ ) + ".y4m";
+      const string info_filename = to_string( pending_chunk_outer_timestamp_ ) + ".y4m.info";
 
       /* output to tmp_dir first if tmp_dir is not empty */
       string output_dir = tmp_dir.empty() ? directory_ : tmp_dir;
@@ -941,6 +943,8 @@ private:
         output_.write( string_view { reinterpret_cast<char *>( pending_frame.Cr.get() ), (pending_frame.width/2) * (pending_frame.height/2) } );
       }
 
+      output_.close(); /* make sure output is flushed before renaming */
+
       /* move output file if tmp_dir is not empty */
       if ( output_dir != directory_ ) {
         fs::rename( fs::path( output_dir ) / filename,
@@ -948,6 +952,29 @@ private:
       }
 
       cerr << "done.\n";
+
+      /* write diagnostic output */
+      FileDescriptor info_ { CheckSystemCall( "openat", openat( directory_fd_.fd_num(),
+                                                                info_filename.c_str(),
+                                                                O_WRONLY | O_CREAT | O_EXCL,
+                                                                S_IRUSR | S_IWUSR ) ) };
+
+      string info_string;
+      info_string.append( "chunk " + filename + " at video timestamp " + to_string( pending_chunk_outer_timestamp_ ) + " and wallclock timestamp " + to_string( timestamp_ms() / 1000.0 ) );
+      info_string.append( " due in " + to_string( wallclock_ms_until_next_chunk_is_due() ) + " ms" );
+      info_string.append( " with " + to_string( filler_field_count_ ) + " filler fields\n" );
+
+      info_.write( info_string );
+
+      info_.close();
+
+      if ( output_dir != directory_ ) {
+        fs::rename( fs::path( output_dir ) / info_filename,
+                    fs::path( directory_ ) / info_filename );
+      }
+
+      /* reset filler field count */
+      filler_field_count_ = 0;
 
       /* if we wrote the chunk out early, consumers might read it and depend on this new timebase */
       if ( wallclock_ms_until_next_chunk_is_due() > 0 ) {
@@ -985,6 +1012,8 @@ public:
       = pending_chunk_outer_timestamp_ / 90 + wallclock_time_for_outer_timestamp_zero_;
     return next_chunk_is_due_wallclock_ms - timestamp_ms();
   }
+
+  void set_next_field_is_filler() { filler_field_count_++; }
 
   bool next_field_is_top() const { return next_field_is_top_; }
 
@@ -1108,6 +1137,7 @@ public:
   {
     missing_field_.presentation_time_stamp = expected_inner_timestamp_;
     missing_field_.top_field = writer.next_field_is_top();
+    writer.set_next_field_is_filler();
     write_single_field( missing_field_, writer );
   }
 };
@@ -1501,6 +1531,8 @@ public:
         cerr << "Warning: a/v sync is off by " << (diff / 27000.0) << " ms\n";
         throw runtime_error( "BUG: a/v sync failure" );
       }
+    } else {
+      cerr << "Warning: a/v sync check temporarily disabled\n";
     }
   }
 
