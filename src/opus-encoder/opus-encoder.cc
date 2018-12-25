@@ -7,6 +7,10 @@
 #include <sndfile.hh>
 #include <opus/opus.h>
 
+extern "C" {
+#include <libavformat/avformat.h>
+}
+
 const unsigned int SAMPLE_RATE = 48000; /* Hz */
 const unsigned int NUM_CHANNELS = 2;
 const unsigned int NUM_SAMPLES_IN_OPUS_FRAME = 960;
@@ -86,6 +90,12 @@ first of them.
 
 using namespace std;
 
+template <typename T>
+inline T * notnull( const string & context, T * const x )
+{
+  return x ? x : throw runtime_error( context + ": returned null pointer" );
+}
+
 /* wrap Opus encoder in RAII class with error cherk */
 class OpusEncoderWrapper
 {
@@ -107,7 +117,8 @@ public:
     int out;
 
     /* create encoder */
-    encoder_.reset( opus_encoder_create( SAMPLE_RATE, NUM_CHANNELS, OPUS_APPLICATION_AUDIO, &out ) );
+    encoder_.reset( notnull( "opus_encoder_create",
+                             opus_encoder_create( SAMPLE_RATE, NUM_CHANNELS, OPUS_APPLICATION_AUDIO, &out ) ) );
     opus_check( out );
 
     /* check sample rate */
@@ -207,6 +218,17 @@ public:
   }
 };
 
+class AVFormatWrapper
+{
+  struct av_deleter { void operator()( AVFormatContext * x ) const { av_free( x ); } };
+  unique_ptr<AVFormatContext, av_deleter> context_ {};
+
+public:
+  AVFormatWrapper()
+    : context_( notnull( "avformat_alloc_context", avformat_alloc_context() ) )
+  {}
+};
+
 void write( const opus_frame_t & opus_frame )
 {
   if ( 1 != fwrite( opus_frame.second.data(), opus_frame.first, 1, stdout ) ) {
@@ -227,6 +249,9 @@ void opus_encode( int argc, char *argv[] ) {
 
   /* allocate memory for 20 ms of compressed Opus output */
   opus_frame_t opus_frame;
+
+  /* create .mkv output */
+  AVFormatWrapper output;
 
   /* encode the whole file, outputting every frame except the first,
      and with prediction disabled until frame #2 */
