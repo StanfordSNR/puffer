@@ -6,17 +6,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-  <!-- Global site tag (gtag.js) - Google Analytics -->
-  <script async src="https://www.googletagmanager.com/gtag/js?id=UA-117951942-2"></script>
-  <script>
-    window.dataLayer = window.dataLayer || [];
-    function gtag(){dataLayer.push(arguments);}
-    gtag('js', new Date());
-
-    gtag('config', 'UA-117951942-2');
-  </script>
   <link rel="stylesheet" href="{% static 'puffer/dist/css/bootstrap.min.css' %}">
-  <link rel="stylesheet" href="{% static 'puffer/css/common.css' %}">
   <title>Puffer</title>
   <link rel="icon" href="{% static 'puffer/dist/images/favicon.ico' %}">
 </head>
@@ -26,39 +16,108 @@
   {% include "puffer/navigation.html" %}
 
   <!-- FAQ Section -->
-  <div class="container py-4">
-    <h4 class="font-weight-normal mt-2 mb-4">Frequently Asked Questions</h4>
+  <div class="container pt-5">
+    <div class="text-center mb-5">
+      <h4>Frequently Asked Questions</h4>
+    </div>
 
-    <div class="question">What is Puffer?</div>
-    <p>
-    Puffer is a Stanford University research project aiming to improve live
-    streaming of video over the Internet.
-    </p>
+    <h5 class="mb-2">What is Puffer?</h5>
+    <p class="mb-4">Puffer is a Stanford University research project aiming to improve live
+    streaming of video over the Internet. </p>
 
-    <div class="question">What channels can I watch?</div>
-    <p>
+    <h5 class="mb-2">How can I sign up?</h5>
+    <p class="mb-4">
+    Puffer is limiting growth to ensure we do not overwhelm our research-oriented infrastructure.
+    To do so, we require that users possess invitation tokens in order to create new accounts.
+    To request an invitation token <a href="{% url 'participate' %}">visit this page.</a>
+    Finally, please keep in mind that Puffer is only available to users in the United States.</p>
+
+    <h5 class="mb-2">What channels can I watch?</h5>
+    <p class="mb-4">
     Puffer rebroadcasts over-the-air television channels available in the Bay Area. Currently,
-    we rebroadcast local affiliates of CBS, NBC, ABC, Fox, Univision, and PBS.
-    </p>
+    we rebroadcast local affiliates of CBS, NBC, ABC, Fox, Univision, and PBS.</p>
 
-    <div class="question">What platforms support Puffer?</div>
-    <p>
-    Puffer works on most operating systems and browsers.
-    A list of platforms on which Puffer is <b>not</b> supported follows:
-    </p>
+    <h5 class="mb-2">What makes Puffer unique?</h5>
+    <p class="mb-4">
+    Puffer is unique from previous academic studies on video streaming in that it
+    uses <i>online</i> learning to generate adaptive bit rate (ABR) and congestion control
+    algorithms. In essence, this means that Puffer regularly learns from past performance to
+    construct future algorithms which work better. Ultimately, we believe that such an
+    approach will produce substantial benefits over prior work, and create a system
+    which is much more robust to dramatic changes in network characteristics over time.
+    Beyond this fundamental difference, Puffer also approaches the video-streaming problem
+    differently in a number of other ways. These include:
     <ul>
-      <li>Any browsers on iOS</li>
-      <li>Safari on macOS</li>
-      <li>IE on Windows</li>
-      <li>Samsung Internet on Android</li>
+        <li>Puffer's use of structural similarity (SSIM) instead of bitrate
+            as the input to quality of experience measurements, ensuring performance measurements
+            are more directly linked to user experience. </li>
+        <li>Puffer's use of a denser bitrate ladder than most existing systems, allowing for more fine-grained
+            control of video quality received by users. </li>
+        <li>Use of websockets instead of HTTP request/response, allowing for full duplex communication
+            between client and server.</li>
+        <li>Using congestion control with a tunable pacing rate and a direct access to a throughput estimate,
+            instead of having all testing occur on top of TCP.</li>
+        <li>Verbose communication between the congestion control layer and the application layer,
+            such that application layer decision about video quality can be informed by the bandwidth
+            available in the congestion control layer</li>
+        <li>The use of nontraditional signals to train our transmission-time predictor, such as ISP, connectivity
+            type, and more.</li>
     </ul>
-
-    <div class="question">My question isn't answered here?</div>
-    <p>
-    This FAQ (and Puffer) is still a work in progress, if you have any
-    questions, please contact us at <img src="{% static 'puffer/dist/images/puffer-email.svg' %}" id="img-email">
     </p>
 
+    <h5 class="mb-2">Does Puffer cost money?</h5>
+    <p class="mb-4">
+    Nope! Puffer is completely free.</p>
+
+    <h5 class="mb-2">Why doesn't Puffer work on my device?</h5>
+    <p class="mb-4">
+    Puffer relies on HTML5 Media Source Extensions (MSE) to stream adaptive audio and video to users.
+    This is a relatively new technology, and is not yet supported by all browsers. Most
+    notably, <i>no iOS browsers currently support MSE</i> (though most Android browsers do).
+    Our project is more focused on providing a uniform research surface than on supporting
+    a fallback for non-MSE supported browsers (as YouTube does), so support for
+    Puffer in these browsers is dependent on MSE support being introduced in those browsers.
+    <br>
+    Even beyond MSE, some other browser incompatibilities may exist, but we are doing our best
+    to maintain support for combinations of major desktop operating systems and major browsers,
+    such as Mac/Windows/Linux combined with Chrome/Firefox/Edge, as well as most Android browsers.</p>
+
+    <h5 class="mb-2">Does Puffer work better than other live TV services?</h5>
+    <p class="mb-4">
+    Puffer is still in the early stages of evaluation, and will regularly assign
+    different users to different combinations of streaming algorithms, some of which may
+    work better than others. This algorithmic churn is necessary for Puffer to learn
+    what serves users well and what does not; we hope that over time Puffer will
+    learn viewer-specific algorithms that work extremely well. However, some of this
+    churn may also mean that Puffer at times does not work as well other live tv services
+    which you may have used, and your patience with Puffer is greatly appreciated.</p>
+
+    <h5 class="mb-2">Why do you need real users?</h5>
+    <p class="mb-4">Many prior studies of video streaming exist which rely primarily on simulation
+    based evaluation or artificial testbed based evaluation, such as
+    <a href="https://people.csail.mit.edu/hongzi/content/publications/Pensieve-Sigcomm17.pdf">Pensieve</a>,
+    <a href="https://www.cs.cmu.edu/~xia/resources/Documents/Yin_sigcomm15.pdf" >MPC</a>, and
+    <a href="https://engineering.purdue.edu/~isl/papers/sigcomm18-final128.pdf">Oboe.</a>
+    Our study is unique in that it investigates the merits of <i>online</i> learning, as described above.
+    Our system is capable of learning over a vastly greater number of inputs
+    than simple network characteristics, and we hope it can demonstrate that it is robust to dramatic
+    changes in network characteristics over time. However, this approach of using online learning
+    depends on our ability to evaluate and train our system on real users over real-world networks.
+    Finally, given that our system varies congestion control
+    algorithms in addition to ABR algorithms, it is important that we can evaluate how our congestion
+    control algorithms interact with other congestion control algorithms on real networks, which can
+    be difficult to evaluate in simulation.
+    </p>
+
+    <h5 class="mb-2">Who's responsible for Puffer?</h5>
+    <p class="mb-4">
+    Puffer is led by <a href="https://platformlab.stanford.edu/student-francis-yan.php">Francis Yan</a>,
+    a doctoral student in computer science at Stanford University,
+    along with fellow students Sadjad Fouladi, Hudson Ayers (EE), as well as Chenzhi Zhu, an undergraduate
+    computer science student at Tsinghua University. The project is advised by <a href="https://cs.stanford.edu/~keithw">
+    Keith Winstein</a>, an assistant professor of computer science at Stanford University.</p>
+
+    Insert funding info here??
   </div>
 
   <script src="{% static 'puffer/dist/js/jquery-3.3.1.slim.min.js' %}"></script>
