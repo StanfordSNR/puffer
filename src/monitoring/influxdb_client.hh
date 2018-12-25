@@ -22,5 +22,5 @@ private:
   std::string http_request_line_ {};
 
   std::deque<std::string> buffer_ {};
-  size_t buffer_front_idx_ {0};
+  size_t buffer_offset_ {0};
 };

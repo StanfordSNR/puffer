@@ -137,15 +137,15 @@ void WSServer<TCPSocket>::Connection::write()
 
     /* set write_all to false because socket might be unable to write all */
     const auto view_it = socket.write(
-        buffer_view.substr(send_buffer_front_idx), false);
+        buffer_view.substr(send_buffer_offset), false);
 
     if (view_it != buffer_view.cend()) {
-      /* save the index of the remaining string */
-      send_buffer_front_idx = view_it - buffer_view.cbegin();
+      /* save the offset of the remaining string */
+      send_buffer_offset = view_it - buffer_view.cbegin();
       break;
     } else {
       /* move onto the next item in the deque */
-      send_buffer_front_idx = 0;
+      send_buffer_offset = 0;
       send_buffer.pop_front();
     }
   }
