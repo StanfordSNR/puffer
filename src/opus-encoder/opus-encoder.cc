@@ -1,3 +1,5 @@
+/* -*-mode:c++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
+
 #include <memory>
 #include <iostream>
 
@@ -13,7 +15,7 @@ const unsigned int MAX_COMPRESSED_FRAME_SIZE = 131072; /* bytes */
 
 /* make sure file length is integer number of Opus frames */
 static_assert( (NUM_SAMPLES_IN_FILE / NUM_SAMPLES_IN_OPUS_FRAME) * NUM_SAMPLES_IN_OPUS_FRAME
-	       == NUM_SAMPLES_IN_FILE );
+               == NUM_SAMPLES_IN_FILE );
 
 const unsigned int NUM_FRAMES_IN_FILE = NUM_SAMPLES_IN_FILE / NUM_SAMPLES_IN_OPUS_FRAME;
 
@@ -126,10 +128,10 @@ public:
   void encode( const wav_frame_t & wav_frame, opus_frame_t & opus_frame )
   {
     opus_frame.first = opus_check( opus_encode( encoder_.get(),
-						wav_frame.data(),
-						NUM_SAMPLES_IN_OPUS_FRAME,
-						opus_frame.second.data(),
-						opus_frame.second.size() ) );
+                                                wav_frame.data(),
+                                                NUM_SAMPLES_IN_OPUS_FRAME,
+                                                opus_frame.second.data(),
+                                                opus_frame.second.size() ) );
   }
 };
 
