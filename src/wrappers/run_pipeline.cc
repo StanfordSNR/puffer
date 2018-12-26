@@ -375,7 +375,7 @@ int main(int argc, char * argv[])
   if (config["enable_logging"].as<bool>()) {
     fs::path monitoring_dir = src_path / "monitoring";
 
-    /* report SSIMs, video chunk sizes, and backlog sizes */
+    /* report SSIMs, video chunk sizes, backlog sizes and .y4m.info files */
     string file_reporter = monitoring_dir / "file_reporter";
     vector<string> file_reporter_args { file_reporter, yaml_config };
     proc_manager.run_as_child(file_reporter, file_reporter_args);

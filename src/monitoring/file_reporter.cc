@@ -13,6 +13,7 @@
 #include "inotify.hh"
 #include "filesystem.hh"
 #include "timestamp.hh"
+#include "tokenize.hh"
 #include "influxdb_client.hh"
 
 using namespace std;
@@ -24,6 +25,43 @@ static fs::path media_dir;
 void print_usage(const string & program_name)
 {
   cerr << "Usage: " << program_name << " <YAML configuration>" << endl;
+}
+
+void report_decoder_info(const string & channel_name,
+                         Inotify & inotify,
+                         InfluxDBClient & influxdb_client)
+{
+  fs::path channel_path = media_dir / channel_name;
+  string video_raw = channel_path / "working/video-raw";
+
+  inotify.add_watch(video_raw, IN_MOVED_TO,
+    [channel_name, video_raw, &influxdb_client]
+    (const inotify_event & event, const string & path) {
+      /* only interested in regular files that are moved into the dir */
+      if (not (event.mask & IN_MOVED_TO) or (event.mask & IN_ISDIR)) {
+        return;
+      }
+
+      assert(video_raw == path);
+      assert(event.len != 0);
+
+      fs::path filepath = fs::path(path) / event.name;
+      if (filepath.extension() == ".info") {
+        ifstream decoder_info_stream(filepath);
+        string line;
+        getline(decoder_info_stream, line);
+        vector<string> sp = split(line, " ");
+
+        string log_line = "decoder_info,channel=" + channel_name
+          + " timestamp=" + sp[1] + "i,due=" + sp[2] + "i,filler_fields="
+          + sp[3] + "i " + sp[0];
+        influxdb_client.post(log_line);
+
+        /* remove .y4m.info files after posting to InfluxDB */
+        fs::remove(filepath);
+      }
+    }
+  );
 }
 
 void report_ssim(const string & channel_name,
@@ -179,6 +217,10 @@ int main(int argc, char * argv[])
 
   for (const auto & channel_name : channel_set) {
     const auto & channel_config = config["channel_configs"][channel_name];
+
+    /* report .y4m.info files */
+    report_decoder_info(channel_name, inotify, influxdb_client);
+
     vector<VideoFormat> vformats = channel_video_formats(channel_config);
 
     for (const auto & vformat : vformats) {
