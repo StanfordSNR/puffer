@@ -11,6 +11,8 @@ extern "C" {
 #include <libavformat/avformat.h>
 }
 
+#include "media_formats.hh"
+
 const unsigned int SAMPLE_RATE = 48000; /* Hz */
 const unsigned int NUM_CHANNELS = 2;
 const unsigned int NUM_SAMPLES_IN_OPUS_FRAME = 960;
@@ -336,18 +338,26 @@ public:
 };
 
 void opus_encode( int argc, char *argv[] ) {
-  if ( argc != 4 ) {
-    throw runtime_error( "Usage: " + string( argv[ 0 ] ) + " WAV_INPUT WEBM_OUTPUT BIT_RATE" );
+  if ( argc != 5 ) {
+    throw runtime_error( "Usage: " + string( argv[ 0 ] ) + " WAV_INPUT WEBM_OUTPUT -b BIT_RATE [e.g., \"64k\"]" );
   }
 
   /* parse arguments */
   const string input_filename = argv[ 1 ];
   const string output_filename = argv[ 2 ];
-  const int bit_rate = stoi( argv[ 3 ] );
+  const string dash_b = argv[ 3 ];
 
-  if ( bit_rate <= 0 or bit_rate > 256000 ) {
-    throw runtime_error( "invalid bit rate: " + to_string( bit_rate ) );
+  if ( dash_b != "-b" ) {
+    throw runtime_error( "-b argument is mandatory" );
   }
+
+  const AudioFormat audio_format { argv[ 4 ] };
+
+  if ( audio_format.bitrate <= 0 or audio_format.bitrate > 256 ) {
+    throw runtime_error( "invalid bit rate: " + string( argv[ 4 ] ) );
+  }
+
+  const int bit_rate = audio_format.bitrate * 1000; /* bits per second */
 
   /* open input WAV file */
   WavWrapper wav_file { input_filename };
