@@ -152,7 +152,7 @@ void run_audio_encoder(ProcessManager & proc_manager,
   awork.emplace_back(dst_dir, ".webm");
 
   /* notifier runs audio_encoder */
-  string audio_encoder = src_path / "wrappers/audio_encoder";
+  string audio_encoder = src_path / "opus-encoder/opus-encoder";
 
   vector<string> args {
     notifier, src_dir, ".wav", "--check", dst_dir, ".webm", "--tmp", tmp_dir,
