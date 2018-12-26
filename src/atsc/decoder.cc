@@ -960,12 +960,12 @@ private:
                                                                 O_WRONLY | O_CREAT | O_EXCL,
                                                                 S_IRUSR | S_IWUSR ) ) };
 
-      string info_string;
-      info_string.append( "chunk " + filename + " at video timestamp " + to_string( pending_chunk_outer_timestamp_ ) + " and wallclock timestamp " + to_string( timestamp_ms() / 1000.0 ) );
-      info_string.append( " due in " + to_string( wallclock_ms_until_next_chunk_is_due() ) + " ms" );
-      info_string.append( " with " + to_string( filler_field_count_ ) + " filler fields\n" );
+      string info_string = /* wallclock timestamp */ to_string( timestamp_ms() ) + " "
+        + /* video timestamp */ to_string( pending_chunk_outer_timestamp_ ) + " "
+        + /* due in (ms) */ to_string( wallclock_ms_until_next_chunk_is_due() ) + " "
+        + /* filler fields */ to_string( filler_field_count_ );
 
-      info_.write( info_string );
+      info_.write( info_string + "\n");
 
       info_.close();
 
