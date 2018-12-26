@@ -18,6 +18,7 @@ const unsigned int NUM_SAMPLES_IN_FILE = 230400; /* 48kHz * 4.8s */
 const unsigned int EXPECTED_LOOKAHEAD = 312; /* 6.5 ms * 48 kHz */
 const unsigned int MAX_COMPRESSED_FRAME_SIZE = 131072; /* bytes */
 const unsigned int SILENT_SAMPLES_TO_PREPEND = NUM_SAMPLES_IN_OPUS_FRAME - EXPECTED_LOOKAHEAD;
+const unsigned int WEBM_TIMEBASE = 1000;
 
 static_assert( SILENT_SAMPLES_TO_PREPEND < NUM_SAMPLES_IN_OPUS_FRAME );
 
@@ -112,7 +113,7 @@ class OpusEncoderWrapper
   }
 
 public:
-  OpusEncoderWrapper()
+  OpusEncoderWrapper( const int bit_rate )
   {
     int out;
 
@@ -120,6 +121,13 @@ public:
     encoder_.reset( notnull( "opus_encoder_create",
                              opus_encoder_create( SAMPLE_RATE, NUM_CHANNELS, OPUS_APPLICATION_AUDIO, &out ) ) );
     opus_check( out );
+
+    /* set bit rate */
+    opus_check( opus_encoder_ctl( encoder_.get(), OPUS_SET_BITRATE( bit_rate ) ) );
+
+    /* check bitrate */
+    opus_check( opus_encoder_ctl( encoder_.get(), OPUS_GET_BITRATE( &out ) ) );
+    if ( out != bit_rate ) { throw runtime_error( "bit rate mismatch" ); }
 
     /* check sample rate */
     opus_check( opus_encoder_ctl( encoder_.get(), OPUS_GET_SAMPLE_RATE( &out ) ) );
@@ -163,7 +171,7 @@ class WavWrapper
 public:
   WavWrapper( const string & filename )
     : handle_( filename ),
-      samples_( NUM_CHANNELS * ( SILENT_SAMPLES_TO_PREPEND + NUM_SAMPLES_IN_FILE ) )
+      samples_( NUM_CHANNELS * ( SILENT_SAMPLES_TO_PREPEND + NUM_SAMPLES_IN_FILE + EXPECTED_LOOKAHEAD ) )
   {
     if ( handle_.error() ) {
       throw runtime_error( filename + ": " + handle_.strError() );
@@ -220,45 +228,145 @@ public:
 
 class AVFormatWrapper
 {
-  struct av_deleter { void operator()( AVFormatContext * x ) const { av_free( x ); } };
+  struct av_deleter { void operator()( AVFormatContext * x ) const { avformat_free_context( x ); } };
   unique_ptr<AVFormatContext, av_deleter> context_ {};
 
+  AVStream * audio_stream_;
+
+  bool header_written_;
+
+  static int av_check( const int retval )
+  {
+    static array<char, 256> errbuf;
+
+    if ( retval < 0 ) {
+      if ( av_strerror( retval, errbuf.data(), errbuf.size() ) < 0 ) {
+        throw runtime_error( "av_strerror: error code not found" );
+      }
+
+      errbuf.back() = 0;
+
+      throw runtime_error( "libav error: " + string( errbuf.data() ) );
+    }
+
+    return retval;
+  }
+
 public:
-  AVFormatWrapper()
-    : context_( notnull( "avformat_alloc_context", avformat_alloc_context() ) )
-  {}
+  AVFormatWrapper( const string & output_filename, const int bit_rate )
+    : context_(),
+      audio_stream_(),
+      header_written_( false )
+  {
+    av_register_all();
+
+    if ( output_filename.substr( output_filename.size() - 5 ) != ".webm" ) {
+      throw runtime_error( "output filename must be a .webm" );
+    }
+
+    {
+      AVFormatContext * tmp_context;
+      av_check( avformat_alloc_output_context2( &tmp_context, nullptr, nullptr, output_filename.c_str() ) );
+      context_.reset( tmp_context );
+    }
+
+    /* open output file */
+    av_check( avio_open( &context_->pb, output_filename.c_str(), AVIO_FLAG_WRITE ) );
+
+    /* allocate audio stream */
+    audio_stream_ = notnull( "avformat_new_stream",
+                             avformat_new_stream( context_.get(), nullptr ) );
+
+    if ( audio_stream_ != context_->streams[ 0 ] ) {
+      throw runtime_error( "unexpected stream index != 0" );
+    }
+
+    audio_stream_->time_base = { 1, WEBM_TIMEBASE };
+    audio_stream_->codecpar->codec_type = AVMEDIA_TYPE_AUDIO;
+    audio_stream_->codecpar->codec_id = AV_CODEC_ID_OPUS;
+    audio_stream_->codecpar->bit_rate = bit_rate;
+    audio_stream_->codecpar->channels = NUM_CHANNELS;
+    audio_stream_->codecpar->sample_rate = SAMPLE_RATE;
+    audio_stream_->codecpar->initial_padding = 0;
+    audio_stream_->codecpar->trailing_padding = 0;
+
+    av_check( avformat_write_header( context_.get(), nullptr ) );
+    header_written_ = true;
+
+    if ( audio_stream_->time_base.num != 1
+         or audio_stream_->time_base.den != WEBM_TIMEBASE ) {
+      throw runtime_error( "audio stream time base mismatch" );
+    }
+  }
+
+  ~AVFormatWrapper()
+  {
+    try {
+      if ( header_written_ ) {
+        av_check( av_write_trailer( context_.get() ) );
+      }
+
+      if ( context_->pb ) {
+        av_check( avio_close( context_->pb ) );
+      }
+    } catch ( const exception & e ) {
+      cerr << "Exception in AVFormatWrapper destructor: " << e.what() << "\n";
+    }
+  }
+
+  void write( opus_frame_t & opus_frame,
+              const unsigned int starting_sample_number )
+  {
+    AVPacket packet {};
+    packet.buf = nullptr;
+    packet.pts = WEBM_TIMEBASE * starting_sample_number / SAMPLE_RATE;
+    packet.dts = WEBM_TIMEBASE * starting_sample_number / SAMPLE_RATE;
+    packet.data = opus_frame.second.data();
+    packet.size = opus_frame.first;
+    packet.stream_index = 0;
+    packet.flags = AV_PKT_FLAG_KEY;
+    packet.duration = WEBM_TIMEBASE * NUM_SAMPLES_IN_OPUS_FRAME / SAMPLE_RATE;
+    packet.pos = -1;
+
+    av_check( av_write_frame( context_.get(), &packet ) );
+  }
+
+  AVFormatWrapper( const AVFormatWrapper & other ) = delete;
+  AVFormatWrapper & operator=( const AVFormatWrapper & other ) = delete;
 };
 
-void write( const opus_frame_t & opus_frame )
-{
-  if ( 1 != fwrite( opus_frame.second.data(), opus_frame.first, 1, stdout ) ) {
-    throw runtime_error( "error on write" );
-  }
-}
-
 void opus_encode( int argc, char *argv[] ) {
-  if ( argc != 2 ) {
-    throw runtime_error( "Usage: " + string( argv[ 0 ] ) + " WAV_FILE" );
+  if ( argc != 4 ) {
+    throw runtime_error( "Usage: " + string( argv[ 0 ] ) + " WAV_INPUT WEBM_OUTPUT BIT_RATE" );
+  }
+
+  /* parse arguments */
+  const string input_filename = argv[ 1 ];
+  const string output_filename = argv[ 2 ];
+  const int bit_rate = stoi( argv[ 3 ] );
+
+  if ( bit_rate <= 0 or bit_rate > 256000 ) {
+    throw runtime_error( "invalid bit rate: " + to_string( bit_rate ) );
   }
 
   /* open input WAV file */
-  WavWrapper wav_file { argv[ 1 ] };
+  WavWrapper wav_file { input_filename };
 
   /* create Opus encoder */
-  OpusEncoderWrapper encoder;
+  OpusEncoderWrapper encoder { bit_rate };
 
   /* allocate memory for 20 ms of compressed Opus output */
   opus_frame_t opus_frame;
 
-  /* create .mkv output */
-  AVFormatWrapper output;
+  /* create .webm output */
+  AVFormatWrapper output { output_filename, bit_rate };
 
   /* encode the whole file, outputting every frame except the first,
      and with prediction disabled until frame #2 */
 
   encoder.disable_prediction();
 
-  for ( unsigned int frame_no = 0; frame_no < NUM_FRAMES_IN_FILE; frame_no++ ) {
+  for ( unsigned int frame_no = 0; frame_no < NUM_FRAMES_IN_FILE + 1; frame_no++ ) {
     if ( frame_no == 2 ) {
       encoder.enable_prediction();
     }
@@ -266,7 +374,7 @@ void opus_encode( int argc, char *argv[] ) {
     encoder.encode( wav_file.view( frame_no * NUM_CHANNELS * NUM_SAMPLES_IN_OPUS_FRAME ), opus_frame );
 
     if ( frame_no > 0 ) {
-      write( opus_frame );
+      output.write( opus_frame, (frame_no - 1) * NUM_SAMPLES_IN_OPUS_FRAME );
     }
   }
 }
