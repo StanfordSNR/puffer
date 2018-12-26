@@ -164,13 +164,13 @@ void create_media_segment(
 
   /* get the last SimpleBlock and BlockGroup */
   const mkvparser::BlockEntry * last_simple_block_entry = nullptr;
-  const mkvparser::BlockEntry * block_group_entry = nullptr;
+  const mkvparser::BlockEntry * last_block_entry = nullptr;
 
   while (block_entry and not block_entry->EOS()) {
+    last_block_entry = block_entry;
+
     if (block_entry->GetKind() == mkvparser::BlockEntry::kBlockSimple) {
       last_simple_block_entry = block_entry;
-    } else if (block_entry->GetKind() == mkvparser::BlockEntry::kBlockGroup) {
-      block_group_entry = block_entry;
     }
 
     if (cluster->GetNext(block_entry, block_entry)) {
@@ -182,13 +182,13 @@ void create_media_segment(
     throw runtime_error("no SimpleBlock exists");
   }
 
-  if (block_group_entry == nullptr) {
-    throw runtime_error("no BlockGroup exists");
+  if (last_block_entry == nullptr) {
+    throw runtime_error("no Block exists");
   }
 
   /* get absolute (correct) timecode ... */
   long long abs_timecode;
-  long long rel_timecode = block_group_entry->GetBlock()->GetTimeCode(cluster);
+  long long rel_timecode = last_block_entry->GetBlock()->GetTimeCode(cluster);
 
   if (timecode_file.empty()) {
     /* ... by converting the filename/timestamp (in global timescale)
