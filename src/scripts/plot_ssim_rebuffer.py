@@ -63,14 +63,10 @@ def retrieve_expt_config(postgres_cursor, expt_id):
     return expt_id_cache[expt_id]
 
 
-def collect_ssim(client_video_result, postgres_cursor):
+def collect_ssim(video_acked_result, postgres_cursor):
     # process InfluxDB data
     x = {}
-    for pt in client_video_result['client_video']:
-        # only interested in video received by clients
-        if pt['event'] != 'ack':
-            continue
-
+    for pt in video_acked_result['video_acked']:
         expt_id = pt['expt_id']
         expt_config = retrieve_expt_config(postgres_cursor, expt_id)
         # index x by (abr, cc)
@@ -214,9 +210,9 @@ def main():
     # create an InfluxDB client and perform queries
     influx_client = connect_to_influxdb(yaml_settings)
 
-    # query client_video and client_buffer
-    client_video_result = influx_client.query(
-        'SELECT * FROM client_video WHERE time >= now() - {}d'.format(days))
+    # query video_acked and client_buffer
+    video_acked_result = influx_client.query(
+        'SELECT * FROM video_acked WHERE time >= now() - {}d'.format(days))
     client_buffer_result = influx_client.query(
         'SELECT * FROM client_buffer WHERE time >= now() - {}d'.format(days))
 
@@ -225,7 +221,7 @@ def main():
     postgres_cursor = postgres_client.cursor()
 
     # collect ssim and rebuffer
-    ssim = collect_ssim(client_video_result, postgres_cursor)
+    ssim = collect_ssim(video_acked_result, postgres_cursor)
     rebuffer = collect_rebuffer(client_buffer_result, postgres_cursor)
 
     if not ssim or not rebuffer:
