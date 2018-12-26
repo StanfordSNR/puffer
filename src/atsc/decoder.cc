@@ -48,6 +48,7 @@ static const unsigned int atsc_audio_sample_rate = 48000;
 static const unsigned int audio_block_duration = 144000;
 /* units -v '(256 / (48 kHz)) * (27 megahertz)' -> 144000 */
 static const unsigned int audio_samples_per_block = 256;
+static const unsigned int opus_sample_overlap = 10 * 960 + 960 - 312; /* 960 = 48 kHz * 20 ms, 312 = Opus's 6.5 ms lookahead */
 
 /* if tmp_dir is not empty, output to tmp_dir first and move output chunks
  * to video_output_dir or audio_output_dir */
@@ -57,7 +58,7 @@ void print_usage( const string & program_name )
 {
   cerr <<
   "Usage: " << program_name << " video_pid audio_pid format "
-  "frames_per_chunk audio_blocks_per_chunk "
+  "frames_per_chunk audio_blocks_per_chunk audio_sample_overlap "
   "video_output_dir audio_output_dir [--tmp TMP] [--tcp IP:PORT]\n\n"
   "format = \"1080i30\" | \"720p60\"\n"
   "--tmp TMP : output to TMP directory first and then move output chunks "
@@ -1149,6 +1150,7 @@ private:
   uint64_t pending_chunk_outer_timestamp_ {};
   unsigned int pending_chunk_index_ {};
   vector<AudioBlock> pending_chunk_;
+  string overlap_samples_;
 
   string directory_;
   string wav_header_;
@@ -1160,9 +1162,11 @@ private:
 public:
   WavWriter( const uint64_t initial_wallclock_timestamp,
              const string directory,
-             const unsigned int audio_blocks_per_chunk )
+             const unsigned int audio_blocks_per_chunk,
+             const unsigned int audio_sample_overlap )
     : wallclock_time_for_outer_timestamp_zero_( initial_wallclock_timestamp ),
       pending_chunk_(),
+      overlap_samples_( audio_sample_overlap * 2 * 2, 0 ),
       directory_( directory ),
       wav_header_()
   {
@@ -1171,7 +1175,7 @@ public:
     }
 
     wav_header_ += "RIFF";
-    const uint32_t ChunkSize = htole32( audio_blocks_per_chunk * audio_samples_per_block * 2 * 2 + 36 );
+    const uint32_t ChunkSize = htole32( overlap_samples_.size() + audio_blocks_per_chunk * audio_samples_per_block * 2 * 2 + 36 );
     wav_header_ += string( reinterpret_cast<const char *>( &ChunkSize ), sizeof( ChunkSize ) );
     wav_header_ += "WAVE";
 
@@ -1198,7 +1202,7 @@ public:
 
     wav_header_ += "data";
 
-    const uint32_t SubChunk2Size = htole32( audio_blocks_per_chunk * audio_samples_per_block * 2 * 2 );
+    const uint32_t SubChunk2Size = htole32( overlap_samples_.size() + audio_blocks_per_chunk * audio_samples_per_block * 2 * 2 );
     wav_header_ += string( reinterpret_cast<const char *>( &SubChunk2Size ), sizeof( SubChunk2Size ) );
   }
 
@@ -1238,17 +1242,34 @@ public:
 
       output_.write( wav_header_ );
 
+      /* write the overlap (last 648 samples of last chunk) first */
+      output_.write( overlap_samples_ );
+
+      /* now write the new samples */
+      string serialized_samples;
+
       for ( const auto & pending_block : pending_chunk_ ) {
-        string serialized_block;
-
         for ( unsigned int sample_id = 0; sample_id < audio_samples_per_block; sample_id++ ) {
-          serialized_block += string_view( reinterpret_cast<const char *>( pending_block.left + sample_id ),
-                                           sizeof( int16_t ) );
-          serialized_block += string_view( reinterpret_cast<const char *>( pending_block.right + sample_id ),
-                                           sizeof( int16_t ) );
+          serialized_samples += string_view( reinterpret_cast<const char *>( pending_block.left + sample_id ),
+                                             sizeof( int16_t ) );
+          serialized_samples += string_view( reinterpret_cast<const char *>( pending_block.right + sample_id ),
+                                             sizeof( int16_t ) );
         }
+      }
 
-        output_.write( serialized_block );
+
+      output_.write( serialized_samples );
+
+      /* now record the last samples for next time's overlap */
+      if ( serialized_samples.size() < overlap_samples_.size() ) {
+        throw runtime_error( "not enough overlap samples" );
+      }
+
+      overlap_samples_ = serialized_samples.substr( serialized_samples.size() - overlap_samples_.size() );
+
+      /* Bug check */
+      if ( overlap_samples_.size() != opus_sample_overlap * 2 * 2 ) {
+        throw runtime_error( "BUG: overlap_samples is wrong size" );
       }
 
       output_.close(); /* make sure output is flushed before renaming */
@@ -1411,6 +1432,7 @@ public:
                      const VideoParameters & params,
                      const unsigned int frames_per_chunk,
                      const unsigned int audio_blocks_per_chunk,
+                     const unsigned int audio_sample_overlap,
                      const string & video_directory,
                      const string & audio_directory,
                      const uint64_t initial_wallclock_timestamp )
@@ -1418,7 +1440,7 @@ public:
       audio_parser( audio_pid, false ),
       params( params ),
       y4m_writer( initial_wallclock_timestamp, video_directory, frames_per_chunk, params ),
-      wav_writer( initial_wallclock_timestamp, audio_directory, audio_blocks_per_chunk )
+      wav_writer( initial_wallclock_timestamp, audio_directory, audio_blocks_per_chunk, audio_sample_overlap )
   {}
 
   void parse_input( const string & new_chunk )
@@ -1587,7 +1609,7 @@ int main( int argc, char *argv[] )
       }
     }
 
-    if ( optind != argc - 7 ) {
+    if ( optind != argc - 8 ) {
       print_usage( argv[0] );
       return EXIT_FAILURE;
     }
@@ -1598,8 +1620,13 @@ int main( int argc, char *argv[] )
     const VideoParameters params { argv[ optind++ ] };
     const unsigned int frames_per_chunk = stoi( argv[ optind++ ] );
     const unsigned int audio_blocks_per_chunk = stoi( argv[ optind++ ] );
+    const unsigned int audio_sample_overlap = stoi( argv[ optind++ ] );
     const string video_directory = argv[ optind++ ];
     const string audio_directory = argv[ optind++ ];
+
+    if ( audio_sample_overlap != opus_sample_overlap ) {
+      throw runtime_error( "audio_sample_overlap must be " + to_string( opus_sample_overlap ) );
+    }
 
     shared_ptr<FileDescriptor> input;
     if ( tcp_addr.empty() ) {
@@ -1618,6 +1645,7 @@ int main( int argc, char *argv[] )
 
     AudioVideoDecoder decoder { video_pid, audio_pid, params,
                                 frames_per_chunk, audio_blocks_per_chunk,
+                                audio_sample_overlap,
                                 video_directory, audio_directory,
                                 timestamp_ms() };
 
