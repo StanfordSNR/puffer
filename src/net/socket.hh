@@ -65,6 +65,16 @@ public:
     void set_timestamps( void );
 };
 
+/* tcp_info of our interest; keep the units used in the kernel */
+struct TCPInfo
+{
+  uint32_t cwnd;      /* congestion window (packets) */
+  uint32_t in_flight; /* packets "in flight" */
+  uint32_t min_rtt;   /* minimum RTT in microsecond */
+  uint32_t rtt;       /* RTT in microsecond */
+  uint64_t delivery_rate;  /* bytes per second */
+};
+
 /* TCP socket */
 class TCPSocket : public Socket
 {
@@ -92,6 +102,8 @@ public:
 
     /* get the current congestion control algorithm */
     std::string get_congestion_control() const;
+
+    TCPInfo get_tcp_info() const;
 };
 
 #endif /* SOCKET_HH */

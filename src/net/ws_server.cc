@@ -444,6 +444,14 @@ void WSServer<SocketType>::clean_idle_connection(const uint64_t connection_id)
 }
 
 template<class SocketType>
+TCPInfo WSServer<SocketType>::get_tcp_info(const uint64_t connection_id) const
+{
+  const Connection & conn = connections_.at(connection_id);
+
+  return conn.socket.get_tcp_info();
+}
+
+template<class SocketType>
 Address WSServer<SocketType>::peer_addr(const uint64_t connection_id) const
 {
   const Connection & conn = connections_.at(connection_id);

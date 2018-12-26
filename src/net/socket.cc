@@ -2,7 +2,7 @@
 
 #include <sys/socket.h>
 #include <netinet/in.h>
-#include <netinet/tcp.h>
+#include <linux/tcp.h>
 #include <linux/netfilter_ipv4.h>
 #include <cstring>
 
@@ -12,7 +12,7 @@
 using namespace std;
 
 /* max name length of congestion control algorithm */
-const size_t TCP_CC_NAME_MAX = 16;
+static const size_t TCP_CC_NAME_MAX = 16;
 
 /* default constructor for socket of (subclassed) domain and type */
 Socket::Socket( const int domain, const int type )
@@ -230,4 +230,21 @@ string TCPSocket::get_congestion_control() const
     char optval[ TCP_CC_NAME_MAX ];
     getsockopt( IPPROTO_TCP, TCP_CONGESTION, optval );
     return optval;
+}
+
+TCPInfo TCPSocket::get_tcp_info() const
+{
+  /* get tcp_info from the kernel */
+  tcp_info x;
+  getsockopt( IPPROTO_TCP, TCP_INFO, x );
+
+  /* construct a TCPInfo of our interest */
+  TCPInfo ret;
+  ret.cwnd = x.tcpi_snd_cwnd;
+  ret.in_flight = x.tcpi_unacked - x.tcpi_sacked - x.tcpi_lost + x.tcpi_retrans;
+  ret.min_rtt = x.tcpi_min_rtt;
+  ret.rtt = x.tcpi_rtt;
+  ret.delivery_rate = x.tcpi_delivery_rate;
+
+  return ret;
 }

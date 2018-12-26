@@ -115,6 +115,8 @@ public:
 
   /* force close an idle connection and no longer poll on its socket */
   void clean_idle_connection(const uint64_t connection_id);
+
+  TCPInfo get_tcp_info(const uint64_t connection_id) const;
 };
 
 using WebSocketTCPServer = WSServer<TCPSocket>;
