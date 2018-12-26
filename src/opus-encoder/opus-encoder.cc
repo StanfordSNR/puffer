@@ -16,22 +16,22 @@ extern "C" {
 const unsigned int SAMPLE_RATE = 48000; /* Hz */
 const unsigned int NUM_CHANNELS = 2;
 const unsigned int NUM_SAMPLES_IN_OPUS_FRAME = 960;
-const unsigned int NUM_SAMPLES_IN_FILE = 230400; /* 48kHz * 4.8s */
 const unsigned int EXPECTED_LOOKAHEAD = 312; /* 6.5 ms * 48 kHz */
+const unsigned int EXTRA_FRAMES_PREPENDED = 10;
+const unsigned int OVERLAP_SAMPLES_PREPENDED = (EXTRA_FRAMES_PREPENDED + 1) * NUM_SAMPLES_IN_OPUS_FRAME - EXPECTED_LOOKAHEAD;
+const unsigned int NUM_SAMPLES_IN_OUTPUT = 230400; /* 48kHz * 4.8s */
+const unsigned int NUM_SAMPLES_IN_INPUT = OVERLAP_SAMPLES_PREPENDED + NUM_SAMPLES_IN_OUTPUT;
 const unsigned int MAX_COMPRESSED_FRAME_SIZE = 131072; /* bytes */
-const unsigned int SILENT_SAMPLES_TO_PREPEND = NUM_SAMPLES_IN_OPUS_FRAME - EXPECTED_LOOKAHEAD;
 const unsigned int WEBM_TIMEBASE = 1000;
 
-static_assert( SILENT_SAMPLES_TO_PREPEND < NUM_SAMPLES_IN_OPUS_FRAME );
+/* make sure target file length is integer number of Opus frames */
+static_assert( (NUM_SAMPLES_IN_OUTPUT / NUM_SAMPLES_IN_OPUS_FRAME) * NUM_SAMPLES_IN_OPUS_FRAME
+               == NUM_SAMPLES_IN_OUTPUT );
 
-/* make sure file length is integer number of Opus frames */
-static_assert( (NUM_SAMPLES_IN_FILE / NUM_SAMPLES_IN_OPUS_FRAME) * NUM_SAMPLES_IN_OPUS_FRAME
-               == NUM_SAMPLES_IN_FILE );
-
-const unsigned int NUM_FRAMES_IN_FILE = NUM_SAMPLES_IN_FILE / NUM_SAMPLES_IN_OPUS_FRAME;
+const unsigned int NUM_FRAMES_IN_OUTPUT = NUM_SAMPLES_IN_OUTPUT / NUM_SAMPLES_IN_OPUS_FRAME;
 
 /* make sure file is long enough */
-static_assert( NUM_SAMPLES_IN_FILE > 4 * NUM_SAMPLES_IN_OPUS_FRAME );
+static_assert( NUM_SAMPLES_IN_OUTPUT > 4 * NUM_SAMPLES_IN_OPUS_FRAME );
 
 /* view of raw input, and storage for compressed output */
 using wav_frame_t = std::basic_string_view<int16_t>;
@@ -46,10 +46,10 @@ Starting with:
    chunk #0: samples 0      .. 230399 (4.8 s)
    chunk #1: samples 230400 .. 460799 (4.8 s)
 
-Then prepend 648 samples of silence to each chunk:
+Then prepend 648 samples of the previous chunk to each chunk:
 
-   chunk #0: 648 silent + 0      .. 230399 (4.8135 s)
-   chunk #1: 648 silent + 230400 .. 460799 (4.8135 s)
+   chunk #0: 648 silent       + 0      .. 230399 (4.8135 s)
+   chunk #1: 229752 .. 230399 + 230400 .. 460799 (4.8135 s)
 
 Now encode as Opus with first two frames independent:
 
@@ -62,7 +62,7 @@ Now encode as Opus with first two frames independent:
    frame 240            :                229400 .. 230399
 
  chunk #1:
-   frame 0 (independent): 312 of ignore, then 648 silent                     (chop!)
+   frame 0 (independent): 312 of ignore, then 229752 .. 230399                     (chop!)
    frame 1 (independent):                230400 .. 231359
    frame 2              :                231360 .. 232319
    frame 3              :                232320 .. 233279
@@ -85,9 +85,10 @@ Chopping produces:
    ...
    frame 240            :                459840 .. 460799
 
-So, for gapless playback, we prepend 648 silent samples, then encode
+So, for gapless playback, we prepend 648 samples from the previous chunk, then encode
 the first two frames as independent (no prediction), and chop the
-first of them.
+first of them. In practice we use 10 extra overlapping frames because this seems
+to make all the audible glitches go away.
 
 */
 
@@ -173,7 +174,7 @@ class WavWrapper
 public:
   WavWrapper( const string & filename )
     : handle_( filename ),
-      samples_( NUM_CHANNELS * ( SILENT_SAMPLES_TO_PREPEND + NUM_SAMPLES_IN_FILE + EXPECTED_LOOKAHEAD ) )
+      samples_( NUM_CHANNELS * ( NUM_SAMPLES_IN_INPUT + EXPECTED_LOOKAHEAD ) )
   {
     if ( handle_.error() ) {
       throw runtime_error( filename + ": " + handle_.strError() );
@@ -191,13 +192,13 @@ public:
       throw runtime_error( filename + " channel # is " + to_string( handle_.channels() ) + ", not " + to_string( NUM_CHANNELS ) );
     }
 
-    if ( handle_.frames() != NUM_SAMPLES_IN_FILE ) {
-      throw runtime_error( filename + " length is " + to_string( handle_.frames() ) + ", not " + to_string( NUM_SAMPLES_IN_FILE ) + " samples" );
+    if ( handle_.frames() != NUM_SAMPLES_IN_INPUT ) {
+      throw runtime_error( filename + " length is " + to_string( handle_.frames() ) + ", not " + to_string( NUM_SAMPLES_IN_INPUT ) + " samples" );
     }
 
     /* read file into memory */
-    const auto retval = handle_.read( samples_.data() + NUM_CHANNELS * SILENT_SAMPLES_TO_PREPEND, NUM_CHANNELS * NUM_SAMPLES_IN_FILE );
-    if ( retval != NUM_CHANNELS * NUM_SAMPLES_IN_FILE ) {
+    const auto retval = handle_.read( samples_.data(), NUM_CHANNELS * NUM_SAMPLES_IN_INPUT );
+    if ( retval != NUM_CHANNELS * NUM_SAMPLES_IN_INPUT ) {
       throw runtime_error( "unexpected read of " + to_string( retval ) + " samples" );
     }
 
@@ -376,15 +377,15 @@ void opus_encode( int argc, char *argv[] ) {
 
   encoder.disable_prediction();
 
-  for ( unsigned int frame_no = 0; frame_no < NUM_FRAMES_IN_FILE + 1; frame_no++ ) {
-    if ( frame_no == 2 ) {
+  for ( unsigned int frame_no = 0; frame_no < NUM_FRAMES_IN_OUTPUT + EXTRA_FRAMES_PREPENDED; frame_no++ ) {
+    if ( frame_no == EXTRA_FRAMES_PREPENDED ) {
       encoder.enable_prediction();
     }
 
     encoder.encode( wav_file.view( frame_no * NUM_CHANNELS * NUM_SAMPLES_IN_OPUS_FRAME ), opus_frame );
 
-    if ( frame_no > 0 ) {
-      output.write( opus_frame, (frame_no - 1) * NUM_SAMPLES_IN_OPUS_FRAME );
+    if ( frame_no >= EXTRA_FRAMES_PREPENDED ) {
+      output.write( opus_frame, (frame_no - EXTRA_FRAMES_PREPENDED) * NUM_SAMPLES_IN_OPUS_FRAME );
     }
   }
 }
