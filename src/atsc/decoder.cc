@@ -1242,10 +1242,10 @@ public:
         string serialized_block;
 
         for ( unsigned int sample_id = 0; sample_id < audio_samples_per_block; sample_id++ ) {
-          serialized_block += string( reinterpret_cast<const char *>( pending_block.left + sample_id ),
-                                      sizeof( int16_t ) );
-          serialized_block += string( reinterpret_cast<const char *>( pending_block.right + sample_id ),
-                                      sizeof( int16_t ) );
+          serialized_block += string_view( reinterpret_cast<const char *>( pending_block.left + sample_id ),
+                                           sizeof( int16_t ) );
+          serialized_block += string_view( reinterpret_cast<const char *>( pending_block.right + sample_id ),
+                                           sizeof( int16_t ) );
         }
 
         output_.write( serialized_block );
