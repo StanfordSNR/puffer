@@ -1251,6 +1251,8 @@ public:
         output_.write( serialized_block );
       }
 
+      output_.close(); /* make sure output is flushed before renaming */
+
       /* move output file if tmp_dir is not empty */
       if ( output_dir != directory_ ) {
         fs::rename( fs::path( output_dir ) / filename,
