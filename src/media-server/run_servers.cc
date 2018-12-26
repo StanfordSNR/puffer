@@ -127,8 +127,8 @@ int main(int argc, char * argv[])
   /* will run log reporters only if enable_logging is true */
   auto log_reporter = src_path / "monitoring/log_reporter";
   vector<string> log_stems {
-    "active_streams", "rebuffer_events", "client_video", "client_buffer",
-    "client_sysinfo"};
+    "active_streams", "rebuffer_events", "client_buffer", "client_sysinfo",
+    "video_sent", "video_acked"};
 
   /* run media servers in each experimental group */
   const auto & expt_json = src_path / "scripts/expt_json.py";
