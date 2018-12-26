@@ -34,7 +34,6 @@ void print_usage(const string & program_name)
   "--init-segment, -i     output initial segment\n"
   "--media-segment, -m    output media segment in the format of <num>.chk,\n"
   "                       where <num> denotes the segment number\n"
-  "--timecode-file, -t    file to store the timecode for the next segment"
   << endl;
 }
 
@@ -115,43 +114,18 @@ uint64_t get_timestamp(const string & filepath)
   return narrow_cast<uint64_t>(stoll(fs::path(filepath).stem()));
 }
 
-long long get_timecode(const string & timecode_file)
-{
-  /* create a new timecode file containing 0 if not exists */
-  if (not fs::exists(timecode_file)) {
-    FileDescriptor timecode_fd(CheckSystemCall("open (" + timecode_file + ")",
-        open(timecode_file.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644)));
-    timecode_fd.write("0");
-    return 0;
-  }
-
-  FileDescriptor timecode_fd(
-      CheckSystemCall("open (" + timecode_file + ")",
-                      open(timecode_file.c_str(), O_RDONLY)));
-
-  return stoll(timecode_fd.read());
-}
-
-void set_timecode(const string & timecode_file, const long long timecode)
-{
-  FileDescriptor timecode_fd(CheckSystemCall("open (" + timecode_file + ")",
-      open(timecode_file.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644)));
-
-  timecode_fd.write(to_string(timecode));
-}
-
 void create_media_segment(
     mkvmuxer::MkvWriter * writer,
     mkvparser::MkvReader * reader,
     const unique_ptr<mkvparser::Segment> & parser_segment,
-    const string & input_webm,
-    const string & timecode_file)
+    const string & input_webm)
 {
   if (parser_segment->GetCount() != 1) {
     throw runtime_error("input WebM should contain a single Cluster element");
   }
 
-  /* copy Cluster except BlockGroup */
+  /* copy Cluster except BlockGroup
+   * (TODO: what if BlockGroup also contains audio data) */
   auto cluster = parser_segment->GetFirst();
   if (not cluster) {
     throw runtime_error("no Cluster element is found");
@@ -162,13 +136,10 @@ void create_media_segment(
     throw runtime_error("failed to get the first block of cluster");
   }
 
-  /* get the last SimpleBlock and BlockGroup */
+  /* get the last SimpleBlock */
   const mkvparser::BlockEntry * last_simple_block_entry = nullptr;
-  const mkvparser::BlockEntry * last_block_entry = nullptr;
 
   while (block_entry and not block_entry->EOS()) {
-    last_block_entry = block_entry;
-
     if (block_entry->GetKind() == mkvparser::BlockEntry::kBlockSimple) {
       last_simple_block_entry = block_entry;
     }
@@ -182,26 +153,11 @@ void create_media_segment(
     throw runtime_error("no SimpleBlock exists");
   }
 
-  if (last_block_entry == nullptr) {
-    throw runtime_error("no Block exists");
-  }
-
-  /* get absolute (correct) timecode ... */
-  long long abs_timecode;
-  long long rel_timecode = last_block_entry->GetBlock()->GetTimeCode(cluster);
-
-  if (timecode_file.empty()) {
-    /* ... by converting the filename/timestamp (in global timescale)
-     * into timescale WebM's default timescale (1000) */
-    uint64_t global_timestamp = get_timestamp(input_webm);
-
-    double sec = static_cast<double>(global_timestamp) / global_timescale;
-    abs_timecode = narrow_round<uint64_t>(sec * webm_default_timescale);
-  } else {
-    /* ... from timecode file and save the timecode for the next segment */
-    abs_timecode = get_timecode(timecode_file);
-    set_timecode(timecode_file, abs_timecode + rel_timecode);
-  }
+  /* get the absolute timecode by converting the filename/timestamp
+   * (in global timescale) into WebM's default timescale (1000) */
+  uint64_t global_timestamp = get_timestamp(input_webm);
+  double sec = static_cast<double>(global_timestamp) / global_timescale;
+  long long abs_timecode = narrow_round<uint64_t>(sec * webm_default_timescale);
 
   /* calculate sizes */
   auto last_block = last_simple_block_entry->GetBlock();
@@ -241,8 +197,7 @@ void create_media_segment(
 
 void fragment(const string & input_webm,
               const string & init_segment,
-              const string & media_segment,
-              const string & timecode_file)
+              const string & media_segment)
 {
   mkvparser::MkvReader reader;
   if (reader.Open(input_webm.c_str())) {
@@ -298,8 +253,7 @@ void fragment(const string & input_webm,
 
   /* write media segment */
   if (media_segment.size()) {
-    create_media_segment(&media_writer, &reader, parser_segment,
-                         input_webm, timecode_file);
+    create_media_segment(&media_writer, &reader, parser_segment, input_webm);
   }
 }
 
@@ -310,12 +264,10 @@ int main(int argc, char * argv[])
   }
 
   string init_segment, media_segment;
-  string timecode_file;
 
   const option cmd_line_opts[] = {
     {"init-segment",  required_argument, nullptr, 'i'},
     {"media-segment", required_argument, nullptr, 'm'},
-    {"timecode-file", required_argument, nullptr, 't'},
     { nullptr,        0,                 nullptr,  0 }
   };
 
@@ -331,9 +283,6 @@ int main(int argc, char * argv[])
       break;
     case 'm':
       media_segment = optarg;
-      break;
-    case 't':
-      timecode_file = optarg;
       break;
     default:
       print_usage(argv[0]);
@@ -353,7 +302,7 @@ int main(int argc, char * argv[])
     return EXIT_FAILURE;
   }
 
-  fragment(input_segment, init_segment, media_segment, timecode_file);
+  fragment(input_segment, init_segment, media_segment);
 
   return EXIT_SUCCESS;
 }
