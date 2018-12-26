@@ -155,14 +155,18 @@ unsigned int serve_video_to_client(WebSocketServer & server,
        << ", video " << next_vts << " " << next_vformat << " " << ssim << endl;
 
   if (enable_logging) {
-    string log_line = to_string(timestamp_ms()) + " " + channel->name()
-      + " send " + expt_id + " " + client.username() + " "
-      + to_string(client.init_id()) + " " + next_vformat.to_string() + " "
-      + double_to_string(ssim, 3) + " "
-      + to_string(next_vsegment.length()) + " "
+    TCPInfo tcpi = server.get_tcp_info(client.connection_id());
+
+    string log_line = to_string(timestamp_ms()) + " " + channel->name() + " "
+      + expt_id + " " + client.username() + " " + to_string(client.init_id())
+      + " " + to_string(next_vts) + " " + next_vformat.to_string() + " "
+      + to_string(next_vsegment.length()) + " " + double_to_string(ssim, 3)
+      + " " + to_string(tcpi.cwnd) + " " + to_string(tcpi.in_flight) + " "
+      + to_string(tcpi.min_rtt) + " " + to_string(tcpi.rtt) + " "
+      + to_string(tcpi.delivery_rate) + " "
       + double_to_string(client.video_playback_buf(), 3) + " "
       + double_to_string(client.cum_rebuffer(), 3);
-    append_to_log("client_video", log_line);
+    append_to_log("video_sent", log_line);
   }
 
   return next_vsegment.length();
@@ -562,14 +566,12 @@ void handle_client_video_ack(WebSocketClient & client,
 
   /* record client's received video */
   if (enable_logging) {
-    string log_line = to_string(timestamp_ms()) + " " + msg.channel + " ack "
-      + expt_id + " " + client.username() + " "
-      + to_string(msg.init_id) + " " + msg.format + " "
-      + double_to_string(msg.ssim, 3) + " "
-      + to_string(msg.total_byte_length) + " "
+    string log_line = to_string(timestamp_ms()) + " " + msg.channel + " "
+      + expt_id + " " + client.username() + " " + to_string(msg.init_id) + " "
+      + to_string(msg.timestamp) + " " + double_to_string(msg.ssim, 3) + " "
       + double_to_string(msg.video_buffer, 3) + " "
       + double_to_string(msg.cum_rebuffer, 3);
-    append_to_log("client_video", log_line);
+    append_to_log("video_acked", log_line);
   }
 }
 
