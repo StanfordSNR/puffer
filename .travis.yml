@@ -2,54 +2,15 @@ language: cpp
 sudo: required
 services: docker
 
-addons:
-  apt:
-    sources:
-    - ubuntu-toolchain-r-test
-    packages:
-    - gcc-7
-    - g++-7
-    - libmpeg2-4-dev
-    - libpq-dev
-    - libssl-dev
-    - libcrypto++-dev
-    - libyaml-cpp-dev
-    - libboost-dev
-    - liba52-dev
-    - opus-tools
-    - libopus-dev
-    - libsndfile-dev
-    - libavformat-dev
-    - libavutil-dev
+git:
+  depth: 3
+  submodules: false
 
 before_install:
-  # download a static-built ffmpeg
-  - wget https://s3-us-west-2.amazonaws.com/stanford-puffer/ffmpeg-static.tar.xz
-  - tar -xf ffmpeg-static.tar.xz
-  - sudo cp ffmpeg-static/ffmpeg /usr/bin/
-  # install the latest version of libpqxx
-  - git clone https://github.com/jtv/libpqxx.git
-  - cd libpqxx
-  - git checkout 6.2.5
-  - ./configure --enable-documentation=no
-  - make -j3
-  - sudo make install
-  - cd ..
-
-install:
-  # upgrade gcc
-  - sudo apt-get update -q
-  - sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-7 99
-  - sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-7 99
-  # verify installed versions
-  - g++ -v
-  - ffmpeg -version
+  - docker build -t puffer-travis -f .travis.Dockerfile .
 
 script:
-  - ./autogen.sh
-  - ./configure
-  - make check -j3
-  # - make -j3 distcheck V=1 || (cat puffer-0.2/_build/src/tests/test-suite.log && exit 1)
+  - docker run -ti puffer-travis:latest /home/user/puffer/.travis-check.sh
 
 notifications:
   email: false
