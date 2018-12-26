@@ -8,6 +8,7 @@
 #include "path.hh"
 #include "child_process.hh"
 #include "media_formats.hh"
+#include "tokenize.hh"
 #include "yaml.hh"
 
 using namespace std;
@@ -257,6 +258,28 @@ void run_windowcleaner(ProcessManager & proc_manager,
   }
 }
 
+void run_decoder(ProcessManager & proc_manager,
+                 const fs::path & output_path,
+                 const YAML::Node & config)
+{
+  /* prepare directories */
+  string video_raw = output_path / "working/video-raw";
+  string audio_raw = output_path / "working/audio-raw";
+  string tmp_raw = output_path / "tmp/raw";
+
+  for (const auto & dir : {video_raw, audio_raw, tmp_raw}) {
+    fs::create_directories(dir);
+  }
+
+  string decoder = src_path / "atsc/decoder";
+  vector<string> decoder_args = split(config["decoder_args"].as<string>(), " ");
+
+  vector<string> args { decoder, video_raw, audio_raw, "--tmp", tmp_raw };
+  args.insert(args.begin() + 1, decoder_args.begin(), decoder_args.end());
+
+  proc_manager.run_as_child(decoder, args);
+}
+
 void run_pipeline(ProcessManager & proc_manager,
                   const string & channel_name,
                   const YAML::Node & config)
@@ -314,6 +337,9 @@ void run_pipeline(ProcessManager & proc_manager,
   unsigned int clean_window_ts = clean_window_s * global_timescale;
   run_windowcleaner(proc_manager, vready, clean_window_ts);
   run_windowcleaner(proc_manager, aready, clean_window_ts);
+
+  /* run decoder */
+  run_decoder(proc_manager, output_path, channel_config);
 }
 
 int main(int argc, char * argv[])
