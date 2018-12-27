@@ -3,6 +3,7 @@
 #include <memory>
 #include <iostream>
 #include <vector>
+#include <endian.h>
 
 #include <sndfile.hh>
 #include <opus/opus.h>
@@ -288,11 +289,33 @@ public:
     audio_stream_->codecpar->codec_type = AVMEDIA_TYPE_AUDIO;
     audio_stream_->codecpar->codec_id = AV_CODEC_ID_OPUS;
     audio_stream_->codecpar->bit_rate = bit_rate;
+    audio_stream_->codecpar->bits_per_coded_sample = 16;
     audio_stream_->codecpar->channels = NUM_CHANNELS;
     audio_stream_->codecpar->sample_rate = SAMPLE_RATE;
     audio_stream_->codecpar->initial_padding = 0;
     audio_stream_->codecpar->trailing_padding = 0;
 
+    /* write OpusHead structure as private data -- required by https://wiki.xiph.org/MatroskaOpus,
+       the unofficial Opus-in-WebM spec, and enforced by libnestegg (used by Firefox) */
+
+    struct __attribute__ ((packed)) OpusHead
+    {
+      array<char, 8> signature = { 'O', 'p', 'u', 's', 'H', 'e', 'a', 'd' };
+      uint8_t version = 1;
+      uint8_t channels = NUM_CHANNELS;
+      uint16_t pre_skip = htole16( 0 );
+      uint32_t input_sample_rate = htole32( SAMPLE_RATE );
+      uint16_t output_gain = htole16( 0 );
+      uint8_t channel_mapping_family = 0;
+    } opus_head;
+
+    static_assert( sizeof( opus_head ) == 19 );
+
+    audio_stream_->codecpar->extradata = reinterpret_cast<uint8_t *>( notnull( "av_malloc", av_malloc( 19 + AV_INPUT_BUFFER_PADDING_SIZE ) ) );
+    audio_stream_->codecpar->extradata_size = 19;
+    memcpy( audio_stream_->codecpar->extradata, &opus_head, sizeof( OpusHead ) );
+
+    /* now write the header */
     av_check( avformat_write_header( context_.get(), nullptr ) );
     header_written_ = true;
 
