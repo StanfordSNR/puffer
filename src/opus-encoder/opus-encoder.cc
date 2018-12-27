@@ -405,6 +405,10 @@ void opus_encode( int argc, char *argv[] ) {
       encoder.enable_prediction();
     }
 
+    if ( frame_no == NUM_FRAMES_IN_OUTPUT + EXTRA_FRAMES_PREPENDED - 1 ) {
+      encoder.disable_prediction();
+    }
+
     encoder.encode( wav_file.view( frame_no * NUM_CHANNELS * NUM_SAMPLES_IN_OPUS_FRAME ), opus_frame );
 
     if ( frame_no >= EXTRA_FRAMES_PREPENDED ) {
