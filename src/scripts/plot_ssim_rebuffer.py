@@ -6,48 +6,15 @@ import argparse
 import yaml
 from datetime import datetime, timedelta
 import numpy as np
-from influxdb import InfluxDBClient
-import psycopg2
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
+from helpers import connect_to_postgres, connect_to_influxdb
+
 
 # cache of Postgres data: experiment 'id' -> json 'data' of the experiment
 expt_id_cache = {}
-
-
-def connect_to_influxdb(yaml_settings):
-    influx = yaml_settings['influxdb_connection']
-    influx_client = InfluxDBClient(
-        influx['host'], influx['port'], influx['user'],
-        os.environ[influx['password']], influx['dbname'])
-    sys.stderr.write('Connected to the InfluxDB at {}:{}\n'
-                     .format(influx['host'], influx['port']))
-    return influx_client
-
-
-def connect_to_postgres(yaml_settings):
-    postgres = yaml_settings['postgres_connection']
-
-    kwargs = {
-        'host': postgres['host'],
-        'port': postgres['port'],
-        'database': postgres['dbname'],
-        'user': postgres['user'],
-        'password': os.environ[postgres['password']]
-    }
-
-    if 'sslmode' in postgres:
-        kwargs['sslmode'] = postgres['sslmode']
-        kwargs['sslrootcert'] = postgres['sslrootcert']
-        kwargs['sslcert'] = postgres['sslcert']
-        kwargs['sslkey'] = postgres['sslkey']
-
-    postgres_client = psycopg2.connect(**kwargs)
-    sys.stderr.write('Connected to the PostgreSQL at {}:{}\n'
-                     .format(postgres['host'], postgres['port']))
-    return postgres_client
 
 
 def retrieve_expt_config(postgres_cursor, expt_id):
@@ -63,10 +30,10 @@ def retrieve_expt_config(postgres_cursor, expt_id):
     return expt_id_cache[expt_id]
 
 
-def collect_ssim(video_acked_result, postgres_cursor):
+def collect_ssim(video_acked_results, postgres_cursor):
     # process InfluxDB data
     x = {}
-    for pt in video_acked_result['video_acked']:
+    for pt in video_acked_results['video_acked']:
         expt_id = pt['expt_id']
         expt_config = retrieve_expt_config(postgres_cursor, expt_id)
         # index x by (abr, cc)
@@ -100,10 +67,10 @@ def try_parsing_time(timestamp):
     raise ValueError('No valid format found to parse ' + timestamp)
 
 
-def collect_rebuffer(client_buffer_result, postgres_cursor):
+def collect_rebuffer(client_buffer_results, postgres_cursor):
     # process InfluxDB data
     x = {}
-    for pt in client_buffer_result['client_buffer']:
+    for pt in client_buffer_results['client_buffer']:
         expt_id = pt['expt_id']
         expt_config = retrieve_expt_config(postgres_cursor, expt_id)
         # index x by (abr, cc)
@@ -211,9 +178,9 @@ def main():
     influx_client = connect_to_influxdb(yaml_settings)
 
     # query video_acked and client_buffer
-    video_acked_result = influx_client.query(
+    video_acked_results = influx_client.query(
         'SELECT * FROM video_acked WHERE time >= now() - {}d'.format(days))
-    client_buffer_result = influx_client.query(
+    client_buffer_results = influx_client.query(
         'SELECT * FROM client_buffer WHERE time >= now() - {}d'.format(days))
 
     # create a Postgres client and perform queries
@@ -221,8 +188,8 @@ def main():
     postgres_cursor = postgres_client.cursor()
 
     # collect ssim and rebuffer
-    ssim = collect_ssim(video_acked_result, postgres_cursor)
-    rebuffer = collect_rebuffer(client_buffer_result, postgres_cursor)
+    ssim = collect_ssim(video_acked_results, postgres_cursor)
+    rebuffer = collect_rebuffer(client_buffer_results, postgres_cursor)
 
     if not ssim or not rebuffer:
         sys.exit('Error: no data found in the queried range')

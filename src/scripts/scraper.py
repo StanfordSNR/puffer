@@ -8,9 +8,9 @@ import time
 import yaml
 import subprocess
 import requests
-
 from datetime import datetime
-from influxdb import InfluxDBClient
+
+from helpers import connect_to_influxdb
 
 
 USERNAME = os.environ['BLONDER_TONGUE_USERNAME']
@@ -46,16 +46,6 @@ RF_CHANNEL_MAP = {
     44: 'fox',
     45: 'cw'
 }
-
-
-def connect_to_influxdb(yaml_settings):
-    influx = yaml_settings['influxdb_connection']
-    influx_client = InfluxDBClient(
-        influx['host'], influx['port'], influx['user'],
-        os.environ[influx['password']], influx['dbname'])
-    sys.stderr.write('Connected to the InfluxDB at {}:{}\n'
-                     .format(influx['host'], influx['port']))
-    return influx_client
 
 
 # Send SNR info and more to InfluxDB for monitoring

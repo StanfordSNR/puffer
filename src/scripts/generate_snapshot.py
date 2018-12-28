@@ -13,7 +13,6 @@ import argparse
 import yaml
 from datetime import datetime
 
-import psycopg2
 import selenium
 from selenium import webdriver
 from selenium.webdriver.common.by import By
@@ -21,31 +20,10 @@ from selenium.webdriver.support.ui import Select
 from selenium.webdriver.firefox.options import Options
 from selenium.common.exceptions import NoSuchElementException
 
+from helpers import connect_to_postgres
+
 
 GRAFANA_PWD = os.environ["GRAFANA_PASSWORD"]
-
-
-def connect_to_postgres(yaml_settings):
-    postgres = yaml_settings['postgres_connection']
-
-    kwargs = {
-        'host': postgres['host'],
-        'port': postgres['port'],
-        'database': postgres['dbname'],
-        'user': postgres['user'],
-        'password': os.environ[postgres['password']]
-    }
-
-    if 'sslmode' in postgres:
-        kwargs['sslmode'] = postgres['sslmode']
-        kwargs['sslrootcert'] = postgres['sslrootcert']
-        kwargs['sslcert'] = postgres['sslcert']
-        kwargs['sslkey'] = postgres['sslkey']
-
-    postgres_client = psycopg2.connect(**kwargs)
-    sys.stderr.write('Connected to the PostgreSQL at {}:{}\n'
-                     .format(postgres['host'], postgres['port']))
-    return postgres_client
 
 
 def main():
