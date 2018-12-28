@@ -108,7 +108,8 @@ function AVSource(ws_client, server_init) {
     set_fatal_error(
       'Error: your browser does not support Media Source Extensions (MSE), ' +
       'which Puffer requires to stream media. Please try another browser or ' +
-      'device.'
+      'device. A list of platforms on which Puffer is not supported ' +
+      'can be found in the FAQ.'
     );
     report_error(0 /* init_id is not important */, 'MSE not supported');
   }
@@ -136,7 +137,17 @@ function AVSource(ws_client, server_init) {
     video.currentTime = init_seek_ts / timescale;
 
     vbuf = ms.addSourceBuffer(video_codec);
-    abuf = ms.addSourceBuffer(audio_codec);
+    try {
+      abuf = ms.addSourceBuffer(audio_codec);
+    } catch(err) {
+      set_fatal_error(
+        'Error: your browser does not support the audio format, ' +
+        'Opus in WebM, used by Puffer. Please try another browser or ' +
+        'device. A list of platforms on which Puffer is not supported ' +
+        'can be found in the FAQ.'
+      );
+      report_error(0 /* init_id is not important */, 'audio not supported');
+    }
 
     vbuf.addEventListener('updateend', function(e) {
       if (vbuf_couple.length > 0) {
