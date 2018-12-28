@@ -72,20 +72,20 @@ Channel::Channel(const string & name, const fs::path & media_dir,
       /* check all the videos and audios are ready before ready frontiers */
       while (old_vts <= *vready_frontier_) {
         if (not vready(old_vts)) {
-          throw runtime_error("VoD streaming is not ready");
+          throw runtime_error("streaming of pre-recorded video is not ready");
         }
         old_vts += vduration_;
       }
 
       while (old_ats <= *aready_frontier_) {
         if (not aready(old_ats)) {
-          throw runtime_error("VoD streaming is not ready");
+          throw runtime_error("streaming of pre-recorded video is not ready");
         }
         old_ats += aduration_;
       }
 
       init_vts_ = vdata_.cbegin()->first;
-      cerr << "Channel " << name_ << ": ready to stream on demand" << endl;
+      cerr << "Channel " << name_ << ": ready to stream pre-recorded video" << endl;
     }
   }
 }

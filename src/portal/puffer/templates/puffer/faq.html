@@ -212,7 +212,7 @@ on <a href="https://www.usenix.org/conference/nsdi17/technical-sessions/presenta
 video encoding using thousands of tiny threads</a>. In earlier days,
 the advisor was responsible for work
 in <a href="https://mit.edu/remy">computer-generated congestion
-control</a> and in <a href="https://alfalfa.mit.edu">forecasting the
+control</a> and in <a href="http://alfalfa.mit.edu">forecasting the
 speed of an Internet connection for video</a>
 and <a href="https://mosh.org">integrating application coding and
 congestion control</a>.
@@ -241,14 +241,14 @@ Puffer. The study is limited to 500 participants at a time. We expect
 each participant to stream video from the Website for several hours
 each week, and we reserve the right to terminate your participation if
 you do not meet this expectation. You can't copy, distribute,
-rebroadcast, etc., anything you receive from us. Please <a href="{%
-url 'signup' %}">read the formal Terms of Participation</a> before signing up.
+rebroadcast, etc., anything you receive from us.
+Please <a href="{% url 'signup' %}">read the formal Terms of Participation</a> before signing up.
 
     <h5 class="mb-2">Video streaming already works&mdash;isn't this a solved problem?</h5>
     <p class="mb-4">
       It does work for a lot of
       people! <a href="https://static.googleusercontent.com/media/research.google.com/en//pubs/archive/46403.pdf">Google
-      has published</a> that 93\% of YouTube sessions <strong>never
+      has published</a> that 93% of YouTube sessions <strong>never
       stall to rebuffer</strong>. Whether this means video streaming
       is a solved problem somewhat depends on your perspective. If you
       are on a wireless connection or in a rural area, your results
@@ -280,13 +280,13 @@ url 'signup' %}">read the formal Terms of Participation</a> before signing up.
             instead of having all testing occur on top of TCP.</li>
         <li>Verbose communication between the congestion control layer and the application layer,
             so that application layer decision about video quality can be informed by the bandwidth
-            available in the congestion control layer</li>
+            available in the congestion control layer.</li>
         <li>The use of nontraditional signals to train our transmission-time predictor, such as ISP, connectivity
             type, etc.</li>
-        <li>Using a direct Transmission Time Predictor (which predicts the time required to send a chunk of a certain coded length) instead of simply extrapolating a unitary throughput estimate</li>
-        <li>Retraining the Transmission Time Predictor day-by-day as a function of real data</li>
-        <li>Automatically generating variants of the ABR scheme, and evolving them day-by-day as a function of real data</li>
-        <li>Using joint control across different users vs. treating each flow separately</li>.
+        <li>Using a direct Transmission Time Predictor (which predicts the time required to send a chunk of a certain coded length) instead of simply extrapolating a unitary throughput estimate.</li>
+        <li>Retraining the Transmission Time Predictor day-by-day as a function of real data.</li>
+        <li>Automatically generating variants of the ABR scheme, and evolving them day-by-day as a function of real data.</li>
+        <li>Using joint control across different users vs. treating each flow separately.</li>
     </ul>
     </p>
 
