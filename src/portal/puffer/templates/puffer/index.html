@@ -31,12 +31,12 @@
         <img class="mr-5" src="{% static 'puffer/dist/images/logo-tv.svg' %}" alt="" height="140px">
         <div>
           <h2 class="mt-5 font-weight-light">Welcome to Puffer!</h2>
-          <p class="mt-5">Puffer is a Stanford research project to improve
+          <div class="mt-5">Puffer is a Stanford research project to improve
 video-streaming technology. You can help us by watching TV on this
-website. There is no charge to participate.</p>
+website. There is no charge to participate.</div>
 
           <a role="button" class="btn btn-primary" href="{% url 'signup' %}">Sign up</a>
-          <a role="button" class="btn btn-secondary" href="{% url 'player' %}">Watch TV</a>
+          <a role="button" class="btn btn-outline-primary" href="{% url 'player' %}">Watch TV</a>
         </div>
       </div>
     </div>
