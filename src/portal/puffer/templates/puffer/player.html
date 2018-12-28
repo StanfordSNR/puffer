@@ -14,6 +14,7 @@
     gtag('js', new Date());
 
     gtag('config', 'UA-117951942-2');
+    gtag('config', 'AW-771906819');
   </script>
   <link rel="stylesheet" href="{% static 'puffer/dist/css/bootstrap.min.css' %}">
   <link rel="stylesheet" href="{% static 'puffer/css/common.css' %}">
@@ -122,6 +123,10 @@
     init_player("{{ params_json|escapejs }}", "{{ csrf_token }}");
   </script>
   {% endif %}
+
+  <script>
+    gtag('event', 'conversion', {'send_to': 'AW-771906819/F7YICLutpZIBEIO6ifAC'});
+  </script>
 </body>
 
 </html>
