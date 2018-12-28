@@ -517,13 +517,6 @@ void handle_client_info(WebSocketClient & client, const ClientInfoMsg & msg)
       + double_to_string(msg.video_buffer, 3) + " "
       + double_to_string(msg.cum_rebuffer, 3);
     append_to_log("client_buffer", log_line);
-
-    /* record rebuffer events */
-    if (msg.event == ClientInfoMsg::Event::Rebuffer) {
-      string log_line = to_string(timestamp_ms()) + " " + channel_name + " "
-        + expt_id + " " + server_id;
-      append_to_log("rebuffer_events", log_line);
-    }
   }
 }
 
