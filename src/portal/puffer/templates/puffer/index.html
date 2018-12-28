@@ -27,25 +27,22 @@
 
   <!-- Jumbotron -->
   <div class="jumbotron">
-    <div class="container">
-      <div class="d-flex justify-content-center">
-        <img class="mr-5" src="{% static 'puffer/dist/images/logo-tv.svg' %}" alt="" height="140px">
-        <div>
-          <h2 class="mt-5 font-weight-light">Welcome to Puffer!</h2>
+    <div class="container text-center">
+      <div class="row justify-content-center">
+        <div class="col-sm-7">
+        <img class="mb-4" src="{% static 'puffer/dist/images/logo-full.svg' %}"
+             alt="Puffer" height="160px">
 
-          <div class="row my-3">
-            <div class="col">Puffer is a Stanford University research project to improve
-              video-streaming technology. You can help us by watching TV on this
-              website. There&rsquo;s no charge.</div>
-          </div>
+        <p>Puffer is a Stanford University research project to improve
+        video-streaming technology. You can help us by watching TV on this
+        website. There&rsquo;s no charge.</p>
 
-      {% if user.is_authenticated %}
-          <a role="button" class="btn btn-primary" href="{% url 'player' %}">Watch TV</a>
-      {% else %}
-          <a role="button" class="btn btn-primary" href="{% url 'signup' %}">Sign up</a>
-          <a role="button" class="btn btn-outline-secondary" href="{% url 'player' %}">Log in</a>
-      {% endif %}
-
+        {% if user.is_authenticated %}
+        <a role="button" class="btn btn-primary" href="{% url 'player' %}">Watch TV</a>
+        {% else %}
+        <a role="button" class="btn btn-primary" href="{% url 'signup' %}">Sign up</a>
+        <a role="button" class="btn btn-outline-primary" href="{% url 'player' %}">Log in</a>
+        {% endif %}
         </div>
       </div>
     </div>
