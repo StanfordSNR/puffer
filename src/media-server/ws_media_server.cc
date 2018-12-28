@@ -157,14 +157,14 @@ unsigned int serve_video_to_client(WebSocketServer & server,
   if (enable_logging) {
     TCPInfo tcpi = server.get_tcp_info(client.connection_id());
 
-    string log_line = to_string(timestamp_ms()) + " " + channel->name() + " "
-      + expt_id + " " + client.username() + " " + to_string(client.init_id())
-      + " " + to_string(next_vts) + " " + next_vformat.to_string() + " "
-      + to_string(next_vsegment.length()) + " " + to_string(ssim)
-      + " " + to_string(tcpi.cwnd) + " " + to_string(tcpi.in_flight) + " "
-      + to_string(tcpi.min_rtt) + " " + to_string(tcpi.rtt) + " "
-      + to_string(tcpi.delivery_rate) + " "
-      + double_to_string(client.video_playback_buf(), 3) + " "
+    string log_line = to_string(timestamp_ms()) + "," + channel->name() + ","
+      + expt_id + "," + client.username() + "," + to_string(client.init_id())
+      + "," + to_string(next_vts) + "," + next_vformat.to_string() + ","
+      + to_string(next_vsegment.length()) + "," + to_string(ssim)
+      + "," + to_string(tcpi.cwnd) + "," + to_string(tcpi.in_flight) + ","
+      + to_string(tcpi.min_rtt) + "," + to_string(tcpi.rtt) + ","
+      + to_string(tcpi.delivery_rate) + ","
+      + double_to_string(client.video_playback_buf(), 3) + ","
       + double_to_string(client.cum_rebuffer(), 3);
     append_to_log("video_sent", log_line);
   }
@@ -332,8 +332,8 @@ void log_active_streams(const uint64_t this_minute)
   }
 
   for (const auto & [channel_name, count] : active_streams_count) {
-    string log_line = to_string(this_minute) + " " + channel_name + " "
-      + expt_id + " " + server_id + " " + to_string(count);
+    string log_line = to_string(this_minute) + "," + channel_name + ","
+      + expt_id + "," + server_id + "," + to_string(count);
     append_to_log("active_streams", log_line);
   }
 }
@@ -461,9 +461,9 @@ void handle_client_init(WebSocketServer & server, WebSocketClient & client,
 
   /* record client-init */
   if (enable_logging) {
-    string log_line = to_string(timestamp_ms()) + " " + msg.channel + " init "
-      + expt_id + " " + client.username() + " "
-      + to_string(msg.init_id) + " 0 0" /* buffer cum_rebuf */;
+    string log_line = to_string(timestamp_ms()) + "," + msg.channel + ",init,"
+      + expt_id + "," + client.username() + ","
+      + to_string(msg.init_id) + ",0,0" /* buffer cum_rebuf */;
     append_to_log("client_buffer", log_line);
   }
 
@@ -509,10 +509,10 @@ void handle_client_info(WebSocketClient & client, const ClientInfoMsg & msg)
 
     /* record system information */
     if (enable_logging) {
-      string log_line = to_string(timestamp_ms()) + " " + expt_id + " "
-        + client.username() + " " + to_string(msg.init_id) + " "
-        + client.address().ip() + " " + client.os() + " " + client.browser()
-        + " " + to_string(*msg.screen_width) + " "
+      string log_line = to_string(timestamp_ms()) + "," + expt_id + ","
+        + client.username() + "," + to_string(msg.init_id) + ","
+        + client.address().ip() + "," + client.os() + "," + client.browser()
+        + "," + to_string(*msg.screen_width) + ","
         + to_string(*msg.screen_height);
       append_to_log("client_sysinfo", log_line);
     }
@@ -523,10 +523,10 @@ void handle_client_info(WebSocketClient & client, const ClientInfoMsg & msg)
     const auto channel_name = client.channel()->name();
 
     /* record client-info */
-    string log_line = to_string(timestamp_ms()) + " " + channel_name + " "
-      + msg.event_str + " " + expt_id + " "
-      + client.username() + " " + to_string(msg.init_id) + " "
-      + double_to_string(msg.video_buffer, 3) + " "
+    string log_line = to_string(timestamp_ms()) + "," + channel_name + ","
+      + msg.event_str + "," + expt_id + ","
+      + client.username() + "," + to_string(msg.init_id) + ","
+      + double_to_string(msg.video_buffer, 3) + ","
       + double_to_string(msg.cum_rebuffer, 3);
     append_to_log("client_buffer", log_line);
   }
@@ -571,10 +571,10 @@ void handle_client_video_ack(WebSocketClient & client,
 
   /* record client's received video */
   if (enable_logging) {
-    string log_line = to_string(timestamp_ms()) + " " + msg.channel + " "
-      + expt_id + " " + client.username() + " " + to_string(msg.init_id) + " "
-      + to_string(msg.timestamp) + " " + to_string(msg.ssim) + " "
-      + double_to_string(msg.video_buffer, 3) + " "
+    string log_line = to_string(timestamp_ms()) + "," + msg.channel + ","
+      + expt_id + "," + client.username() + "," + to_string(msg.init_id) + ","
+      + to_string(msg.timestamp) + "," + to_string(msg.ssim) + ","
+      + double_to_string(msg.video_buffer, 3) + ","
       + double_to_string(msg.cum_rebuffer, 3);
     append_to_log("video_acked", log_line);
   }
@@ -741,10 +741,10 @@ int run_websocket_server(pqxx::nontransaction & db_work)
 
               /* record system information */
               if (enable_logging) {
-                string log_line = to_string(timestamp_ms()) + " " + expt_id
-                  + " " + client.username() + " " + to_string(msg.init_id)
-                  + " " + client.address().ip() + " " + msg.os + " "
-                  + msg.browser + " " + to_string(msg.screen_width) + " "
+                string log_line = to_string(timestamp_ms()) + "," + expt_id
+                  + "," + client.username() + "," + to_string(msg.init_id)
+                  + "," + client.address().ip() + "," + msg.os + ","
+                  + msg.browser + "," + to_string(msg.screen_width) + ","
                   + to_string(msg.screen_height);
                 append_to_log("client_sysinfo", log_line);
               }

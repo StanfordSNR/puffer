@@ -68,7 +68,7 @@ int tail_loop(const YAML::Node & config, const string & log_path)
 
           while ((pos = buf.find("\n")) != string::npos) {
             const string & line = buf.substr(0, pos);
-            vector<string> values = split(line, " ");
+            vector<string> values = split(line, ",");
 
             /* aggregate multiple points and separate by new lines */
             if (not payload.empty()) {
