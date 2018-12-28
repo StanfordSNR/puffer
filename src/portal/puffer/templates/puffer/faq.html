@@ -17,6 +17,7 @@
     gtag('config', 'AW-771906819');
   </script>
   <link rel="stylesheet" href="{% static 'puffer/dist/css/bootstrap.min.css' %}">
+  <link rel="stylesheet" href="{% static 'puffer/css/common.css' %}">
   <title>Puffer</title>
   <link rel="icon" href="{% static 'puffer/dist/images/favicon.ico' %}">
 </head>
@@ -26,174 +27,159 @@
   {% include "puffer/navigation.html" %}
 
   <!-- FAQ Section -->
-  <div class="container pt-5">
-    <div class="text-center mb-5">
+  <div class="container py-4">
+    <div class="text-center pb-1">
       <h4>Frequently Asked Questions</h4>
     </div>
 
-    <h5 class="mb-2">What is Puffer?</h5>
-    <p class="mb-4">Puffer is a Stanford University research study
-      about using machine learning to improve video-streaming
-      algorithms: the kind of algorithms used by services such as
-      YouTube, Netflix, and Twitch. We are trying to figure out how to
-      teach a computer to design new algorithms that reduce glitches
-      and stalls in streaming video (especially over wireless networks
-      and those with limited capacity, such as in rural areas),
-      improve picture quality, and predict how the capacity of an
-      Internet connection will change over time.
+    <div class="question">What is Puffer?</div>
+    <p>Puffer is a Stanford University research study
+    about using machine learning to improve video-streaming
+    algorithms: the kind of algorithms used by services such as
+    YouTube, Netflix, and Twitch. We are trying to figure out how to
+    teach a computer to design new algorithms that reduce glitches
+    and stalls in streaming video (especially over wireless networks
+    and those with limited capacity, such as in rural areas),
+    improve picture quality, and predict how the capacity of an
+    Internet connection will change over time.</p>
 
-    <h5 class="mb-2">Sounds interesting. What can the public do to help?</h5>
-    <p class="mb-4">Watch TV on this website. The idea of this study
-is that about 500 people will you watch TV channels here, streaming them over your Internet
-connection, and as they do, the Puffer website will automatically
-experiment with different algorithms that control the timing and
-quality of video sent to you, and will monitor how well the resulting
-computer-designed algorithms work. The more diverse the Internet
-connections that the 500 study participants use, the better the system will be
-able to learn, and the more robust the resulting computer-generated algorithms.
+    <div class="question">Sounds interesting. What can the public do to help?</div>
+    <p>Watch TV on this website. The idea of this study
+    is that about 500 people will you watch TV channels here, streaming them over your Internet
+    connection, and as they do, the Puffer website will automatically
+    experiment with different algorithms that control the timing and
+    quality of video sent to you, and will monitor how well the resulting
+    computer-designed algorithms work. The more diverse the Internet
+    connections that the 500 study participants use, the better the system will be
+    able to learn, and the more robust the resulting computer-generated algorithms.</p>
 
-    <h5 class="mb-2">So you're doing a research project to improve video streaming technology, and my role is to watch television on your website?</h5>
-    <p class="mb-4">Yes. Well, technically you don't even have to
+    <div class="question">So you're doing a research project to improve video streaming technology,
+    and my role is to watch television on your website?</div>
+    <p>Yes. Well, technically you don't even have to
     watch. We just need people to stream video over different kinds of
     Internet connections, so that the computer has some live traffic
     to learn from and experiment on.</p>
 
-    <h5 class="mb-2">How can I join the study and watch TV on your website?</h5>
-    <p class="mb-4">
-Visit the <a href="{% url 'signup' %}">Sign up</a> page to join. You must be within the United
-      States to use Puffer.</p>
+    <div class="question">How can I join the study and watch TV on your website?</div>
+    <p>Visit the <a href="{% url 'signup' %}">Sign up</a> page to join.
+    You must be within the United States to use Puffer.</p>
 
-    <h5 class="mb-2">Do I have to pay?</h5>
-    <p class="mb-4">No, there is no charge to participate. Puffer is
-an academic project at Stanford University and is entirely
-non-profit.</p>
+    <div class="question">Do I have to pay?</div>
+    <p>No, there is no charge to participate. Puffer is
+    an academic project at Stanford University and is entirely
+    non-profit.</p>
 
-    <h5 class="mb-2">What channels can I watch?</h5>
-    <p class="mb-4">
-    Puffer re-transmits free over-the-air broadcast television signals received by an antenna
+    <div class="question">What channels can I watch?</div>
+    <p>Puffer re-transmits free over-the-air broadcast television signals received by an antenna
     located on the campus of Stanford University. At the moment, we are re-transmitting local
     affiliates or owned stations of CBS (KPIX 5), NBC (KNTV 11), ABC (KGO 7), FOX (KTVU 2),
     PBS (KQED 9), and Univision (KDTV 14).</p>
 
-    <h5 class="mb-2">Do you make any changes to the local TV channels?</h5>
-    <p class="mb-4">No, Puffer retransmits the local stations we can receive without any modification.</p>
+    <div class="question">Do you make any changes to the local TV channels?</div>
+    <p>No, Puffer retransmits the local stations we can receive without any modification.</p>
 
-    <h5 class="mb-2">Can you please add HBO/CNN/ESPN?</h5>
-    <p class="mb-4">No, we can only re-transmit free over-the-air broadcast television signals.</p>
+    <div class="question">Can you please add HBO/CNN/ESPN?</div>
+    <p>No, we can only re-transmit free over-the-air broadcast television signals.</p>
 
-    <h5 class="mb-2">Why doesn't Puffer work on my iPhone or iPad?</h5>
-    <p class="mb-4">
-    Puffer uses the
-    Web <a href="https://www.w3.org/TR/media-source/">Media Source
+    <div class="question">Why doesn't Puffer work on my iPhone or iPad?</div>
+    <p>Puffer uses the Web <a href="https://www.w3.org/TR/media-source/">Media Source
     Extensions (MSE)</a> to stream video.  This standard is not
     supported by all browsers, and in particular, it is not supported
     by Safari on iOS (and we understand other browser engines are not
     allowed on iOS, which means it is not possible to watch Puffer on
     an iPhone or iPad). Puffer does work in Chrome and Firefox (including on
-    Android phones and tablets) and Microsoft Edge. If you are having trouble, please contact the research
-    team by
+    Android phones and tablets) and Microsoft Edge.
+    If you are having trouble, please contact the research team by
     visiting <a href="https://groups.google.com/forum/#!forum/puffer-stanford">the
     puffer-stanford Google Group</a>.</p>
 
-    <h5 class="mb-2">Why doesn't Puffer work on Safari on my desktop Mac?</h5>
-    <p class="mb-4">
-      Puffer uses the <a href="https://opus-codec.org/">Opus audio</a>
-      standard, which Safari supports only for real-time video
-      (WebRTC) but not for video streaming (in a WebM container).
-    </p>
+    <div class="question">Why doesn't Puffer work on Safari on my desktop Mac?</div>
+    <p>Puffer uses the <a href="https://opus-codec.org/">Opus audio</a>
+    standard, which Safari supports only for real-time video
+    (WebRTC) but not for video streaming (in a WebM container).</p>
 
-    <h5 class="mb-2">So... what browsers does Puffer work on again?</h5>
-    <p class="mb-4">Chrome, Firefox, Opera, and Microsoft Edge, on
-      Mac/Windows/Linux computers and on Android phones and
-      tablets.</p>
+    <div class="question">So... what browsers does Puffer work on again?</div>
+    <p>Chrome, Firefox, Opera, and Microsoft Edge, on
+    Mac/Windows/Linux computers and on Android phones and
+    tablets.</p>
 
-    <h5 class="mb-2">When you say Puffer will learn better
+    <div class="question">When you say Puffer will learn better
     video-streaming &ldquo;algorithms,&rdquo; which algorithms
-    do you mean?</h5>
-    <p class="mb-4">
-      Puffer is focused on three types of algorithms:
-      &ldquo;congestion-control&rdquo; algorithms that decide when to
-      send each piece of data, also known as a packet, &ldquo;throughput forecasters,&rdquo;
-      which predict how long it will take to send a certain amount of data over
-      an Internet connection in the near future, and
-      &ldquo;adaptive-bitrate&rdquo; (ABR) algorithms that decide what
-      quality of video to send, in order to try to give the user the
-      best picture quality that won't lead to a stall or
-      rebuffer. All three kinds of algorithms have a long history of work
-      by academics and practitioners.</p>
+    do you mean?</div>
+    <p>Puffer is focused on three types of algorithms:
+    &ldquo;congestion-control&rdquo; algorithms that decide when to
+    send each piece of data, also known as a packet, &ldquo;throughput forecasters,&rdquo;
+    which predict how long it will take to send a certain amount of data over
+    an Internet connection in the near future, and
+    &ldquo;adaptive-bitrate&rdquo; (ABR) algorithms that decide what
+    quality of video to send, in order to try to give the user the
+    best picture quality that won't lead to a stall or
+    rebuffer. All three kinds of algorithms have a long history of work
+    by academics and practitioners.</p>
 
-    <h5 class="mb-2">Why do you need a website with 500 people streaming video from you to do this research?</h5>
-    <p class="mb-4">
-      The core issue here is that developing robust systems takes data
-      and experience. Big companies (e.g., YouTube, Netflix, Twitch)
-      have lots of users, which means lots of data: they could, at least
-      in theory, do experiments where some users get one variant of an
-      algorithm for a day, and some get a different variant, and at
-      the end of the day there is tons of data to decide which variant
-      is better to the bottom-line metrics (generally in terms of
-      things like stalls and startup speed, picture quality and the
-      variation in quality over time, and cost or wasted bandwidth).
-    </p>
+    <div class="question">Why do you need a website with 500 people streaming
+    video from you to do this research?</div>
+    <p>The core issue here is that developing robust systems takes data
+    and experience. Big companies (e.g., YouTube, Netflix, Twitch)
+    have lots of users, which means lots of data: they could, at least
+    in theory, do experiments where some users get one variant of an
+    algorithm for a day, and some get a different variant, and at
+    the end of the day there is tons of data to decide which variant
+    is better to the bottom-line metrics (generally in terms of
+    things like stalls and startup speed, picture quality and the
+    variation in quality over time, and cost or wasted bandwidth).</p>
 
-    <p>
-      The challenge for the big companies is that they are generally
-      pretty conservative about changing their low-level systems code,
-      like congestion-control algorithms and throughput prediction
-      algorithms. Letting a machine learn these algorithms online, by
-      running a new experiment every hour or so, seems to be a nonstarter for
-      these services&mdash;there's too much at risk.</p>
+    <p>The challenge for the big companies is that they are generally
+    pretty conservative about changing their low-level systems code,
+    like congestion-control algorithms and throughput prediction
+    algorithms. Letting a machine learn these algorithms online, by
+    running a new experiment every hour or so, seems to be a nonstarter for
+    these services&mdash;there's too much at risk.</p>
 
     <p>Academics, on the other hand, historically have had to develop
-    network algorithms
-      <a href="http://mit.edu/remy">in simulation</a> or
-      in <a href="https://pantheon.stanford.edu">small real-world
-      testbeds</a>, sometimes known as &ldquo;offline&rdquo; learning.
+    network algorithms <a href="http://mit.edu/remy">in simulation</a> or
+    in <a href="https://pantheon.stanford.edu">small real-world
+    testbeds</a>, sometimes known as &ldquo;offline&rdquo; learning.
     Unfortunately, we have learned through experience that
-      algorithms learned in simulation or in small-scale experiments
-      sometimes aren't able to replicate their performance in the real
-      world, or even in subsequent small-scale experiments. We're
-      not sure if it's possible to learn a network algorithm in
-      simulation and have it perform robustly on real traffic over the
-      real-world Internet. (Nobody has figured out how to do this
-      yet, which probably indicates a failure of our simulations,
-      but it's not obvious where.) To teach a machine to develop
-      robust algorithms automatically, academics need a real
-      population of Internet connections we can experiment on.</p>
+    algorithms learned in simulation or in small-scale experiments
+    sometimes aren't able to replicate their performance in the real
+    world, or even in subsequent small-scale experiments. We're
+    not sure if it's possible to learn a network algorithm in
+    simulation and have it perform robustly on real traffic over the
+    real-world Internet. (Nobody has figured out how to do this
+    yet, which probably indicates a failure of our simulations,
+    but it's not obvious where.) To teach a machine to develop
+    robust algorithms automatically, academics need a real
+    population of Internet connections we can experiment on.</p>
 
-<p>Puffer is attempting to answer the question of whether rapid
-      &ldquo;online&rdquo; learning&mdash;automatically generating and
-      testing algorithms on real users <strong>in
-      situ</strong>&mdash;can successfully produce robust systems.
-      Hence this website: a medium-sized video streaming
-      website, open to the public, run for academic purposes, that learns
-low-level systems algorithms as a function of who is using it.</p>
+    <p>Puffer is attempting to answer the question of whether rapid
+    &ldquo;online&rdquo; learning&mdash;automatically generating and
+    testing algorithms on real users <strong>in situ</strong>&mdash;can successfully produce
+    robust systems. Hence this website: a medium-sized video streaming
+    website, open to the public, run for academic purposes, that learns
+    low-level systems algorithms as a function of who is using it.</p>
 
-    <h5 class="mb-2">Why are you streaming over-the-air television?</h5>
-    <p class="mb-4">
-      For the research project to work, we
-      need <strong>some</strong> source of video that never ends and
-      is sufficiently interesting to attract a few hundred people to
-      watch. Broadcast TV is the most interesting thing that we have access to
-      and are permitted to retransmit.
-    </p>
+    <div class="question">Why are you streaming over-the-air television?</div>
+    <p>For the research project to work, we
+    need <strong>some</strong> source of video that never ends and
+    is sufficiently interesting to attract a few hundred people to
+    watch. Broadcast TV is the most interesting thing that we have access to
+    and are permitted to retransmit.</p>
 
-    <h5 class="mb-2">Can you share more technical details about how Puffer works?</h5>
-    <p class="mb-4">Sure, please check
-      out <a href="https://github.com/StanfordSNR/puffer">the
-      source code to Puffer</a>, and
-      some <a href="https://puffer.stanford.edu/monitoring/">public
-      monitoring graphs</a>. We will prepare a research paper once we
-      have some results.</p>
+    <div class="question">Can you share more technical details about how Puffer works?</div>
+    <p>Sure, please check out <a href="https://github.com/StanfordSNR/puffer">the
+    source code to Puffer</a>, and
+    some <a href="https://puffer.stanford.edu/monitoring/">public
+    monitoring graphs</a>. We will prepare a research paper once we
+    have some results.</p>
 
-    <h5 class="mb-2">Who is responsible for Puffer?</h5>
-    <p class="mb-4">
-    The Puffer project is led
+    <div class="question">Who is responsible for Puffer?</div>
+    <p> The Puffer project is led
     by <a href="https://platformlab.stanford.edu/student-francis-yan.php">Francis
     Yan</a>, a doctoral student in computer science at Stanford
     University, along with Sadjad Fouladi and Hudson Ayers (also
     Stanford) and Chenzhi Zhu (Tsinghua University). The project is
-    advised by
-    professors <a href="https://cs.stanford.edu/~keithw">Keith
+    advised by professors <a href="https://cs.stanford.edu/~keithw">Keith
     Winstein</a> and <a href="https://cs.stanford.edu/~pal">Philip
     Levis</a>.</p>
 
@@ -201,99 +187,105 @@ low-level systems algorithms as a function of who is using it.</p>
     along with support from Google, Huawei, VMware, Dropbox, Facebook,
     and the Stanford Platform Lab.</p>
 
-    <h5 class="mb-2">Does the research group behind Puffer have any past work in this area?</h5>
-    <p class="mb-4">
-      We have recently published work
-on <a href="https://pantheon.stanford.edu">neural networks and a
-standardized training ground for congestion control</a> and
-on <a href="https://snr.stanford.edu/salsify">better systems for
-real-time Internet video</a> and
-on <a href="https://www.usenix.org/conference/nsdi17/technical-sessions/presentation/fouladi">high-speed
-video encoding using thousands of tiny threads</a>. In earlier days,
-the advisor was responsible for work
-in <a href="https://mit.edu/remy">computer-generated congestion
-control</a> and in <a href="http://alfalfa.mit.edu">forecasting the
-speed of an Internet connection for video</a>
-and <a href="https://mosh.org">integrating application coding and
-congestion control</a>.
-    </p>
+    <div class="question">Does the research group behind Puffer have any past
+    work in this area?</div>
+    <p>We have recently published work
+    on <a href="https://pantheon.stanford.edu">neural networks and a
+    standardized training ground for congestion control</a> and
+    on <a href="https://snr.stanford.edu/salsify">better systems for
+    real-time Internet video</a> and
+    on <a href="https://www.usenix.org/conference/nsdi17/technical-sessions/presentation/fouladi">
+    high-speed video encoding using thousands of tiny threads</a>. In earlier days,
+    the advisor was responsible for work
+    in <a href="https://mit.edu/remy">computer-generated congestion
+    control</a> and in <a href="http://alfalfa.mit.edu">forecasting the
+    speed of an Internet connection for video</a>
+    and <a href="https://mosh.org">integrating application coding and
+    congestion control</a>.</p>
 
-    <h5 class="mb-2">What information do you collect about me?</h5>
-    <p class="mb-4">As you stream video, the Puffer website will automatically collect information from your Web browser, including which video channel was sent to you, the picture quality of that video compared with the original version received by our antenna, the timing and duration of stalls in the playback, the timing of the delivery or loss of individual Internet Protocol datagrams or messages, and the accuracy of predictions the Website makes about the capacity of the Internet connection between you and the Website.</p>
+    <div class="question">What information do you collect about me?</div>
+    <p>As you stream video, the Puffer website will automatically collect information
+    from your Web browser, including which video channel was sent to you, the picture quality of
+    that video compared with the original version received by our antenna, the timing and duration
+    of stalls in the playback, the timing of the delivery or loss of individual Internet Protocol
+    datagrams or messages, and the accuracy of predictions the Website makes about the capacity of
+    the Internet connection between you and the Website.</p>
 
-    <h5 class="mb-2">Is there a survey to fill out?</h5>
-    <p class="mb-4">No, you will not receive a survey or be
+    <div class="question">Is there a survey to fill out?</div>
+    <p>No, you will not receive a survey or be
     required to answer any questions as part of the study.</p>
 
-    <h5 class="mb-2">Does this study count as &ldquo;human-subjects research&rdquo;?</h5>
-    <p class="mb-4">No, the Stanford University Institutional Review Board has determined
-that this project does not meet the definition of human subjects research as defined in federal
-regulations 45 C.F.R. § 46.102 or 21 C.F.R. § 50.3.</p>
+    <div class="question">Does this study count as &ldquo;human-subjects research&rdquo;?</div>
+    <p>No, the Stanford University Institutional Review Board has determined
+    that this project does not meet the definition of human subjects research as defined in federal
+    regulations 45 C.F.R. § 46.102 or 21 C.F.R. § 50.3.</p>
 
-    <h5 class="mb-2">I lost my password. Can I reset it?</h5>
-    <p class="mb-4">No, Puffer doesn't collect any private information about research subjects,
-not even their email addresses. As a result, it is not possible to reset a lost password. If the Puffer website
-is still accepting new research subjects, you can try to create a new account.</p>
+    <div class="question">I lost my password. Can I reset it?</div>
+    <p>No, Puffer doesn't collect any private information about research subjects,
+    not even their email addresses. As a result, it is not possible to reset a lost password.
+    If the Puffer website is still accepting new research subjects,
+    you can try to create a new account.</p>
 
-    <h5 class="mb-2">What are the limitations on study participants?</h5>
-    <p class="mb-4">You must be within the United States to use
-Puffer. The study is limited to 500 participants at a time. We expect
-each participant to stream video from the Website for several hours
-each week, and we reserve the right to terminate your participation if
-you do not meet this expectation. You can't copy, distribute,
-rebroadcast, etc., anything you receive from us.
-Please <a href="{% url 'signup' %}">read the formal Terms of Participation</a> before signing up.
+    <div class="question">What are the limitations on study participants?</div>
+    <p>You must be within the United States to use
+    Puffer. The study is limited to 500 participants at a time. We expect
+    each participant to stream video from the Website for several hours
+    each week, and we reserve the right to terminate your participation if
+    you do not meet this expectation. You can't copy, distribute,
+    rebroadcast, etc., anything you receive from us. Please read the formal
+    <a href="{% url 'signup' %}">Terms of Participation</a> before signing up.
 
-    <h5 class="mb-2">Video streaming already works&mdash;isn't this a solved problem?</h5>
-    <p class="mb-4">
-      It does work for a lot of
-      people! <a href="https://static.googleusercontent.com/media/research.google.com/en//pubs/archive/46403.pdf">Google
-      has published</a> that 93% of YouTube sessions <strong>never
-      stall to rebuffer</strong>. Whether this means video streaming
-      is a solved problem somewhat depends on your perspective. If you
-      are on a wireless connection or in a rural area, your results
-      are probably worse. And video streaming necessarily involves a
-      tradeoff between picture quality and the risk of stall. If you
-      care about the picture quality (and not just whether the video
-      plays without stalling to rebuffer), your demands probably
-      increase with time, especially as video grows to greater
-      resolutions and sizes, so even today's wired networks will prove
-      inadequate in the future.</p>
+    <div class="question">Video streaming already works&mdash;isn't this a solved problem?</div>
+    <p>
+    It does work for a lot of people!
+    <a href="https://static.googleusercontent.com/media/research.google.com/en//pubs/archive/46403.pdf">
+    Google has published</a> that 93% of YouTube sessions <strong>never
+    stall to rebuffer</strong>. Whether this means video streaming
+    is a solved problem somewhat depends on your perspective. If you
+    are on a wireless connection or in a rural area, your results
+    are probably worse. And video streaming necessarily involves a
+    tradeoff between picture quality and the risk of stall. If you
+    care about the picture quality (and not just whether the video
+    plays without stalling to rebuffer), your demands probably
+    increase with time, especially as video grows to greater
+    resolutions and sizes, so even today's wired networks will prove
+    inadequate in the future.</p>
 
-    <p class="mb-4">
-    Puffer is unique from previous academic studies on video streaming in that it
+    <p>Puffer is unique from previous academic studies on video streaming in that it
     uses <i>online</i> learning to generate adaptive bit rate (ABR) and congestion control
     algorithms. In essence, this means that Puffer regularly learns from past performance to
     construct future algorithms which work better. Ultimately, we hope that this
     approach will produce substantial benefits over prior work, but only time will tell.
     Beyond this fundamental difference, Puffer also approaches the video-streaming problem
-    differently in a number of ways. These include:
+    differently in a number of ways. These include:</p>
     <ul>
-        <li>Puffer's use of structural similarity (SSIM) instead of bitrate
-            as the input to quality of experience measurements, ensuring performance measurements
-            are more directly linked to user experience. </li>
-        <li>Puffer's use of a denser bitrate ladder than most existing systems, allowing for more fine-grained
-            control of video quality received by users. </li>
-        <li>Use of websockets instead of &ldquo;DASH&rdquo; HTTP request/response pairs, allowing for continuous streaming video
-          that is not synchronous with client requests.</li>
-        <li>Using congestion control with a tunable pacing rate and a direct access to a throughput estimate,
-            instead of having all testing occur on top of TCP.</li>
-        <li>Verbose communication between the congestion control layer and the application layer,
-            so that application layer decision about video quality can be informed by the bandwidth
-            available in the congestion control layer.</li>
-        <li>The use of nontraditional signals to train our transmission-time predictor, such as ISP, connectivity
-            type, etc.</li>
-        <li>Using a direct Transmission Time Predictor (which predicts the time required to send a chunk of a certain coded length) instead of simply extrapolating a unitary throughput estimate.</li>
-        <li>Retraining the Transmission Time Predictor day-by-day as a function of real data.</li>
-        <li>Automatically generating variants of the ABR scheme, and evolving them day-by-day as a function of real data.</li>
-        <li>Using joint control across different users vs. treating each flow separately.</li>
+      <li>Puffer's use of structural similarity (SSIM) instead of bitrate
+          as the input to quality of experience measurements, ensuring performance measurements
+          are more directly linked to user experience. </li>
+      <li>Puffer's use of a denser bitrate ladder than most existing systems, allowing for more
+          fine-grained control of video quality received by users. </li>
+      <li>Use of websockets instead of &ldquo;DASH&rdquo; HTTP request/response pairs, allowing for
+          continuous streaming video that is not synchronous with client requests.</li>
+      <li>Using congestion control with a tunable pacing rate and a direct access to a throughput
+          estimate, instead of having all testing occur on top of TCP.</li>
+      <li>Verbose communication between the congestion control layer and the application layer,
+          so that application layer decision about video quality can be informed by the bandwidth
+          available in the congestion control layer.</li>
+      <li>The use of nontraditional signals to train our transmission-time predictor, such as ISP,
+          connectivity type, etc.</li>
+      <li>Using a direct Transmission Time Predictor (which predicts the time required to send a
+          chunk of a certain coded length) instead of simply extrapolating a unitary
+          throughput estimate.</li>
+      <li>Retraining the Transmission Time Predictor day-by-day as a function of real data.</li>
+      <li>Automatically generating variants of the ABR scheme, and evolving them day-by-day as
+          a function of real data.</li>
+      <li>Using joint control across different users vs. treating each flow separately.</li>
     </ul>
-    </p>
 
-    <h5 class="mb-2">How can I ask a question not answered here?</h5>
-    <p class="mb-4">
-      Please contact the research team by visiting <a href="https://groups.google.com/forum/#!forum/puffer-stanford">the puffer-stanford Google Group</a>.</p>
-
+    <div class="question">How can I ask a question not answered here?</div>
+    <p>Please contact the research team by visiting
+    <a href="https://groups.google.com/forum/#!forum/puffer-stanford">
+    the puffer-stanford Google Group</a>.</p>
   </div>
 
   <script src="{% static 'puffer/dist/js/jquery-3.3.1.slim.min.js' %}"></script>
