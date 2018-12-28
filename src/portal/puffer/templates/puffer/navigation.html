@@ -29,7 +29,7 @@
       <a role="button" class="btn btn-link" href="{% url 'logout' %}">Sign out</a>
       <span style="vertical-align:middle;">{{ user.username }}</span>
       {% else %}
-      <a role="button" class="btn btn-primary" href="{% url 'signup' %}">Sign up</a>
+      <a role="button" class="btn btn-outline-primary" href="{% url 'signup' %}">Sign up</a>
       {% endif %}
       </ul>
     </div>
