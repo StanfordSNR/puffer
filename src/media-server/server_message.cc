@@ -98,7 +98,7 @@ ServerErrorMsg::ServerErrorMsg(const unsigned int init_id,
       "Please try again later.";
   } else if (error_type == Type::Reinit) {
     error_type_str = "reinit";
-    error_message = "Your video has been lagging and is going to be reset.";
+    error_message = "Your connection is going to be reset.";
   } else if (error_type == Type::Unavailable) {
     error_type_str = "unavailable";
     error_message = "Sorry, the channel is not currently available. "

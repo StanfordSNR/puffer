@@ -258,7 +258,7 @@ void serve_client(WebSocketServer & server, WebSocketClient & client)
 {
   const auto channel = client.channel();
 
-  /* unlikely: client has not initialized channel correctly */
+  /* client has not initialized channel correctly */
   if (not channel or not client.video_in_flight()
       or not client.audio_in_flight()) {
     return;
@@ -276,8 +276,8 @@ void serve_client(WebSocketServer & server, WebSocketClient & client)
   uint64_t next_vts = *client.next_vts();
   uint64_t next_ats = *client.next_ats();
 
-  /* reinit client if clean frontiers have caught up */
   if (channel->live()) {
+    /* reinit client if clean frontiers of live streaming have caught up */
     if ((channel->vclean_frontier() and
          next_vts <= *channel->vclean_frontier()) or
         (channel->aclean_frontier() and
@@ -285,6 +285,17 @@ void serve_client(WebSocketServer & server, WebSocketClient & client)
       send_server_error(server, client, ServerErrorMsg::Type::Reinit);
       cerr << client.signature() << ": reinitialize laggy client" << endl;
       return;
+    }
+  } else {
+    /* reinit client if a non-live channel is set to repeat playing */
+    if (channel->repeat()) {
+      if (next_vts > channel->vready_frontier() or
+          next_ats > channel->aready_frontier()) {
+        send_server_error(server, client, ServerErrorMsg::Type::Reinit);
+        cerr << client.signature() << ": reinitialize client intentionally "
+             << "as 'repeat' is set to true" << endl;
+        return;
+      }
     }
   }
 

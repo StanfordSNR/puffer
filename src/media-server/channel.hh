@@ -33,8 +33,8 @@ public:
   bool vready_to_serve(const uint64_t ts) const;
   bool aready_to_serve(const uint64_t ts) const;
 
-  /* call this function to check if live edge has advanced since last call
-   * mark the channel as not available if */
+  /* call this function periodically (e.g., every second); mark the channel as
+   * unavailable if live edge hasn't advanced for MAX_UNCHANGED_LIVE_EDGE_MS */
   void enforce_moving_live_edge();
 
   mmap_t vinit(const VideoFormat & format) const;
@@ -56,6 +56,8 @@ public:
 
   std::optional<uint64_t> init_vts() const;
   std::optional<uint64_t> init_ats() const;
+
+  bool repeat() const { return repeat_; }
 
   /* return the live edge that allow for presentation_delay_s */
   std::optional<uint64_t> live_edge() const;
@@ -104,6 +106,7 @@ private:
 
   /* configured only if live_ == false */
   std::optional<uint64_t> init_vts_ {};
+  bool repeat_ {};
 
   bool vready(const uint64_t ts) const;
   bool aready(const uint64_t ts) const;

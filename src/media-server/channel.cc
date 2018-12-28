@@ -47,7 +47,13 @@ Channel::Channel(const string & name, const fs::path & media_dir,
         config["present_delay_chunk"].as<unsigned int>() :
         DEFAULT_PRESENT_DELAY_CHUNK;
     clean_window_chunk_ = *present_delay_chunk_ + PRESENT_CLEAN_DIFF;
+
+    if (config["repeat"]) {
+      throw runtime_error("repeat can't be set if live is true");
+    }
   } else {
+    repeat_ = config["repeat"] ? config["repeat"].as<bool>() : false;
+
     if (config["present_delay_chunk"]) {
       throw runtime_error("present_delay_chunk can't be set if live is false");
     }
