@@ -156,6 +156,14 @@ low-level systems algorithms as a function of who is using it.</p>
       and are permitted to retransmit.
     </p>
 
+    <h5 class="mb-2">Can you share more technical details about how Puffer works?</h5>
+    <p class="mb-4">Sure, please check
+      out <a href="https://github.com/StanfordSNR/puffer">the
+      source code to Puffer</a>, and
+      some <a href="https://puffer.stanford.edu/monitoring/">public
+      monitoring graphs</a>. We will prepare a research paper once we
+      have some results.</p>
+
     <h5 class="mb-2">Who is responsible for Puffer?</h5>
     <p class="mb-4">
     The Puffer project is led
@@ -215,9 +223,6 @@ you do not meet this expectation. You can't copy, distribute,
 rebroadcast, etc., anything you receive from us. Please <a href="{%
 url 'signup' %}">read the formal Terms of Participation</a> before signing up.
 
-    <h5 class="mb-2">Do you have any nerdy graphs showing how the system is working?</h5>
-    <p class="mb-4">Sure, check out our <a href="https://puffer.stanford.edu/monitoring/">public monitoring</a>.</p>
-
     <h5 class="mb-2">Video streaming already works&mdash;isn't this a solved problem?</h5>
     <p class="mb-4">
       It does work for a lot of
@@ -248,7 +253,7 @@ url 'signup' %}">read the formal Terms of Participation</a> before signing up.
             are more directly linked to user experience. </li>
         <li>Puffer's use of a denser bitrate ladder than most existing systems, allowing for more fine-grained
             control of video quality received by users. </li>
-        <li>Use of websockets instead of HTTP request/response, allowing for continuous streaming video
+        <li>Use of websockets instead of &ldquo;DASH&rdquo; HTTP request/response pairs, allowing for continuous streaming video
           that is not synchronous with client requests.</li>
         <li>Using congestion control with a tunable pacing rate and a direct access to a throughput estimate,
             instead of having all testing occur on top of TCP.</li>
