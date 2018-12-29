@@ -52,7 +52,6 @@ public:
 
   uint16_t screen_width() const { return screen_width_; }
   uint16_t screen_height() const { return screen_height_; }
-  bool is_format_overkill(const VideoFormat & format) const;
 
   std::optional<uint64_t> next_vts() const { return next_vts_; }
   std::optional<uint64_t> next_ats() const { return next_ats_; }

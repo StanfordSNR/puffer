@@ -47,11 +47,6 @@ void WebSocketClient::set_screen_size(const uint16_t screen_width,
   screen_height_ = screen_height;
 }
 
-bool WebSocketClient::is_format_overkill(const VideoFormat & format) const
-{
-  return format.width > screen_width_ and format.height > screen_height_;
-}
-
 optional<uint64_t> WebSocketClient::video_in_flight() const
 {
   if (not next_vts_ or not client_next_vts_ or

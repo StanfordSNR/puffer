@@ -234,7 +234,7 @@ function ChannelBar() {
 
 
 function get_client_system_info() {
-  /* Below code adapted from https://github.com/keithws/browser-report */
+  /* Below code adapted from https://stackoverflow.com/a/18706818 */
   var nAgt = navigator.userAgent;
   var browser = navigator.appName;
   var nameOffset, verOffset;
@@ -244,7 +244,7 @@ function get_client_system_info() {
     browser = 'Opera';
   }
   // Opera Next
-  if ((verOffset = nAgt.indexOf('OPR')) != -1) {
+  else if ((verOffset = nAgt.indexOf('OPR')) != -1) {
     browser = 'Opera';
   }
   // Edge
@@ -280,7 +280,7 @@ function get_client_system_info() {
     }
   }
 
-  // system
+  // OS
   var os = 'unknown';
   var clientStrings = [
     {s:'Windows 10', r:/(Windows 10.0|Windows NT 10.0)/},

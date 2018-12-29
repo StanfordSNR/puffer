@@ -30,18 +30,12 @@ VideoFormat LinearBBA::select_video_format()
   const auto & ssim_map = channel->vssim(next_vts);
 
   /* get max and min chunk size for the next video ts */
-  size_t max_size = 0, min_size = SIZE_MAX;
-  size_t max_idx = vformats_cnt, min_idx = vformats_cnt;
-  bool format_available = false;
+  size_t max_idx = vformats_cnt, max_size = 0;
+  size_t min_idx = vformats_cnt, min_size = SIZE_MAX;
 
   for (size_t i = 0; i < vformats_cnt; i++) {
     const auto & vf = vformats[i];
-
-    if (client_.is_format_overkill(vf)) continue;
-    format_available = true;
-
     size_t chunk_size = get<1>(data_map.at(vf));
-    if (chunk_size <= 0) continue;
 
     if (chunk_size > max_size) {
       max_size = chunk_size;
@@ -54,26 +48,10 @@ VideoFormat LinearBBA::select_video_format()
     }
   }
 
-  /* make sure the server won't crash when all formats are overkill */
-  if (not format_available) {
-    for (size_t i = 0; i < vformats_cnt; i++) {
-      const auto & vf = vformats[i];
-      size_t chunk_size = get<1>(data_map.at(vf));
-      if (chunk_size <= 0) continue;
-
-      if (chunk_size < min_size) {
-        min_size = chunk_size;
-        min_idx = i;
-      }
-    }
-
-    assert(min_idx < vformats_cnt);
-    return vformats[min_idx];
-  }
-
   assert(max_idx < vformats_cnt);
   assert(min_idx < vformats_cnt);
 
+  /* lower and uppper reservoirs */
   if (buf >= upper_reservoir_ * max_buffer_s) {
     return vformats[max_idx];
   } else if (buf <= lower_reservoir_ * max_buffer_s) {
@@ -86,15 +64,13 @@ VideoFormat LinearBBA::select_video_format()
   double max_serve_size = min_size +
                           slope * (buf - lower_reservoir_ * max_buffer_s);
 
-  double highest_ssim = 0.0;
+  double highest_ssim = -1;
   size_t ret_idx = vformats_cnt;
 
   for (size_t i = 0; i < vformats_cnt; i++) {
     const auto & vf = vformats[i];
-    if (client_.is_format_overkill(vf)) continue;
-
     size_t chunk_size = get<1>(data_map.at(vf));
-    if (chunk_size <= 0 or chunk_size > max_serve_size) {
+    if (chunk_size > max_serve_size) {
       continue;
     }
 
