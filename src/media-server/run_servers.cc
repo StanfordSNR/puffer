@@ -127,7 +127,7 @@ int main(int argc, char * argv[])
   /* will run log reporters only if enable_logging is true */
   auto log_reporter = src_path / "monitoring/log_reporter";
   vector<string> log_stems {
-    "active_streams", "client_buffer", "client_sysinfo",
+    "server_info", "active_streams", "client_buffer", "client_sysinfo",
     "video_sent", "video_acked"};
 
   /* run media servers in each experimental group */

@@ -338,6 +338,16 @@ void log_active_streams(const uint64_t this_minute)
   }
 }
 
+void log_server_info(const uint64_t this_minute)
+{
+  /* the tag "server_id" is used to avoid data point overwriting;
+   * the field "server_id" is used to count distinct values, i.e., the number
+   * of running servers, as a workaround until InfluxDB supports DISTINCT
+   * function to operate on tags */
+  string log_line = to_string(this_minute) + "," + server_id + "," + server_id;
+  append_to_log("server_info", log_line);
+}
+
 void start_slow_timer(Timerfd & slow_timer, WebSocketServer & server)
 {
   bool enforce_moving_live_edge = false;
@@ -394,6 +404,9 @@ void start_slow_timer(Timerfd & slow_timer, WebSocketServer & server)
 
         if (this_minute > last_minute) {
           last_minute = this_minute;
+
+          /* server info: server heartbeats, etc. */
+          log_server_info(this_minute);
 
           /* write active_streams count to file */
           log_active_streams(this_minute);
