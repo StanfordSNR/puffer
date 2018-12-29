@@ -11,7 +11,6 @@
 #include "path.hh"
 #include "child_process.hh"
 #include "system_runner.hh"
-#include "influxdb_client.hh"
 #include "util.hh"
 #include "exception.hh"
 #include "timestamp.hh"
@@ -111,19 +110,6 @@ int main(int argc, char * argv[])
     cerr << "Logging is disabled" << endl;
   }
 
-  /* create an influxdb_client only if enable_logging is true */
-  unique_ptr<InfluxDBClient> influxdb_client = nullptr;
-  if (enable_logging) {
-    /* add influx client for posting states of child processes */
-    const auto & influx = config["influxdb_connection"];
-    influxdb_client = make_unique<InfluxDBClient>(
-        proc_manager.poller(),
-        Address(influx["host"].as<string>(), influx["port"].as<uint16_t>()),
-        influx["dbname"].as<string>(),
-        influx["user"].as<string>(),
-        safe_getenv(influx["password"].as<string>()));
-  }
-
   /* will run log reporters only if enable_logging is true */
   auto log_reporter = src_path / "monitoring/log_reporter";
   vector<string> log_stems {
@@ -153,22 +139,13 @@ int main(int argc, char * argv[])
     for (unsigned int i = 0; i < num_servers; i++) {
       server_id++;
 
+      /* run ws_media_server */
       vector<string> args { ws_media_server, yaml_config,
                             to_string(server_id), to_string(expt_id) };
-      proc_manager.run_as_child(ws_media_server, args, {},
-        [&influxdb_client, server_id](const pid_t &)  // error callback
-        {
-          cerr << "Error in media server with ID " << server_id << endl;
-          if (influxdb_client) {
-            /* at least one media server have failed */
-            influxdb_client->post("server_state state=1i "
-                                  + to_string(timestamp_ms()));
-          }
-        }
-      );
+      proc_manager.run_as_child(ws_media_server, args);
 
-      /* run log_reporters */
-      if (influxdb_client) {
+      /* run log_reporter */
+      if (enable_logging) {
         fs::path log_dir = config["log_dir"].as<string>();
 
         for (const auto & log_stem : log_stems) {
@@ -178,29 +155,10 @@ int main(int argc, char * argv[])
 
           vector<string> log_args { log_reporter, yaml_config,
                                     log_format, log_path };
-          proc_manager.run_as_child(log_reporter, log_args, {},
-            [&influxdb_client, log_stem](const pid_t &)  // error callback
-            {
-              cerr << "Error in log reporter: " << log_stem << endl;
-              /* at least one log reporter have failed */
-              influxdb_client->post("log_reporter_state state=1i "
-                                    + to_string(timestamp_ms()));
-            }
-          );
+          proc_manager.run_as_child(log_reporter, log_args);
         }
       }
     }
-  }
-
-  /* more logging actions */
-  if (influxdb_client) {
-    /* indicate that media servers are running */
-    influxdb_client->post("server_state state=0i "
-                          + to_string(timestamp_ms()));
-
-    /* indicate that log reporters are running */
-    influxdb_client->post("log_reporter_state state=0i "
-                          + to_string(timestamp_ms()));
   }
 
   return proc_manager.wait();
