@@ -20,6 +20,14 @@ def index(request):
     return render(request, 'puffer/index.html')
 
 
+def faq(request):
+    return render(request, 'puffer/faq.html')
+
+
+def terms(request):
+    return render(request, 'puffer/terms.html')
+
+
 @login_required(login_url='/accounts/login/')
 def player(request):
     # parameters passed to Javascript stored in JSON
@@ -57,6 +65,25 @@ def error_reporting(request):
         return HttpResponse(status=204)  # No Content
     else:
         return HttpResponse(status=405)  # Method Not Allowed
+
+
+@login_required(login_url='/accounts/login/')
+def monitoring(request):
+    snapshot = GrafanaSnapshot.objects.order_by('-created_on').first()
+
+    if not snapshot:
+        return render(request, 'puffer/404.html')
+
+    # only display a snapshot newer than 1 hour ago
+    time_diff = datetime.utcnow() - snapshot.created_on
+    if time_diff.total_seconds() > 3600:
+        return render(request, 'puffer/404.html')
+
+    context = {'snapshot_url': snapshot.url}
+    return render(request, 'puffer/monitoring.html', context)
+
+
+# functions below are not currently used
 
 @login_required(login_url='/accounts/login/')
 def profile(request):
@@ -98,9 +125,6 @@ def rating(request):
 
 
 def participate(request):
-    # redirect participate to signup
-    return redirect('signup')
-
     if request.method != 'POST':
         return render(request, 'puffer/participate.html')
 
@@ -121,27 +145,3 @@ def participate(request):
     except:
         messages.error(request, 'Internal error: Please try again.')
         return redirect('participate')
-
-
-def faq(request):
-    return render(request, 'puffer/faq.html')
-
-
-@login_required(login_url='/accounts/login/')
-def monitoring(request):
-    snapshot = GrafanaSnapshot.objects.order_by('-created_on').first()
-
-    if not snapshot:
-        return render(request, 'puffer/404.html')
-
-    # only display a snapshot newer than 1 hour ago
-    time_diff = datetime.utcnow() - snapshot.created_on
-    if time_diff.total_seconds() > 3600:
-        return render(request, 'puffer/404.html')
-
-    context = {'snapshot_url': snapshot.url}
-    return render(request, 'puffer/monitoring.html', context)
-
-
-def terms(request):
-    return render(request, 'puffer/terms.html')
