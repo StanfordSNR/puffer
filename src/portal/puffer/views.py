@@ -141,3 +141,7 @@ def monitoring(request):
 
     context = {'snapshot_url': snapshot.url}
     return render(request, 'puffer/monitoring.html', context)
+
+
+def terms(request):
+    return render(request, 'puffer/terms.html')

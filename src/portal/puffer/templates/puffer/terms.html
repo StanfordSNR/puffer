@@ -1,0 +1,43 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <!-- Global site tag (gtag.js) - Google Analytics -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=UA-117951942-2"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'UA-117951942-2');
+    gtag('config', 'AW-771906819');
+  </script>
+  <link rel="stylesheet" href="{% static 'puffer/dist/css/bootstrap.min.css' %}">
+  <link rel="stylesheet" href="{% static 'puffer/css/common.css' %}">
+  <title>Puffer</title>
+  <link rel="icon" href="{% static 'puffer/dist/images/favicon.ico' %}">
+</head>
+
+<body>
+  <!-- Navigation -->
+  {% include "puffer/navigation.html" %}
+
+  <!-- FAQ Section -->
+  <div class="container py-4">
+    <div class="card">
+      <div class="card-header text-center">TERMS OF PARTICIPATION</div>
+      <div class="card-body">
+        {% include "puffer/terms-content.html" %}
+      </div>
+    </div>
+  </div>
+
+  <script src="{% static 'puffer/dist/js/jquery-3.3.1.slim.min.js' %}"></script>
+  <script src="{% static 'puffer/dist/js/bootstrap.min.js' %}"></script>
+</body>
+
+</html>
