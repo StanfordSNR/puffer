@@ -108,9 +108,8 @@ function AVSource(ws_client, server_init) {
   } else {
     set_fatal_error(
       'Error: your browser does not support Media Source Extensions (MSE), ' +
-      'which Puffer requires to stream media. Please try another browser or ' +
-      'device. A list of platforms on which Puffer is not supported ' +
-      'can be found in the FAQ.'
+      'which Puffer requires to stream media. Please refer to the FAQ and ' +
+      'try another browser or device on which Puffer is supported.'
     );
     report_error(0 /* init_id is not important */, 'MSE not supported');
   }
@@ -143,9 +142,8 @@ function AVSource(ws_client, server_init) {
     } catch(err) {
       set_fatal_error(
         'Error: your browser does not support the audio format, ' +
-        'Opus in WebM, used by Puffer. Please try another browser or ' +
-        'device. A list of platforms on which Puffer is not supported ' +
-        'can be found in the FAQ.'
+        'Opus in WebM, used by Puffer. Please refer to the FAQ and ' +
+        'try another browser or device on which Puffer is supported.'
       );
       report_error(0 /* init_id is not important */, 'audio not supported');
     }
@@ -698,8 +696,7 @@ function WebSocketClient(session_key, username_in, settings_debug,
         reconnect_backoff = reconnect_backoff * 2;
       } else {
         set_fatal_error(
-          'Error: failed to connect to server. ' +
-          'Please refresh the page or try again later.'
+          'Error: failed to connect to server. Please refresh the page.'
         );
         report_error(init_id, 'abort reconnect');
       }
@@ -755,7 +752,7 @@ function WebSocketClient(session_key, username_in, settings_debug,
         // playback failed
         add_player_error(
           'Error: failed to play the video. Please try a different channel ' +
-          ' or refresh the page', 'channel');
+          'or refresh the page', 'channel');
         report_error(init_id, 'video.play() failed');
       });
     }
@@ -854,6 +851,7 @@ function WebSocketClient(session_key, username_in, settings_debug,
     if (Date.now() - last_msg_recv_ts > CONN_TIMEOUT) {
       set_fatal_error('Your connection has been closed after timeout. ' +
                       'Please fresh the page.');
+      report_error(init_id, 'connection timed out');
       ws.close();
     }
   }
