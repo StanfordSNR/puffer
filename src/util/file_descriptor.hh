@@ -28,9 +28,6 @@ private:
   unsigned int read_count_, write_count_;
 
 protected:
-  void register_read( void ) { read_count_++; }
-  void register_write( void ) { write_count_++; }
-  void register_service( const bool write ) { write ? write_count_++ : read_count_++; }
   void set_eof( bool eof = true ) { eof_ = eof; }
 
 public:
@@ -69,6 +66,10 @@ public:
   void reset_offset();  /* also set EOF to false */
 
   uint64_t filesize();
+
+  void register_read( void ) { read_count_++; }
+  void register_write( void ) { write_count_++; }
+  void register_service( const bool write ) { write ? write_count_++ : read_count_++; }
 
   /* flock related */
   void acquire_exclusive_flock();
