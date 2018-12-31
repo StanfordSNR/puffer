@@ -41,8 +41,9 @@ def collect_ssim(video_acked_results, postgres_cursor):
         if abr_cc not in x:
             x[abr_cc] = []
 
-        ssim_index = float(pt['ssim_index'])
-        x[abr_cc].append(ssim_index)
+        if pt['ssim_index'] is not None:
+            ssim_index = float(pt['ssim_index'])
+            x[abr_cc].append(ssim_index)
 
     # calculate average SSIM in dB
     ssim = {}
