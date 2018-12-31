@@ -41,16 +41,17 @@ def collect_ssim(video_acked_results, postgres_cursor):
         if abr_cc not in x:
             x[abr_cc] = []
 
-        ssim_db = float(pt['ssim'])
-        raw_ssim = 1 - 10 ** (ssim_db / -10)
-        x[abr_cc].append(raw_ssim)
+        ssim_index = float(pt['ssim_index'])
+        x[abr_cc].append(ssim_index)
 
-    # calculate average SSIM
+    # calculate average SSIM in dB
     ssim = {}
     for abr_cc in x:
-        avg_raw_ssim = np.mean(x[abr_cc])
-        avg_ssim = -10 * np.log10(1 - avg_raw_ssim)
-        ssim[abr_cc] = avg_ssim
+        avg_ssim_index = np.mean(x[abr_cc])
+        if avg_ssim_index == 1:
+            sys.exit('Error: average SSIM index is 1')
+        avg_ssim_db = -10 * np.log10(1 - avg_ssim_index)
+        ssim[abr_cc] = avg_ssim_db
 
     return ssim
 

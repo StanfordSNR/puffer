@@ -322,8 +322,8 @@ function AVSource(ws_client, server_init) {
     return curr_video_format;
   };
 
-  this.getSSIM = function() {
-    return curr_ssim;
+  this.getSSIMdB = function() {
+    return -10 * Math.log10(1 - curr_ssim);
   };
 
   this.getVideoBitrate = function() {
@@ -883,7 +883,7 @@ function WebSocketClient(session_key, username_in, settings_debug,
         video_crf.innerHTML = na;
       }
 
-      const vssim_val = av_source.getSSIM();
+      const vssim_val = av_source.getSSIMdB();
       video_ssim.innerHTML = vssim_val ? vssim_val.toFixed(2) : na;
 
       const vbitrate_val = av_source.getVideoBitrate();

@@ -495,12 +495,7 @@ void Channel::do_read_ssim(const fs::path & filepath, const VideoFormat & vf) {
     string line;
     getline(ssim_file, line);
 
-    try {
-      vssim_[ts][vf] = stod(line);
-    } catch (const exception & e) {
-      print_exception("invalid SSIM file", e);
-      vssim_[ts][vf] = -1;
-    }
+    vssim_[ts][vf] = stod(line);
 
     update_vready_frontier(ts);
   }

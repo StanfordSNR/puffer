@@ -64,7 +64,7 @@ VideoFormat LinearBBA::select_video_format()
   double max_serve_size = min_size +
                           slope * (buf - lower_reservoir_ * max_buffer_s);
 
-  double highest_ssim = -1;
+  double highest_ssim = -2;
   size_t ret_idx = vformats_cnt;
 
   for (size_t i = 0; i < vformats_cnt; i++) {

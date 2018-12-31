@@ -91,16 +91,8 @@ void report_ssim(const string & channel_name,
         string line;
         getline(ssim_file, line);
 
-        /* make sure SSIM is valid */
-        try {
-          stod(line);
-        } catch (const exception & e) {
-          print_exception("invalid SSIM file", e);
-          return;
-        }
-
         string log_line = "ssim,channel=" + channel_name + ",format="
-          + vformat + " timestamp=" + ts + "i,ssim=" + line
+          + vformat + " timestamp=" + ts + "i,ssim_index=" + line
           + " " + to_string(timestamp_ms());
         influxdb_client.post(log_line);
       }
