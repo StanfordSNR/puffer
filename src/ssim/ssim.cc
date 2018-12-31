@@ -45,44 +45,34 @@ int main(int argc, char * argv[])
     "-lavfi", "ssim", "-threads", "1", "-f", "null", "-" };
   string output = run("ffmpeg", cmd, false, true).second;
 
-  /* the overall SSIM should appear within the last pair of parentheses */
-  int last_left_parenthesis = -1, last_right_parenthesis = -1;
-
-  for (int i = output.size() - 1; i >= 0; i--) {
-    const auto & c = output.at(i);
-
-    if (c == ')') {
-      last_right_parenthesis = i;
-    } else if (c == '(') {
-      last_left_parenthesis = i;
-    }
-
-    if (last_left_parenthesis != -1 and last_right_parenthesis != -1) {
-      break;
-    }
-  }
-
-  if (last_left_parenthesis == -1 or last_right_parenthesis == -1) {
-    cerr << "No SSIM found in the output" << endl;
+  /* the overall SSIM appears between "All:" and the first space after */
+  auto ssim_pos = output.rfind("All:");
+  if (ssim_pos == string::npos) {
+    cerr << "No valid SSIM found in the output of FFmpeg" << endl;
     return EXIT_FAILURE;
   }
+  ssim_pos += 4;
 
-  int cnt = last_right_parenthesis - last_left_parenthesis - 1;
-  string ssim_str = output.substr(last_left_parenthesis + 1, cnt);
+  auto space_pos = output.find(' ', ssim_pos);
+  if (space_pos == string::npos) {
+    cerr << "No valid SSIM found in the output of FFmpeg" << endl;
+    return EXIT_FAILURE;
+  }
+  string ssim_str = output.substr(ssim_pos, space_pos - ssim_pos);
 
+  /* check if ssim_str is a valid SSIM between -1 and 1 */
   try {
-    /* check if ssim_str is a valid */
     double ssim_val = stod(ssim_str);
-    if (not isfinite(ssim_val)) {
-      cerr << "Invalid SSIM value: " + ssim_str << endl;
-      ssim_str = "-1";
-    } else {
+    if (ssim_val >= -1 and ssim_val <= 1) {
       cerr << "SSIM = " + ssim_str + " between " + video1 + " and " + video2
            << endl;
+    } else {
+      cerr << "Invalid SSIM value out of range: " + ssim_str << endl;
+      return EXIT_FAILURE;
     }
   } catch (const exception & e) {
     cerr << "Error in converting " + ssim_str + ": " + e.what() << endl;
-    ssim_str = "-1";
+    return EXIT_FAILURE;
   }
 
   /* write the SSIM value to output_path */
