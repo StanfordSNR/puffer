@@ -486,6 +486,13 @@ function WebSocketClient(session_key, username_in, settings_debug,
       return;
     }
 
+    /* skip sending client-info because vbuf.buffered.end(0) can sometimes
+     * return a huge number erroneously */
+    if (av_source.getVideoBuffer() > 30 ||
+        av_source.getAudioBuffer() > 30) {
+      return;
+    }
+
     var msg = {
       initId: init_id,
       event: info_event,
@@ -744,16 +751,16 @@ function WebSocketClient(session_key, username_in, settings_debug,
   video.oncanplay = function() {
     var play_promise = video.play();
 
-    if (play_promise) {
+    if (play_promise !== undefined) {
       play_promise.then(function() {
         // playback started; only render UI here
         stop_spinner();
       }).catch(function(error) {
         // playback failed
         add_player_error(
-          'Error: failed to play the video. Please try a different channel ' +
-          'or refresh the page', 'channel');
-        report_error(init_id, 'video.play() failed');
+          'Error: failed to play the video. Please refresh the page.',
+          'channel');
+        report_error(init_id, 'video.play() failed: ' + error);
       });
     }
   };
