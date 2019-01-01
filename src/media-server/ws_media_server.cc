@@ -251,6 +251,9 @@ void send_server_error(WebSocketServer & server, WebSocketClient & client,
   server.clear_buffer(client.connection_id());
 
   server.queue_frame(client.connection_id(), frame);
+
+  /* reset the client and wait for client-init */
+  client.reset_channel();
 }
 
 void serve_client(WebSocketServer & server, WebSocketClient & client)
@@ -372,15 +375,12 @@ void start_slow_timer(Timerfd & slow_timer, WebSocketServer & server)
 
       for (auto & [connection_id, client] : clients) {
         /* have not received messages from client for a while */
-        const auto last_msg_recv_ts = client.last_msg_recv_ts();
-        if (last_msg_recv_ts) {
-          const auto elapsed = timestamp_ms() - *last_msg_recv_ts;
+        const auto elapsed = timestamp_ms() - client.last_msg_recv_ts();
 
-          if (elapsed > MAX_IDLE_MS) {
-            connections_to_clean.emplace(connection_id);
-            cerr << client.signature() << ": cleaned idle connection" << endl;
-            continue;
-          }
+        if (elapsed > MAX_IDLE_MS) {
+          connections_to_clean.emplace(connection_id);
+          cerr << client.signature() << ": cleaned idle connection" << endl;
+          continue;
         }
       }
 

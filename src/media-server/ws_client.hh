@@ -32,6 +32,9 @@ public:
   void init_channel(const std::shared_ptr<Channel> & channel,
                     const uint64_t init_vts, const uint64_t init_ats);
 
+  /* reset the client and wait for client-init */
+  void reset_channel();
+
   /* accessors */
   uint64_t connection_id() const { return connection_id_; }
 
@@ -71,7 +74,7 @@ public:
   std::optional<VideoFormat> curr_vformat() const { return curr_vformat_; }
   std::optional<AudioFormat> curr_aformat() const { return curr_aformat_; }
 
-  std::optional<uint64_t> last_msg_recv_ts() const { return last_msg_recv_ts_; }
+  uint64_t last_msg_recv_ts() const { return last_msg_recv_ts_; }
   std::optional<uint64_t> last_video_send_ts() const { return last_video_send_ts_; }
 
   /* mutators */
@@ -101,7 +104,7 @@ public:
   void set_curr_vformat(const VideoFormat & format) { curr_vformat_ = format; }
   void set_curr_aformat(const AudioFormat & format) { curr_aformat_ = format; }
 
-  void set_last_msg_recv_ts(const std::optional<uint64_t> recv_ts) { last_msg_recv_ts_ = recv_ts; }
+  void set_last_msg_recv_ts(uint64_t recv_ts) { last_msg_recv_ts_ = recv_ts; }
   void set_last_video_send_ts(const std::optional<uint64_t> send_ts) { last_video_send_ts_ = send_ts; }
 
   /* ABR related */
@@ -124,6 +127,9 @@ private:
 
   /* WebSocketClient has no interest in managing the ownership of channel */
   std::weak_ptr<Channel> channel_;
+
+  /* timestamp of the last message received from client */
+  uint64_t last_msg_recv_ts_;
 
   /* set to the init_id in the most recently received client-init */
   unsigned int init_id_ {0};
@@ -161,14 +167,13 @@ private:
   std::optional<VideoFormat> curr_vformat_ {};
   std::optional<AudioFormat> curr_aformat_ {};
 
-  /* timestamp of last message (excluding timer) received from client */
-  std::optional<uint64_t> last_msg_recv_ts_ {};
-
   /* sending time of last video chunk */
   std::optional<uint64_t> last_video_send_ts_ {};
 
   /* (re)instantiate abr_algo_ */
   void init_abr_algo();
+
+  void reset_helper();
 };
 
 #endif /* WS_CLIENT_HH */

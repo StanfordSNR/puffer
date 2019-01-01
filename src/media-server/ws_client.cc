@@ -2,6 +2,7 @@
 #include "linear_bba.hh"
 #include "mpc.hh"
 #include "mpc_search.hh"
+#include "timestamp.hh"
 
 using namespace std;
 
@@ -12,22 +13,13 @@ WebSocketClient::WebSocketClient(const uint64_t connection_id,
                                  const string & abr_name,
                                  const YAML::Node & abr_config)
   : connection_id_(connection_id), abr_name_(abr_name),
-    abr_config_(abr_config), channel_()
+    abr_config_(abr_config), channel_(), last_msg_recv_ts_(timestamp_ms())
 {
   init_abr_algo();
 }
 
-void WebSocketClient::init_channel(const shared_ptr<Channel> & channel,
-                                   const uint64_t init_vts,
-                                   const uint64_t init_ats)
+void WebSocketClient::reset_helper()
 {
-  channel_ = channel;
-  next_vts_ = init_vts;
-  next_ats_ = init_ats;
-
-  client_next_vts_ = init_vts;
-  client_next_ats_ = init_ats;
-
   video_playback_buf_ = 0;
   audio_playback_buf_ = 0;
 
@@ -38,6 +30,30 @@ void WebSocketClient::init_channel(const shared_ptr<Channel> & channel,
   curr_aformat_.reset();
 
   last_video_send_ts_.reset();
+}
+
+void WebSocketClient::init_channel(const shared_ptr<Channel> & channel,
+                                   const uint64_t init_vts,
+                                   const uint64_t init_ats)
+{
+  channel_ = channel;
+  next_vts_ = init_vts;
+  next_ats_ = init_ats;
+  client_next_vts_ = init_vts;
+  client_next_ats_ = init_ats;
+
+  reset_helper();
+}
+
+void WebSocketClient::reset_channel()
+{
+  channel_.reset();
+  next_vts_.reset();
+  next_ats_.reset();
+  client_next_vts_.reset();
+  client_next_ats_.reset();
+
+  reset_helper();
 }
 
 void WebSocketClient::set_screen_size(const uint16_t screen_width,
