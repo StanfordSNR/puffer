@@ -32,6 +32,8 @@ public:
   void init_channel(const std::shared_ptr<Channel> & channel,
                     const uint64_t init_vts, const uint64_t init_ats);
 
+  bool is_channel_initialized() const;
+
   /* reset the client and wait for client-init */
   void reset_channel();
 

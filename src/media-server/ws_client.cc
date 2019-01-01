@@ -56,6 +56,12 @@ void WebSocketClient::reset_channel()
   reset_helper();
 }
 
+bool WebSocketClient::is_channel_initialized() const
+{
+  return (channel_.lock() and next_vts_ and next_ats_ and
+          client_next_vts_ and client_next_ats_);
+}
+
 void WebSocketClient::set_screen_size(const uint16_t screen_width,
                                       const uint16_t screen_height)
 {

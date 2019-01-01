@@ -258,13 +258,12 @@ void send_server_error(WebSocketServer & server, WebSocketClient & client,
 
 void serve_client(WebSocketServer & server, WebSocketClient & client)
 {
-  const auto channel = client.channel();
-
-  /* client has not initialized channel correctly */
-  if (not channel or not client.video_in_flight()
-      or not client.audio_in_flight()) {
+  if (not client.is_channel_initialized()) {
     return;
   }
+  /* it is now valid to directly use client.next_vts() and client.next_ats() */
+
+  const auto channel = client.channel();
 
   /* notify the client that the requested channel is not available */
   if (not channel->ready_to_serve()) {
@@ -274,7 +273,6 @@ void serve_client(WebSocketServer & server, WebSocketClient & client)
     return;
   }
 
-  /* it is now valid to directly use client.next_vts() and client.next_ats() */
   uint64_t next_vts = *client.next_vts();
   uint64_t next_ats = *client.next_ats();
 
@@ -487,6 +485,10 @@ void handle_client_init(WebSocketServer & server, WebSocketClient & client,
 
 void handle_client_info(WebSocketClient & client, const ClientInfoMsg & msg)
 {
+  if (not client.is_channel_initialized()) {
+    return;
+  }
+
   if (msg.init_id != client.init_id()) {
     cerr << client.signature() << ": warning: ignored messages with "
          << "invalid init_id (but should not have received)" << endl;
@@ -534,6 +536,10 @@ void handle_client_info(WebSocketClient & client, const ClientInfoMsg & msg)
 void handle_client_video_ack(WebSocketClient & client,
                              const ClientVidAckMsg & msg)
 {
+  if (not client.is_channel_initialized()) {
+    return;
+  }
+
   if (msg.init_id != client.init_id()) {
     cerr << client.signature() << ": warning: ignored messages with "
          << "invalid init_id (but should not have received)" << endl;
@@ -580,6 +586,10 @@ void handle_client_video_ack(WebSocketClient & client,
 void handle_client_audio_ack(WebSocketClient & client,
                              const ClientAudAckMsg & msg)
 {
+  if (not client.is_channel_initialized()) {
+    return;
+  }
+
   if (msg.init_id != client.init_id()) {
     cerr << client.signature() << ": warning: ignored messages with "
          << "invalid init_id (but should not have received)" << endl;
