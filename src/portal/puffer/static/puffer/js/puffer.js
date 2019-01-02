@@ -21,6 +21,7 @@ function set_fatal_error(error_message) {
   clear_player_errors();
   add_player_error(error_message, 'fatal');
   stop_spinner();
+  hide_play_button();
 }
 
 function report_error(init_id, error_description) {
@@ -755,6 +756,7 @@ function WebSocketClient(session_key, username_in, settings_debug,
       play_promise.then(function() {
         // playback started; only render UI here
         stop_spinner();
+        hide_play_button();
       }).catch(function(error) {
         // playback failed
         show_play_button();

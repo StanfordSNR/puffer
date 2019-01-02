@@ -369,6 +369,7 @@ function clear_player_errors() {
 
 /* start and display loading circle */
 function start_spinner() {
+  hide_play_button();
   var spinner = document.getElementById('tv-spinner');
   spinner.classList.remove('paused');
   spinner.style.display = 'block';
@@ -381,10 +382,16 @@ function stop_spinner() {
   spinner.style.display = 'none';
 }
 
+/* display/hide the play button, which is mutual exclusive with the spinner */
 function show_play_button() {
   stop_spinner();
   var play_button = document.getElementById('tv-play-button');
   play_button.style.display = 'block';
+}
+
+function hide_play_button() {
+  var play_button = document.getElementById('tv-play-button');
+  play_button.style.display = 'none';
 }
 
 function get_screen_size() {
