@@ -156,3 +156,29 @@
 .list-group-item:focus {
   outline: none;
 }
+
+#tv-play-button {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 60px;
+  height: 60px;
+  margin: -30px 0px 0px -30px;
+  border-radius: 50%;
+  background-color: black;
+  cursor: pointer;
+  display: none;
+}
+
+#tv-play-button:hover {
+  background-color: #555555;
+}
+
+#tv-play-button-inner {
+  position: relative;
+  top: 25%;
+  left: 30%;
+  border-style: solid;
+  border-width: 15px 0 15px 30px;
+  border-color: transparent transparent transparent #f3f3f3;
+}
