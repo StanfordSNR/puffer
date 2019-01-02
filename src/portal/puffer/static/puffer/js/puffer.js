@@ -757,10 +757,12 @@ function WebSocketClient(session_key, username_in, settings_debug,
         stop_spinner();
       }).catch(function(error) {
         // playback failed
+        show_play_button();
         add_player_error(
-          'Error: failed to play the video. Please refresh the page.',
-          'channel');
-        report_error(init_id, 'video.play() failed: ' + error);
+          'Error: your browser prevented muted autoplay. Please click ' +
+          'the play button to start playback.', 'channel');
+        channel_error = true;
+        report_error(init_id, error);
       });
     }
   };

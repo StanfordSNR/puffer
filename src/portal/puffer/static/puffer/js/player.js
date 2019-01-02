@@ -159,7 +159,7 @@ function ChannelBar() {
   /* callback function to be defined when channel is changed */
   this.on_channel_change = null;
 
-  /* find initial channel */
+  /* find the current channel */
   var channel_list = document.querySelectorAll('#channel-list .list-group-item');
   var active_idx = 0;  // index of the active channel
 
@@ -174,13 +174,14 @@ function ChannelBar() {
     }
   }
 
-  var init_channel_name = channel_list[active_idx].getAttribute('name');
   channel_list[active_idx].classList.add('active');
-  console.log('Initial channel:', init_channel_name);
-  window.name = init_channel_name;  // save current channel in window.name
 
-  this.get_init_channel = function() {
-    return init_channel_name;
+  var curr_channel_name = channel_list[active_idx].getAttribute('name');
+  console.log('Initial channel:', curr_channel_name);
+  window.name = curr_channel_name;  // save current channel in window.name
+
+  this.get_curr_channel = function() {
+    return curr_channel_name;
   };
 
   function change_channel(new_channel_idx) {
@@ -198,13 +199,13 @@ function ChannelBar() {
     old_channel.classList.remove('active');
     new_channel.classList.add('active');
 
-    var new_channel_name = new_channel.getAttribute('name');
-    console.log('Set channel:', new_channel_name);
-    window.name = new_channel_name;  // save current channel in window.name
+    curr_channel_name = new_channel.getAttribute('name');
+    console.log('Set channel:', curr_channel_name);
+    window.name = curr_channel_name;  // save current channel in window.name
 
     if (that.on_channel_change) {
       /* call on_channel_change callback */
-      that.on_channel_change(new_channel_name);
+      that.on_channel_change(curr_channel_name);
     } else {
       console.log('Warning: on_channel_change callback has not been defined');
     }
@@ -380,6 +381,12 @@ function stop_spinner() {
   spinner.style.display = 'none';
 }
 
+function show_play_button() {
+  stop_spinner();
+  var play_button = document.getElementById('tv-play-button');
+  play_button.style.display = 'block';
+}
+
 function get_screen_size() {
   const raw_screen_width = screen.width;
   const raw_screen_height = screen.height;
@@ -423,6 +430,13 @@ function init_player(params_json, csrf_token) {
       ws_client.set_channel(new_channel);
     };
 
-    ws_client.connect(channel_bar.get_init_channel());
+    /* configure play button's onclick event */
+    var play_button = document.getElementById('tv-play-button');
+    play_button.onclick = function() {
+      ws_client.set_channel(channel_bar.get_curr_channel());
+      play_button.style.display = 'none';
+    };
+
+    ws_client.connect(channel_bar.get_curr_channel());
   };
 }
