@@ -57,18 +57,28 @@ void Pensieve::video_chunk_acked(const VideoFormat & format,
     // packets, which introduces some noise into these
     // values, which perhaps we should account for, but
     // currently do not.
-    cout << "Video chunk acked!!" << format << ssim << endl;
+
+    cout << "Video chunk acked!!" << format << ", SSIM: "<< ssim << endl;
+
     // Okay, so when a chunk is acked we should first notify Pensieve, then wait for
     // a response indicating what bit rate to use next
     // RESPOND
     // TODO: Increase trans_time to account for time to send audio chunks?
     cout << "PBUF: " << client_.video_playback_buf() << endl;
-    cout << "Last Chunk Size (MB): " << ((double)size) / 1000000 << endl;
+    //cout << "Last Chunk Size (MB): " << ((double)size) / 1000000 << endl;
     json j;
     j["delay"] = trans_time; // ms
     j["playback_buf"] = client_.video_playback_buf(); // seconds
     j["rebuf_time"] = ((double)client_.get_total_rebuf_time()) / 1000; // cum seconds spent rebuffering up till now
-    j["last_chunk_size"] = ((double)size) / 1000000; // MB (is this right or is this a power of 2 thing?)
+    if (last_chunk_size_ == 0) { //need this bc first chunk does not have this set
+        cout << "Initial chunk" << endl;
+        j["last_chunk_size"] = ((double)size) / 1000000 - 816; // MB (is this right or is this a power of 2 thing?)
+    } else {
+    //j["last_chunk_size"] = ((double)size) / 1000000; // MB (is this right or is this a power of 2 thing?)
+    j["last_chunk_size"] = last_chunk_size_; // MB //Using this until fix from Francis so size passed
+                                                    // to this function actually matches the size selected
+    cout << "Last Chunk Size (MB): " << last_chunk_size_ << endl;
+    }
     j["next_chunk_sizes"] = next_chunk_sizes_bare; //MB
     uint16_t json_len = j.dump().length();
     cout << j.dump() << endl;
@@ -83,6 +93,8 @@ void Pensieve::video_chunk_acked(const VideoFormat & format,
         // TODO: Get this as JSON not raw
         // TODO: bitrate instead of index
         size_t index_in_bitrate_ladder = std::stoi( read_data );
+        last_chunk_size_ = get<0>(next_chunk_sizes[index_in_bitrate_ladder]);
+        cout << "Index of next chunk to be sent: " << index_in_bitrate_ladder << endl;
         next_format_ = get<1>(next_chunk_sizes[index_in_bitrate_ladder]); //Works bc next_chunk_size is sorted
         cout << "next_format: " << vformats[next_format_] << endl;
     }

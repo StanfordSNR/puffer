@@ -60,6 +60,12 @@ private:
   size_t curr_format_ {};
 
   size_t next_format_ {};
+  double last_chunk_size_ {0}; // I require this because otherwise the video ack
+                              // returned has slightly different size (816 or 817 bytes)
+                              // than the message originally chosen, and i do not know
+                              // how this might affect the neural network.
+                              // TODO: Remove me if better solution is found to account
+                              // for 816 byte differences.
   static FileDescriptor open_ipc() {
     std::cout << "removing old ipc" << std::endl;
     remove("/tmp/pensieve");
@@ -68,7 +74,7 @@ private:
     // TODO: Configurable paths etc., use settings.yml
     sock.listen();
     // TODO: Close this using pclose() during client teardown
-    auto result = popen("python2 /home/hudson/puffer/third_party/pensieve/multi_video_sim/rl_test.py /home/hudson/nn_model_ep_110400.ckpt", "r");
+    auto result = popen("python2 /home/hudson/puffer/third_party/pensieve/multi_video_sim/rl_test.py /home/hudson/nn_model_ep_77400.ckpt", "r");
     std::cout << result << std::endl;
     std::cout << "waiting for connection" << std::endl;
     return sock.accept();
