@@ -2,6 +2,7 @@
 #include "linear_bba.hh"
 #include "mpc.hh"
 #include "mpc_search.hh"
+#include "pensieve.hh"
 #include "timestamp.hh"
 
 using namespace std;
@@ -177,6 +178,8 @@ void WebSocketClient::init_abr_algo()
     abr_algo_ = make_unique<MPC>(*this, abr_name_, abr_config_);
   } else if (abr_name_ == "mpc_search") {
     abr_algo_ = make_unique<MPCSearch>(*this, abr_name_, abr_config_);
+  } else if (abr_name_ == "pensieve") {
+    abr_algo_ = make_unique<Pensieve>(*this, abr_name_, abr_config_);
   } else {
     throw runtime_error("undefined ABR algorithm");
   }

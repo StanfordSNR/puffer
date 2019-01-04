@@ -37,7 +37,6 @@ void Pensieve::video_chunk_acked(const VideoFormat & format,
     vector<pair<double, size_t>> next_chunk_sizes; //Store pairs of chunk size, corresponding vf index
     for (size_t i = 0; i < vformats_cnt; i++) {
       const auto & vf = vformats[i];
-      if (not client_.is_format_capable(vf)) continue;
 
       size_t chunk_size = get<1>(data_map.at(vf)); //units?
       double chunk_size_mb = (((double)chunk_size) / 1000000); // MB //TODO: CHeck unit above
@@ -69,7 +68,7 @@ void Pensieve::video_chunk_acked(const VideoFormat & format,
     json j;
     j["delay"] = trans_time; // ms
     j["playback_buf"] = client_.video_playback_buf(); // seconds
-    j["rebuf_time"] = ((double)client_.get_total_rebuf_time()) / 1000; // cum seconds spent rebuffering up till now
+    j["rebuf_time"] = client_.cum_rebuffer(); // cum seconds spent rebuffering up till now
     if (last_chunk_size_ == 0) { //need this bc first chunk does not have this set
         cout << "Initial chunk" << endl;
         j["last_chunk_size"] = ((double)size) / 1000000 - 816; // MB (is this right or is this a power of 2 thing?)
