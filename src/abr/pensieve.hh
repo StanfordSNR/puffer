@@ -60,12 +60,6 @@ private:
   size_t curr_format_ {};
 
   size_t next_format_ {};
-  double last_chunk_size_ {0}; // I require this because otherwise the video ack
-                              // returned has slightly different size (816 or 817 bytes)
-                              // than the message originally chosen, and i do not know
-                              // how this might affect the neural network.
-                              // TODO: Remove me if better solution is found to account
-                              // for 816 byte differences.
   static FileDescriptor open_ipc() {
     std::cout << "removing old ipc" << std::endl;
     remove("/tmp/pensieve");
