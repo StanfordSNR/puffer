@@ -10,7 +10,7 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
-from helpers import connect_to_postgres, connect_to_influxdb
+from helpers import connect_to_postgres, connect_to_influxdb, try_parsing_time
 
 
 # cache of Postgres data: experiment 'id' -> json 'data' of the experiment
@@ -55,18 +55,6 @@ def collect_ssim(video_acked_results, postgres_cursor):
         ssim[abr_cc] = avg_ssim_db
 
     return ssim
-
-
-def try_parsing_time(timestamp):
-    time_fmts = ['%Y-%m-%dT%H:%M:%S.%fZ', '%Y-%m-%dT%H:%M:%SZ']
-
-    for fmt in time_fmts:
-        try:
-            return datetime.strptime(timestamp, fmt)
-        except ValueError:
-            pass
-
-    raise ValueError('No valid format found to parse ' + timestamp)
 
 
 def collect_rebuffer(client_buffer_results, postgres_cursor):
