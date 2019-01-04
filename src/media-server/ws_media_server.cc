@@ -107,9 +107,8 @@ void append_to_log(const string & log_stem, const string & log_line)
   }
 }
 
-/* return total bytes to be sent */
-unsigned int serve_video_to_client(WebSocketServer & server,
-                                   WebSocketClient & client)
+void serve_video_to_client(WebSocketServer & server,
+                           WebSocketClient & client)
 {
   const auto channel = client.channel();
   uint64_t next_vts = client.next_vts().value();
@@ -159,7 +158,7 @@ unsigned int serve_video_to_client(WebSocketServer & server,
     string log_line = to_string(timestamp_ms()) + "," + channel->name() + ","
       + expt_id + "," + client.username() + "," + to_string(client.init_id())
       + "," + to_string(next_vts) + "," + next_vformat.to_string() + ","
-      + to_string(next_vsegment.length()) + "," + to_string(ssim)
+      + to_string(get<1>(data_mmap)) + "," + to_string(ssim)
       + "," + to_string(tcpi.cwnd) + "," + to_string(tcpi.in_flight) + ","
       + to_string(tcpi.min_rtt) + "," + to_string(tcpi.rtt) + ","
       + to_string(tcpi.delivery_rate) + ","
@@ -167,13 +166,10 @@ unsigned int serve_video_to_client(WebSocketServer & server,
       + double_to_string(client.cum_rebuffer(), 3);
     append_to_log("video_sent", log_line);
   }
-
-  return next_vsegment.length();
 }
 
-/* return total bytes to be sent */
-unsigned int serve_audio_to_client(WebSocketServer & server,
-                                   WebSocketClient & client)
+void serve_audio_to_client(WebSocketServer & server,
+                           WebSocketClient & client)
 {
   const auto channel = client.channel();
   uint64_t next_ats = client.next_ats().value();
@@ -213,8 +209,6 @@ unsigned int serve_audio_to_client(WebSocketServer & server,
 
   cerr << client.signature() << ": channel " << channel->name()
        << ", audio " << next_ats << " " << next_aformat << endl;
-
-  return next_asegment.length();
 }
 
 void send_server_init(WebSocketServer & server, WebSocketClient & client,
@@ -539,6 +533,7 @@ void handle_client_video_ack(WebSocketClient & client,
   if (not client.is_channel_initialized()) {
     return;
   }
+  auto channel = client.channel();
 
   if (msg.init_id != client.init_id()) {
     cerr << client.signature() << ": warning: ignored messages with "
@@ -556,15 +551,19 @@ void handle_client_video_ack(WebSocketClient & client,
   }
 
   /* allow sending another chunk */
-  client.set_client_next_vts(msg.timestamp + client.channel()->vduration());
+  client.set_client_next_vts(msg.timestamp + channel->vduration());
 
   /* record transmission time */
   if (client.last_video_send_ts()) {
     uint64_t trans_time = timestamp_ms() - *client.last_video_send_ts();
 
+    /* look up media chunk size (excluding the size of init chunk size) */
+    const auto data_mmap = channel->vdata(msg.video_format, msg.timestamp);
+    auto media_chunk_size = get<1>(data_mmap);
+
     /* notify the ABR algorithm that a video chunk is acked */
     client.video_chunk_acked(msg.video_format, msg.ssim,
-                             msg.total_byte_length, trans_time);
+                             media_chunk_size, trans_time);
     client.set_last_video_send_ts(nullopt);
   } else {
     cerr << client.signature() << ": error: server didn't send video but "
