@@ -4,7 +4,7 @@ import argparse
 import yaml
 import torch
 
-from helpers import connect_to_influxdb
+from helpers import connect_to_influxdb, try_parsing_time
 
 
 def train():
@@ -34,6 +34,59 @@ def train():
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
+
+
+def process_data(video_sent_results, video_acked_results):
+    # create shorthand var names
+    d = {}
+
+    for pt in video_sent_results['video_sent']:
+        # TODO: (user, init_id) might not be unique
+        session = (pt['user'], int(pt['init_id']))
+        if session not in d:
+            d[session] = {}
+
+        video_ts = int(pt['video_ts'])
+        if video_ts in d[session]:
+            sys.exit('same video_ts {} is sent twice in the session {}'
+                     .format(video_ts, session))
+
+        d[session][video_ts] = {}
+        d[session][video_ts]['cwnd'] = int(pt['cwnd'])
+        d[session][video_ts]['delivery_rate'] = int(pt['delivery_rate'])
+        d[session][video_ts]['in_flight'] = int(pt['in_flight'])
+        d[session][video_ts]['min_rtt'] = int(pt['min_rtt'])
+        d[session][video_ts]['rtt'] = int(pt['rtt'])
+        d[session][video_ts]['size'] = int(pt['size'])
+
+        # calculate transmission time: save the sent timestamp first
+        d[session][video_ts]['trans_time'] = try_parsing_time(pt['time'])
+
+        if pt['ssim_index'] is not None:
+            d[session][video_ts]['ssim_index'] = float(pt['ssim_index'])
+        elif d['ssim'] is not None:
+            ssim = float(pt['ssim'])
+            ssim_index = 1 - 10 ** (ssim / -10)
+            d[session][video_ts]['ssim_index'] = ssim_index
+        else:
+            sys.exit('fatal error: both ssim_index and ssim are missing')
+
+    for pt in video_acked_results['video_acked']:
+        session = (pt['user'], int(pt['init_id']))
+        if session not in d:
+            sys.stderr.write('ignored session {}\n'.format(session))
+
+        video_ts = int(pt['video_ts'])
+        if video_ts not in d[session]:
+            sys.stderr.write('ignored acked video_ts {} in the session {}\n'
+                             .format(video_ts, session))
+
+        # calculate transmission time: replace trans_time with correct value
+        sent_ts = d[session][video_ts]['trans_time']
+        acked_ts = try_parsing_time(pt['time'])
+        d[session][video_ts]['trans_time'] = (acked_ts - sent_ts).total_seconds()
+
+    return d
 
 
 def main():
@@ -74,8 +127,9 @@ def main():
         video_acked_query += ' WHERE ' + time_clause
     video_acked_results = influx_client.query(video_acked_query)
 
-    # TODO: calculate chunk transmission times by iterating over
+    # calculate chunk transmission times by iterating over
     # video_sent_results and video_acked_results
+    data = process_data(video_sent_results, video_acked_results)
 
     # TODO: training
     # train()
