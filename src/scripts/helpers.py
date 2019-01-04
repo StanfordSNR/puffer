@@ -1,8 +1,38 @@
 import os
 import sys
+import subprocess
+import psycopg2
 from datetime import datetime
 from influxdb import InfluxDBClient
-import psycopg2
+
+
+def print_cmd(cmd):
+    if isinstance(cmd, list):
+        cmd_to_print = ' '.join(cmd).strip()
+    else:
+        cmd_to_print = cmd.strip()
+
+    sys.stderr.write('$ {}\n'.format(cmd_to_print))
+
+
+def call(cmd, **kwargs):
+    print_cmd(cmd)
+    return subprocess.call(cmd, **kwargs)
+
+
+def check_call(cmd, **kwargs):
+    print_cmd(cmd)
+    return subprocess.check_call(cmd, **kwargs)
+
+
+def check_output(cmd, **kwargs):
+    print_cmd(cmd)
+    return subprocess.check_output(cmd, **kwargs)
+
+
+def Popen(cmd, **kwargs):
+    print_cmd(cmd)
+    return subprocess.Popen(cmd, **kwargs)
 
 
 def connect_to_influxdb(yaml_settings):

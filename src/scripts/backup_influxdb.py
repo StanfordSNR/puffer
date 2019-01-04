@@ -1,15 +1,12 @@
 #!/usr/bin/env python3
 
-import os
 import sys
 import time
 import math
 import yaml
-import shutil
 import argparse
-from os import path
 from datetime import datetime, timedelta
-from subprocess import check_call
+from helpers import check_call
 
 
 backup_hour = 11  # back up at 11 AM (UTC) every day
@@ -49,23 +46,19 @@ def main():
     influx = yaml_settings['influxdb_connection']
     cmd = ('influxd backup -portable -database {} -start {} -end {} {}'
            .format(influx['dbname'], start_ts_str, end_ts_str, dst_dir))
-    sys.stderr.write(cmd + '\n')
     check_call(cmd, shell=True)
 
     # compress dst_dir
     cmd = 'tar czvf {0}.tar.gz {0}'.format(dst_dir)
-    sys.stderr.write(cmd + '\n')
     check_call(cmd, shell=True)
 
     # upload to Google cloud
     cmd = 'gsutil cp {}.tar.gz gs://puffer-influxdb-backup'.format(dst_dir)
-    sys.stderr.write(cmd + '\n')
     check_call(cmd, shell=True)
 
     # remove files
-    shutil.rmtree(dst_dir)
-    os.remove('{}.tar.gz'.format(dst_dir))
-    sys.stderr.write('Deleted {0} and {0}.tar.gz\n'.format(dst_dir))
+    cmd = 'rm -rf {0} {0}.tar.gz'.format(dst_dir)
+    check_call(cmd, shell=True)
 
 
 if __name__ == '__main__':
