@@ -70,15 +70,7 @@ void Pensieve::video_chunk_acked(const VideoFormat & format,
     j["delay"] = trans_time; // ms
     j["playback_buf"] = client_.video_playback_buf(); // seconds
     j["rebuf_time"] = client_.cum_rebuffer(); // cum seconds spent rebuffering up till now
-    if (last_chunk_size_ == 0) { //need this bc first chunk does not have this set
-        cout << "Initial chunk" << endl;
-        j["last_chunk_size"] = ((double)size) / 1000000 - 816; // MB (is this right or is this a power of 2 thing?)
-    } else {
-    //j["last_chunk_size"] = ((double)size) / 1000000; // MB (is this right or is this a power of 2 thing?)
-    j["last_chunk_size"] = last_chunk_size_; // MB //Using this until fix from Francis so size passed
-                                                    // to this function actually matches the size selected
-    cout << "Last Chunk Size (MB): " << last_chunk_size_ << endl;
-    }
+    j["last_chunk_size"] = ((double)size) / 1000000; // MB
     j["next_chunk_sizes"] = next_chunk_sizes_bare; //MB
     uint16_t json_len = j.dump().length();
     cout << j.dump() << endl;
@@ -93,7 +85,6 @@ void Pensieve::video_chunk_acked(const VideoFormat & format,
         // TODO: Get this as JSON not raw
         // TODO: bitrate instead of index
         size_t index_in_bitrate_ladder = std::stoi( read_data );
-        last_chunk_size_ = get<0>(next_chunk_sizes[index_in_bitrate_ladder]);
         cout << "Index of next chunk to be sent: " << index_in_bitrate_ladder << endl;
         next_format_ = get<1>(next_chunk_sizes[index_in_bitrate_ladder]); //Works bc next_chunk_size is sorted
         cout << "next_format: " << vformats[next_format_] << endl;
