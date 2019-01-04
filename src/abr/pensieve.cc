@@ -58,6 +58,7 @@ void Pensieve::video_chunk_acked(const VideoFormat & format,
     // currently do not.
 
     cout << "Video chunk acked!!" << format << ", SSIM: "<< ssim << endl;
+    cout << "Last size per ACK: " << (double)(size) / 1000000 << endl;
 
     // Okay, so when a chunk is acked we should first notify Pensieve, then wait for
     // a response indicating what bit rate to use next
