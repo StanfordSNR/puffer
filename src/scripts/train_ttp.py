@@ -4,8 +4,13 @@ import sys
 import argparse
 import yaml
 import torch
+import numpy as np
 
 from helpers import connect_to_influxdb, try_parsing_time
+
+
+VIDEO_DURATION = 180180
+PAST_CHUNKS = 4
 
 
 def create_time_clause(range_from, range_to):
@@ -23,11 +28,10 @@ def create_time_clause(range_from, range_to):
 
 
 def process_data(video_sent_results, video_acked_results):
-    # create shorthand var names
     d = {}
 
     for pt in video_sent_results['video_sent']:
-        # TODO: (user, init_id) might not be unique
+        # TODO: (user, init_id) might be not unique
         session = (pt['user'], int(pt['init_id']))
         if session not in d:
             d[session] = {}
@@ -38,15 +42,13 @@ def process_data(video_sent_results, video_acked_results):
                      .format(video_ts, session))
 
         d[session][video_ts] = {}
+        d[session][video_ts]['sent_ts'] = try_parsing_time(pt['time'])
         d[session][video_ts]['cwnd'] = int(pt['cwnd'])
         d[session][video_ts]['delivery_rate'] = int(pt['delivery_rate'])
         d[session][video_ts]['in_flight'] = int(pt['in_flight'])
         d[session][video_ts]['min_rtt'] = int(pt['min_rtt'])
         d[session][video_ts]['rtt'] = int(pt['rtt'])
         d[session][video_ts]['size'] = int(pt['size'])
-
-        # calculate transmission time: save the sent timestamp first
-        d[session][video_ts]['trans_time'] = try_parsing_time(pt['time'])
 
         if pt['ssim_index'] is not None:
             d[session][video_ts]['ssim_index'] = float(pt['ssim_index'])
@@ -67,20 +69,21 @@ def process_data(video_sent_results, video_acked_results):
             sys.stderr.write('ignored acked video_ts {} in the session {}\n'
                              .format(video_ts, session))
 
-        # calculate transmission time: replace trans_time with correct value
-        sent_ts = d[session][video_ts]['trans_time']
+        # calculate transmission time
+        sent_ts = d[session][video_ts]['sent_ts']
         acked_ts = try_parsing_time(pt['time'])
+        d[session][video_ts]['acked_ts'] = acked_ts
         d[session][video_ts]['trans_time'] = (acked_ts - sent_ts).total_seconds()
 
     return d
 
 
-def train():
-    N = 32
+def do_train():
+    N = 32  # batch size
     D_in, H, D_out = 5, 4, 3
 
-    x = torch.randn(N, D_in)
-    y = torch.randn(N, D_out)
+    x = torch.zeros(N, D_in)
+    y = torch.zeros(N, D_out)
 
     model = torch.nn.Sequential(
         torch.nn.Linear(D_in, H),
@@ -104,11 +107,38 @@ def train():
         optimizer.step()
 
 
+def train(d):
+    for session in d:
+        ds = d[session]
+        for video_ts in ds:
+            dsv = ds[video_ts]
+
+            if 'trans_time' not in dsv:
+                continue
+
+            row = []
+
+            for i in reversed(range(1, 1 + PAST_CHUNKS)):
+                ts = video_ts - i * VIDEO_DURATION
+                if ts in ds and 'trans_time' in ds[ts]:
+                    row += [ds[ts]['size'], ds[ts]['trans_time']]
+                else:
+                    row += [0, 0]
+
+            row += [dsv['size'], dsv['cwnd'], dsv['delivery_rate'],
+                    dsv['in_flight'], dsv['min_rtt'], dsv['rtt']]
+            # TODO: normalize row
+            print(row, dsv['trans_time'])
+
+            # TODO: perform training when a batch is created
+            # do_train()
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('yaml_settings')
     parser.add_argument('--from', dest='range_from', help='e.g., 12h, 2d (ago)')
-    parser.add_argument('--to', dest='range_to', help='e.g., 6d, 1d (ago)')
+    parser.add_argument('--to', dest='range_to', help='e.g., 6h, 1d (ago)')
     # TODO: load a previously trained model to perform daily training
     # parser.add_argument('-m', '--model', help='model to start training with')
     args = parser.parse_args()
@@ -140,8 +170,8 @@ def main():
     # calculate chunk transmission times
     data = process_data(video_sent_results, video_acked_results)
 
-    # TODO: training
-    # train()
+    # train a neural network with data
+    train(data)
 
 if __name__ == '__main__':
     main()
