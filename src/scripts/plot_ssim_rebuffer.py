@@ -156,6 +156,7 @@ def plot_ssim_rebuffer(ssim, rebuffer, output, days):
     xmin = max(xmin, 0)
     xmax = min(xmax, 100)
     ax.set_xlim(xmin, xmax)
+    ax.invert_xaxis()
 
     fig.savefig(output, dpi=300, bbox_inches='tight', pad_inches=0.2)
     sys.stderr.write('Saved plot to {}\n'.format(output))
