@@ -1,7 +1,6 @@
 #ifndef PENSIEVE_HH
 #define PENSIEVE_HH
 
-// TODO: Clean up duplicate includes
 #include "abr_algo.hh"
 #include <stdio.h>
 #include <thread>
@@ -15,15 +14,6 @@
 
 using json = nlohmann::json;
 
-// TODO: Include appropriate constants for controlling Pensieve
-
-/*
-static const size_t MAX_NUM_PAST_CHUNKS = 5;
-static const size_t MAX_LOOKAHEAD_HORIZON = 10;
-static const double REBUFFER_LENGTH_COEFF = 5;
-static const double SSIM_DIFF_COEFF = 0.3;
-static const size_t MAX_NUM_FORMATS = 10;
-*/
 
 class Pensieve : public ABRAlgo
 {

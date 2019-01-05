@@ -11,6 +11,11 @@ string put_field2(const uint16_t n)
                 sizeof(network_order));
 }
 
+//TODO: Reference already existing get_uint16()
+uint16_t get_uint16_2(const char * data)
+{
+  return be16toh(*reinterpret_cast<const uint16_t *>(data));
+}
 
 Pensieve::Pensieve(const WebSocketClient & client,
          const string & abr_name, const YAML::Node & abr_config)
@@ -38,8 +43,8 @@ void Pensieve::video_chunk_acked(const VideoFormat & format,
     for (size_t i = 0; i < vformats_cnt; i++) {
       const auto & vf = vformats[i];
 
-      size_t chunk_size = get<1>(data_map.at(vf)); //units?
-      double chunk_size_mb = (((double)chunk_size) / 1000000); // MB //TODO: CHeck unit above
+      size_t chunk_size = get<1>(data_map.at(vf));
+      double chunk_size_mb = (double)chunk_size; // Bytes
       next_chunk_sizes.push_back(make_pair(chunk_size_mb, i));
     }
     sort(next_chunk_sizes.begin(), next_chunk_sizes.end()); // sorts pairs by first element
@@ -58,33 +63,33 @@ void Pensieve::video_chunk_acked(const VideoFormat & format,
     // currently do not.
 
     cout << "Video chunk acked!!" << format << ", SSIM: "<< ssim << endl;
-    cout << "Last size per ACK: " << (double)(size) / 1000000 << endl;
+    cout << "Last size per ACK: " << (double)(size) << endl;
 
     // Okay, so when a chunk is acked we should first notify Pensieve, then wait for
     // a response indicating what bit rate to use next
     // RESPOND
     // TODO: Increase trans_time to account for time to send audio chunks?
     cout << "PBUF: " << client_.video_playback_buf() << endl;
-    //cout << "Last Chunk Size (MB): " << ((double)size) / 1000000 << endl;
     json j;
     j["delay"] = trans_time; // ms
     j["playback_buf"] = client_.video_playback_buf(); // seconds
     j["rebuf_time"] = client_.cum_rebuffer(); // cum seconds spent rebuffering up till now
-    j["last_chunk_size"] = ((double)size) / 1000000; // MB
-    j["next_chunk_sizes"] = next_chunk_sizes_bare; //MB
+    j["last_chunk_size"] = (double)size; // Bytes
+    j["next_chunk_sizes"] = next_chunk_sizes_bare; //Bytes
     uint16_t json_len = j.dump().length();
     cout << j.dump() << endl;
 
     connection_.write(put_field2(json_len) + j.dump());
 
     //Now, busy wait until Pensieve responds (on my laptop this takes between 1 and 4 ms)
-    auto read_data = connection_.read();
+    auto read_data = connection_.read_exactly(2); //read 2 byte length
     if (read_data.empty()) {
         cout << "Empty read, ERROR" << endl;
     } else {
-        // TODO: Get this as JSON not raw
-        // TODO: bitrate instead of index
-        size_t index_in_bitrate_ladder = std::stoi( read_data );
+        auto rcvd_json_len = get_uint16_2( read_data.data() );
+        cout << "Received json len: " << rcvd_json_len << endl;
+        auto read_json = connection_.read_exactly(rcvd_json_len);
+        size_t index_in_bitrate_ladder = json::parse(read_json)["bit_rate"];
         cout << "Index of next chunk to be sent: " << index_in_bitrate_ladder << endl;
         next_format_ = get<1>(next_chunk_sizes[index_in_bitrate_ladder]); //Works bc next_chunk_size is sorted
         cout << "next_format: " << vformats[next_format_] << endl;
@@ -93,24 +98,8 @@ void Pensieve::video_chunk_acked(const VideoFormat & format,
 
 VideoFormat Pensieve::select_video_format()
 {
-  //reinit();
   // Basic design here is that the next_format is set after every video ack,
   // so any time this is called (which must come after an ack for the previous video chunk) this
   // value will have been updated.
   return client_.channel()->vformats()[next_format_];
 }
-
-/*
-void Pensieve::reinit()
-{
-  curr_round_++;
-
-  const auto & channel = client_.channel();
-  const auto & vformats = channel->vformats();
-  const unsigned int vduration = channel->vduration();
-  const uint64_t curr_ts = *client_.next_vts() - vduration;
-
-  chunk_length_ = (double) vduration / channel->timescale();
-  num_formats_ = vformats.size();
-  }
-} */
