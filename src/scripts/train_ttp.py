@@ -11,35 +11,52 @@ from helpers import connect_to_influxdb, try_parsing_time
 
 VIDEO_DURATION = 180180
 PAST_CHUNKS = 4
+PKT_BYTES = 1500
+MILLION = 1000000
 
 
-def create_time_clause(range_from, range_to):
+def create_time_clause(time_start, time_end):
     time_clause = None
 
-    if range_from is not None:
-        time_clause = 'time >= now()-' + range_from
-    if range_to is not None:
+    if time_start is not None:
+        time_clause = 'time >= now()-' + time_start
+    if time_end is not None:
         if time_clause is None:
-            time_clause = 'time <= now()-' + range_to
+            time_clause = 'time <= now()-' + time_end
         else:
-            time_clause += ' AND time <= now()-' + range_to
+            time_clause += ' AND time <= now()-' + time_end
 
     return time_clause
 
 
+def get_ssim_index(pt):
+    if 'ssim_index' in pt and pt['ssim_index'] is not None:
+        return float(pt['ssim_index'])
+
+    if 'ssim' in pt and pt['ssim'] is not None:
+        return ssim_db_to_index(float(pt['ssim']))
+
+    return None
+
+
 def process_data(video_sent_results, video_acked_results):
     d = {}
+    last_video_ts = {}
 
     for pt in video_sent_results['video_sent']:
-        # TODO: (user, init_id) might be not unique
-        session = (pt['user'], int(pt['init_id']))
+        session = (pt['user'], int(pt['init_id']),
+                   pt['channel'], int(pt['expt_id']))
         if session not in d:
             d[session] = {}
+            last_video_ts[session] = None
 
         video_ts = int(pt['video_ts'])
-        if video_ts in d[session]:
-            sys.exit('same video_ts {} is sent twice in the session {}'
-                     .format(video_ts, session))
+
+        if last_video_ts[session] is not None:
+            if video_ts != last_video_ts[session] + VIDEO_DURATION:
+                sys.exit('Error in session {}: last_video_ts={}, video_ts={}'
+                         .format(session, last_video_ts[session], video_ts))
+        last_video_ts[session] = video_ts
 
         d[session][video_ts] = {}
         d[session][video_ts]['sent_ts'] = try_parsing_time(pt['time'])
@@ -48,26 +65,21 @@ def process_data(video_sent_results, video_acked_results):
         d[session][video_ts]['in_flight'] = int(pt['in_flight'])
         d[session][video_ts]['min_rtt'] = int(pt['min_rtt'])
         d[session][video_ts]['rtt'] = int(pt['rtt'])
+        d[session][video_ts]['ssim_index'] = get_ssim_index(pt)
         d[session][video_ts]['size'] = int(pt['size'])
 
-        if pt['ssim_index'] is not None:
-            d[session][video_ts]['ssim_index'] = float(pt['ssim_index'])
-        elif d['ssim'] is not None:
-            ssim = float(pt['ssim'])
-            ssim_index = 1 - 10 ** (ssim / -10)
-            d[session][video_ts]['ssim_index'] = ssim_index
-        else:
-            sys.exit('fatal error: both ssim_index and ssim are missing')
-
     for pt in video_acked_results['video_acked']:
-        session = (pt['user'], int(pt['init_id']))
+        session = (pt['user'], int(pt['init_id']),
+                   pt['channel'], int(pt['expt_id']))
         if session not in d:
-            sys.stderr.write('ignored session {}\n'.format(session))
+            sys.stderr.write('Warning: ignored session {}\n'.format(session))
+            continue
 
         video_ts = int(pt['video_ts'])
         if video_ts not in d[session]:
-            sys.stderr.write('ignored acked video_ts {} in the session {}\n'
-                             .format(video_ts, session))
+            sys.stderr.write('Warning: ignored acked video_ts {} in the '
+                             'session {}\n'.format(video_ts, session))
+            continue
 
         # calculate transmission time
         sent_ts = d[session][video_ts]['sent_ts']
@@ -112,7 +124,6 @@ def train(d):
         ds = d[session]
         for video_ts in ds:
             dsv = ds[video_ts]
-
             if 'trans_time' not in dsv:
                 continue
 
@@ -125,10 +136,11 @@ def train(d):
                 else:
                     row += [0, 0]
 
-            row += [dsv['size'], dsv['cwnd'], dsv['delivery_rate'],
-                    dsv['in_flight'], dsv['min_rtt'], dsv['rtt']]
+            row += [dsv['size'], dsv['delivery_rate'],
+                    dsv['cwnd'] * 1500, dsv['in_flight'] * 1500,
+                    dsv['min_rtt'] / MILLION, dsv['rtt'] / MILLION]
+
             # TODO: normalize row
-            print(row, dsv['trans_time'])
 
             # TODO: perform training when a batch is created
             # do_train()
@@ -137,8 +149,8 @@ def train(d):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('yaml_settings')
-    parser.add_argument('--from', dest='range_from', help='e.g., 12h, 2d (ago)')
-    parser.add_argument('--to', dest='range_to', help='e.g., 6h, 1d (ago)')
+    parser.add_argument('--from', dest='time_start', help='e.g., 12h, 2d (ago)')
+    parser.add_argument('--to', dest='time_end', help='e.g., 6h, 1d (ago)')
     # TODO: load a previously trained model to perform daily training
     # parser.add_argument('-m', '--model', help='model to start training with')
     args = parser.parse_args()
@@ -147,7 +159,7 @@ def main():
         yaml_settings = yaml.safe_load(fh)
 
     # construct time clause after 'WHERE'
-    time_clause = create_time_clause(args.range_from, args.range_to)
+    time_clause = create_time_clause(args.time_start, args.time_end)
 
     # create a client connected to InfluxDB
     influx_client = connect_to_influxdb(yaml_settings)
@@ -172,6 +184,7 @@ def main():
 
     # train a neural network with data
     train(data)
+
 
 if __name__ == '__main__':
     main()
