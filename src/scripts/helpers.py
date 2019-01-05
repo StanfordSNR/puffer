@@ -2,6 +2,7 @@ import os
 import sys
 import subprocess
 import psycopg2
+import numpy as np
 from datetime import datetime
 from influxdb import InfluxDBClient
 
@@ -78,3 +79,11 @@ def try_parsing_time(timestamp):
             pass
 
     raise ValueError('No valid format found to parse ' + timestamp)
+
+
+def ssim_db_to_index(ssim_db):
+    return 1 - 10 ** (ssim_db / -10)
+
+
+def ssim_index_to_db(ssim_index):
+    return -10 * np.log10(1 - ssim_index)

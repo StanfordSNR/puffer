@@ -10,7 +10,9 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
-from helpers import connect_to_postgres, connect_to_influxdb, try_parsing_time
+from helpers import (
+    connect_to_postgres, connect_to_influxdb, try_parsing_time,
+    ssim_index_to_db)
 
 
 # cache of Postgres data: experiment 'id' -> json 'data' of the experiment
@@ -49,9 +51,7 @@ def collect_ssim(video_acked_results, postgres_cursor):
     ssim = {}
     for abr_cc in x:
         avg_ssim_index = np.mean(x[abr_cc])
-        if avg_ssim_index == 1:
-            sys.exit('Error: average SSIM index is 1')
-        avg_ssim_db = -10 * np.log10(1 - avg_ssim_index)
+        avg_ssim_db = ssim_index_to_db(avg_ssim_index)
         ssim[abr_cc] = avg_ssim_db
 
     return ssim
