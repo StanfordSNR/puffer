@@ -10,9 +10,14 @@ from helpers import connect_to_influxdb, try_parsing_time
 
 
 VIDEO_DURATION = 180180
-PAST_CHUNKS = 4
+PAST_CHUNKS = 8
 PKT_BYTES = 1500
 MILLION = 1000000
+
+# Training related
+N = 32
+D_in = 22
+D_out = 1
 
 
 def create_time_clause(time_start, time_end):
@@ -39,7 +44,7 @@ def get_ssim_index(pt):
     return None
 
 
-def process_data(video_sent_results, video_acked_results):
+def calculate_trans_times(video_sent_results, video_acked_results):
     d = {}
     last_video_ts = {}
 
@@ -60,13 +65,13 @@ def process_data(video_sent_results, video_acked_results):
 
         d[session][video_ts] = {}
         d[session][video_ts]['sent_ts'] = try_parsing_time(pt['time'])
-        d[session][video_ts]['cwnd'] = int(pt['cwnd'])
-        d[session][video_ts]['delivery_rate'] = int(pt['delivery_rate'])
-        d[session][video_ts]['in_flight'] = int(pt['in_flight'])
-        d[session][video_ts]['min_rtt'] = int(pt['min_rtt'])
-        d[session][video_ts]['rtt'] = int(pt['rtt'])
+        d[session][video_ts]['cwnd'] = float(pt['cwnd'])
+        d[session][video_ts]['delivery_rate'] = float(pt['delivery_rate'])
+        d[session][video_ts]['in_flight'] = float(pt['in_flight'])
+        d[session][video_ts]['min_rtt'] = float(pt['min_rtt'])
+        d[session][video_ts]['rtt'] = float(pt['rtt'])
         d[session][video_ts]['ssim_index'] = get_ssim_index(pt)
-        d[session][video_ts]['size'] = int(pt['size'])
+        d[session][video_ts]['size'] = float(pt['size'])
 
     for pt in video_acked_results['video_acked']:
         session = (pt['user'], int(pt['init_id']),
@@ -90,19 +95,68 @@ def process_data(video_sent_results, video_acked_results):
     return d
 
 
-def do_train():
-    N = 32  # batch size
-    D_in, H, D_out = 5, 4, 3
+def normalize(x):
+    # zero-centered
+    x -= np.mean(x, axis=0)
 
-    x = torch.zeros(N, D_in)
-    y = torch.zeros(N, D_out)
+    # normalized
+    norms = np.std(x, axis=0)
+    for col in range(len(norms)):
+        if norms[col] != 0:
+            x[:,col] /= norms[col]
+
+    return x
+
+
+def preprocess(d):
+    x = np.zeros((N, D_in))
+    y = np.zeros((N, 1))
+
+    row_id = 0
+    for session in d:
+        ds = d[session]
+        for video_ts in ds:
+            dsv = ds[video_ts]
+            if 'trans_time' not in dsv:
+                continue
+
+            # construct a single row of input data
+            row = []
+
+            for i in reversed(range(1, 1 + PAST_CHUNKS)):
+                ts = video_ts - i * VIDEO_DURATION
+                if ts in ds and 'trans_time' in ds[ts]:
+                    row += [ds[ts]['size'], ds[ts]['trans_time']]
+                else:
+                    row += [0, 0]
+
+            row += [dsv['size'], dsv['delivery_rate'],
+                    dsv['cwnd'] * 1500, dsv['in_flight'] * 1500,
+                    dsv['min_rtt'] / MILLION, dsv['rtt'] / MILLION]
+
+            x[row_id] = row
+            y[row_id] = dsv['trans_time']
+
+            row_id += 1
+            if row_id >= N:
+                return normalize(x), y
+
+
+def train(input_data, output_data):
+    # hidden dimensions
+    H1, H2 = 40, 40
+
+    x = torch.from_numpy(input_data)
+    y = torch.from_numpy(output_data)
 
     model = torch.nn.Sequential(
-        torch.nn.Linear(D_in, H),
+        torch.nn.Linear(D_in, H1),
         torch.nn.ReLU(),
-        torch.nn.Linear(H, D_out),
-    )
-    loss_fn = torch.nn.MSELoss()
+        torch.nn.Linear(H1, H2),
+        torch.nn.ReLU(),
+        torch.nn.Linear(H2, D_out),
+    ).double()
+    loss_fn = torch.nn.MSELoss(reduction='mean')
 
     learning_rate = 1e-4
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
@@ -118,32 +172,8 @@ def do_train():
         loss.backward()
         optimizer.step()
 
-
-def train(d):
-    for session in d:
-        ds = d[session]
-        for video_ts in ds:
-            dsv = ds[video_ts]
-            if 'trans_time' not in dsv:
-                continue
-
-            row = []
-
-            for i in reversed(range(1, 1 + PAST_CHUNKS)):
-                ts = video_ts - i * VIDEO_DURATION
-                if ts in ds and 'trans_time' in ds[ts]:
-                    row += [ds[ts]['size'], ds[ts]['trans_time']]
-                else:
-                    row += [0, 0]
-
-            row += [dsv['size'], dsv['delivery_rate'],
-                    dsv['cwnd'] * 1500, dsv['in_flight'] * 1500,
-                    dsv['min_rtt'] / MILLION, dsv['rtt'] / MILLION]
-
-            # TODO: normalize row
-
-            # TODO: perform training when a batch is created
-            # do_train()
+    print('actual', y)
+    print('predicted', model(x))
 
 
 def main():
@@ -180,10 +210,13 @@ def main():
         sys.exit('Error: no results returned from query: ' + video_acked_query)
 
     # calculate chunk transmission times
-    data = process_data(video_sent_results, video_acked_results)
+    raw_data = calculate_trans_times(video_sent_results, video_acked_results)
+
+    # preprocess data
+    input_data, output_data = preprocess(raw_data)
 
     # train a neural network with data
-    train(data)
+    train(input_data, output_data)
 
 
 if __name__ == '__main__':
