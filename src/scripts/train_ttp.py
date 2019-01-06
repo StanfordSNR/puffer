@@ -168,7 +168,8 @@ def train(input_data, output_data):
     loss_fn = torch.nn.CrossEntropyLoss()
 
     learning_rate = 1e-3
-    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
+    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate,
+                                 weight_decay=0.001)
 
     max_iters = 500
     for t in range(max_iters):
