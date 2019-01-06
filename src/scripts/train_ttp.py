@@ -17,9 +17,11 @@ BIN_SIZE = 0.5  # seconds
 BIN_MAX = 30
 
 # training related
-N = 32
-D_in = 22
-D_out = BIN_MAX + 1
+BATCH_SIZE = 32
+DIM_IN = 22
+DIM_OUT = BIN_MAX + 1
+# hidden dimensions
+DIM_H1, DIM_H2 = 100, 100
 
 
 def create_time_clause(time_start, time_end):
@@ -100,7 +102,7 @@ def calculate_trans_times(video_sent_results, video_acked_results):
 # normalize a 2d numpy array
 def normalize(x):
     # zero-centered
-    y = x - np.mean(x, axis=0)
+    y = np.array(x) - np.mean(x, axis=0)
 
     # normalized
     norms = np.std(y, axis=0)
@@ -113,13 +115,13 @@ def normalize(x):
 
 # discretize a 1d numpy array, and clamp into [0, BIN_MAX]
 def discretize(x):
-    y = np.floor(x / BIN_SIZE)
+    y = np.floor(np.array(x) / BIN_SIZE)
     return np.clip(y, 0, BIN_MAX).astype(int)
 
 
 def preprocess(d):
-    x = np.zeros((N, D_in))
-    y = np.zeros(N)
+    x = []
+    y = []
 
     row_id = 0
     for session in d:
@@ -143,47 +145,74 @@ def preprocess(d):
                     dsv['cwnd'] * 1500, dsv['in_flight'] * 1500,
                     dsv['min_rtt'] / MILLION, dsv['rtt'] / MILLION]
 
-            x[row_id] = row
-            y[row_id] = dsv['trans_time']
+            x.append(row)
+            y.append(dsv['trans_time'])
 
             row_id += 1
-            if row_id >= N:
+            if row_id >= 1000:
                 return normalize(x), discretize(y)
 
 
-def train(input_data, output_data):
-    # hidden dimensions
-    H1, H2 = 100, 100
+class Model:
+    def __init__(self):
+        # define model, loss function, and optimizer
+        self.model = torch.nn.Sequential(
+            torch.nn.Linear(DIM_IN, DIM_H1),
+            torch.nn.ReLU(),
+            torch.nn.Linear(DIM_H1, DIM_H2),
+            torch.nn.ReLU(),
+            torch.nn.Linear(DIM_H2, DIM_OUT),
+        ).double()
+        self.loss_fn = torch.nn.CrossEntropyLoss()
+        self.optimizer = torch.optim.Adam(self.model.parameters(),
+                                          lr=1e-3, weight_decay=1e-3)
 
-    x = torch.from_numpy(input_data)
-    y = torch.from_numpy(output_data)
+    def train_batch(self, batch_input, batch_output):
+        x = torch.from_numpy(batch_input)
+        y = torch.from_numpy(batch_output)
 
-    model = torch.nn.Sequential(
-        torch.nn.Linear(D_in, H1),
-        torch.nn.ReLU(),
-        torch.nn.Linear(H1, H2),
-        torch.nn.ReLU(),
-        torch.nn.Linear(H2, D_out),
-    ).double()
-    loss_fn = torch.nn.CrossEntropyLoss()
+        # class scores
+        y_scores = self.model(x)
 
-    learning_rate = 1e-3
-    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate,
-                                 weight_decay=0.001)
+        loss = self.loss_fn(y_scores, y)
 
-    max_iters = 500
-    for t in range(max_iters):
-        y_pred = model(x)
-
-        loss = loss_fn(y_pred, y)
-        print(t, loss.item())
-
-        optimizer.zero_grad()
+        self.optimizer.zero_grad()
         loss.backward()
-        optimizer.step()
+        self.optimizer.step()
 
-    print('actual', y)
-    print('predicted', model(x).max(1)[1])
+        return loss.item()
+
+
+def train(input_data, output_data):
+    # create a model to train
+    model = Model()
+
+    num_examples = len(input_data)
+    assert(num_examples == len(output_data))
+    num_batches = int(np.ceil(num_examples / BATCH_SIZE))
+
+    # loop over the entire dataset multiple times
+    for epoch_id in range(500):
+        # permutate data in each epoch
+        perm_indices = np.random.permutation(range(num_examples))
+
+        running_loss = 0
+        for batch_id in range(num_batches):
+            start = batch_id * BATCH_SIZE
+            end = min(start + BATCH_SIZE, num_examples)
+            batch_indices = perm_indices[start:end]
+
+            # get a batch of input data
+            batch_input = input_data[batch_indices]
+            batch_output = output_data[batch_indices]
+
+            running_loss += model.train_batch(batch_input, batch_output)
+
+            # print average loss every 10 batches
+            if batch_id % 10 == 9:
+                print('epoch {:d} batch {:d}: loss {:3f}'
+                      .format(epoch_id + 1, batch_id + 1, running_loss / 10))
+                running_loss = 0
 
 
 def main():
