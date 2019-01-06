@@ -13,11 +13,13 @@ VIDEO_DURATION = 180180
 PAST_CHUNKS = 8
 PKT_BYTES = 1500
 MILLION = 1000000
+BIN_SIZE = 0.5  # seconds
+BIN_MAX = 30
 
-# Training related
+# training related
 N = 32
 D_in = 22
-D_out = 1
+D_out = BIN_MAX + 1
 
 
 def create_time_clause(time_start, time_end):
@@ -95,22 +97,29 @@ def calculate_trans_times(video_sent_results, video_acked_results):
     return d
 
 
+# normalize a 2d numpy array
 def normalize(x):
     # zero-centered
-    x -= np.mean(x, axis=0)
+    y = x - np.mean(x, axis=0)
 
     # normalized
-    norms = np.std(x, axis=0)
+    norms = np.std(y, axis=0)
     for col in range(len(norms)):
         if norms[col] != 0:
-            x[:,col] /= norms[col]
+            y[:, col] /= norms[col]
 
-    return x
+    return y
+
+
+# discretize a 1d numpy array, and clamp into [0, BIN_MAX]
+def discretize(x):
+    y = np.floor(x / BIN_SIZE)
+    return np.clip(y, 0, BIN_MAX).astype(int)
 
 
 def preprocess(d):
     x = np.zeros((N, D_in))
-    y = np.zeros((N, 1))
+    y = np.zeros(N)
 
     row_id = 0
     for session in d:
@@ -139,12 +148,12 @@ def preprocess(d):
 
             row_id += 1
             if row_id >= N:
-                return normalize(x), y
+                return normalize(x), discretize(y)
 
 
 def train(input_data, output_data):
     # hidden dimensions
-    H1, H2 = 40, 40
+    H1, H2 = 100, 100
 
     x = torch.from_numpy(input_data)
     y = torch.from_numpy(output_data)
@@ -156,9 +165,9 @@ def train(input_data, output_data):
         torch.nn.ReLU(),
         torch.nn.Linear(H2, D_out),
     ).double()
-    loss_fn = torch.nn.MSELoss(reduction='mean')
+    loss_fn = torch.nn.CrossEntropyLoss()
 
-    learning_rate = 1e-4
+    learning_rate = 1e-3
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 
     max_iters = 500
@@ -173,7 +182,7 @@ def train(input_data, output_data):
         optimizer.step()
 
     print('actual', y)
-    print('predicted', model(x))
+    print('predicted', model(x).max(1)[1])
 
 
 def main():
