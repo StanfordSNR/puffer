@@ -14,7 +14,7 @@ PAST_CHUNKS = 8
 PKT_BYTES = 1500
 MILLION = 1000000
 BIN_SIZE = 0.5  # seconds
-BIN_MAX = 30
+BIN_MAX = 20
 
 # training related
 BATCH_SIZE = 32
@@ -120,7 +120,14 @@ def normalize(x):
 # discretize a 1d numpy array, and clamp into [0, BIN_MAX]
 def discretize(x):
     y = np.floor(np.array(x) / BIN_SIZE).astype(int)
-    return np.clip(y, 0, BIN_MAX)
+    y = np.clip(y, 0, BIN_MAX)
+
+    bin_sizes = np.zeros(BIN_MAX + 1, dtype=int)
+    for bin_id in y:
+        bin_sizes[bin_id] += 1
+    print('output distribution:', bin_sizes)
+
+    return y
 
 
 def preprocess(d):
