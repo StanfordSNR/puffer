@@ -10,18 +10,23 @@ from helpers import connect_to_influxdb, try_parsing_time
 
 
 VIDEO_DURATION = 180180
-PAST_CHUNKS = 8
 PKT_BYTES = 1500
 MILLION = 1000000
-BIN_SIZE = 0.5  # seconds
-BIN_MAX = 20
 
 # training related
 BATCH_SIZE = 32
+PAST_CHUNKS = 8
 DIM_IN = 62
+BIN_SIZE = 0.5  # seconds
+BIN_MAX = 20
 DIM_OUT = BIN_MAX + 1
-# hidden dimensions
-DIM_H = 100
+DIM_H = 100  # hidden dimension
+LEARNING_RATE = 1e-3
+WEIGHT_DECAY = 1e-3
+NUM_EPOCHS = 100
+
+# tuning
+TUNING = False
 
 
 def create_time_clause(time_start, time_end):
@@ -175,7 +180,8 @@ class Model:
         ).double()
         self.loss_fn = torch.nn.CrossEntropyLoss()
         self.optimizer = torch.optim.Adam(self.model.parameters(),
-                                          lr=1e-4, weight_decay=1e-3)
+                                          lr=LEARNING_RATE,
+                                          weight_decay=WEIGHT_DECAY)
 
     # perform one step of training (forward + backward + optimize)
     def train_step(self, input_data, output_data):
@@ -230,21 +236,26 @@ class Model:
 
 
 def train(model, input_data, output_data):
-    # split training data into training/validation
-    num_training = int(0.8 * len(input_data))
-    training_input = input_data[:num_training]
-    training_output = output_data[:num_training]
-    validation_input = input_data[num_training:]
-    validation_output = output_data[num_training:]
-    print('Training set size:', len(training_input))
-    print('Validation set size:', len(validation_input))
+    if TUNING:
+        # split training data into training/validation
+        num_training = int(0.8 * len(input_data))
+        training_input = input_data[:num_training]
+        training_output = output_data[:num_training]
+        validation_input = input_data[num_training:]
+        validation_output = output_data[num_training:]
+        print('training set size:', len(training_input))
+        print('validation set size:', len(validation_input))
+    else:
+        num_training = len(input_data)
+        print('training set size:', num_training)
 
     # loop over the entire dataset multiple times
     num_batches = int(np.ceil(num_training / BATCH_SIZE))
-    for epoch_id in range(100):
+    for epoch_id in range(NUM_EPOCHS):
         # permutate data in each epoch
         perm_indices = np.random.permutation(range(num_training))
 
+        running_loss = 0
         for batch_id in range(num_batches):
             start = batch_id * BATCH_SIZE
             end = min(start + BATCH_SIZE, num_training)
@@ -254,16 +265,20 @@ def train(model, input_data, output_data):
             batch_input = input_data[batch_indices]
             batch_output = output_data[batch_indices]
 
-            model.train_step(batch_input, batch_output)
+            running_loss += model.train_step(batch_input, batch_output)
 
-        print('epoch {:d}:\n'
-              '  training loss {:.3f}, validation loss {:.3f}\n'
-              '  training accuracy {:.3f}, validation accuracy {:.3f}'.format(
-              epoch_id + 1,
-              model.compute_loss(training_input, training_output),
-              model.compute_loss(validation_input, validation_output),
-              model.compute_accuracy(training_input, training_output),
-              model.compute_accuracy(validation_input, validation_output)))
+        if TUNING:
+            print('epoch {:d}:\n'
+                  '  training: loss {:.3f}, accuracy {:.3f}\n'
+                  '  validation loss {:.3f}, accuracy {:.3f}'
+                  .format(epoch_id + 1,
+                  model.compute_loss(training_input, training_output),
+                  model.compute_accuracy(training_input, training_output),
+                  model.compute_loss(validation_input, validation_output),
+                  model.compute_accuracy(validation_input, validation_output)))
+        else:
+            print('epoch {:d}: training loss {:.3f}'
+                  .format(epoch_id + 1, running_loss / num_batches))
 
 
 def main():
@@ -273,7 +288,12 @@ def main():
     parser.add_argument('--to', dest='time_end', help='e.g., 6h, 1d (ago)')
     parser.add_argument('--load', help='model to load from')
     parser.add_argument('--save', help='model to save to', required=True)
+    parser.add_argument('--tune', action='store_true')
     args = parser.parse_args()
+
+    global TUNING;
+    if args.tune:
+        TUNING = True;
 
     with open(args.yaml_settings, 'r') as fh:
         yaml_settings = yaml.safe_load(fh)
