@@ -6,6 +6,10 @@ import yaml
 import torch
 import numpy as np
 
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+
 from helpers import connect_to_influxdb, try_parsing_time
 
 
@@ -20,10 +24,11 @@ DIM_IN = 62
 BIN_SIZE = 0.5  # seconds
 BIN_MAX = 20
 DIM_OUT = BIN_MAX + 1
-DIM_H = 100  # hidden dimension
-LEARNING_RATE = 1e-3
+DIM_H1 = 50
+DIM_H2 = 50
+LEARNING_RATE = 1e-4
 WEIGHT_DECAY = 1e-3
-NUM_EPOCHS = 100
+NUM_EPOCHS = 200
 
 # tuning
 TUNING = False
@@ -125,14 +130,7 @@ def normalize(x):
 # discretize a 1d numpy array, and clamp into [0, BIN_MAX]
 def discretize(x):
     y = np.floor(np.array(x) / BIN_SIZE).astype(int)
-    y = np.clip(y, 0, BIN_MAX)
-
-    bin_sizes = np.zeros(BIN_MAX + 1, dtype=int)
-    for bin_id in y:
-        bin_sizes[bin_id] += 1
-    print('output distribution:', bin_sizes)
-
-    return y
+    return np.clip(y, 0, BIN_MAX)
 
 
 def preprocess(d):
@@ -167,16 +165,41 @@ def preprocess(d):
             x.append(row)
             y.append(dsv['trans_time'])
 
-    return normalize(x), discretize(y)
+
+    x = normalize(x)
+    y = discretize(y)
+
+    # print label distribution
+    bin_sizes = np.zeros(BIN_MAX + 1, dtype=int)
+    for bin_id in y:
+        bin_sizes[bin_id] += 1
+    print('label distribution:\n', bin_sizes)
+
+    # predict a single label
+    print('single label accuracy: {:.2f}%'
+          .format(100 * np.max(bin_sizes) / len(y)))
+
+    # predict using delivery rate
+    delivery_rate_predict = []
+    for row in x:
+        delivery_rate_predict.append(row[-6] / row[-5])
+    delivery_rate_predict = discretize(delivery_rate_predict)
+
+    accuracy = 100 * (delivery_rate_predict == y).sum() / len(y)
+    print('delivery rate accuracy: {:.2f}%'.format(accuracy))
+
+    return x, y
 
 
 class Model:
     def __init__(self):
         # define model, loss function, and optimizer
         self.model = torch.nn.Sequential(
-            torch.nn.Linear(DIM_IN, DIM_H),
+            torch.nn.Linear(DIM_IN, DIM_H1),
             torch.nn.ReLU(),
-            torch.nn.Linear(DIM_H, DIM_OUT),
+            torch.nn.Linear(DIM_H1, DIM_H2),
+            torch.nn.ReLU(),
+            torch.nn.Linear(DIM_H2, DIM_OUT),
         ).double()
         self.loss_fn = torch.nn.CrossEntropyLoss()
         self.optimizer = torch.optim.Adam(self.model.parameters(),
@@ -235,22 +258,46 @@ class Model:
         self.model.eval()
 
 
+def plot(train_losses, validate_losses):
+    fig, ax = plt.subplots()
+    ax.set_xlabel('Epoch')
+    ax.set_ylabel('Loss')
+    ax.grid()
+
+    ax.plot(train_losses, 'g-', label='training')
+    ax.plot(validate_losses, 'r-', label='validation')
+
+    output_name = 'ttp_tuning.png'
+    fig.savefig(output_name, dpi=300, bbox_inches='tight', pad_inches=0.2)
+    sys.stderr.write('Saved plot to {}\n'.format(output_name))
+
+
 def train(model, input_data, output_data):
     if TUNING:
+        # permutate input and output data before splitting
+        perm_indices = np.random.permutation(range(len(input_data)))
+        input_data = input_data[perm_indices]
+        output_data = output_data[perm_indices]
+
         # split training data into training/validation
         num_training = int(0.8 * len(input_data))
-        training_input = input_data[:num_training]
-        training_output = output_data[:num_training]
-        validation_input = input_data[num_training:]
-        validation_output = output_data[num_training:]
-        print('training set size:', len(training_input))
-        print('validation set size:', len(validation_input))
+        train_input = input_data[:num_training]
+        train_output = output_data[:num_training]
+        validate_input = input_data[num_training:]
+        validate_output = output_data[num_training:]
+        print('training set size:', len(train_input))
+        print('validation set size:', len(validate_input))
+
+        train_losses = []
+        validate_losses = []
     else:
         num_training = len(input_data)
         print('training set size:', num_training)
 
-    # loop over the entire dataset multiple times
+    # number of batches
     num_batches = int(np.ceil(num_training / BATCH_SIZE))
+
+    # loop over the entire dataset multiple times
     for epoch_id in range(NUM_EPOCHS):
         # permutate data in each epoch
         perm_indices = np.random.permutation(range(num_training))
@@ -267,18 +314,30 @@ def train(model, input_data, output_data):
 
             running_loss += model.train_step(batch_input, batch_output)
 
+        # print info
         if TUNING:
+            train_loss = model.compute_loss(train_input, train_output)
+            validate_loss = model.compute_loss(validate_input, validate_output)
+            train_losses.append(train_loss)
+            validate_losses.append(validate_loss)
+
+            train_accuracy = 100 * model.compute_accuracy(train_input, train_output)
+            validate_accuracy = 100 * model.compute_accuracy(
+                    validate_input, validate_output)
+
             print('epoch {:d}:\n'
-                  '  training: loss {:.3f}, accuracy {:.3f}\n'
-                  '  validation loss {:.3f}, accuracy {:.3f}'
+                  '  training: loss {:.3f}, accuracy {:.2f}%\n'
+                  '  validation loss {:.3f}, accuracy {:.2f}%'
                   .format(epoch_id + 1,
-                  model.compute_loss(training_input, training_output),
-                  model.compute_accuracy(training_input, training_output),
-                  model.compute_loss(validation_input, validation_output),
-                  model.compute_accuracy(validation_input, validation_output)))
+                          train_loss, train_accuracy,
+                          validate_loss, validate_accuracy))
         else:
             print('epoch {:d}: training loss {:.3f}'
                   .format(epoch_id + 1, running_loss / num_batches))
+
+    if TUNING:
+        # plot training and validation loss for tunning
+        plot(train_losses, validate_losses)
 
 
 def main():
@@ -287,7 +346,7 @@ def main():
     parser.add_argument('--from', dest='time_start', help='e.g., 12h, 2d (ago)')
     parser.add_argument('--to', dest='time_end', help='e.g., 6h, 1d (ago)')
     parser.add_argument('--load', help='model to load from')
-    parser.add_argument('--save', help='model to save to', required=True)
+    parser.add_argument('--save', help='model to save to')
     parser.add_argument('--tune', action='store_true')
     args = parser.parse_args()
 
@@ -334,8 +393,9 @@ def main():
     # train a neural network with data
     train(model, input_data, output_data)
 
-    model.save(args.save)
-    sys.stderr.write('Saved model to {}\n'.format(args.save))
+    if args.save:
+        model.save(args.save)
+        sys.stderr.write('Saved model to {}\n'.format(args.save))
 
 
 if __name__ == '__main__':
