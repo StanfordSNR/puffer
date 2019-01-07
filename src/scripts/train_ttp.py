@@ -157,7 +157,7 @@ def preprocess(d):
             y.append(dsv['trans_time'])
 
             row_id += 1
-            if row_id >= 5000:
+            if row_id >= 10000:
                 return normalize(x), discretize(y)
 
     return normalize(x), discretize(y)
@@ -175,21 +175,24 @@ class Model:
         self.optimizer = torch.optim.Adam(self.model.parameters(),
                                           lr=1e-4, weight_decay=1e-3)
 
+    # perform one step of training (forward + backward + optimize)
     def train_step(self, input_data, output_data):
         x = torch.from_numpy(input_data)
         y = torch.from_numpy(output_data)
 
+        # forward pass
         y_scores = self.model(x)
         loss = self.loss_fn(y_scores, y)
 
+        # backpropagation and optimize
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
 
         return loss.item()
 
-
-    def validate(self, input_data, output_data):
+    # compute loss
+    def compute_loss(self, input_data, output_data):
         with torch.no_grad():
             x = torch.from_numpy(input_data)
             y = torch.from_numpy(output_data)
@@ -198,6 +201,23 @@ class Model:
             loss = self.loss_fn(y_scores, y)
 
             return loss.item()
+
+    # compute accuracy of the classifier
+    def compute_accuracy(self, input_data, output_data):
+        correct = 0
+        total = 0
+
+        with torch.no_grad():
+            x = torch.from_numpy(input_data)
+            y = torch.from_numpy(output_data)
+
+            y_scores = self.model(x)
+            y_predicted = torch.max(y_scores, 1)[1]
+
+            total += y.size(0)
+            correct += (y_predicted == y).sum().item()
+
+        return correct / total
 
 
 def train(input_data, output_data):
@@ -219,7 +239,6 @@ def train(input_data, output_data):
         # permutate data in each epoch
         perm_indices = np.random.permutation(range(num_training))
 
-        running_loss = 0
         for batch_id in range(num_batches):
             start = batch_id * BATCH_SIZE
             end = min(start + BATCH_SIZE, num_training)
@@ -229,18 +248,16 @@ def train(input_data, output_data):
             batch_input = input_data[batch_indices]
             batch_output = output_data[batch_indices]
 
-            running_loss += model.train_step(batch_input, batch_output)
+            model.train_step(batch_input, batch_output)
 
-            # print average loss every 10 batches
-            if batch_id % 10 == 9:
-                print('epoch {:d} batch {:d}: training loss {:3f}'
-                      .format(epoch_id + 1, batch_id + 1, running_loss / 10))
-                running_loss = 0
-
-        print('epoch {:d}: training loss {:3f}, validation loss {:3f}'
-              .format(epoch_id + 1,
-                      model.validate(training_input, training_output),
-                      model.validate(validation_input, validation_output)))
+        print('epoch {:d}:\n'
+              '  training loss {:.3f}, validation loss {:.3f}\n'
+              '  training accuracy {:.3f}, validation accuracy {:.3f}'.format(
+              epoch_id + 1,
+              model.compute_loss(training_input, training_output),
+              model.compute_loss(validation_input, validation_output),
+              model.compute_accuracy(training_input, training_output),
+              model.compute_accuracy(validation_input, validation_output)))
 
 
 def main():
