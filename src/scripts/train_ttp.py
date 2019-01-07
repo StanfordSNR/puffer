@@ -127,7 +127,6 @@ def preprocess(d):
     x = []
     y = []
 
-    row_id = 0
     for session in d:
         ds = d[session]
         for video_ts in ds:
@@ -155,10 +154,6 @@ def preprocess(d):
             assert(len(row) == DIM_IN)
             x.append(row)
             y.append(dsv['trans_time'])
-
-            row_id += 1
-            if row_id >= 10000:
-                return normalize(x), discretize(y)
 
     return normalize(x), discretize(y)
 
@@ -219,11 +214,15 @@ class Model:
 
         return correct / total
 
+    def save(self, model_path):
+        torch.save(self.model.state_dict(), model_path)
 
-def train(input_data, output_data):
-    # create a model to train
-    model = Model()
+    def load(self, model_path):
+        self.model.load_state_dict(torch.load(model_path))
+        self.model.eval()
 
+
+def train(model, input_data, output_data):
     # split training data into training/validation
     num_training = int(0.8 * len(input_data))
     training_input = input_data[:num_training]
@@ -265,8 +264,8 @@ def main():
     parser.add_argument('yaml_settings')
     parser.add_argument('--from', dest='time_start', help='e.g., 12h, 2d (ago)')
     parser.add_argument('--to', dest='time_end', help='e.g., 6h, 1d (ago)')
-    # TODO: load a previously trained model to perform daily training
-    # parser.add_argument('-m', '--model', help='model to start training with')
+    parser.add_argument('--load', help='model to load from')
+    parser.add_argument('--save', help='model to save to', required=True)
     args = parser.parse_args()
 
     with open(args.yaml_settings, 'r') as fh:
@@ -299,8 +298,17 @@ def main():
     # preprocess data
     input_data, output_data = preprocess(raw_data)
 
+    # create a model to train
+    model = Model()
+    if args.load:
+        model.load(args.load)
+        sys.stderr.write('Loaded model from {}\n'.format(args.load))
+
     # train a neural network with data
-    train(input_data, output_data)
+    train(model, input_data, output_data)
+
+    model.save(args.save)
+    sys.stderr.write('Saved model to {}\n'.format(args.save))
 
 
 if __name__ == '__main__':
