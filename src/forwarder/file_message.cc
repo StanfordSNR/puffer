@@ -1,21 +1,10 @@
 #include "file_message.hh"
+#include "serialization.hh"
 
 #include <endian.h>
 #include <stdexcept>
 
 using namespace std;
-
-string put_field(const uint16_t n)
-{
-  const uint16_t network_order = htobe16(n);
-  return string(reinterpret_cast<const char *>(&network_order),
-                sizeof(network_order));
-}
-
-uint16_t get_uint16(const char * data)
-{
-  return be16toh(*reinterpret_cast<const uint16_t *>(data));
-}
 
 FileMsg::FileMsg(const uint16_t _dst_path_len, const string & _dst_path)
   : dst_path_len(_dst_path_len), dst_path(_dst_path)

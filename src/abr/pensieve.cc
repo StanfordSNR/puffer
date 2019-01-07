@@ -3,23 +3,10 @@
 #include "pid.hh"
 #include "child_process.hh"
 #include "system_runner.hh"
+#include "serialization.hh"
 #include <random>
 
 using namespace std;
-
-//TODO: Reference already existing put_field()
-string put_field2(const uint16_t n)
-{
-  const uint16_t network_order = htobe16(n);
-  return string(reinterpret_cast<const char *>(&network_order),
-                sizeof(network_order));
-}
-
-//TODO: Reference already existing get_uint16()
-uint16_t get_uint16_2(const char * data)
-{
-  return be16toh(*reinterpret_cast<const uint16_t *>(data));
-}
 
 Pensieve::Pensieve(const WebSocketClient & client,
          const string & abr_name, const YAML::Node & abr_config)
@@ -104,11 +91,11 @@ void Pensieve::video_chunk_acked(const VideoFormat & format,
     uint16_t json_len = j.dump().length();
     cout << j.dump() << endl;
 
-    connection_.write(put_field2(json_len) + j.dump());
+    connection_.write(put_field(json_len) + j.dump());
 
     //Now, busy wait until Pensieve responds (on my laptop this takes between 1 and 4 ms)
     auto read_data = connection_.read_exactly(2); //read 2 byte length
-    auto rcvd_json_len = get_uint16_2( read_data.data() );
+    auto rcvd_json_len = get_uint16( read_data.data() );
     auto read_json = connection_.read_exactly(rcvd_json_len);
     next_br_index_ = json::parse(read_json)["bit_rate"];
     cout << "Index of next chunk to be sent: " << next_br_index_ << endl;
