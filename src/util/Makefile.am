@@ -25,4 +25,5 @@ libutil_a_SOURCES = \
 	chunk.hh \
 	mmap.hh mmap.cc \
 	y4m.hh y4m.cc \
-	ipc_socket.hh ipc_socket.cc
+	ipc_socket.hh ipc_socket.cc \
+	pid.hh pid.cc
