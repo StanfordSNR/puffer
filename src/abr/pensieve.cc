@@ -1,5 +1,9 @@
 #include "pensieve.hh"
 #include "ws_client.hh"
+#include "pid.hh"
+#include "child_process.hh"
+#include "system_runner.hh"
+#include <random>
 
 using namespace std;
 
@@ -22,10 +26,46 @@ Pensieve::Pensieve(const WebSocketClient & client,
   : ABRAlgo(client, abr_name)
 {
 
-    cout << abr_config << endl; // TODO: Actually use abr_config or remove it
-    // Config right now is done via constants in the Pensieve file, I am tempted
-    // to leave it that way unless we think we will actually use different
-    // configs for different people/channels.
+    string ipc_dir = "pensieve_ipc";
+    fs::create_directories(ipc_dir);
+    string ipc_file = ipc_dir + "/" + std::to_string(pid()) + "_"  + std::to_string(client.connection_id());
+    IPCSocket sock;
+    sock.bind(ipc_file);
+    sock.listen();
+
+    /* Default Paths */ //TODO: Should these be relative?
+    string pensieve_path = "/home/hudson/puffer/third_party/pensieve/multi_video_sim/rl_test.py";
+    string nn_path = "/home/hudson/nn_model_ep_77400.ckpt";
+    string ipc_path = fs::current_path().string()  + "/" + ipc_file;
+
+    if (abr_config["pensieve_path"] && abr_config["nn_path"]) {
+      stringstream ss;
+      ss << abr_config["pensieve_path"];
+      pensieve_path = ss.str();
+      stringstream ss2;
+      ss2 << abr_config["nn_path"];
+      nn_path = ss2.str();
+    }
+
+    /* Start Child Process */
+    vector<string> prog_args { pensieve_path, nn_path, ipc_path };
+
+    pensieve_proc_ = make_unique<ChildProcess>(ChildProcess(pensieve_path,
+            [&pensieve_path, &prog_args]() {
+        return ezexec(pensieve_path, prog_args);
+      }
+    ));
+
+    std::cout << "waiting for connection" << std::endl;
+    connection_ =  sock.accept();
+}
+
+Pensieve::~Pensieve() {
+  string ipc_file = "pensieve_ipc/" + std::to_string(pid()) + "_"  + std::to_string(client_.connection_id());
+  error_code ec;
+  if (not fs::remove(ipc_file, ec)) {
+    cerr << "Warning: file " << ipc_file << " cannot be removed" << endl;
+  }
 }
 
 void Pensieve::video_chunk_acked(const VideoFormat & format,
@@ -43,9 +83,8 @@ void Pensieve::video_chunk_acked(const VideoFormat & format,
     for (size_t i = 0; i < vformats_cnt; i++) {
       const auto & vf = vformats[i];
 
-      size_t chunk_size = get<1>(data_map.at(vf));
-      double chunk_size_mb = (double)chunk_size; // Bytes
-      next_chunk_sizes.push_back(make_pair(chunk_size_mb, i));
+      double chunk_size = (double)get<1>(data_map.at(vf)); // Bytes
+      next_chunk_sizes.push_back(make_pair(chunk_size, i));
     }
     sort(next_chunk_sizes.begin(), next_chunk_sizes.end()); // sorts pairs by first element
     vector<double> next_chunk_sizes_bare; // just first element of next_chunk_sizes pair
@@ -53,23 +92,9 @@ void Pensieve::video_chunk_acked(const VideoFormat & format,
       next_chunk_sizes_bare.push_back(get<0>(next_chunk_sizes[i]));
     }
 
-    cout << "smallest sorted chunk size: " << get<0>(next_chunk_sizes[0]) << endl;
-    cout << "largest sorted chunk size: " << get<0>(next_chunk_sizes[7]) << endl;
-    // Use this to set delivery time for last video packet
-    // Pensieve is going to consider all video packets as
-    // also containing the audio associated with those
-    // packets, which introduces some noise into these
-    // values, which perhaps we should account for, but
-    // currently do not.
-
     cout << "Video chunk acked!!" << format << ", SSIM: "<< ssim << endl;
-    cout << "Last size per ACK: " << (double)(size) << endl;
 
-    // Okay, so when a chunk is acked we should first notify Pensieve, then wait for
-    // a response indicating what bit rate to use next
-    // RESPOND
     // TODO: Increase trans_time to account for time to send audio chunks?
-    cout << "PBUF: " << client_.video_playback_buf() << endl;
     json j;
     j["delay"] = trans_time; // ms
     j["playback_buf"] = client_.video_playback_buf(); // seconds
@@ -83,17 +108,10 @@ void Pensieve::video_chunk_acked(const VideoFormat & format,
 
     //Now, busy wait until Pensieve responds (on my laptop this takes between 1 and 4 ms)
     auto read_data = connection_.read_exactly(2); //read 2 byte length
-    if (read_data.empty()) {
-        cout << "Empty read, ERROR" << endl;
-    } else {
-        auto rcvd_json_len = get_uint16_2( read_data.data() );
-        cout << "Received json len: " << rcvd_json_len << endl;
-        auto read_json = connection_.read_exactly(rcvd_json_len);
-        size_t index_in_bitrate_ladder = json::parse(read_json)["bit_rate"];
-        cout << "Index of next chunk to be sent: " << index_in_bitrate_ladder << endl;
-        next_format_ = get<1>(next_chunk_sizes[index_in_bitrate_ladder]); //Works bc next_chunk_size is sorted
-        cout << "next_format: " << vformats[next_format_] << endl;
-    }
+    auto rcvd_json_len = get_uint16_2( read_data.data() );
+    auto read_json = connection_.read_exactly(rcvd_json_len);
+    next_br_index_ = json::parse(read_json)["bit_rate"];
+    cout << "Index of next chunk to be sent: " << next_br_index_ << endl;
 }
 
 VideoFormat Pensieve::select_video_format()
@@ -101,5 +119,20 @@ VideoFormat Pensieve::select_video_format()
   // Basic design here is that the next_format is set after every video ack,
   // so any time this is called (which must come after an ack for the previous video chunk) this
   // value will have been updated.
-  return client_.channel()->vformats()[next_format_];
+  const auto & channel = client_.channel();
+  const auto & vformats = channel->vformats();
+  size_t vformats_cnt = vformats.size();
+
+  uint64_t next_vts = client_.next_vts().value();
+  const auto & data_map = channel->vdata(next_vts);
+  vector<pair<double, size_t>> next_chunk_sizes; //Store pairs of chunk size, corresponding vf index
+  for (size_t i = 0; i < vformats_cnt; i++) {
+    const auto & vf = vformats[i];
+
+    double chunk_size = (double)get<1>(data_map.at(vf)); //Bytes
+    next_chunk_sizes.push_back(make_pair(chunk_size, i));
+  }
+  sort(next_chunk_sizes.begin(), next_chunk_sizes.end()); // sorts pairs by first element
+  size_t next_format = get<1>(next_chunk_sizes[next_br_index_]); //Works bc next_chunk_size is sorted
+  return client_.channel()->vformats()[next_format];
 }
