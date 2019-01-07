@@ -18,7 +18,7 @@ PKT_BYTES = 1500
 MILLION = 1000000
 
 # training related
-BATCH_SIZE = 32
+BATCH_SIZE = 64
 PAST_CHUNKS = 8
 DIM_IN = 62
 BIN_SIZE = 0.5  # seconds
@@ -28,10 +28,11 @@ DIM_H1 = 50
 DIM_H2 = 50
 LEARNING_RATE = 1e-4
 WEIGHT_DECAY = 1e-3
-NUM_EPOCHS = 200
+NUM_EPOCHS = 500
 
 # tuning
 TUNING = False
+DEVICE = torch.device('cpu')
 
 
 def create_time_clause(time_start, time_end):
@@ -200,16 +201,16 @@ class Model:
             torch.nn.Linear(DIM_H1, DIM_H2),
             torch.nn.ReLU(),
             torch.nn.Linear(DIM_H2, DIM_OUT),
-        ).double()
-        self.loss_fn = torch.nn.CrossEntropyLoss()
+        ).double().to(device=DEVICE)
+        self.loss_fn = torch.nn.CrossEntropyLoss().to(device=DEVICE)
         self.optimizer = torch.optim.Adam(self.model.parameters(),
                                           lr=LEARNING_RATE,
                                           weight_decay=WEIGHT_DECAY)
 
     # perform one step of training (forward + backward + optimize)
     def train_step(self, input_data, output_data):
-        x = torch.from_numpy(input_data)
-        y = torch.from_numpy(output_data)
+        x = torch.from_numpy(input_data).to(device=DEVICE)
+        y = torch.from_numpy(output_data).to(device=DEVICE)
 
         # forward pass
         y_scores = self.model(x)
@@ -225,8 +226,8 @@ class Model:
     # compute loss
     def compute_loss(self, input_data, output_data):
         with torch.no_grad():
-            x = torch.from_numpy(input_data)
-            y = torch.from_numpy(output_data)
+            x = torch.from_numpy(input_data).to(device=DEVICE)
+            y = torch.from_numpy(output_data).to(device=DEVICE)
 
             y_scores = self.model(x)
             loss = self.loss_fn(y_scores, y)
@@ -239,11 +240,11 @@ class Model:
         total = 0
 
         with torch.no_grad():
-            x = torch.from_numpy(input_data)
-            y = torch.from_numpy(output_data)
+            x = torch.from_numpy(input_data).to(device=DEVICE)
+            y = torch.from_numpy(output_data).to(device=DEVICE)
 
             y_scores = self.model(x)
-            y_predicted = torch.max(y_scores, 1)[1]
+            y_predicted = torch.max(y_scores, 1)[1].to(device=DEVICE)
 
             total += y.size(0)
             correct += (y_predicted == y).sum().item()
@@ -348,11 +349,21 @@ def main():
     parser.add_argument('--load', help='model to load from')
     parser.add_argument('--save', help='model to save to')
     parser.add_argument('--tune', action='store_true')
+    parser.add_argument('--enable-gpu', action='store_true')
     args = parser.parse_args()
 
-    global TUNING;
     if args.tune:
+        global TUNING
         TUNING = True;
+
+    # set device to CPU or GPU
+    if args.enable_gpu:
+        if not torch.cuda.is_available():
+            sys.exit('--enable-gpu but no CUDA is available')
+
+        global DEVICE
+        DEVICE = torch.device('cuda')
+        torch.backends.cudnn.benchmark = True
 
     with open(args.yaml_settings, 'r') as fh:
         yaml_settings = yaml.safe_load(fh)
