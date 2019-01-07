@@ -18,10 +18,10 @@ BIN_MAX = 30
 
 # training related
 BATCH_SIZE = 32
-DIM_IN = 22
+DIM_IN = 62
 DIM_OUT = BIN_MAX + 1
 # hidden dimensions
-DIM_H1, DIM_H2 = 100, 100
+DIM_H = 100
 
 
 def create_time_clause(time_start, time_end):
@@ -68,14 +68,16 @@ def calculate_trans_times(video_sent_results, video_acked_results):
         last_video_ts[session] = video_ts
 
         d[session][video_ts] = {}
-        d[session][video_ts]['sent_ts'] = try_parsing_time(pt['time'])
-        d[session][video_ts]['cwnd'] = float(pt['cwnd'])
-        d[session][video_ts]['delivery_rate'] = float(pt['delivery_rate'])
-        d[session][video_ts]['in_flight'] = float(pt['in_flight'])
-        d[session][video_ts]['min_rtt'] = float(pt['min_rtt'])
-        d[session][video_ts]['rtt'] = float(pt['rtt'])
-        d[session][video_ts]['ssim_index'] = get_ssim_index(pt)
-        d[session][video_ts]['size'] = float(pt['size'])
+        dsv = d[session][video_ts]  # short name
+
+        dsv['sent_ts'] = try_parsing_time(pt['time'])
+        dsv['size'] = float(pt['size'])
+        dsv['delivery_rate'] = float(pt['delivery_rate'])
+        dsv['cwnd'] = float(pt['cwnd']) * PKT_BYTES
+        dsv['in_flight'] = float(pt['in_flight']) * PKT_BYTES
+        dsv['min_rtt'] = float(pt['min_rtt']) / MILLION
+        dsv['rtt'] = float(pt['rtt']) / MILLION
+        # dsv['ssim_index'] = get_ssim_index(pt)
 
     for pt in video_acked_results['video_acked']:
         session = (pt['user'], int(pt['init_id']),
@@ -90,11 +92,13 @@ def calculate_trans_times(video_sent_results, video_acked_results):
                              'session {}\n'.format(video_ts, session))
             continue
 
+        dsv = d[session][video_ts]  # short name
+
         # calculate transmission time
-        sent_ts = d[session][video_ts]['sent_ts']
+        sent_ts = dsv['sent_ts']
         acked_ts = try_parsing_time(pt['time'])
-        d[session][video_ts]['acked_ts'] = acked_ts
-        d[session][video_ts]['trans_time'] = (acked_ts - sent_ts).total_seconds()
+        dsv['acked_ts'] = acked_ts
+        dsv['trans_time'] = (acked_ts - sent_ts).total_seconds()
 
     return d
 
@@ -115,8 +119,8 @@ def normalize(x):
 
 # discretize a 1d numpy array, and clamp into [0, BIN_MAX]
 def discretize(x):
-    y = np.floor(np.array(x) / BIN_SIZE)
-    return np.clip(y, 0, BIN_MAX).astype(int)
+    y = np.floor(np.array(x) / BIN_SIZE).astype(int)
+    return np.clip(y, 0, BIN_MAX)
 
 
 def preprocess(d):
@@ -137,43 +141,45 @@ def preprocess(d):
             for i in reversed(range(1, 1 + PAST_CHUNKS)):
                 ts = video_ts - i * VIDEO_DURATION
                 if ts in ds and 'trans_time' in ds[ts]:
-                    row += [ds[ts]['size'], ds[ts]['trans_time']]
+                    row += [ds[ts]['size'], ds[ts]['delivery_rate'],
+                            ds[ts]['cwnd'], ds[ts]['in_flight'],
+                            ds[ts]['min_rtt'], ds[ts]['rtt'],
+                            ds[ts]['trans_time']]
                 else:
-                    row += [0, 0]
+                    row += [0, 0, 0, 0, 0, 0, 0]
 
             row += [dsv['size'], dsv['delivery_rate'],
-                    dsv['cwnd'] * 1500, dsv['in_flight'] * 1500,
-                    dsv['min_rtt'] / MILLION, dsv['rtt'] / MILLION]
+                    dsv['cwnd'], dsv['in_flight'],
+                    dsv['min_rtt'], dsv['rtt']]
 
+            assert(len(row) == DIM_IN)
             x.append(row)
             y.append(dsv['trans_time'])
 
             row_id += 1
-            if row_id >= 1000:
+            if row_id >= 5000:
                 return normalize(x), discretize(y)
+
+    return normalize(x), discretize(y)
 
 
 class Model:
     def __init__(self):
         # define model, loss function, and optimizer
         self.model = torch.nn.Sequential(
-            torch.nn.Linear(DIM_IN, DIM_H1),
+            torch.nn.Linear(DIM_IN, DIM_H),
             torch.nn.ReLU(),
-            torch.nn.Linear(DIM_H1, DIM_H2),
-            torch.nn.ReLU(),
-            torch.nn.Linear(DIM_H2, DIM_OUT),
+            torch.nn.Linear(DIM_H, DIM_OUT),
         ).double()
         self.loss_fn = torch.nn.CrossEntropyLoss()
         self.optimizer = torch.optim.Adam(self.model.parameters(),
-                                          lr=1e-3, weight_decay=1e-3)
+                                          lr=1e-4, weight_decay=1e-3)
 
-    def train_batch(self, batch_input, batch_output):
-        x = torch.from_numpy(batch_input)
-        y = torch.from_numpy(batch_output)
+    def train_step(self, input_data, output_data):
+        x = torch.from_numpy(input_data)
+        y = torch.from_numpy(output_data)
 
-        # class scores
         y_scores = self.model(x)
-
         loss = self.loss_fn(y_scores, y)
 
         self.optimizer.zero_grad()
@@ -183,36 +189,58 @@ class Model:
         return loss.item()
 
 
+    def validate(self, input_data, output_data):
+        with torch.no_grad():
+            x = torch.from_numpy(input_data)
+            y = torch.from_numpy(output_data)
+
+            y_scores = self.model(x)
+            loss = self.loss_fn(y_scores, y)
+
+            return loss.item()
+
+
 def train(input_data, output_data):
     # create a model to train
     model = Model()
 
-    num_examples = len(input_data)
-    assert(num_examples == len(output_data))
-    num_batches = int(np.ceil(num_examples / BATCH_SIZE))
+    # split training data into training/validation
+    num_training = int(0.8 * len(input_data))
+    training_input = input_data[:num_training]
+    training_output = output_data[:num_training]
+    validation_input = input_data[num_training:]
+    validation_output = output_data[num_training:]
+    print('Training set size:', len(training_input))
+    print('Validation set size:', len(validation_input))
 
     # loop over the entire dataset multiple times
-    for epoch_id in range(500):
+    num_batches = int(np.ceil(num_training / BATCH_SIZE))
+    for epoch_id in range(100):
         # permutate data in each epoch
-        perm_indices = np.random.permutation(range(num_examples))
+        perm_indices = np.random.permutation(range(num_training))
 
         running_loss = 0
         for batch_id in range(num_batches):
             start = batch_id * BATCH_SIZE
-            end = min(start + BATCH_SIZE, num_examples)
+            end = min(start + BATCH_SIZE, num_training)
             batch_indices = perm_indices[start:end]
 
             # get a batch of input data
             batch_input = input_data[batch_indices]
             batch_output = output_data[batch_indices]
 
-            running_loss += model.train_batch(batch_input, batch_output)
+            running_loss += model.train_step(batch_input, batch_output)
 
             # print average loss every 10 batches
             if batch_id % 10 == 9:
-                print('epoch {:d} batch {:d}: loss {:3f}'
+                print('epoch {:d} batch {:d}: training loss {:3f}'
                       .format(epoch_id + 1, batch_id + 1, running_loss / 10))
                 running_loss = 0
+
+        print('epoch {:d}: training loss {:3f}, validation loss {:3f}'
+              .format(epoch_id + 1,
+                      model.validate(training_input, training_output),
+                      model.validate(validation_input, validation_output)))
 
 
 def main():
