@@ -139,41 +139,67 @@ def one_hot(index, total):
     return [int(i == index) for i in range(total)]
 
 
+def append_past_chunks(ds, next_ts, row):
+    i = 1
+    past_chunks = []
+
+    while i <= PAST_CHUNKS:
+        ts = next_ts - i * VIDEO_DURATION
+        if ts in ds and 'trans_time' in ds[ts]:
+            past_chunks = [ds[ts]['delivery_rate'],
+                           ds[ts]['cwnd'], ds[ts]['in_flight'],
+                           ds[ts]['min_rtt'], ds[ts]['rtt'],
+                           ds[ts]['size'], ds[ts]['trans_time']] + past_chunks
+        else:
+            nts = ts + VIDEO_DURATION  # padding with the nearest ts
+            padding = [ds[nts]['delivery_rate'],
+                       ds[nts]['cwnd'], ds[nts]['in_flight'],
+                       ds[nts]['min_rtt'], ds[nts]['rtt']]
+
+            if nts == next_ts:
+                padding += [0, 0]  # next_ts is the first chunk to send
+            else:
+                padding += [ds[nts]['size'], ds[nts]['trans_time']]
+
+            break
+
+        i += 1
+
+    if i != PAST_CHUNKS + 1:  # break in the middle; padding must exist
+        while i <= PAST_CHUNKS:
+            past_chunks = padding + past_chunks
+            i += 1
+
+    row += past_chunks
+
+
 def preprocess(d):
     x = []
     y = []
 
     for session in d:
         ds = d[session]
-        for video_ts in ds:
-            dsv = ds[video_ts]
-            if 'trans_time' not in dsv:
+
+        for next_ts in ds:
+            if 'trans_time' not in ds[next_ts]:
                 continue
 
             # construct a single row of input data
             row = []
 
-            # past chunks
-            for i in reversed(range(1, 1 + PAST_CHUNKS)):
-                ts = video_ts - i * VIDEO_DURATION
-                if ts in ds and 'trans_time' in ds[ts]:
-                    row += [ds[ts]['delivery_rate'],
-                            ds[ts]['cwnd'], ds[ts]['in_flight'],
-                            ds[ts]['min_rtt'], ds[ts]['rtt'],
-                            ds[ts]['size'], ds[ts]['trans_time']]
-                else:
-                    row += [0, 0, 0, 0, 0, 0, 0]
+            # append past chunks with padding
+            append_past_chunks(ds, next_ts, row)
 
-            # TCP info of the next chunk
-            row += [dsv['delivery_rate'],
-                    dsv['cwnd'], dsv['in_flight'],
-                    dsv['min_rtt'], dsv['rtt']]
+            # append the TCP info of the next chunk
+            row += [ds[next_ts]['delivery_rate'],
+                    ds[next_ts]['cwnd'], ds[next_ts]['in_flight'],
+                    ds[next_ts]['min_rtt'], ds[next_ts]['rtt']]
 
-            # future chunks (including the next chunk)
+            # generate FUTURE_CHUNKS rows
             for i in range(FUTURE_CHUNKS):
                 row_h = row.copy()
 
-                ts = video_ts + i * VIDEO_DURATION
+                ts = next_ts + i * VIDEO_DURATION
                 if ts in ds and 'trans_time' in ds[ts]:
                     row_h += [ds[ts]['size']]
                     # one-hot encoding of 'i'
