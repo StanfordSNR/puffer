@@ -3,10 +3,8 @@
 
 using namespace std;
 
-static const double HIGH_SENDING_TIME = 10000;
-
 MPCSearch::MPCSearch(const WebSocketClient & client,
-         const string & abr_name, const YAML::Node & abr_config)
+                     const string & abr_name, const YAML::Node & abr_config)
   : ABRAlgo(client, abr_name)
 {
   if (abr_config["max_lookahead_horizon"]) {
@@ -38,9 +36,9 @@ MPCSearch::MPCSearch(const WebSocketClient & client,
 }
 
 void MPCSearch::video_chunk_acked(const VideoFormat & format,
-                            const double ssim,
-                            const unsigned int size,
-                            const uint64_t trans_time)
+                                  const double ssim,
+                                  const unsigned int size,
+                                  const uint64_t trans_time)
 {
   past_chunks_.push_back({format, ssim, size, trans_time});
   if (past_chunks_.size() > max_num_past_chunks_) {
@@ -146,7 +144,7 @@ void MPCSearch::reinit()
 }
 
 double MPCSearch::get_qvalue(size_t i, double curr_buffer, size_t curr_format,
-                       size_t next_format)
+                             size_t next_format)
 {
   double real_rebuffer = curr_sending_time_[i + 1][next_format] - curr_buffer;
   double next_buffer = min(WebSocketClient::MAX_BUFFER_S,

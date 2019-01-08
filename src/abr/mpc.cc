@@ -3,8 +3,6 @@
 
 using namespace std;
 
-static const double HIGH_SENDING_TIME = 10000;
-
 MPC::MPC(const WebSocketClient & client,
          const string & abr_name, const YAML::Node & abr_config)
   : ABRAlgo(client, abr_name)

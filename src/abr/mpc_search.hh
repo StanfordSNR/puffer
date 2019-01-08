@@ -9,7 +9,7 @@ class MPCSearch : public ABRAlgo
 {
 public:
   MPCSearch(const WebSocketClient & client,
-      const std::string & abr_name, const YAML::Node & abr_config);
+            const std::string & abr_name, const YAML::Node & abr_config);
 
   void video_chunk_acked(const VideoFormat & format,
                          const double ssim,
@@ -24,6 +24,7 @@ private:
   static constexpr double REBUFFER_LENGTH_COEFF = 5;
   static constexpr double SSIM_DIFF_COEFF = 0.3;
   static constexpr size_t MAX_NUM_FORMATS = 20;
+  static constexpr double HIGH_SENDING_TIME = 10000;
 
   /* past chunks and max number of them */
   size_t max_num_past_chunks_ {MAX_NUM_PAST_CHUNKS};
