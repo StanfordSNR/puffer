@@ -38,12 +38,12 @@ def create_time_clause(time_start, time_end):
     time_clause = None
 
     if time_start is not None:
-        time_clause = 'time >= now()-' + time_start
+        time_clause = "time >= '{}'".format(time_start)
     if time_end is not None:
         if time_clause is None:
-            time_clause = 'time <= now()-' + time_end
+            time_clause = "time <= '{}'".format(time_end)
         else:
-            time_clause += ' AND time <= now()-' + time_end
+            time_clause += " AND time <= '{}'".format(time_end)
 
     return time_clause
 
@@ -260,14 +260,16 @@ class Model:
 
 def plot(losses, figure_path):
     fig, ax = plt.subplots()
-    ax.set_xlabel('Epoch')
-    ax.set_ylabel('Loss')
-    ax.grid()
 
     if 'training' in losses:
         ax.plot(losses['training'], 'g-', label='training')
     if 'validation' in losses:
-        ax.plot(losses['validation'], 'r-', label='validation')
+        ax.plot(losses['validation'], 'r--', label='validation')
+
+    ax.set_xlabel('Epoch')
+    ax.set_ylabel('Loss')
+    ax.grid()
+    ax.legend()
 
     fig.savefig(figure_path, dpi=300, bbox_inches='tight', pad_inches=0.2)
     sys.stderr.write('Saved plot to {}\n'.format(figure_path))
@@ -349,8 +351,10 @@ def train(model, input_data, output_data):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('yaml_settings')
-    parser.add_argument('--from', dest='time_start', help='e.g., 12h, 2d (ago)')
-    parser.add_argument('--to', dest='time_end', help='e.g., 6h, 1d (ago)')
+    parser.add_argument('--from', dest='time_start',
+                        help='datetime in UTC conforming to RFC3339')
+    parser.add_argument('--to', dest='time_end',
+                        help='datetime in UTC conforming to RFC3339')
     parser.add_argument('--load', help='model to load from')
     parser.add_argument('--save', help='model to save to')
     parser.add_argument('--tune', action='store_true')
