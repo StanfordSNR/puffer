@@ -8,6 +8,7 @@
 #include <cstdlib>
 #include "ipc_socket.hh"
 #include "child_process.hh"
+#include "filesystem.hh"
 #include "json.hpp"
 #include <endian.h>
 
@@ -35,9 +36,9 @@ private:
   size_t curr_format_ {};
 
   size_t next_br_index_ {0};
+  fs::path ipc_file_ {};
   FileDescriptor connection_ {0};
   std::unique_ptr<ChildProcess> pensieve_proc_ { nullptr };
-
 };
 
 #endif /* PENIEVE_HH */

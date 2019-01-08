@@ -8,7 +8,6 @@ pid_t pid()
 
   auto pid = CheckSystemCall("getpid", getpid());
 
-
   return pid;
 }
 
