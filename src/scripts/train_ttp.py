@@ -25,6 +25,36 @@ TUNING = False
 DEVICE = torch.device('cpu')
 
 
+def check_args(args):
+    if args.inference:
+        if not args.load_model:
+            sys.exit('Error: need to load model before inference')
+
+        if args.tune or args.save_model:
+            sys.exit('Error: cannot tune or save model during inference')
+    else:
+        if not args.save_model:
+            sys.stderr.write('Warning: model will not be saved\n')
+
+    # want to tune hyperparameters
+    if args.tune:
+        if args.save_model:
+            sys.stderr.write('Warning: model would better be trained with '
+                             'validation dataset\n')
+
+        global TUNING
+        TUNING = True
+
+    # set device to CPU or GPU
+    if args.enable_gpu:
+        if not torch.cuda.is_available():
+            sys.exit('Error: --enable-gpu is set but no CUDA is available')
+
+        global DEVICE
+        DEVICE = torch.device('cuda')
+        torch.backends.cudnn.benchmark = True
+
+
 def create_time_clause(time_start, time_end):
     time_clause = None
 
@@ -105,6 +135,35 @@ def calculate_trans_times(video_sent_results, video_acked_results):
     return d
 
 
+def prepare_raw_data(yaml_settings_path, time_start, time_end):
+    with open(yaml_settings_path, 'r') as fh:
+        yaml_settings = yaml.safe_load(fh)
+
+    # construct time clause after 'WHERE'
+    time_clause = create_time_clause(time_start, time_end)
+
+    # create a client connected to InfluxDB
+    influx_client = connect_to_influxdb(yaml_settings)
+
+    # perform queries in InfluxDB
+    video_sent_query = 'SELECT * FROM video_sent'
+    if time_clause is not None:
+        video_sent_query += ' WHERE ' + time_clause
+    video_sent_results = influx_client.query(video_sent_query)
+    if not video_sent_results:
+        sys.exit('Error: no results returned from query: ' + video_sent_query)
+
+    video_acked_query = 'SELECT * FROM video_acked'
+    if time_clause is not None:
+        video_acked_query += ' WHERE ' + time_clause
+    video_acked_results = influx_client.query(video_acked_query)
+    if not video_acked_results:
+        sys.exit('Error: no results returned from query: ' + video_acked_query)
+
+    # calculate chunk transmission times
+    return calculate_trans_times(video_sent_results, video_acked_results)
+
+
 class Model:
     PAST_CHUNKS = 8
     FUTURE_CHUNKS = 5
@@ -131,12 +190,18 @@ class Model:
                                           lr=Model.LEARNING_RATE,
                                           weight_decay=Model.WEIGHT_DECAY)
 
-        # mean and std of training data
+        # mean and std of training data; set only when --base-training is set
         self.input_mean = []
         self.input_std = []
 
-    def normalize_input(self, raw_input, save_normalization=False):
-        z = np.array(raw_input)
+    def set_model_train(self):
+        self.model.train()
+
+    def set_model_eval(self):
+        self.model.eval()
+
+    def normalize_input(self, raw_in, save_normalization=False):
+        z = np.array(raw_in)
 
         col_mean = np.mean(z, axis=0)
         col_std = np.std(z, axis=0)
@@ -158,8 +223,8 @@ class Model:
 
         return z
 
-    def discretize_output(self, raw_output):
-        z = np.array(raw_output)
+    def discretize_output(self, raw_out):
+        z = np.array(raw_out)
 
         z = np.floor(z / Model.BIN_SIZE).astype(int)
         return np.clip(z, 0, Model.BIN_MAX)
@@ -216,13 +281,11 @@ class Model:
         }, model_path)
 
     def load(self, model_path):
-        loaded = torch.load(model_path)
+        checkpoint = torch.load(model_path)
 
-        self.input_mean = loaded['input_mean']
-        self.input_std = loaded['input_std']
-
-        self.model.load_state_dict(loaded['model_state_dict'])
-        self.model.eval()
+        self.model.load_state_dict(checkpoint['model_state_dict'])
+        self.input_mean = checkpoint['input_mean']
+        self.input_std = checkpoint['input_std']
 
 
 def one_hot(index, total):
@@ -263,9 +326,9 @@ def append_past_chunks(ds, next_ts, row):
     row += past_chunks
 
 
-def generate_input_output(d):
-    raw_input = []
-    raw_output = []
+def prepare_input_output(d):
+    raw_in = []
+    raw_out = []
 
     for session in d:
         ds = d[session]
@@ -296,10 +359,10 @@ def generate_input_output(d):
                     row_h += one_hot(i, Model.FUTURE_CHUNKS)
 
                     assert(len(row_h) == Model.DIM_IN)
-                    raw_input.append(row_h)
-                    raw_output.append(ds[ts]['trans_time'])
+                    raw_in.append(row_h)
+                    raw_out.append(ds[ts]['trans_time'])
 
-    return raw_input, raw_output
+    return raw_in, raw_out
 
 
 def print_stats(output_data):
@@ -307,26 +370,27 @@ def print_stats(output_data):
     bin_sizes = np.zeros(Model.BIN_MAX + 1, dtype=int)
     for bin_id in output_data:
         bin_sizes[bin_id] += 1
-    print('label distribution:\n', bin_sizes)
+    print('label distribution:\n ', bin_sizes.tolist())
 
     # predict a single label
     print('single label accuracy: {:.2f}%'
           .format(100 * np.max(bin_sizes) / len(output_data)))
 
 
-def plot_loss(losses, figure_path):
+def plot_loss(losses):
     fig, ax = plt.subplots()
 
     if 'training' in losses:
-        ax.plot(losses['training'], 'g-', label='training')
+        ax.plot(losses['training'], 'g--', label='training')
     if 'validation' in losses:
-        ax.plot(losses['validation'], 'r--', label='validation')
+        ax.plot(losses['validation'], 'r-', label='validation')
 
     ax.set_xlabel('Epoch')
     ax.set_ylabel('Loss')
     ax.grid()
     ax.legend()
 
+    figure_path = 'loss.png'
     fig.savefig(figure_path, dpi=300, bbox_inches='tight', pad_inches=0.2)
     sys.stderr.write('Saved plot to {}\n'.format(figure_path))
 
@@ -388,7 +452,7 @@ def train(model, input_data, output_data):
 
             print('epoch {:d}:\n'
                   '  training: loss {:.3f}, accuracy {:.2f}%\n'
-                  '  validation loss {:.3f}, accuracy {:.2f}%'
+                  '  validation: loss {:.3f}, accuracy {:.2f}%'
                   .format(epoch_id + 1,
                           train_loss, train_accuracy,
                           validate_loss, validate_accuracy))
@@ -412,57 +476,23 @@ def main():
                         help='datetime in UTC conforming to RFC3339')
     parser.add_argument('--to', dest='time_end',
                         help='datetime in UTC conforming to RFC3339')
-    parser.add_argument('--load-model', help='model to load from')
+    parser.add_argument('--load-model',
+        help='model to load from. If not set, perform base training.')
     parser.add_argument('--save-model', help='model to save to')
+    parser.add_argument('--enable-gpu', action='store_true')
     parser.add_argument('--tune', action='store_true')
     parser.add_argument('--inference', action='store_true')
-    parser.add_argument('--plot-loss', help='plot losses and save to a figure')
-    parser.add_argument('--enable-gpu', action='store_true')
-    parser.add_argument('--save-normalization', action='store_true')
     args = parser.parse_args()
 
-    if args.tune:
-        global TUNING
-        TUNING = True
+    # validate and process args
+    check_args(args)
 
-    # set device to CPU or GPU
-    if args.enable_gpu:
-        if not torch.cuda.is_available():
-            sys.exit('--enable-gpu but no CUDA is available')
-
-        global DEVICE
-        DEVICE = torch.device('cuda')
-        torch.backends.cudnn.benchmark = True
-
-    with open(args.yaml_settings, 'r') as fh:
-        yaml_settings = yaml.safe_load(fh)
-
-    # construct time clause after 'WHERE'
-    time_clause = create_time_clause(args.time_start, args.time_end)
-
-    # create a client connected to InfluxDB
-    influx_client = connect_to_influxdb(yaml_settings)
-
-    # perform queries in InfluxDB
-    video_sent_query = 'SELECT * FROM video_sent'
-    if time_clause is not None:
-        video_sent_query += ' WHERE ' + time_clause
-    video_sent_results = influx_client.query(video_sent_query)
-    if not video_sent_results:
-        sys.exit('Error: no results returned from query: ' + video_sent_query)
-
-    video_acked_query = 'SELECT * FROM video_acked'
-    if time_clause is not None:
-        video_acked_query += ' WHERE ' + time_clause
-    video_acked_results = influx_client.query(video_acked_query)
-    if not video_acked_results:
-        sys.exit('Error: no results returned from query: ' + video_acked_query)
-
-    # calculate chunk transmission times
-    raw_data = calculate_trans_times(video_sent_results, video_acked_results)
+    # query InfluxDB and retrieve raw data
+    raw_data = prepare_raw_data(args.yaml_settings,
+                                args.time_start, args.time_end)
 
     # collect input and output data from raw data
-    raw_input_data, raw_output_data = generate_input_output(raw_data)
+    raw_in_data, raw_out_data = prepare_input_output(raw_data)
 
     # create a model to train
     model = Model()
@@ -471,21 +501,25 @@ def main():
         sys.stderr.write('Loaded model from {}\n'.format(args.load_model))
 
     # normalize input data
-    save_normalization = True if args.save_normalization else False
-    input_data = model.normalize_input(raw_input_data, save_normalization)
+    save_normalization = False if args.load_model else True
+    input_data = model.normalize_input(raw_in_data, save_normalization)
 
     # discretize output data
-    output_data = model.discretize_output(raw_output_data)
+    output_data = model.discretize_output(raw_out_data)
 
     # print some stats
     print_stats(output_data)
 
     if args.inference:
+        model.set_model_eval()
+
         print('test set size:', len(input_data))
         print('loss: {:.3f}, accuracy: {:.3f}%'.format(
               model.compute_loss(input_data, output_data),
               100 * model.compute_accuracy(input_data, output_data)))
     else:
+        model.set_model_train()
+
         # train a neural network with data
         losses = train(model, input_data, output_data)
 
@@ -493,8 +527,7 @@ def main():
             model.save(args.save_model)
             sys.stderr.write('Saved model to {}\n'.format(args.save_model))
 
-        if args.plot_loss:
-            plot_loss(losses, args.plot_loss)
+        plot_loss(losses)
 
 
 if __name__ == '__main__':
