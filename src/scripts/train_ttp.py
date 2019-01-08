@@ -30,7 +30,6 @@ LEARNING_RATE = 1e-4
 WEIGHT_DECAY = 1e-3
 NUM_EPOCHS = 500
 
-# tuning
 TUNING = False
 DEVICE = torch.device('cpu')
 
@@ -259,18 +258,19 @@ class Model:
         self.model.eval()
 
 
-def plot(train_losses, validate_losses):
+def plot(losses, figure_path):
     fig, ax = plt.subplots()
     ax.set_xlabel('Epoch')
     ax.set_ylabel('Loss')
     ax.grid()
 
-    ax.plot(train_losses, 'g-', label='training')
-    ax.plot(validate_losses, 'r-', label='validation')
+    if 'training' in losses:
+        ax.plot(losses['training'], 'g-', label='training')
+    if 'validation' in losses:
+        ax.plot(losses['validation'], 'r-', label='validation')
 
-    output_name = 'ttp_tuning.png'
-    fig.savefig(output_name, dpi=300, bbox_inches='tight', pad_inches=0.2)
-    sys.stderr.write('Saved plot to {}\n'.format(output_name))
+    fig.savefig(figure_path, dpi=300, bbox_inches='tight', pad_inches=0.2)
+    sys.stderr.write('Saved plot to {}\n'.format(figure_path))
 
 
 def train(model, input_data, output_data):
@@ -289,12 +289,12 @@ def train(model, input_data, output_data):
         print('training set size:', len(train_input))
         print('validation set size:', len(validate_input))
 
-        train_losses = []
         validate_losses = []
     else:
         num_training = len(input_data)
         print('training set size:', num_training)
 
+    train_losses = []
     # number of batches
     num_batches = int(np.ceil(num_training / BATCH_SIZE))
 
@@ -314,6 +314,7 @@ def train(model, input_data, output_data):
             batch_output = output_data[batch_indices]
 
             running_loss += model.train_step(batch_input, batch_output)
+        running_loss /= num_batches
 
         # print info
         if TUNING:
@@ -322,7 +323,8 @@ def train(model, input_data, output_data):
             train_losses.append(train_loss)
             validate_losses.append(validate_loss)
 
-            train_accuracy = 100 * model.compute_accuracy(train_input, train_output)
+            train_accuracy = 100 * model.compute_accuracy(
+                    train_input, train_output)
             validate_accuracy = 100 * model.compute_accuracy(
                     validate_input, validate_output)
 
@@ -333,13 +335,16 @@ def train(model, input_data, output_data):
                           train_loss, train_accuracy,
                           validate_loss, validate_accuracy))
         else:
+            train_losses.append(running_loss)
             print('epoch {:d}: training loss {:.3f}'
-                  .format(epoch_id + 1, running_loss / num_batches))
+                  .format(epoch_id + 1, running_loss))
 
+    # return losses for plotting
+    losses = {}
+    losses['training'] = train_losses
     if TUNING:
-        # plot training and validation loss for tunning
-        plot(train_losses, validate_losses)
-
+        losses['validation'] = validate_losses
+    return losses
 
 def main():
     parser = argparse.ArgumentParser()
@@ -349,6 +354,7 @@ def main():
     parser.add_argument('--load', help='model to load from')
     parser.add_argument('--save', help='model to save to')
     parser.add_argument('--tune', action='store_true')
+    parser.add_argument('--plot-loss', help='plot losses and save to a figure')
     parser.add_argument('--enable-gpu', action='store_true')
     args = parser.parse_args()
 
@@ -402,11 +408,14 @@ def main():
         sys.stderr.write('Loaded model from {}\n'.format(args.load))
 
     # train a neural network with data
-    train(model, input_data, output_data)
+    losses = train(model, input_data, output_data)
 
     if args.save:
         model.save(args.save)
         sys.stderr.write('Saved model to {}\n'.format(args.save))
+
+    if args.plot_loss:
+        plot(losses, args.plot_loss)
 
 
 if __name__ == '__main__':
