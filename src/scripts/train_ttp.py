@@ -115,26 +115,6 @@ def calculate_trans_times(video_sent_results, video_acked_results):
     return d
 
 
-# normalize a 2d numpy array
-def normalize(x):
-    # zero-centered
-    y = np.array(x) - np.mean(x, axis=0)
-
-    # normalized
-    norms = np.std(y, axis=0)
-    for col in range(len(norms)):
-        if norms[col] != 0:
-            y[:, col] /= norms[col]
-
-    return y
-
-
-# discretize a 1d numpy array, and clamp into [0, BIN_MAX]
-def discretize(x):
-    y = np.floor(np.array(x) / BIN_SIZE).astype(int)
-    return np.clip(y, 0, BIN_MAX)
-
-
 def one_hot(index, total):
     return [int(i == index) for i in range(total)]
 
@@ -173,9 +153,9 @@ def append_past_chunks(ds, next_ts, row):
     row += past_chunks
 
 
-def preprocess(d):
-    x = []
-    y = []
+def generate_input_output(d):
+    raw_input = []
+    raw_output = []
 
     for session in d:
         ds = d[session]
@@ -206,12 +186,12 @@ def preprocess(d):
                     row_h += one_hot(i, FUTURE_CHUNKS)
 
                     assert(len(row_h) == DIM_IN)
-                    x.append(row_h)
-                    y.append(ds[ts]['trans_time'])
+                    raw_input.append(row_h)
+                    raw_output.append(ds[ts]['trans_time'])
 
-    x = normalize(x)
-    y = discretize(y)
+    return raw_input, raw_output
 
+    '''
     # print label distribution
     bin_sizes = np.zeros(BIN_MAX + 1, dtype=int)
     for bin_id in y:
@@ -230,8 +210,7 @@ def preprocess(d):
 
     accuracy = 100 * (delivery_rate_predict == y).sum() / len(y)
     print('delivery rate accuracy: {:.2f}%'.format(accuracy))
-
-    return x, y
+    '''
 
 
 class Model:
@@ -248,6 +227,26 @@ class Model:
         self.optimizer = torch.optim.Adam(self.model.parameters(),
                                           lr=LEARNING_RATE,
                                           weight_decay=WEIGHT_DECAY)
+
+    def normalize_input(self, raw_input):
+        z = np.array(raw_input)
+
+        col_mean = np.mean(z, axis=0)
+        col_std = np.std(z, axis=0)
+
+        # don't normalize categorical vars in the last FUTURE_CHUNKS columns
+        for col in range(len(col_mean) - FUTURE_CHUNKS):
+            z[:, col] -= col_mean[col]
+            if col_std[col] != 0:
+                z[:, col] /= col_std[col]
+
+        return z
+
+    def discretize_output(self, raw_output):
+        z = np.array(raw_output)
+
+        z = np.floor(z / BIN_SIZE).astype(int)
+        return np.clip(z, 0, BIN_MAX)
 
     # perform one step of training (forward + backward + optimize)
     def train_step(self, input_data, output_data):
@@ -447,8 +446,8 @@ def main():
     # calculate chunk transmission times
     raw_data = calculate_trans_times(video_sent_results, video_acked_results)
 
-    # preprocess data
-    input_data, output_data = preprocess(raw_data)
+    # collect input and output data from raw data
+    raw_input_data, raw_output_data = generate_input_output(raw_data)
 
     # create a model to train
     model = Model()
@@ -456,10 +455,17 @@ def main():
         model.load(args.load)
         sys.stderr.write('Loaded model from {}\n'.format(args.load))
 
+    # normalize input data
+    input_data = model.normalize_input(raw_input_data)
+
+    # discretize output data
+    output_data = model.discretize_output(raw_output_data)
+
     if args.inference:
-        print('loss: {:.3f}, accuracy: {:.3f}'.format(
+        print('test set size:', len(input_data))
+        print('loss: {:.3f}, accuracy: {:.3f}%'.format(
               model.compute_loss(input_data, output_data),
-              model.compute_accuracy(input_data, output_data)))
+              100 * model.compute_accuracy(input_data, output_data)))
     else:
         # train a neural network with data
         losses = train(model, input_data, output_data)
