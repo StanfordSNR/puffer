@@ -19,16 +19,6 @@ MILLION = 1000000
 
 # training related
 BATCH_SIZE = 64
-PAST_CHUNKS = 8
-FUTURE_CHUNKS = 5
-DIM_IN = 67
-BIN_SIZE = 0.5  # seconds
-BIN_MAX = 20
-DIM_OUT = BIN_MAX + 1
-DIM_H1 = 50
-DIM_H2 = 50
-LEARNING_RATE = 1e-4
-WEIGHT_DECAY = 1e-3
 NUM_EPOCHS = 500
 
 TUNING = False
@@ -115,97 +105,31 @@ def calculate_trans_times(video_sent_results, video_acked_results):
     return d
 
 
-def one_hot(index, total):
-    return [int(i == index) for i in range(total)]
-
-
-def append_past_chunks(ds, next_ts, row):
-    i = 1
-    past_chunks = []
-
-    while i <= PAST_CHUNKS:
-        ts = next_ts - i * VIDEO_DURATION
-        if ts in ds and 'trans_time' in ds[ts]:
-            past_chunks = [ds[ts]['delivery_rate'],
-                           ds[ts]['cwnd'], ds[ts]['in_flight'],
-                           ds[ts]['min_rtt'], ds[ts]['rtt'],
-                           ds[ts]['size'], ds[ts]['trans_time']] + past_chunks
-        else:
-            nts = ts + VIDEO_DURATION  # padding with the nearest ts
-            padding = [ds[nts]['delivery_rate'],
-                       ds[nts]['cwnd'], ds[nts]['in_flight'],
-                       ds[nts]['min_rtt'], ds[nts]['rtt']]
-
-            if nts == next_ts:
-                padding += [0, 0]  # next_ts is the first chunk to send
-            else:
-                padding += [ds[nts]['size'], ds[nts]['trans_time']]
-
-            break
-
-        i += 1
-
-    if i != PAST_CHUNKS + 1:  # break in the middle; padding must exist
-        while i <= PAST_CHUNKS:
-            past_chunks = padding + past_chunks
-            i += 1
-
-    row += past_chunks
-
-
-def generate_input_output(d):
-    raw_input = []
-    raw_output = []
-
-    for session in d:
-        ds = d[session]
-
-        for next_ts in ds:
-            if 'trans_time' not in ds[next_ts]:
-                continue
-
-            # construct a single row of input data
-            row = []
-
-            # append past chunks with padding
-            append_past_chunks(ds, next_ts, row)
-
-            # append the TCP info of the next chunk
-            row += [ds[next_ts]['delivery_rate'],
-                    ds[next_ts]['cwnd'], ds[next_ts]['in_flight'],
-                    ds[next_ts]['min_rtt'], ds[next_ts]['rtt']]
-
-            # generate FUTURE_CHUNKS rows
-            for i in range(FUTURE_CHUNKS):
-                row_h = row.copy()
-
-                ts = next_ts + i * VIDEO_DURATION
-                if ts in ds and 'trans_time' in ds[ts]:
-                    row_h += [ds[ts]['size']]
-                    # one-hot encoding of 'i'
-                    row_h += one_hot(i, FUTURE_CHUNKS)
-
-                    assert(len(row_h) == DIM_IN)
-                    raw_input.append(row_h)
-                    raw_output.append(ds[ts]['trans_time'])
-
-    return raw_input, raw_output
-
-
 class Model:
+    PAST_CHUNKS = 8
+    FUTURE_CHUNKS = 5
+    DIM_IN = 67
+    BIN_SIZE = 0.5  # seconds
+    BIN_MAX = 20
+    DIM_OUT = BIN_MAX + 1
+    DIM_H1 = 50
+    DIM_H2 = 50
+    LEARNING_RATE = 1e-4
+    WEIGHT_DECAY = 1e-3
+
     def __init__(self):
         # define model, loss function, and optimizer
         self.model = torch.nn.Sequential(
-            torch.nn.Linear(DIM_IN, DIM_H1),
+            torch.nn.Linear(Model.DIM_IN, Model.DIM_H1),
             torch.nn.ReLU(),
-            torch.nn.Linear(DIM_H1, DIM_H2),
+            torch.nn.Linear(Model.DIM_H1, Model.DIM_H2),
             torch.nn.ReLU(),
-            torch.nn.Linear(DIM_H2, DIM_OUT),
+            torch.nn.Linear(Model.DIM_H2, Model.DIM_OUT),
         ).double().to(device=DEVICE)
         self.loss_fn = torch.nn.CrossEntropyLoss().to(device=DEVICE)
         self.optimizer = torch.optim.Adam(self.model.parameters(),
-                                          lr=LEARNING_RATE,
-                                          weight_decay=WEIGHT_DECAY)
+                                          lr=Model.LEARNING_RATE,
+                                          weight_decay=Model.WEIGHT_DECAY)
 
     def normalize_input(self, raw_input):
         z = np.array(raw_input)
@@ -214,7 +138,7 @@ class Model:
         col_std = np.std(z, axis=0)
 
         # don't normalize categorical vars in the last FUTURE_CHUNKS columns
-        for col in range(len(col_mean) - FUTURE_CHUNKS):
+        for col in range(len(col_mean) - Model.FUTURE_CHUNKS):
             z[:, col] -= col_mean[col]
             if col_std[col] != 0:
                 z[:, col] /= col_std[col]
@@ -224,8 +148,8 @@ class Model:
     def discretize_output(self, raw_output):
         z = np.array(raw_output)
 
-        z = np.floor(z / BIN_SIZE).astype(int)
-        return np.clip(z, 0, BIN_MAX)
+        z = np.floor(z / Model.BIN_SIZE).astype(int)
+        return np.clip(z, 0, Model.BIN_MAX)
 
     # perform one step of training (forward + backward + optimize)
     def train_step(self, input_data, output_data):
@@ -279,9 +203,86 @@ class Model:
         self.model.eval()
 
 
+def one_hot(index, total):
+    return [int(i == index) for i in range(total)]
+
+
+def append_past_chunks(ds, next_ts, row):
+    i = 1
+    past_chunks = []
+
+    while i <= Model.PAST_CHUNKS:
+        ts = next_ts - i * VIDEO_DURATION
+        if ts in ds and 'trans_time' in ds[ts]:
+            past_chunks = [ds[ts]['delivery_rate'],
+                           ds[ts]['cwnd'], ds[ts]['in_flight'],
+                           ds[ts]['min_rtt'], ds[ts]['rtt'],
+                           ds[ts]['size'], ds[ts]['trans_time']] + past_chunks
+        else:
+            nts = ts + VIDEO_DURATION  # padding with the nearest ts
+            padding = [ds[nts]['delivery_rate'],
+                       ds[nts]['cwnd'], ds[nts]['in_flight'],
+                       ds[nts]['min_rtt'], ds[nts]['rtt']]
+
+            if nts == next_ts:
+                padding += [0, 0]  # next_ts is the first chunk to send
+            else:
+                padding += [ds[nts]['size'], ds[nts]['trans_time']]
+
+            break
+
+        i += 1
+
+    if i != Model.PAST_CHUNKS + 1:  # break in the middle; padding must exist
+        while i <= Model.PAST_CHUNKS:
+            past_chunks = padding + past_chunks
+            i += 1
+
+    row += past_chunks
+
+
+def generate_input_output(d):
+    raw_input = []
+    raw_output = []
+
+    for session in d:
+        ds = d[session]
+
+        for next_ts in ds:
+            if 'trans_time' not in ds[next_ts]:
+                continue
+
+            # construct a single row of input data
+            row = []
+
+            # append past chunks with padding
+            append_past_chunks(ds, next_ts, row)
+
+            # append the TCP info of the next chunk
+            row += [ds[next_ts]['delivery_rate'],
+                    ds[next_ts]['cwnd'], ds[next_ts]['in_flight'],
+                    ds[next_ts]['min_rtt'], ds[next_ts]['rtt']]
+
+            # generate FUTURE_CHUNKS rows
+            for i in range(Model.FUTURE_CHUNKS):
+                row_h = row.copy()
+
+                ts = next_ts + i * VIDEO_DURATION
+                if ts in ds and 'trans_time' in ds[ts]:
+                    row_h += [ds[ts]['size']]
+                    # one-hot encoding of 'i'
+                    row_h += one_hot(i, Model.FUTURE_CHUNKS)
+
+                    assert(len(row_h) == Model.DIM_IN)
+                    raw_input.append(row_h)
+                    raw_output.append(ds[ts]['trans_time'])
+
+    return raw_input, raw_output
+
+
 def print_stats(output_data):
     # print label distribution
-    bin_sizes = np.zeros(BIN_MAX + 1, dtype=int)
+    bin_sizes = np.zeros(Model.BIN_MAX + 1, dtype=int)
     for bin_id in output_data:
         bin_sizes[bin_id] += 1
     print('label distribution:\n', bin_sizes)
@@ -452,7 +453,7 @@ def main():
     # discretize output data
     output_data = model.discretize_output(raw_output_data)
 
-    # print stats
+    # print some stats
     print_stats(output_data)
 
     if args.inference:
