@@ -20,7 +20,8 @@ MILLION = 1000000
 # training related
 BATCH_SIZE = 64
 PAST_CHUNKS = 8
-DIM_IN = 62
+FUTURE_CHUNKS = 5
+DIM_IN = 67
 BIN_SIZE = 0.5  # seconds
 BIN_MAX = 20
 DIM_OUT = BIN_MAX + 1
@@ -85,8 +86,8 @@ def calculate_trans_times(video_sent_results, video_acked_results):
         dsv['delivery_rate'] = float(pt['delivery_rate'])
         dsv['cwnd'] = float(pt['cwnd']) * PKT_BYTES
         dsv['in_flight'] = float(pt['in_flight']) * PKT_BYTES
-        dsv['min_rtt'] = float(pt['min_rtt']) / MILLION
-        dsv['rtt'] = float(pt['rtt']) / MILLION
+        dsv['min_rtt'] = float(pt['min_rtt']) / MILLION  # us -> s
+        dsv['rtt'] = float(pt['rtt']) / MILLION  # us -> s
         # dsv['ssim_index'] = get_ssim_index(pt)
 
     for pt in video_acked_results['video_acked']:
@@ -133,6 +134,10 @@ def discretize(x):
     return np.clip(y, 0, BIN_MAX)
 
 
+def one_hot(index, total):
+    return [int(i == index) for i in range(total)]
+
+
 def preprocess(d):
     x = []
     y = []
@@ -147,24 +152,35 @@ def preprocess(d):
             # construct a single row of input data
             row = []
 
+            # past chunks
             for i in reversed(range(1, 1 + PAST_CHUNKS)):
                 ts = video_ts - i * VIDEO_DURATION
                 if ts in ds and 'trans_time' in ds[ts]:
-                    row += [ds[ts]['size'], ds[ts]['delivery_rate'],
+                    row += [ds[ts]['delivery_rate'],
                             ds[ts]['cwnd'], ds[ts]['in_flight'],
                             ds[ts]['min_rtt'], ds[ts]['rtt'],
-                            ds[ts]['trans_time']]
+                            ds[ts]['size'], ds[ts]['trans_time']]
                 else:
                     row += [0, 0, 0, 0, 0, 0, 0]
 
-            row += [dsv['size'], dsv['delivery_rate'],
+            # TCP info of the next chunk
+            row += [dsv['delivery_rate'],
                     dsv['cwnd'], dsv['in_flight'],
                     dsv['min_rtt'], dsv['rtt']]
 
-            assert(len(row) == DIM_IN)
-            x.append(row)
-            y.append(dsv['trans_time'])
+            # future chunks (including the next chunk)
+            for i in range(FUTURE_CHUNKS):
+                row_h = row.copy()
 
+                ts = video_ts + i * VIDEO_DURATION
+                if ts in ds and 'trans_time' in ds[ts]:
+                    row_h += [ds[ts]['size']]
+                    # one-hot encoding of 'i'
+                    row_h += one_hot(i, FUTURE_CHUNKS)
+
+                    assert(len(row_h) == DIM_IN)
+                    x.append(row_h)
+                    y.append(ds[ts]['trans_time'])
 
     x = normalize(x)
     y = discretize(y)
@@ -348,6 +364,7 @@ def train(model, input_data, output_data):
         losses['validation'] = validate_losses
     return losses
 
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('yaml_settings')
@@ -358,13 +375,14 @@ def main():
     parser.add_argument('--load', help='model to load from')
     parser.add_argument('--save', help='model to save to')
     parser.add_argument('--tune', action='store_true')
+    parser.add_argument('--inference', action='store_true')
     parser.add_argument('--plot-loss', help='plot losses and save to a figure')
     parser.add_argument('--enable-gpu', action='store_true')
     args = parser.parse_args()
 
     if args.tune:
         global TUNING
-        TUNING = True;
+        TUNING = True
 
     # set device to CPU or GPU
     if args.enable_gpu:
@@ -411,15 +429,20 @@ def main():
         model.load(args.load)
         sys.stderr.write('Loaded model from {}\n'.format(args.load))
 
-    # train a neural network with data
-    losses = train(model, input_data, output_data)
+    if args.inference:
+        print('loss: {:.3f}, accuracy: {:.3f}'.format(
+              model.compute_loss(input_data, output_data),
+              model.compute_accuracy(input_data, output_data)))
+    else:
+        # train a neural network with data
+        losses = train(model, input_data, output_data)
 
-    if args.save:
-        model.save(args.save)
-        sys.stderr.write('Saved model to {}\n'.format(args.save))
+        if args.save:
+            model.save(args.save)
+            sys.stderr.write('Saved model to {}\n'.format(args.save))
 
-    if args.plot_loss:
-        plot(losses, args.plot_loss)
+        if args.plot_loss:
+            plot(losses, args.plot_loss)
 
 
 if __name__ == '__main__':
