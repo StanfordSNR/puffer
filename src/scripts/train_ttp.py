@@ -191,27 +191,6 @@ def generate_input_output(d):
 
     return raw_input, raw_output
 
-    '''
-    # print label distribution
-    bin_sizes = np.zeros(BIN_MAX + 1, dtype=int)
-    for bin_id in y:
-        bin_sizes[bin_id] += 1
-    print('label distribution:\n', bin_sizes)
-
-    # predict a single label
-    print('single label accuracy: {:.2f}%'
-          .format(100 * np.max(bin_sizes) / len(y)))
-
-    # predict using delivery rate
-    delivery_rate_predict = []
-    for row in x:
-        delivery_rate_predict.append(row[-6] / row[-5])
-    delivery_rate_predict = discretize(delivery_rate_predict)
-
-    accuracy = 100 * (delivery_rate_predict == y).sum() / len(y)
-    print('delivery rate accuracy: {:.2f}%'.format(accuracy))
-    '''
-
 
 class Model:
     def __init__(self):
@@ -298,6 +277,18 @@ class Model:
     def load(self, model_path):
         self.model.load_state_dict(torch.load(model_path))
         self.model.eval()
+
+
+def print_stats(output_data):
+    # print label distribution
+    bin_sizes = np.zeros(BIN_MAX + 1, dtype=int)
+    for bin_id in output_data:
+        bin_sizes[bin_id] += 1
+    print('label distribution:\n', bin_sizes)
+
+    # predict a single label
+    print('single label accuracy: {:.2f}%'
+          .format(100 * np.max(bin_sizes) / len(output_data)))
 
 
 def plot(losses, figure_path):
@@ -460,6 +451,9 @@ def main():
 
     # discretize output data
     output_data = model.discretize_output(raw_output_data)
+
+    # print stats
+    print_stats(output_data)
 
     if args.inference:
         print('test set size:', len(input_data))
