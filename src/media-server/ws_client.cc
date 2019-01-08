@@ -3,6 +3,7 @@
 #include "mpc.hh"
 #include "mpc_search.hh"
 #include "timestamp.hh"
+#include "exception.hh"
 
 using namespace std;
 
@@ -94,12 +95,22 @@ void WebSocketClient::video_chunk_acked(const VideoFormat & format,
                                         const unsigned int chunk_size,
                                         const uint64_t transmission_time)
 {
-  abr_algo_->video_chunk_acked(format, ssim, chunk_size, transmission_time);
+  try {
+    abr_algo_->video_chunk_acked(format, ssim, chunk_size, transmission_time);
+  } catch (const exception & e) {
+    print_exception("video_chunk_acked", e);
+    throw runtime_error("Error: video_chunk_acked failed with " + abr_name_);
+  }
 }
 
 VideoFormat WebSocketClient::select_video_format()
 {
-  return abr_algo_->select_video_format();
+  try {
+    return abr_algo_->select_video_format();
+  } catch (const exception & e) {
+    print_exception("select_video_format", e);
+    throw runtime_error("Error: select_video_format failed with " + abr_name_);
+  }
 }
 
 AudioFormat WebSocketClient::select_audio_format()
