@@ -19,11 +19,9 @@ MILLION = 1000000
 
 # training related
 BATCH_SIZE = 64
-NUM_EPOCHS = 100
 
 TUNING = False
 DEVICE = torch.device('cpu')
-FIRST_TRAINING = True
 
 
 def check_args(args):
@@ -45,11 +43,6 @@ def check_args(args):
 
         global TUNING
         TUNING = True
-
-    # if this is a first training, i.e., no --load-model is given
-    if args.load_model:
-        global FIRST_TRAINING
-        FIRST_TRAINING = False
 
     # set device to CPU or GPU
     if args.enable_gpu:
@@ -180,13 +173,10 @@ class Model:
     DIM_H1 = 50
     DIM_H2 = 50
     WEIGHT_DECAY = 1e-3
+    LEARNING_RATE = 1e-3
+    SMALLER_LEARNING_RATE = 1e-4
 
-    if FIRST_TRAINING:
-        LEARNING_RATE = 1e-3
-    else:
-        LEARNING_RATE = 1e-4
-
-    def __init__(self):
+    def __init__(self, model_path=None):
         # define model, loss function, and optimizer
         self.model = torch.nn.Sequential(
             torch.nn.Linear(Model.DIM_IN, Model.DIM_H1),
@@ -197,19 +187,29 @@ class Model:
         ).double().to(device=DEVICE)
         self.loss_fn = torch.nn.CrossEntropyLoss().to(device=DEVICE)
 
-        # use Adam optimizer on first training
-        if FIRST_TRAINING:
+        # load model
+        if model_path:
+            self.first_training = False
+
+            checkpoint = torch.load(model_path)
+            self.model.load_state_dict(checkpoint['model_state_dict'])
+            self.input_mean = checkpoint['input_mean']
+            self.input_std = checkpoint['input_std']
+
+            self.optimizer = torch.optim.SGD(self.model.parameters(),
+                                             lr=Model.SMALLER_LEARNING_RATE,
+                                             weight_decay=Model.WEIGHT_DECAY)
+            sys.stderr.write('Created an SGD optimizer with a small constant '
+                             'learning rate\n')
+        else:
+            self.first_training = True
+            self.input_mean = []
+            self.input_std = []
+
             self.optimizer = torch.optim.Adam(self.model.parameters(),
                                               lr=Model.LEARNING_RATE,
                                               weight_decay=Model.WEIGHT_DECAY)
-        else:
-            self.optimizer = torch.optim.SGD(self.model.parameters(),
-                                             lr=Model.LEARNING_RATE,
-                                             weight_decay=Model.WEIGHT_DECAY)
-
-        # mean and std of training data; set only when --base-training is set
-        self.input_mean = []
-        self.input_std = []
+            sys.stderr.write('Created an Adam optimizer\n')
 
     def set_model_train(self):
         self.model.train()
@@ -217,26 +217,42 @@ class Model:
     def set_model_eval(self):
         self.model.eval()
 
-    def normalize_input(self, raw_in, save_normalization=False):
-        z = np.array(raw_in)
+    def normalize_input(self, raw_in):
+        if self.first_training:
+            z = np.array(raw_in)
 
-        col_mean = np.mean(z, axis=0)
-        col_std = np.std(z, axis=0)
+            col_mean = np.mean(z, axis=0)
+            col_std = np.std(z, axis=0)
 
-        # don't normalize categorical vars in the last FUTURE_CHUNKS columns
-        for col in range(len(col_mean)):
-            if col < len(col_mean) - Model.FUTURE_CHUNKS:
-                z[:, col] -= col_mean[col]
-                if col_std[col] != 0:
-                    z[:, col] /= col_std[col]
-            else:
-                # set to zeros to avoid misuse
-                col_mean[col] = 0
-                col_std[col] = 0
+            # don't normalize categorical vars in the last FUTURE_CHUNKS columns
+            for col in range(len(col_mean)):
+                if col < len(col_mean) - Model.FUTURE_CHUNKS:
+                    z[:, col] -= col_mean[col]
+                    if col_std[col] != 0:
+                        z[:, col] /= col_std[col]
+                else:
+                    # set to zeros to avoid misuse
+                    col_mean[col] = 0
+                    col_std[col] = 0
 
-        if save_normalization:
+            # save normalization weights computed from the first training
             self.input_mean = col_mean
             self.input_std = col_std
+            sys.stderr.write('Normalized data based on mean and std of '
+                             'input data, and saved the mean and std\n')
+        else:
+            # normalize using previously saved weights from the first training
+            z = np.array(raw_in)
+
+            # don't normalize categorical vars in the last FUTURE_CHUNKS columns
+            for col in range(len(self.input_mean)):
+                if col < len(self.input_mean) - Model.FUTURE_CHUNKS:
+                    z[:, col] -= self.input_mean[col]
+                    if self.input_std[col] != 0:
+                        z[:, col] /= self.input_std[col]
+
+            sys.stderr.write('Normalized data based on previously stored '
+                             'mean and std\n')
 
         return z
 
@@ -296,13 +312,6 @@ class Model:
             'input_mean': self.input_mean,
             'input_std': self.input_std,
         }, model_path)
-
-    def load(self, model_path):
-        checkpoint = torch.load(model_path)
-
-        self.model.load_state_dict(checkpoint['model_state_dict'])
-        self.input_mean = checkpoint['input_mean']
-        self.input_std = checkpoint['input_std']
 
 
 def one_hot(index, total):
@@ -437,8 +446,11 @@ def train(model, input_data, output_data):
     # number of batches
     num_batches = int(np.ceil(num_training / BATCH_SIZE))
 
+    num_epochs = 500 if model.first_training else 10
+    sys.stderr.write('total epochs: {}\n'.format(num_epochs))
+
     # loop over the entire dataset multiple times
-    for epoch_id in range(NUM_EPOCHS):
+    for epoch_id in range(num_epochs):
         # permutate data in each epoch
         perm_indices = np.random.permutation(range(num_training))
 
@@ -493,8 +505,7 @@ def main():
                         help='datetime in UTC conforming to RFC3339')
     parser.add_argument('--to', dest='time_end',
                         help='datetime in UTC conforming to RFC3339')
-    parser.add_argument('--load-model',
-        help='model to load from. If not set, perform base training.')
+    parser.add_argument('--load-model', help='model to load from')
     parser.add_argument('--save-model', help='model to save to')
     parser.add_argument('--enable-gpu', action='store_true')
     parser.add_argument('--tune', action='store_true')
@@ -512,14 +523,16 @@ def main():
     raw_in_data, raw_out_data = prepare_input_output(raw_data)
 
     # create a model to train
-    model = Model()
     if args.load_model:
-        model.load(args.load_model)
+        model = Model(args.load_model)
         sys.stderr.write('Loaded model from {}\n'.format(args.load_model))
+    else:
+        model = Model()
+        sys.stderr.write('Created a new model\n')
 
     # normalize input data
     # save normalization weights on first training
-    input_data = model.normalize_input(raw_in_data, FIRST_TRAINING)
+    input_data = model.normalize_input(raw_in_data)
 
     # discretize output data
     output_data = model.discretize_output(raw_out_data)
