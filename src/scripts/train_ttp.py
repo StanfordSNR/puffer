@@ -19,10 +19,11 @@ MILLION = 1000000
 
 # training related
 BATCH_SIZE = 64
-NUM_EPOCHS = 10
+NUM_EPOCHS = 100
 
 TUNING = False
 DEVICE = torch.device('cpu')
+FIRST_TRAINING = True
 
 
 def check_args(args):
@@ -44,6 +45,11 @@ def check_args(args):
 
         global TUNING
         TUNING = True
+
+    # if this is a first training, i.e., no --load-model is given
+    if args.load_model:
+        global FIRST_TRAINING
+        FIRST_TRAINING = False
 
     # set device to CPU or GPU
     if args.enable_gpu:
@@ -173,8 +179,12 @@ class Model:
     DIM_OUT = BIN_MAX + 1
     DIM_H1 = 50
     DIM_H2 = 50
-    LEARNING_RATE = 1e-4
     WEIGHT_DECAY = 1e-3
+
+    if FIRST_TRAINING:
+        LEARNING_RATE = 1e-3
+    else:
+        LEARNING_RATE = 1e-4
 
     def __init__(self):
         # define model, loss function, and optimizer
@@ -186,9 +196,16 @@ class Model:
             torch.nn.Linear(Model.DIM_H2, Model.DIM_OUT),
         ).double().to(device=DEVICE)
         self.loss_fn = torch.nn.CrossEntropyLoss().to(device=DEVICE)
-        self.optimizer = torch.optim.Adam(self.model.parameters(),
-                                          lr=Model.LEARNING_RATE,
-                                          weight_decay=Model.WEIGHT_DECAY)
+
+        # use Adam optimizer on first training
+        if FIRST_TRAINING:
+            self.optimizer = torch.optim.Adam(self.model.parameters(),
+                                              lr=Model.LEARNING_RATE,
+                                              weight_decay=Model.WEIGHT_DECAY)
+        else:
+            self.optimizer = torch.optim.SGD(self.model.parameters(),
+                                             lr=Model.LEARNING_RATE,
+                                             weight_decay=Model.WEIGHT_DECAY)
 
         # mean and std of training data; set only when --base-training is set
         self.input_mean = []
@@ -501,8 +518,8 @@ def main():
         sys.stderr.write('Loaded model from {}\n'.format(args.load_model))
 
     # normalize input data
-    save_normalization = False if args.load_model else True
-    input_data = model.normalize_input(raw_in_data, save_normalization)
+    # save normalization weights on first training
+    input_data = model.normalize_input(raw_in_data, FIRST_TRAINING)
 
     # discretize output data
     output_data = model.discretize_output(raw_out_data)
