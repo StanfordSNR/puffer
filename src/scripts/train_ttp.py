@@ -82,10 +82,11 @@ def calculate_trans_times(video_sent_results, video_acked_results):
         dsv = d[session][video_ts]  # short name
 
         dsv['sent_ts'] = try_parsing_time(pt['time'])
-        dsv['size'] = float(pt['size'])
-        dsv['delivery_rate'] = float(pt['delivery_rate'])
-        dsv['cwnd'] = float(pt['cwnd']) * PKT_BYTES
-        dsv['in_flight'] = float(pt['in_flight']) * PKT_BYTES
+        dsv['size'] = float(pt['size']) / PKT_BYTES  # bytes -> packets
+        # byte/second -> packet/second
+        dsv['delivery_rate'] = float(pt['delivery_rate']) / PKT_BYTES
+        dsv['cwnd'] = float(pt['cwnd'])
+        dsv['in_flight'] = float(pt['in_flight'])
         dsv['min_rtt'] = float(pt['min_rtt']) / MILLION  # us -> s
         dsv['rtt'] = float(pt['rtt']) / MILLION  # us -> s
         # dsv['ssim_index'] = get_ssim_index(pt)
