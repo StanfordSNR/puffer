@@ -19,7 +19,7 @@ MILLION = 1000000
 
 # training related
 BATCH_SIZE = 64
-NUM_EPOCHS = 500
+NUM_EPOCHS = 10
 
 TUNING = False
 DEVICE = torch.device('cpu')
@@ -131,17 +131,30 @@ class Model:
                                           lr=Model.LEARNING_RATE,
                                           weight_decay=Model.WEIGHT_DECAY)
 
-    def normalize_input(self, raw_input):
+        # mean and std of training data
+        self.input_mean = []
+        self.input_std = []
+
+    def normalize_input(self, raw_input, save_normalization=False):
         z = np.array(raw_input)
 
         col_mean = np.mean(z, axis=0)
         col_std = np.std(z, axis=0)
 
         # don't normalize categorical vars in the last FUTURE_CHUNKS columns
-        for col in range(len(col_mean) - Model.FUTURE_CHUNKS):
-            z[:, col] -= col_mean[col]
-            if col_std[col] != 0:
-                z[:, col] /= col_std[col]
+        for col in range(len(col_mean)):
+            if col < len(col_mean) - Model.FUTURE_CHUNKS:
+                z[:, col] -= col_mean[col]
+                if col_std[col] != 0:
+                    z[:, col] /= col_std[col]
+            else:
+                # set to zeros to avoid misuse
+                col_mean[col] = 0
+                col_std[col] = 0
+
+        if save_normalization:
+            self.input_mean = col_mean
+            self.input_std = col_std
 
         return z
 
@@ -196,10 +209,19 @@ class Model:
         return correct / total
 
     def save(self, model_path):
-        torch.save(self.model.state_dict(), model_path)
+        torch.save({
+            'model_state_dict': self.model.state_dict(),
+            'input_mean': self.input_mean,
+            'input_std': self.input_std,
+        }, model_path)
 
     def load(self, model_path):
-        self.model.load_state_dict(torch.load(model_path))
+        loaded = torch.load(model_path)
+
+        self.input_mean = loaded['input_mean']
+        self.input_std = loaded['input_std']
+
+        self.model.load_state_dict(loaded['model_state_dict'])
         self.model.eval()
 
 
@@ -292,7 +314,7 @@ def print_stats(output_data):
           .format(100 * np.max(bin_sizes) / len(output_data)))
 
 
-def plot(losses, figure_path):
+def plot_loss(losses, figure_path):
     fig, ax = plt.subplots()
 
     if 'training' in losses:
@@ -390,12 +412,13 @@ def main():
                         help='datetime in UTC conforming to RFC3339')
     parser.add_argument('--to', dest='time_end',
                         help='datetime in UTC conforming to RFC3339')
-    parser.add_argument('--load', help='model to load from')
-    parser.add_argument('--save', help='model to save to')
+    parser.add_argument('--load-model', help='model to load from')
+    parser.add_argument('--save-model', help='model to save to')
     parser.add_argument('--tune', action='store_true')
     parser.add_argument('--inference', action='store_true')
     parser.add_argument('--plot-loss', help='plot losses and save to a figure')
     parser.add_argument('--enable-gpu', action='store_true')
+    parser.add_argument('--save-normalization', action='store_true')
     args = parser.parse_args()
 
     if args.tune:
@@ -443,12 +466,13 @@ def main():
 
     # create a model to train
     model = Model()
-    if args.load:
-        model.load(args.load)
-        sys.stderr.write('Loaded model from {}\n'.format(args.load))
+    if args.load_model:
+        model.load(args.load_model)
+        sys.stderr.write('Loaded model from {}\n'.format(args.load_model))
 
     # normalize input data
-    input_data = model.normalize_input(raw_input_data)
+    save_normalization = True if args.save_normalization else False
+    input_data = model.normalize_input(raw_input_data, save_normalization)
 
     # discretize output data
     output_data = model.discretize_output(raw_output_data)
@@ -465,12 +489,12 @@ def main():
         # train a neural network with data
         losses = train(model, input_data, output_data)
 
-        if args.save:
-            model.save(args.save)
-            sys.stderr.write('Saved model to {}\n'.format(args.save))
+        if args.save_model:
+            model.save(args.save_model)
+            sys.stderr.write('Saved model to {}\n'.format(args.save_model))
 
         if args.plot_loss:
-            plot(losses, args.plot_loss)
+            plot_loss(losses, args.plot_loss)
 
 
 if __name__ == '__main__':
