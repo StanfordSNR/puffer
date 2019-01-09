@@ -505,9 +505,9 @@ void handle_client_info(WebSocketClient & client, const ClientInfoMsg & msg)
     /* record system information */
     if (enable_logging) {
       string log_line = to_string(timestamp_ms()) + "," + expt_id + ","
-        + client.username() + "," + to_string(msg.init_id) + ","
-        + client.address().ip() + "," + client.os() + "," + client.browser()
-        + "," + to_string(*msg.screen_width) + ","
+        + server_id + "," + client.username() + "," + to_string(msg.init_id)
+        + "," + client.address().ip() + "," + client.os() + ","
+        + client.browser() + "," + to_string(*msg.screen_width) + ","
         + to_string(*msg.screen_height);
       append_to_log("client_sysinfo", log_line);
     }
@@ -747,9 +747,10 @@ int run_websocket_server(pqxx::nontransaction & db_work)
               /* record system information */
               if (enable_logging) {
                 string log_line = to_string(timestamp_ms()) + "," + expt_id
-                  + "," + client.username() + "," + to_string(msg.init_id)
-                  + "," + client.address().ip() + "," + msg.os + ","
-                  + msg.browser + "," + to_string(msg.screen_width) + ","
+                  + "," + server_id + "," + client.username() + ","
+                  + to_string(msg.init_id) + "," + client.address().ip() + ","
+                  + msg.os + "," + msg.browser + ","
+                  + to_string(msg.screen_width) + ","
                   + to_string(msg.screen_height);
                 append_to_log("client_sysinfo", log_line);
               }
