@@ -103,6 +103,25 @@
     Mac/Windows/Linux computers and on Android phones and
     tablets.</p>
 
+    <div class="question">Why do I keep seeing connection timeout errors?</div>
+    <p>The short answer: If Puffer is not in an active tab being directly viewed, we can't
+    guarantee how your browser/device will behave. If you play Puffer in the background and
+    see this error upon returning, please just refresh the page.</p>
+
+    <p>The long answer: Puffer requires clients to frequently communicate with the
+    server to avoid timeouts. Further, as a live streaming service, Puffer does
+    not support pausing. However, many mobile devices implement mechanisms to force video pausing
+    regardless of application support. Such pausing happens in response to switching from Puffer
+    to other applications, or pausing video via the notification center. When such pausing occurs, server timeouts may occur. Additionally,
+    poor network conditions can cause timeouts, as can leaving Puffer open in a
+    background tab for browsers which restrict the resource consumption of background tabs.</p>
+
+    <div class="question">Can I help your research project by playing Puffer in a background tab?</div>
+    <p>Different browsers have different policies for how they throttle the performance of
+    background tabs. Even if your browser is capable of playing video in the background,
+    video performance may be reduced. As a result, playing Puffer in the background does not provide
+    us with useful data.</p>
+
     <div class="question">When you say Puffer will learn better
     video-streaming &ldquo;algorithms,&rdquo; which algorithms
     do you mean?</div>
