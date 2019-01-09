@@ -16,8 +16,8 @@ Pensieve::Pensieve(const WebSocketClient & client,
 {
 
   string ipc_dir = "pensieve_ipc";
-  fs::create_directories(ipc_dir);
-  fs::path ipc_file_ = ipc_dir / fs::path(to_string(pid()) + "_"  +
+  fs::create_directory(ipc_dir);
+  ipc_file_ = ipc_dir / fs::path(to_string(pid()) + "_"  +
                                           to_string(client.connection_id()));
   IPCSocket sock;
   sock.bind(ipc_file_);
@@ -32,7 +32,7 @@ Pensieve::Pensieve(const WebSocketClient & client,
     nn_path = abr_config["nn_path"].as<string>();
   } else {
     cerr << "Pensieve requires specifying paths in abr_config" << endl;
-    throw "Config Error";
+    throw runtime_error("Pensieve config missing");
   }
 
   /* Start Child Process */
@@ -47,9 +47,9 @@ Pensieve::Pensieve(const WebSocketClient & client,
   connection_ =  make_unique<FileDescriptor>(sock.accept());
 }
 
-Pensieve::~Pensieve() {
-  error_code ec;
-  if (not fs::remove(ipc_file_, ec)) {
+Pensieve::~Pensieve()
+{
+  if (not fs::remove(ipc_file_)) {
     cerr << "Warning: file " << ipc_file_ << " cannot be removed" << endl;
   }
 }
@@ -71,7 +71,7 @@ void Pensieve::video_chunk_acked(const VideoFormat &,
 
   for (size_t i = 0; i < vformats_cnt; i++) {
     const auto & vf = vformats[i];
-    double chunk_size = (double)get<1>(data_map.at(vf)); // Bytes
+    double chunk_size = get<1>(data_map.at(vf)); // Bytes
     next_chunk_sizes.push_back(chunk_size);
   }
 
@@ -89,9 +89,9 @@ void Pensieve::video_chunk_acked(const VideoFormat &,
   connection_->write(put_field(json_len) + j.dump());
 
   auto read_data = connection_->read_exactly(2); // Read 2 byte length
-  auto rcvd_json_len = get_uint16( read_data.data() );
+  auto rcvd_json_len = get_uint16(read_data.data());
   auto read_json = connection_->read_exactly(rcvd_json_len);
-  next_br_index_ = json::parse(read_json)["bit_rate"];
+  next_br_index_ = json::parse(read_json).at("bit_rate");
 }
 
 VideoFormat Pensieve::select_video_format()
@@ -106,7 +106,7 @@ VideoFormat Pensieve::select_video_format()
 
   for (size_t i = 0; i < vformats_cnt; i++) {
     const auto & vf = vformats[i];
-    double chunk_size = (double)get<1>(data_map.at(vf));
+    double chunk_size = get<1>(data_map.at(vf));
     next_chunk_sizes.push_back(make_pair(chunk_size, i));
   }
 
