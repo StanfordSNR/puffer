@@ -193,8 +193,10 @@ class Model:
 
             checkpoint = torch.load(model_path)
             self.model.load_state_dict(checkpoint['model_state_dict'])
-            self.input_mean = checkpoint['input_mean']
-            self.input_std = checkpoint['input_std']
+
+            self.obs_size = checkpoint['obs_size']
+            self.obs_mean = checkpoint['obs_mean']
+            self.obs_std = checkpoint['obs_std']
 
             self.optimizer = torch.optim.SGD(self.model.parameters(),
                                              lr=Model.SMALLER_LEARNING_RATE,
@@ -203,8 +205,10 @@ class Model:
                              'learning rate\n')
         else:
             self.first_training = True
-            self.input_mean = []
-            self.input_std = []
+
+            self.obs_size = None
+            self.obs_mean = None
+            self.obs_std = None
 
             self.optimizer = torch.optim.Adam(self.model.parameters(),
                                               lr=Model.LEARNING_RATE,
@@ -217,42 +221,41 @@ class Model:
     def set_model_eval(self):
         self.model.eval()
 
+    def update_obs_stats(self, raw_in):
+        if self.obs_size is None:
+            self.obs_size = len(raw_in)
+            self.obs_mean = np.mean(raw_in, axis=0)
+            self.obs_std = np.std(raw_in, axis=0)
+            return
+
+        # update population size
+        old_size = self.obs_size
+        new_size = len(raw_in)
+        self.obs_size = old_size + new_size
+
+        # update popultation mean
+        old_mean = self.obs_mean
+        new_mean = np.mean(raw_in, axis=0)
+        self.obs_mean = (old_mean * old_size + new_mean * new_size) / self.obs_size
+
+        # update popultation std
+        old_std = self.obs_std
+        old_sum_square = old_size * (np.square(old_std) + np.square(old_mean))
+        new_sum_square = np.sum(np.square(raw_in), axis=0)
+        mean_square = (old_sum_square + new_sum_square) / self.obs_size
+        self.obs_std = np.sqrt(mean_square - np.square(self.obs_mean))
+
     def normalize_input(self, raw_in):
-        if self.first_training:
-            z = np.array(raw_in)
+        self.update_obs_stats(raw_in)
 
-            col_mean = np.mean(z, axis=0)
-            col_std = np.std(z, axis=0)
+        z = np.array(raw_in)
 
-            # don't normalize categorical vars in the last FUTURE_CHUNKS columns
-            for col in range(len(col_mean)):
-                if col < len(col_mean) - Model.FUTURE_CHUNKS:
-                    z[:, col] -= col_mean[col]
-                    if col_std[col] != 0:
-                        z[:, col] /= col_std[col]
-                else:
-                    # set to zeros to avoid misuse
-                    col_mean[col] = 0
-                    col_std[col] = 0
-
-            # save normalization weights computed from the first training
-            self.input_mean = col_mean
-            self.input_std = col_std
-            sys.stderr.write('Normalized data based on mean and std of '
-                             'input data, and saved the mean and std\n')
-        else:
-            # normalize using previously saved weights from the first training
-            z = np.array(raw_in)
-
-            # don't normalize categorical vars in the last FUTURE_CHUNKS columns
-            for col in range(len(self.input_mean)):
-                if col < len(self.input_mean) - Model.FUTURE_CHUNKS:
-                    z[:, col] -= self.input_mean[col]
-                    if self.input_std[col] != 0:
-                        z[:, col] /= self.input_std[col]
-
-            sys.stderr.write('Normalized data based on previously stored '
-                             'mean and std\n')
+        # don't normalize categorical vars in the last FUTURE_CHUNKS columns
+        for col in range(len(self.obs_mean)):
+            if col < len(self.obs_mean) - Model.FUTURE_CHUNKS:
+                z[:, col] -= self.obs_mean[col]
+                if self.obs_std[col] != 0:
+                    z[:, col] /= self.obs_std[col]
 
         return z
 
@@ -309,8 +312,9 @@ class Model:
     def save(self, model_path):
         torch.save({
             'model_state_dict': self.model.state_dict(),
-            'input_mean': self.input_mean,
-            'input_std': self.input_std,
+            'obs_size': self.obs_size,
+            'obs_mean': self.obs_mean,
+            'obs_std': self.obs_std,
         }, model_path)
 
 
