@@ -7,7 +7,6 @@
 #include <cstdint>
 #include <cstdlib>
 
-
 class Pensieve : public ABRAlgo
 {
 public:

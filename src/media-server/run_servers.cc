@@ -118,12 +118,12 @@ int main(int argc, char * argv[])
 
   /* Remove ipc directory prior to starting Media Server */
   string ipc_dir = "pensieve_ipc";
-  if (roost::exists(ipc_dir)) {
-    roost::remove_directory(ipc_dir);
+  if (fs::exists(ipc_dir)) {
+    fs::remove_all(ipc_dir);
   }
 
   /* run media servers in each experimental group */
-  const auto & expt_json = src_path / "scripts/expt_json.py";
+  const auto & expt_json = src_path / "scripts" / "expt_json.py";
   const auto & ws_media_server = src_path / "media-server/ws_media_server";
 
   int server_id = 0;
