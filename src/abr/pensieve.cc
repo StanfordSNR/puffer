@@ -44,7 +44,7 @@ Pensieve::Pensieve(const WebSocketClient & client,
     }
   );
 
-  connection_ =  sock.accept();
+  connection_ =  make_unique<FileDescriptor>(sock.accept());
 }
 
 Pensieve::~Pensieve() {
@@ -86,11 +86,11 @@ void Pensieve::video_chunk_acked(const VideoFormat &,
   j["next_chunk_sizes"] = next_chunk_sizes; //Bytes
   uint16_t json_len = j.dump().length();
 
-  connection_.write(put_field(json_len) + j.dump());
+  connection_->write(put_field(json_len) + j.dump());
 
-  auto read_data = connection_.read_exactly(2); // Read 2 byte length
+  auto read_data = connection_->read_exactly(2); // Read 2 byte length
   auto rcvd_json_len = get_uint16( read_data.data() );
-  auto read_json = connection_.read_exactly(rcvd_json_len);
+  auto read_json = connection_->read_exactly(rcvd_json_len);
   next_br_index_ = json::parse(read_json)["bit_rate"];
 }
 
