@@ -24,7 +24,7 @@ public:
 private:
   size_t next_br_index_ {};
   fs::path ipc_file_ {};
-  FileDescriptor connection_ {0};
+  std::unique_ptr<FileDescriptor> connection_ {nullptr};
   std::unique_ptr<ChildProcess> pensieve_proc_ {nullptr};
 };
 
