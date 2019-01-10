@@ -106,16 +106,15 @@ class Model:
         self.obs_std = np.sqrt(mean_square - np.square(self.obs_mean))
 
     def normalize_input(self, raw_in):
-        self.update_obs_stats(raw_in)
-
         z = np.array(raw_in)
 
-        # don't normalize categorical vars in the last FUTURE_CHUNKS columns
+        # update mean and std of the data seen so far
+        self.update_obs_stats(z)
+
         for col in range(len(self.obs_mean)):
-            if col < len(self.obs_mean) - Model.FUTURE_CHUNKS:
-                z[:, col] -= self.obs_mean[col]
-                if self.obs_std[col] != 0:
-                    z[:, col] /= self.obs_std[col]
+            z[:, col] -= self.obs_mean[col]
+            if self.obs_std[col] != 0:
+                z[:, col] /= self.obs_std[col]
 
         return z
 
