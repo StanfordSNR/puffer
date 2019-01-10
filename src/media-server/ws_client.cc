@@ -3,6 +3,7 @@
 #include "mpc.hh"
 #include "mpc_search.hh"
 #include "pensieve.hh"
+#include "puffer_raw.hh"
 #include "timestamp.hh"
 #include "exception.hh"
 
@@ -191,6 +192,8 @@ void WebSocketClient::init_abr_algo()
     abr_algo_ = make_unique<MPCSearch>(*this, abr_name_, abr_config_);
   } else if (abr_name_ == "pensieve") {
     abr_algo_ = make_unique<Pensieve>(*this, abr_name_, abr_config_);
+  } else if (abr_name_ == "puffer_raw") {
+    abr_algo_ = make_unique<PufferRaw>(*this, abr_name_, abr_config_);
   } else {
     throw runtime_error("undefined ABR algorithm");
   }
