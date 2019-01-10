@@ -118,10 +118,12 @@ class Model:
 
         return z
 
+    # special discretization: [0, 0.5 * BIN_SIZE)
+    # [0.5 * BIN_SIZE, 1.5 * BIN_SIZE), [1.5 * BIN_SIZE, 2.5 * BIN_SIZE), ...
     def discretize_output(self, raw_out):
         z = np.array(raw_out)
 
-        z = np.floor(z / Model.BIN_SIZE).astype(int)
+        z = np.floor((z + 0.5 * Model.BIN_SIZE) / Model.BIN_SIZE).astype(int)
         return np.clip(z, 0, Model.BIN_MAX)
 
     # perform one step of training (forward + backward + optimize)
