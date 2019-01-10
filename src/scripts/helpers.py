@@ -1,5 +1,6 @@
 import os
 import sys
+import errno
 import subprocess
 import psycopg2
 import numpy as np
@@ -34,6 +35,14 @@ def check_output(cmd, **kwargs):
 def Popen(cmd, **kwargs):
     print_cmd(cmd)
     return subprocess.Popen(cmd, **kwargs)
+
+
+def make_sure_path_exists(target_path):
+    try:
+        os.makedirs(target_path)
+    except OSError as exception:
+        if exception.errno != errno.EEXIST:
+            raise
 
 
 def connect_to_influxdb(yaml_settings):

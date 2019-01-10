@@ -4,13 +4,15 @@ import sys
 import argparse
 import yaml
 import torch
+from os import path
 import numpy as np
+from multiprocessing import Process
 
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
-from helpers import connect_to_influxdb, try_parsing_time
+from helpers import connect_to_influxdb, try_parsing_time, make_sure_path_exists
 
 
 VIDEO_DURATION = 180180
@@ -24,7 +26,177 @@ TUNING = False
 DEVICE = torch.device('cpu')
 
 
+class Model:
+    PAST_CHUNKS = 8
+    FUTURE_CHUNKS = 5
+    DIM_IN = 62
+    BIN_SIZE = 0.5  # seconds
+    BIN_MAX = 20
+    DIM_OUT = BIN_MAX + 1
+    DIM_H1 = 50
+    DIM_H2 = 50
+    WEIGHT_DECAY = 1e-3
+    LEARNING_RATE = 1e-3
+    SMALLER_LEARNING_RATE = 1e-4
+
+    def __init__(self, model_path=None):
+        # define model, loss function, and optimizer
+        self.model = torch.nn.Sequential(
+            torch.nn.Linear(Model.DIM_IN, Model.DIM_H1),
+            torch.nn.ReLU(),
+            torch.nn.Linear(Model.DIM_H1, Model.DIM_H2),
+            torch.nn.ReLU(),
+            torch.nn.Linear(Model.DIM_H2, Model.DIM_OUT),
+        ).double().to(device=DEVICE)
+        self.loss_fn = torch.nn.CrossEntropyLoss().to(device=DEVICE)
+
+        # load model
+        if model_path:
+            self.first_training = False
+
+            checkpoint = torch.load(model_path)
+            self.model.load_state_dict(checkpoint['model_state_dict'])
+
+            self.obs_size = checkpoint['obs_size']
+            self.obs_mean = checkpoint['obs_mean']
+            self.obs_std = checkpoint['obs_std']
+
+            self.optimizer = torch.optim.SGD(self.model.parameters(),
+                                             lr=Model.SMALLER_LEARNING_RATE,
+                                             weight_decay=Model.WEIGHT_DECAY)
+        else:
+            self.first_training = True
+
+            self.obs_size = None
+            self.obs_mean = None
+            self.obs_std = None
+
+            self.optimizer = torch.optim.Adam(self.model.parameters(),
+                                              lr=Model.LEARNING_RATE,
+                                              weight_decay=Model.WEIGHT_DECAY)
+
+    def set_model_train(self):
+        self.model.train()
+
+    def set_model_eval(self):
+        self.model.eval()
+
+    def update_obs_stats(self, raw_in):
+        if self.obs_size is None:
+            self.obs_size = len(raw_in)
+            self.obs_mean = np.mean(raw_in, axis=0)
+            self.obs_std = np.std(raw_in, axis=0)
+            return
+
+        # update population size
+        old_size = self.obs_size
+        new_size = len(raw_in)
+        self.obs_size = old_size + new_size
+
+        # update popultation mean
+        old_mean = self.obs_mean
+        new_mean = np.mean(raw_in, axis=0)
+        self.obs_mean = (old_mean * old_size + new_mean * new_size) / self.obs_size
+
+        # update popultation std
+        old_std = self.obs_std
+        old_sum_square = old_size * (np.square(old_std) + np.square(old_mean))
+        new_sum_square = np.sum(np.square(raw_in), axis=0)
+        mean_square = (old_sum_square + new_sum_square) / self.obs_size
+        self.obs_std = np.sqrt(mean_square - np.square(self.obs_mean))
+
+    def normalize_input(self, raw_in):
+        self.update_obs_stats(raw_in)
+
+        z = np.array(raw_in)
+
+        # don't normalize categorical vars in the last FUTURE_CHUNKS columns
+        for col in range(len(self.obs_mean)):
+            if col < len(self.obs_mean) - Model.FUTURE_CHUNKS:
+                z[:, col] -= self.obs_mean[col]
+                if self.obs_std[col] != 0:
+                    z[:, col] /= self.obs_std[col]
+
+        return z
+
+    def discretize_output(self, raw_out):
+        z = np.array(raw_out)
+
+        z = np.floor(z / Model.BIN_SIZE).astype(int)
+        return np.clip(z, 0, Model.BIN_MAX)
+
+    # perform one step of training (forward + backward + optimize)
+    def train_step(self, input_data, output_data):
+        x = torch.from_numpy(input_data).to(device=DEVICE)
+        y = torch.from_numpy(output_data).to(device=DEVICE)
+
+        # forward pass
+        y_scores = self.model(x)
+        loss = self.loss_fn(y_scores, y)
+
+        # backpropagation and optimize
+        self.optimizer.zero_grad()
+        loss.backward()
+        self.optimizer.step()
+
+        return loss.item()
+
+    # compute loss
+    def compute_loss(self, input_data, output_data):
+        with torch.no_grad():
+            x = torch.from_numpy(input_data).to(device=DEVICE)
+            y = torch.from_numpy(output_data).to(device=DEVICE)
+
+            y_scores = self.model(x)
+            loss = self.loss_fn(y_scores, y)
+
+            return loss.item()
+
+    # compute accuracy of the classifier
+    def compute_accuracy(self, input_data, output_data):
+        correct = 0
+        total = 0
+
+        with torch.no_grad():
+            x = torch.from_numpy(input_data).to(device=DEVICE)
+            y = torch.from_numpy(output_data).to(device=DEVICE)
+
+            y_scores = self.model(x)
+            y_predicted = torch.max(y_scores, 1)[1].to(device=DEVICE)
+
+            total += y.size(0)
+            correct += (y_predicted == y).sum().item()
+
+        return correct / total
+
+    def save(self, model_path):
+        torch.save({
+            'model_state_dict': self.model.state_dict(),
+            'obs_size': self.obs_size,
+            'obs_mean': self.obs_mean,
+            'obs_std': self.obs_std,
+        }, model_path)
+
+
 def check_args(args):
+    if args.load_model:
+        if not path.isdir(args.load_model):
+            sys.exit('Error: directory {} does not exist'
+                     .format(args.load_model))
+
+        for i in range(Model.FUTURE_CHUNKS):
+            model_path = path.join(args.load_model, '{}.pt'.format(i))
+            if not path.isfile(model_path):
+                sys.exit('Error: model {} does not exist'.format(model_path))
+
+    if args.save_model:
+        make_sure_path_exists(args.save_model)
+
+        for i in range(Model.FUTURE_CHUNKS):
+            model_path = path.join(args.save_model, '{}.pt'.format(i))
+            if path.isfile(model_path):
+                sys.exit('Error: model {} already exists'.format(model_path))
+
     if args.inference:
         if not args.load_model:
             sys.exit('Error: need to load model before inference')
@@ -163,161 +335,6 @@ def prepare_raw_data(yaml_settings_path, time_start, time_end):
     return calculate_trans_times(video_sent_results, video_acked_results)
 
 
-class Model:
-    PAST_CHUNKS = 8
-    FUTURE_CHUNKS = 5
-    DIM_IN = 62
-    BIN_SIZE = 0.5  # seconds
-    BIN_MAX = 20
-    DIM_OUT = BIN_MAX + 1
-    DIM_H1 = 50
-    DIM_H2 = 50
-    WEIGHT_DECAY = 1e-3
-    LEARNING_RATE = 1e-3
-    SMALLER_LEARNING_RATE = 1e-4
-
-    def __init__(self, model_path=None):
-        # define model, loss function, and optimizer
-        self.model = torch.nn.Sequential(
-            torch.nn.Linear(Model.DIM_IN, Model.DIM_H1),
-            torch.nn.ReLU(),
-            torch.nn.Linear(Model.DIM_H1, Model.DIM_H2),
-            torch.nn.ReLU(),
-            torch.nn.Linear(Model.DIM_H2, Model.DIM_OUT),
-        ).double().to(device=DEVICE)
-        self.loss_fn = torch.nn.CrossEntropyLoss().to(device=DEVICE)
-
-        # load model
-        if model_path:
-            self.first_training = False
-
-            checkpoint = torch.load(model_path)
-            self.model.load_state_dict(checkpoint['model_state_dict'])
-
-            self.obs_size = checkpoint['obs_size']
-            self.obs_mean = checkpoint['obs_mean']
-            self.obs_std = checkpoint['obs_std']
-
-            self.optimizer = torch.optim.SGD(self.model.parameters(),
-                                             lr=Model.SMALLER_LEARNING_RATE,
-                                             weight_decay=Model.WEIGHT_DECAY)
-            sys.stderr.write('Created an SGD optimizer with a small constant '
-                             'learning rate\n')
-        else:
-            self.first_training = True
-
-            self.obs_size = None
-            self.obs_mean = None
-            self.obs_std = None
-
-            self.optimizer = torch.optim.Adam(self.model.parameters(),
-                                              lr=Model.LEARNING_RATE,
-                                              weight_decay=Model.WEIGHT_DECAY)
-            sys.stderr.write('Created an Adam optimizer\n')
-
-    def set_model_train(self):
-        self.model.train()
-
-    def set_model_eval(self):
-        self.model.eval()
-
-    def update_obs_stats(self, raw_in):
-        if self.obs_size is None:
-            self.obs_size = len(raw_in)
-            self.obs_mean = np.mean(raw_in, axis=0)
-            self.obs_std = np.std(raw_in, axis=0)
-            return
-
-        # update population size
-        old_size = self.obs_size
-        new_size = len(raw_in)
-        self.obs_size = old_size + new_size
-
-        # update popultation mean
-        old_mean = self.obs_mean
-        new_mean = np.mean(raw_in, axis=0)
-        self.obs_mean = (old_mean * old_size + new_mean * new_size) / self.obs_size
-
-        # update popultation std
-        old_std = self.obs_std
-        old_sum_square = old_size * (np.square(old_std) + np.square(old_mean))
-        new_sum_square = np.sum(np.square(raw_in), axis=0)
-        mean_square = (old_sum_square + new_sum_square) / self.obs_size
-        self.obs_std = np.sqrt(mean_square - np.square(self.obs_mean))
-
-    def normalize_input(self, raw_in):
-        self.update_obs_stats(raw_in)
-
-        z = np.array(raw_in)
-
-        # don't normalize categorical vars in the last FUTURE_CHUNKS columns
-        for col in range(len(self.obs_mean)):
-            if col < len(self.obs_mean) - Model.FUTURE_CHUNKS:
-                z[:, col] -= self.obs_mean[col]
-                if self.obs_std[col] != 0:
-                    z[:, col] /= self.obs_std[col]
-
-        return z
-
-    def discretize_output(self, raw_out):
-        z = np.array(raw_out)
-
-        z = np.floor(z / Model.BIN_SIZE).astype(int)
-        return np.clip(z, 0, Model.BIN_MAX)
-
-    # perform one step of training (forward + backward + optimize)
-    def train_step(self, input_data, output_data):
-        x = torch.from_numpy(input_data).to(device=DEVICE)
-        y = torch.from_numpy(output_data).to(device=DEVICE)
-
-        # forward pass
-        y_scores = self.model(x)
-        loss = self.loss_fn(y_scores, y)
-
-        # backpropagation and optimize
-        self.optimizer.zero_grad()
-        loss.backward()
-        self.optimizer.step()
-
-        return loss.item()
-
-    # compute loss
-    def compute_loss(self, input_data, output_data):
-        with torch.no_grad():
-            x = torch.from_numpy(input_data).to(device=DEVICE)
-            y = torch.from_numpy(output_data).to(device=DEVICE)
-
-            y_scores = self.model(x)
-            loss = self.loss_fn(y_scores, y)
-
-            return loss.item()
-
-    # compute accuracy of the classifier
-    def compute_accuracy(self, input_data, output_data):
-        correct = 0
-        total = 0
-
-        with torch.no_grad():
-            x = torch.from_numpy(input_data).to(device=DEVICE)
-            y = torch.from_numpy(output_data).to(device=DEVICE)
-
-            y_scores = self.model(x)
-            y_predicted = torch.max(y_scores, 1)[1].to(device=DEVICE)
-
-            total += y.size(0)
-            correct += (y_predicted == y).sum().item()
-
-        return correct / total
-
-    def save(self, model_path):
-        torch.save({
-            'model_state_dict': self.model.state_dict(),
-            'obs_size': self.obs_size,
-            'obs_mean': self.obs_mean,
-            'obs_std': self.obs_std,
-        }, model_path)
-
-
 def append_past_chunks(ds, next_ts, row):
     i = 1
     past_chunks = []
@@ -389,19 +406,22 @@ def prepare_input_output(d):
     return ret
 
 
-def print_stats(output_data):
+def print_stats(i, output_data):
     # print label distribution
     bin_sizes = np.zeros(Model.BIN_MAX + 1, dtype=int)
     for bin_id in output_data:
         bin_sizes[bin_id] += 1
-    print('label distribution:\n ', bin_sizes.tolist())
+    sys.stderr.write('[{}] label distribution:\n\t'.format(i))
+    for bin_size in bin_sizes:
+        sys.stderr.write(' {}'.format(bin_size))
+    sys.stderr.write('\n')
 
     # predict a single label
-    print('single label accuracy: {:.2f}%'
-          .format(100 * np.max(bin_sizes) / len(output_data)))
+    sys.stderr.write('[{}] single label accuracy: {:.2f}%\n'
+                     .format(i, 100 * np.max(bin_sizes) / len(output_data)))
 
 
-def plot_loss(losses):
+def plot_loss(losses, figure_path):
     fig, ax = plt.subplots()
 
     if 'training' in losses:
@@ -414,12 +434,11 @@ def plot_loss(losses):
     ax.grid()
     ax.legend()
 
-    figure_path = 'loss.png'
     fig.savefig(figure_path, dpi=300, bbox_inches='tight', pad_inches=0.2)
     sys.stderr.write('Saved plot to {}\n'.format(figure_path))
 
 
-def do_train(model, input_data, output_data):
+def train(i, model, input_data, output_data):
     if TUNING:
         # permutate input and output data before splitting
         perm_indices = np.random.permutation(range(len(input_data)))
@@ -432,20 +451,23 @@ def do_train(model, input_data, output_data):
         train_output = output_data[:num_training]
         validate_input = input_data[num_training:]
         validate_output = output_data[num_training:]
-        print('training set size:', len(train_input))
-        print('validation set size:', len(validate_input))
+        sys.stderr.write('[{}] training set size: {}\n'
+                         .format(i, len(train_input)))
+        sys.stderr.write('[{}] validation set size: {}\n'
+                         .format(i, len(validate_input)))
 
         validate_losses = []
     else:
         num_training = len(input_data)
-        print('training set size:', num_training)
+        sys.stderr.write('[{}] training set size: {}\n'
+                         .format(i, num_training))
 
     train_losses = []
     # number of batches
     num_batches = int(np.ceil(num_training / BATCH_SIZE))
 
     num_epochs = 500 if model.first_training else 10
-    sys.stderr.write('total epochs: {}\n'.format(num_epochs))
+    sys.stderr.write('[{}] total epochs: {}\n'.format(i, num_epochs))
 
     # loop over the entire dataset multiple times
     for epoch_id in range(num_epochs):
@@ -477,16 +499,16 @@ def do_train(model, input_data, output_data):
             validate_accuracy = 100 * model.compute_accuracy(
                     validate_input, validate_output)
 
-            print('epoch {:d}:\n'
-                  '  training: loss {:.3f}, accuracy {:.2f}%\n'
-                  '  validation: loss {:.3f}, accuracy {:.2f}%'
-                  .format(epoch_id + 1,
-                          train_loss, train_accuracy,
-                          validate_loss, validate_accuracy))
+            sys.stderr.write('[{}] epoch {}:\n'
+                             '\ttraining: loss {:.3f}, accuracy {:.2f}%\n'
+                             '\tvalidation: loss {:.3f}, accuracy {:.2f}%\n'
+                             .format(i, epoch_id + 1,
+                                     train_loss, train_accuracy,
+                                     validate_loss, validate_accuracy))
         else:
             train_losses.append(running_loss)
-            print('epoch {:d}: training loss {:.3f}'
-                  .format(epoch_id + 1, running_loss))
+            sys.stderr.write('[{}} epoch {}: training loss {:.3f}\n'
+                             .format(i, epoch_id + 1, running_loss))
 
     # return losses for plotting
     losses = {}
@@ -496,14 +518,14 @@ def do_train(model, input_data, output_data):
     return losses
 
 
-def train_model(i, args, raw_in_data, raw_out_data):
-    # create a model to train
+def train_or_eval_model(i, args, raw_in_data, raw_out_data):
     if args.load_model:
-        model = Model(args.load_model)
-        sys.stderr.write('Loaded model from {}\n'.format(args.load_model))
+        model_path = path.join(args.load_model, '{}.pt'.format(i))
+        model = Model(model_path)
+        sys.stderr.write('[{}] Loaded model from {}\n'.format(i, model_path))
     else:
         model = Model()
-        sys.stderr.write('Created a new model\n')
+        sys.stderr.write('[{}] Created a new model\n'.format(i))
 
     # normalize input data
     # save normalization weights on first training
@@ -513,26 +535,27 @@ def train_model(i, args, raw_in_data, raw_out_data):
     output_data = model.discretize_output(raw_out_data)
 
     # print some stats
-    print_stats(output_data)
+    print_stats(i, output_data)
 
     if args.inference:
         model.set_model_eval()
 
-        print('test set size:', len(input_data))
-        print('loss: {:.3f}, accuracy: {:.3f}%'.format(
-              model.compute_loss(input_data, output_data),
-              100 * model.compute_accuracy(input_data, output_data)))
-    else:
+        sys.stderr.write('[{}] test set size: {}\n'.format(i, len(input_data)))
+        sys.stderr.write('[{}] loss: {:.3f}, accuracy: {:.2f}%\n'
+            .format(i, model.compute_loss(input_data, output_data),
+                    100 * model.compute_accuracy(input_data, output_data)))
+    else:  # training
         model.set_model_train()
 
         # train a neural network with data
-        losses = do_train(model, input_data, output_data)
+        losses = train(i, model, input_data, output_data)
 
         if args.save_model:
-            model.save(args.save_model)
-            sys.stderr.write('Saved model to {}\n'.format(args.save_model))
+            model_path = path.join(args.save_model, '{}.pt'.format(i))
+            model.save(model_path)
+            sys.stderr.write('[{}] Saved model to {}\n'.format(i, model_path))
 
-        plot_loss(losses)
+        plot_loss(losses, 'loss{}.png'.format(i))
 
 
 def main():
@@ -561,12 +584,14 @@ def main():
     # collect input and output data from raw data
     raw_in_out = prepare_input_output(raw_data)
 
-    # train FUTURE_CHUNKS models
+    # train or test FUTURE_CHUNKS models
     proc_list = []
     for i in range(Model.FUTURE_CHUNKS):
-        proc_list.append(Process(
-            target=train_model,
-            args=(i, args, raw_in_out[i]['in'], raw_in_out[i]['out'],)).start())
+        proc = Process(target=train_or_eval_model,
+                       args=(i, args,
+                             raw_in_out[i]['in'], raw_in_out[i]['out'],))
+        proc.start()
+        proc_list.append(proc)
 
     # wait for all processes to finish
     for proc in proc_list:
