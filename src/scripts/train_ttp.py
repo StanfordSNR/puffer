@@ -166,7 +166,7 @@ def prepare_raw_data(yaml_settings_path, time_start, time_end):
 class Model:
     PAST_CHUNKS = 8
     FUTURE_CHUNKS = 5
-    DIM_IN = 67
+    DIM_IN = 62
     BIN_SIZE = 0.5  # seconds
     BIN_MAX = 20
     DIM_OUT = BIN_MAX + 1
@@ -318,10 +318,6 @@ class Model:
         }, model_path)
 
 
-def one_hot(index, total):
-    return [int(i == index) for i in range(total)]
-
-
 def append_past_chunks(ds, next_ts, row):
     i = 1
     past_chunks = []
@@ -356,9 +352,9 @@ def append_past_chunks(ds, next_ts, row):
     row += past_chunks
 
 
+# return FUTURE_CHUNKS pairs of (raw_in, raw_out)
 def prepare_input_output(d):
-    raw_in = []
-    raw_out = []
+    ret = [{'in':[], 'out':[]} for _ in range(Model.FUTURE_CHUNKS)]
 
     for session in d:
         ds = d[session]
@@ -380,19 +376,17 @@ def prepare_input_output(d):
 
             # generate FUTURE_CHUNKS rows
             for i in range(Model.FUTURE_CHUNKS):
-                row_h = row.copy()
+                row_i = row.copy()
 
                 ts = next_ts + i * VIDEO_DURATION
                 if ts in ds and 'trans_time' in ds[ts]:
-                    row_h += [ds[ts]['size']]
-                    # one-hot encoding of 'i'
-                    row_h += one_hot(i, Model.FUTURE_CHUNKS)
+                    row_i += [ds[ts]['size']]
 
-                    assert(len(row_h) == Model.DIM_IN)
-                    raw_in.append(row_h)
-                    raw_out.append(ds[ts]['trans_time'])
+                    assert(len(row_i) == Model.DIM_IN)
+                    ret[i]['in'].append(row_i)
+                    ret[i]['out'].append(ds[ts]['trans_time'])
 
-    return raw_in, raw_out
+    return ret
 
 
 def print_stats(output_data):
@@ -425,7 +419,7 @@ def plot_loss(losses):
     sys.stderr.write('Saved plot to {}\n'.format(figure_path))
 
 
-def train(model, input_data, output_data):
+def do_train(model, input_data, output_data):
     if TUNING:
         # permutate input and output data before splitting
         perm_indices = np.random.permutation(range(len(input_data)))
@@ -502,30 +496,7 @@ def train(model, input_data, output_data):
     return losses
 
 
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument('yaml_settings')
-    parser.add_argument('--from', dest='time_start',
-                        help='datetime in UTC conforming to RFC3339')
-    parser.add_argument('--to', dest='time_end',
-                        help='datetime in UTC conforming to RFC3339')
-    parser.add_argument('--load-model', help='model to load from')
-    parser.add_argument('--save-model', help='model to save to')
-    parser.add_argument('--enable-gpu', action='store_true')
-    parser.add_argument('--tune', action='store_true')
-    parser.add_argument('--inference', action='store_true')
-    args = parser.parse_args()
-
-    # validate and process args
-    check_args(args)
-
-    # query InfluxDB and retrieve raw data
-    raw_data = prepare_raw_data(args.yaml_settings,
-                                args.time_start, args.time_end)
-
-    # collect input and output data from raw data
-    raw_in_data, raw_out_data = prepare_input_output(raw_data)
-
+def train_model(i, args, raw_in_data, raw_out_data):
     # create a model to train
     if args.load_model:
         model = Model(args.load_model)
@@ -555,13 +526,51 @@ def main():
         model.set_model_train()
 
         # train a neural network with data
-        losses = train(model, input_data, output_data)
+        losses = do_train(model, input_data, output_data)
 
         if args.save_model:
             model.save(args.save_model)
             sys.stderr.write('Saved model to {}\n'.format(args.save_model))
 
         plot_loss(losses)
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('yaml_settings')
+    parser.add_argument('--from', dest='time_start',
+                        help='datetime in UTC conforming to RFC3339')
+    parser.add_argument('--to', dest='time_end',
+                        help='datetime in UTC conforming to RFC3339')
+    parser.add_argument('--load-model',
+        help='folder to load {:d} models from'.format(Model.FUTURE_CHUNKS))
+    parser.add_argument('--save-model',
+        help='folder to save {:d} models to'.format(Model.FUTURE_CHUNKS))
+    parser.add_argument('--enable-gpu', action='store_true')
+    parser.add_argument('--tune', action='store_true')
+    parser.add_argument('--inference', action='store_true')
+    args = parser.parse_args()
+
+    # validate and process args
+    check_args(args)
+
+    # query InfluxDB and retrieve raw data
+    raw_data = prepare_raw_data(args.yaml_settings,
+                                args.time_start, args.time_end)
+
+    # collect input and output data from raw data
+    raw_in_out = prepare_input_output(raw_data)
+
+    # train FUTURE_CHUNKS models
+    proc_list = []
+    for i in range(Model.FUTURE_CHUNKS):
+        proc_list.append(Process(
+            target=train_model,
+            args=(i, args, raw_in_out[i]['in'], raw_in_out[i]['out'],)).start())
+
+    # wait for all processes to finish
+    for proc in proc_list:
+        proc.join()
 
 
 if __name__ == '__main__':
