@@ -13,10 +13,12 @@ public:
 
 private:
   static constexpr double ST_VAR_COEFF = 0.7;
+  static constexpr double HIGH_SENDING_TIME = 10000;
 
   double st_var_coeff_ {ST_VAR_COEFF};
 
   void reinit_sending_time() override;
+
 };
 
 #endif /* PUFFERRAW_HH */

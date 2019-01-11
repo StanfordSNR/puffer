@@ -3,8 +3,6 @@
 
 using namespace std;
 
-static const double HIGH_SENDING_TIME = 10000;
-
 PufferRaw::PufferRaw(const WebSocketClient & client,
          const string & abr_name, const YAML::Node & abr_config)
   : Puffer(client, abr_name, abr_config)

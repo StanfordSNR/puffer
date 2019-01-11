@@ -113,6 +113,10 @@ void serve_video_to_client(WebSocketServer & server,
   const auto channel = client.channel();
   uint64_t next_vts = client.next_vts().value();
 
+  /* save TCP info before client.select_video_format() */
+  TCPInfo tcpi = server.get_tcp_info(client.connection_id());
+  client.set_tcp_info(tcpi);
+
   /* select a video format using ABR algorithm */
   const VideoFormat & next_vformat = client.select_video_format();
   double ssim = channel->vssim(next_vts).at(next_vformat);
@@ -153,8 +157,6 @@ void serve_video_to_client(WebSocketServer & server,
        << ", video " << next_vts << " " << next_vformat << " " << ssim << endl;
 
   if (enable_logging) {
-    TCPInfo tcpi = server.get_tcp_info(client.connection_id());
-
     string log_line = to_string(timestamp_ms()) + "," + channel->name() + ","
       + expt_id + "," + client.username() + "," + to_string(client.init_id())
       + "," + to_string(next_vts) + "," + next_vformat.to_string() + ","
@@ -565,6 +567,7 @@ void handle_client_video_ack(WebSocketClient & client,
     client.video_chunk_acked(msg.video_format, msg.ssim,
                              media_chunk_size, trans_time);
     client.set_last_video_send_ts(nullopt);
+    client.set_tcp_info(nullopt);
   } else {
     cerr << client.signature() << ": error: server didn't send video but "
          << "received VideoAck" << endl;

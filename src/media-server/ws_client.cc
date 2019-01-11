@@ -33,6 +33,7 @@ void WebSocketClient::reset_helper()
   curr_aformat_.reset();
 
   last_video_send_ts_.reset();
+  tcp_info_.reset();
 }
 
 void WebSocketClient::init_channel(const shared_ptr<Channel> & channel,

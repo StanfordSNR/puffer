@@ -10,6 +10,7 @@
 #include "channel.hh"
 #include "server_message.hh"
 #include "media_formats.hh"
+#include "socket.hh"
 
 class ABRAlgo;
 
@@ -77,7 +78,9 @@ public:
   std::optional<AudioFormat> curr_aformat() const { return curr_aformat_; }
 
   uint64_t last_msg_recv_ts() const { return last_msg_recv_ts_; }
+
   std::optional<uint64_t> last_video_send_ts() const { return last_video_send_ts_; }
+  std::optional<TCPInfo> tcp_info() const { return tcp_info_; }
 
   /* mutators */
   void set_init_id(const unsigned int init_id) { init_id_ = init_id; }
@@ -107,7 +110,9 @@ public:
   void set_curr_aformat(const AudioFormat & format) { curr_aformat_ = format; }
 
   void set_last_msg_recv_ts(uint64_t recv_ts) { last_msg_recv_ts_ = recv_ts; }
+
   void set_last_video_send_ts(const std::optional<uint64_t> send_ts) { last_video_send_ts_ = send_ts; }
+  void set_tcp_info(const std::optional<TCPInfo> tcp_info) { tcp_info_ = tcp_info; }
 
   /* ABR related */
   void video_chunk_acked(const VideoFormat & format,
@@ -171,6 +176,8 @@ private:
 
   /* sending time of last video chunk */
   std::optional<uint64_t> last_video_send_ts_ {};
+  /* TCP info before sending a video chunk */
+  std::optional<TCPInfo> tcp_info_ {};
 
   /* (re)instantiate abr_algo_ */
   void init_abr_algo();
