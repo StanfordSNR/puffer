@@ -4,7 +4,7 @@
 using namespace std;
 
 PufferRaw::PufferRaw(const WebSocketClient & client,
-         const string & abr_name, const YAML::Node & abr_config)
+                     const string & abr_name, const YAML::Node & abr_config)
   : Puffer(client, abr_name, abr_config)
 {
   if (abr_config["st_var_coeff"]) {

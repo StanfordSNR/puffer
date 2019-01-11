@@ -10,7 +10,7 @@ class Puffer : public ABRAlgo
 {
 public:
   Puffer(const WebSocketClient & client,
-      const std::string & abr_name, const YAML::Node & abr_config);
+         const std::string & abr_name, const YAML::Node & abr_config);
 
   void video_chunk_acked(const VideoFormat & format,
                          const double ssim,
@@ -84,6 +84,8 @@ protected:
 
   /* discretize the buffer length */
   size_t discretize_buffer(double buf);
+
+  void normalize_in_place(size_t i, std::vector<double> & input);
 };
 
 #endif /* PUFFER_HH */

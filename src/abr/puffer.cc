@@ -7,7 +7,7 @@ using namespace std;
 using json = nlohmann::json;
 
 Puffer::Puffer(const WebSocketClient & client,
-         const string & abr_name, const YAML::Node & abr_config)
+               const string & abr_name, const YAML::Node & abr_config)
   : ABRAlgo(client, abr_name)
 {
   if (abr_config["max_lookahead_horizon"]) {
@@ -140,7 +140,7 @@ size_t Puffer::update_value(size_t i, size_t curr_buffer, size_t curr_format)
 }
 
 double Puffer::get_qvalue(size_t i, size_t curr_buffer, size_t curr_format,
-                       size_t next_format)
+                          size_t next_format)
 {
   assert(is_ban_[i + 1][next_format] == false);
 
@@ -181,4 +181,18 @@ double Puffer::get_value(size_t i, size_t curr_buffer, size_t curr_format)
 size_t Puffer::discretize_buffer(double buf)
 {
   return (buf + unit_buf_length_ * 0.5) / unit_buf_length_;
+}
+
+void Puffer::normalize_in_place(size_t i, vector<double> & input)
+{
+  assert(input.size() == obs_mean_[i].size());
+  assert(input.size() == obs_std_[i].size());
+
+  for (size_t j = 0; j < input.size(); j++) {
+    input[j] -= obs_mean_[i][j];
+
+    if (obs_std_[i][j] != 0) {
+      input[j] /= obs_std_[i][j];
+    }
+  }
 }
