@@ -2,8 +2,9 @@
 #define PUFFER_HH
 
 #include "abr_algo.hh"
-
 #include <deque>
+#include <vector>
+#include "filesystem.hh"
 
 class Puffer : public ABRAlgo
 {
@@ -63,6 +64,11 @@ protected:
 
   /* denote whether a chunk is abandoned */
   bool is_ban_[MAX_LOOKAHEAD_HORIZON + 1][MAX_NUM_FORMATS] {};
+
+  /* stats of training data used for normalization */
+  unsigned int obs_size_[MAX_LOOKAHEAD_HORIZON];
+  std::vector<double> obs_mean_[MAX_LOOKAHEAD_HORIZON];
+  std::vector<double> obs_std_[MAX_LOOKAHEAD_HORIZON];
 
   void reinit();
   virtual void reinit_sending_time() {};

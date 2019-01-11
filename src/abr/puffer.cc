@@ -1,7 +1,10 @@
 #include "puffer.hh"
+#include <fstream>
 #include "ws_client.hh"
+#include "json.hpp"
 
 using namespace std;
+using json = nlohmann::json;
 
 Puffer::Puffer(const WebSocketClient & client,
          const string & abr_name, const YAML::Node & abr_config)
@@ -21,8 +24,27 @@ Puffer::Puffer(const WebSocketClient & client,
     ssim_diff_coeff_ = abr_config["ssim_diff_coeff"].as<double>();
   }
 
-  dis_buf_length_  = min(dis_buf_length_ ,
-                         discretize_buffer(WebSocketClient::MAX_BUFFER_S));
+  /* load neural networks */
+  if (abr_config["model_dir"]) {
+    fs::path model_dir = abr_config["model_dir"].as<string>();
+
+    // TODO load PyTorch models
+
+    /* load normalzation weights */
+    for (size_t i = 0; i < MAX_LOOKAHEAD_HORIZON; i++) {
+      ifstream ifs(model_dir / ("cpp-meta-" + to_string(i) + ".json"));
+      json j = json::parse(ifs);
+
+      obs_size_[i] = j.at("obs_size");
+      obs_mean_[i] = j.at("obs_mean").get<vector<double>>();
+      obs_std_[i] = j.at("obs_std").get<vector<double>>();
+    }
+  } else {
+    throw runtime_error("Puffer requires specifying model_dir in abr_config");
+  }
+
+  dis_buf_length_ = min(dis_buf_length_ ,
+                        discretize_buffer(WebSocketClient::MAX_BUFFER_S));
 }
 
 void Puffer::video_chunk_acked(const VideoFormat & format,
