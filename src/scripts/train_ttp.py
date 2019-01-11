@@ -288,8 +288,10 @@ def calculate_trans_times(video_sent_results, video_acked_results):
 
         if last_video_ts[session] is not None:
             if video_ts != last_video_ts[session] + VIDEO_DURATION:
-                sys.exit('Error in session {}: last_video_ts={}, video_ts={}'
-                         .format(session, last_video_ts[session], video_ts))
+                sys.stderr.write('Warning in session {}: video_ts={}\n'
+                                 .format(session, video_ts))
+                continue
+
         last_video_ts[session] = video_ts
 
         d[session][video_ts] = {}
