@@ -30,12 +30,11 @@ Puffer::Puffer(const WebSocketClient & client,
 
     // TODO load PyTorch models
 
-    /* load normalzation weights */
+    /* load normalization weights */
     for (size_t i = 0; i < MAX_LOOKAHEAD_HORIZON; i++) {
       ifstream ifs(model_dir / ("cpp-meta-" + to_string(i) + ".json"));
       json j = json::parse(ifs);
 
-      obs_size_[i] = j.at("obs_size");
       obs_mean_[i] = j.at("obs_mean").get<vector<double>>();
       obs_std_[i] = j.at("obs_std").get<vector<double>>();
     }
@@ -43,7 +42,7 @@ Puffer::Puffer(const WebSocketClient & client,
     throw runtime_error("Puffer requires specifying model_dir in abr_config");
   }
 
-  dis_buf_length_ = min(dis_buf_length_ ,
+  dis_buf_length_ = min(dis_buf_length_,
                         discretize_buffer(WebSocketClient::MAX_BUFFER_S));
 }
 
