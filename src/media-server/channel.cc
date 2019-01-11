@@ -5,7 +5,6 @@
 #include <algorithm>
 
 #include "file_descriptor.hh"
-#include "yaml.hh"
 #include "exception.hh"
 #include "timestamp.hh"
 

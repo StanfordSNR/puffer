@@ -2,6 +2,7 @@
 #define ABR_ALGO_HH
 
 #include "media_formats.hh"
+#include "yaml.hh"
 
 class WebSocketClient;
 

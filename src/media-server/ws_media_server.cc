@@ -11,13 +11,11 @@
 #include <memory>
 #include <random>
 #include <algorithm>
-
 #include <pqxx/pqxx>
-#include "yaml.hh"
+
 #include "util.hh"
 #include "strict_conversions.hh"
 #include "timestamp.hh"
-#include "media_formats.hh"
 #include "inotify.hh"
 #include "timerfd.hh"
 #include "channel.hh"
@@ -25,6 +23,8 @@
 #include "client_message.hh"
 #include "ws_server.hh"
 #include "ws_client.hh"
+#include "media_formats.hh"
+#include "yaml.hh"
 #include "abr_algo.hh"
 
 using namespace std;

@@ -1,7 +1,11 @@
 #include "puffer.hh"
+
 #include <fstream>
+#include <memory>
+
 #include "ws_client.hh"
 #include "json.hpp"
+#include "torch/script.h"
 
 using namespace std;
 using json = nlohmann::json;
@@ -28,10 +32,15 @@ Puffer::Puffer(const WebSocketClient & client,
   if (abr_config["model_dir"]) {
     fs::path model_dir = abr_config["model_dir"].as<string>();
 
-    // TODO load PyTorch models
-
-    /* load normalization weights */
     for (size_t i = 0; i < MAX_LOOKAHEAD_HORIZON; i++) {
+      // load PyTorch models
+      string model_path = model_dir / ("cpp-" + to_string(i) + ".pt");
+      shared_ptr<torch::jit::script::Module> module = torch::jit::load(model_path.c_str());
+      if (not module) {
+        throw runtime_error("Model " + model_path + " does not exist");
+      }
+
+      // load normalization weights
       ifstream ifs(model_dir / ("cpp-meta-" + to_string(i) + ".json"));
       json j = json::parse(ifs);
 

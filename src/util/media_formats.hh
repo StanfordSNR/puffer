@@ -4,8 +4,6 @@
 #include <string>
 #include <iostream>
 
-#include "yaml-cpp/yaml.h"
-
 struct VideoFormat
 {
   VideoFormat(const std::string & str);

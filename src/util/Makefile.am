@@ -26,4 +26,6 @@ libutil_a_SOURCES = \
 	mmap.hh mmap.cc \
 	y4m.hh y4m.cc \
 	ipc_socket.hh ipc_socket.cc \
-	pid.hh pid.cc
+	pid.hh pid.cc \
+	media_formats.hh media_formats.cc \
+	yaml.hh yaml.cc

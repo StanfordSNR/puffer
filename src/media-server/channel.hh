@@ -11,6 +11,7 @@
 #include "inotify.hh"
 #include "mmap.hh"
 #include "media_formats.hh"
+#include "yaml.hh"
 
 using mmap_t = std::tuple<std::shared_ptr<char>, size_t>;
 

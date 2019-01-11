@@ -10,6 +10,7 @@
 #include "channel.hh"
 #include "server_message.hh"
 #include "media_formats.hh"
+#include "yaml.hh"
 #include "socket.hh"
 
 class ABRAlgo;

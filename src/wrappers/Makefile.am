@@ -1,4 +1,4 @@
-AM_CPPFLAGS = $(CXX17_FLAGS) -I$(srcdir)/../util -I$(srcdir)/../media-server
+AM_CPPFLAGS = $(CXX17_FLAGS) -I$(srcdir)/../util
 AM_CXXFLAGS = $(PICKY_CXXFLAGS) $(EXTRA_CXXFLAGS)
 
 bin_PROGRAMS = video_canonicalizer video_encoder video_fragmenter \
@@ -22,7 +22,5 @@ ssim_calculator_LDADD = ../util/libutil.a ../net/libnet.a -lstdc++fs $(SSL_LIBS)
 generate_mpd_SOURCES = generate_mpd.cc
 generate_mpd_LDADD = ../util/libutil.a ../net/libnet.a -lstdc++fs $(SSL_LIBS)
 
-run_pipeline_SOURCES = run_pipeline.cc \
-	../media-server/media_formats.hh ../media-server/media_formats.cc \
-	../media-server/yaml.hh ../media-server/yaml.cc
+run_pipeline_SOURCES = run_pipeline.cc
 run_pipeline_LDADD = ../util/libutil.a ../net/libnet.a -lstdc++fs $(SSL_LIBS) $(YAML_LIBS)

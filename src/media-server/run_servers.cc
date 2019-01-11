@@ -6,7 +6,6 @@
 #include <crypto++/hex.h>
 #include <pqxx/pqxx>
 
-#include "yaml.hh"
 #include "filesystem.hh"
 #include "path.hh"
 #include "child_process.hh"
@@ -14,6 +13,7 @@
 #include "util.hh"
 #include "exception.hh"
 #include "timestamp.hh"
+#include "yaml.hh"
 
 using namespace std;
 using namespace CryptoPP;

@@ -1,2 +1,2 @@
 SUBDIRS = util net notifier atsc forwarder mp4 webm mpd ssim cleaner time \
-	monitoring wrappers media-server opus-encoder tests
+	monitoring wrappers opus-encoder media-server tests
