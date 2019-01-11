@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import sys
+import json
 import argparse
 import yaml
 import torch
@@ -33,8 +34,7 @@ class Model:
     BIN_SIZE = 0.5  # seconds
     BIN_MAX = 20
     DIM_OUT = BIN_MAX + 1
-    DIM_H1 = 50
-    DIM_H2 = 50
+    DIM_H = 40
     WEIGHT_DECAY = 1e-3
     LEARNING_RATE = 1e-3
     SMALLER_LEARNING_RATE = 1e-4
@@ -42,11 +42,9 @@ class Model:
     def __init__(self, model_path=None):
         # define model, loss function, and optimizer
         self.model = torch.nn.Sequential(
-            torch.nn.Linear(Model.DIM_IN, Model.DIM_H1),
+            torch.nn.Linear(Model.DIM_IN, Model.DIM_H),
             torch.nn.ReLU(),
-            torch.nn.Linear(Model.DIM_H1, Model.DIM_H2),
-            torch.nn.ReLU(),
-            torch.nn.Linear(Model.DIM_H2, Model.DIM_OUT),
+            torch.nn.Linear(Model.DIM_H, Model.DIM_OUT),
         ).double().to(device=DEVICE)
         self.loss_fn = torch.nn.CrossEntropyLoss().to(device=DEVICE)
 
@@ -178,6 +176,19 @@ class Model:
             'obs_std': self.obs_std,
         }, model_path)
 
+    def save_cpp_model(self, model_path, meta_path):
+        # save model to model_path
+        example = torch.rand(1, Model.DIM_IN).double()
+        traced_script_module = torch.jit.trace(self.model, example)
+        traced_script_module.save(model_path)
+
+        # save obs_size, obs_mean, obs_std to meta_path
+        meta = {'obs_size': self.obs_size,
+                'obs_mean': self.obs_mean.tolist(),
+                'obs_std': self.obs_std.tolist()}
+        with open(meta_path, 'w') as fh:
+            json.dump(meta, fh)
+
 
 def check_args(args):
     if args.load_model:
@@ -186,17 +197,28 @@ def check_args(args):
                      .format(args.load_model))
 
         for i in range(Model.FUTURE_CHUNKS):
-            model_path = path.join(args.load_model, '{}.pt'.format(i))
+            model_path = path.join(args.load_model, 'py-{}.pt'.format(i))
             if not path.isfile(model_path):
-                sys.exit('Error: model {} does not exist'.format(model_path))
+                sys.exit('Error: Python model {} does not exist'
+                         .format(model_path))
 
     if args.save_model:
         make_sure_path_exists(args.save_model)
 
         for i in range(Model.FUTURE_CHUNKS):
-            model_path = path.join(args.save_model, '{}.pt'.format(i))
+            model_path = path.join(args.save_model, 'py-{}.pt'.format(i))
             if path.isfile(model_path):
-                sys.exit('Error: model {} already exists'.format(model_path))
+                sys.exit('Error: Python model {} already exists'
+                         .format(model_path))
+
+            model_path = path.join(args.save_model, 'cpp-{}.pt'.format(i))
+            if path.isfile(model_path):
+                sys.exit('Error: C++ model {} already exists'
+                         .format(model_path))
+
+            meta_path = path.join(args.save_model, 'cpp-meta-{}.pt'.format(i))
+            if path.isfile(meta_path):
+                sys.exit('Error: meta {} already exists'.format(meta_path))
 
     if args.inference:
         if not args.load_model:
@@ -552,9 +574,17 @@ def train_or_eval_model(i, args, raw_in_data, raw_out_data):
         losses = train(i, model, input_data, output_data)
 
         if args.save_model:
-            model_path = path.join(args.save_model, '{}.pt'.format(i))
+            model_path = path.join(args.save_model, 'py-{}.pt'.format(i))
             model.save(model_path)
-            sys.stderr.write('[{}] Saved model to {}\n'.format(i, model_path))
+            sys.stderr.write('[{}] Saved model for Python to {}\n'
+                             .format(i, model_path))
+
+            model_path = path.join(args.save_model, 'cpp-{}.pt'.format(i))
+            meta_path = path.join(args.save_model, 'cpp-meta-{}.json'.format(i))
+            model.save_cpp_model(model_path, meta_path)
+            sys.stderr.write('[{}] Saved model for C++ to {} and {}\n'
+                             .format(i, model_path, meta_path))
+
 
         plot_loss(losses, 'loss{}.png'.format(i))
 
