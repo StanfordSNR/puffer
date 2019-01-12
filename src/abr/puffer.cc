@@ -5,7 +5,6 @@
 
 #include "ws_client.hh"
 #include "json.hpp"
-#include "torch/script.h"
 
 using namespace std;
 using json = nlohmann::json;
@@ -28,37 +27,14 @@ Puffer::Puffer(const WebSocketClient & client,
     ssim_diff_coeff_ = abr_config["ssim_diff_coeff"].as<double>();
   }
 
-  /* load neural networks */
-  if (abr_config["model_dir"]) {
-    fs::path model_dir = abr_config["model_dir"].as<string>();
-
-    for (size_t i = 0; i < MAX_LOOKAHEAD_HORIZON; i++) {
-      // load PyTorch models
-      string model_path = model_dir / ("cpp-" + to_string(i) + ".pt");
-      shared_ptr<torch::jit::script::Module> module = torch::jit::load(model_path.c_str());
-      if (not module) {
-        throw runtime_error("Model " + model_path + " does not exist");
-      }
-
-      // load normalization weights
-      ifstream ifs(model_dir / ("cpp-meta-" + to_string(i) + ".json"));
-      json j = json::parse(ifs);
-
-      obs_mean_[i] = j.at("obs_mean").get<vector<double>>();
-      obs_std_[i] = j.at("obs_std").get<vector<double>>();
-    }
-  } else {
-    throw runtime_error("Puffer requires specifying model_dir in abr_config");
-  }
-
   dis_buf_length_ = min(dis_buf_length_,
                         discretize_buffer(WebSocketClient::MAX_BUFFER_S));
 }
 
 void Puffer::video_chunk_acked(const VideoFormat & format,
-                            const double ssim,
-                            const unsigned int size,
-                            const uint64_t trans_time)
+                               const double ssim,
+                               const unsigned int size,
+                               const uint64_t trans_time)
 {
   past_chunks_.push_back({format, ssim, size, trans_time});
   if (past_chunks_.size() > max_num_past_chunks_) {
@@ -190,18 +166,4 @@ double Puffer::get_value(size_t i, size_t curr_buffer, size_t curr_format)
 size_t Puffer::discretize_buffer(double buf)
 {
   return (buf + unit_buf_length_ * 0.5) / unit_buf_length_;
-}
-
-void Puffer::normalize_in_place(size_t i, vector<double> & input)
-{
-  assert(input.size() == obs_mean_[i].size());
-  assert(input.size() == obs_std_[i].size());
-
-  for (size_t j = 0; j < input.size(); j++) {
-    input[j] -= obs_mean_[i][j];
-
-    if (obs_std_[i][j] != 0) {
-      input[j] /= obs_std_[i][j];
-    }
-  }
 }

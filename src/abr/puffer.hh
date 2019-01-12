@@ -65,10 +65,6 @@ protected:
   /* denote whether a chunk is abandoned */
   bool is_ban_[MAX_LOOKAHEAD_HORIZON + 1][MAX_NUM_FORMATS] {};
 
-  /* stats of training data used for normalization */
-  std::vector<double> obs_mean_[MAX_LOOKAHEAD_HORIZON];
-  std::vector<double> obs_std_[MAX_LOOKAHEAD_HORIZON];
-
   void reinit();
   virtual void reinit_sending_time() {};
 
@@ -84,8 +80,6 @@ protected:
 
   /* discretize the buffer length */
   size_t discretize_buffer(double buf);
-
-  void normalize_in_place(size_t i, std::vector<double> & input);
 };
 
 #endif /* PUFFER_HH */
