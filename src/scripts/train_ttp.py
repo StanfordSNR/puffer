@@ -37,7 +37,6 @@ class Model:
     DIM_H = 40
     WEIGHT_DECAY = 1e-3
     LEARNING_RATE = 1e-3
-    SMALLER_LEARNING_RATE = 1e-4
 
     def __init__(self, model_path=None):
         # define model, loss function, and optimizer
@@ -47,31 +46,13 @@ class Model:
             torch.nn.Linear(Model.DIM_H, Model.DIM_OUT),
         ).double().to(device=DEVICE)
         self.loss_fn = torch.nn.CrossEntropyLoss().to(device=DEVICE)
+        self.optimizer = torch.optim.Adam(self.model.parameters(),
+                                          lr=Model.LEARNING_RATE,
+                                          weight_decay=Model.WEIGHT_DECAY)
 
-        # load model
-        if model_path:
-            self.first_training = False
-
-            checkpoint = torch.load(model_path)
-            self.model.load_state_dict(checkpoint['model_state_dict'])
-
-            self.obs_size = checkpoint['obs_size']
-            self.obs_mean = checkpoint['obs_mean']
-            self.obs_std = checkpoint['obs_std']
-
-            self.optimizer = torch.optim.SGD(self.model.parameters(),
-                                             lr=Model.SMALLER_LEARNING_RATE,
-                                             weight_decay=Model.WEIGHT_DECAY)
-        else:
-            self.first_training = True
-
-            self.obs_size = None
-            self.obs_mean = None
-            self.obs_std = None
-
-            self.optimizer = torch.optim.Adam(self.model.parameters(),
-                                              lr=Model.LEARNING_RATE,
-                                              weight_decay=Model.WEIGHT_DECAY)
+        self.obs_size = None
+        self.obs_mean = None
+        self.obs_std = None
 
     def set_model_train(self):
         self.model.train()
@@ -167,6 +148,14 @@ class Model:
             correct += (y_predicted == y).sum().item()
 
         return correct / total
+
+    def load(self, model_path):
+        checkpoint = torch.load(model_path)
+        self.model.load_state_dict(checkpoint['model_state_dict'])
+
+        self.obs_size = checkpoint['obs_size']
+        self.obs_mean = checkpoint['obs_mean']
+        self.obs_std = checkpoint['obs_std']
 
     def save(self, model_path):
         torch.save({
@@ -491,7 +480,7 @@ def train(i, model, input_data, output_data):
     # number of batches
     num_batches = int(np.ceil(num_training / BATCH_SIZE))
 
-    num_epochs = 500 if model.first_training else 10
+    num_epochs = 500
     sys.stderr.write('[{}] total epochs: {}\n'.format(i, num_epochs))
 
     # loop over the entire dataset multiple times
@@ -544,12 +533,13 @@ def train(i, model, input_data, output_data):
 
 
 def train_or_eval_model(i, args, raw_in_data, raw_out_data):
+    # create or load a model
+    model = Model()
     if args.load_model:
-        model_path = path.join(args.load_model, '{}.pt'.format(i))
-        model = Model(model_path)
+        model_path = path.join(args.load_model, 'py-{}.pt'.format(i))
+        model.load(model_path)
         sys.stderr.write('[{}] Loaded model from {}\n'.format(i, model_path))
     else:
-        model = Model()
         sys.stderr.write('[{}] Created a new model\n'.format(i))
 
     # normalize input data
