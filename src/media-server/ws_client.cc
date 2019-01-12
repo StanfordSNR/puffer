@@ -99,7 +99,11 @@ void WebSocketClient::video_chunk_acked(const VideoFormat & format,
                                         const uint64_t transmission_time)
 {
   try {
-    abr_algo_->video_chunk_acked(format, ssim, chunk_size, transmission_time);
+    assert(tcp_info_);
+
+    abr_algo_->video_chunk_acked({format, ssim, chunk_size, transmission_time,
+      (*tcp_info_).cwnd, (*tcp_info_).in_flight, (*tcp_info_).min_rtt,
+      (*tcp_info_).rtt, (*tcp_info_).delivery_rate});
   } catch (const exception & e) {
     print_exception("video_chunk_acked", e);
     throw runtime_error("Error: video_chunk_acked failed with " + abr_name_);

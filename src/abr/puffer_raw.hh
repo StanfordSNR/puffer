@@ -18,7 +18,6 @@ private:
   double st_var_coeff_ {ST_VAR_COEFF};
 
   void reinit_sending_time() override;
-
 };
 
 #endif /* PUFFERRAW_HH */

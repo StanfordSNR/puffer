@@ -35,12 +35,9 @@ MPCSearch::MPCSearch(const WebSocketClient & client,
   }
 }
 
-void MPCSearch::video_chunk_acked(const VideoFormat & format,
-                                  const double ssim,
-                                  const unsigned int size,
-                                  const uint64_t trans_time)
+void MPCSearch::video_chunk_acked(Chunk && c)
 {
-  past_chunks_.push_back({format, ssim, size, trans_time});
+  past_chunks_.push_back(c);
   if (past_chunks_.size() > max_num_past_chunks_) {
     past_chunks_.pop_front();
   }

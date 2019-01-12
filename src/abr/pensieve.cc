@@ -53,11 +53,11 @@ Pensieve::~Pensieve()
   }
 }
 
-void Pensieve::video_chunk_acked(const VideoFormat &,
-                                 const double,
-                                 const unsigned int size, // bytes
-                                 const uint64_t trans_time) // ms
+void Pensieve::video_chunk_acked(Chunk && c)
 {
+  const unsigned int size = c.size; // bytes
+  const uint64_t trans_time = c.trans_time; // ms
+
   const auto & channel = client_.channel();
   const auto & vformats = channel->vformats();
   size_t vformats_cnt = vformats.size();

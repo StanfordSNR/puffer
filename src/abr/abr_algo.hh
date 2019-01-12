@@ -10,18 +10,20 @@ class ABRAlgo
 {
 public:
   struct Chunk {
-    VideoFormat format;
-    double ssim;
-    unsigned int size;
+    VideoFormat format;   /* chunk format */
+    double ssim;          /* chunk ssim */
+    unsigned int size;    /* chunk size */
     uint64_t trans_time;  /* transmission time */
+    uint32_t cwnd;        /* congestion window (packets) */
+    uint32_t in_flight;   /* packets "in flight" */
+    uint32_t min_rtt;     /* minimum RTT in microsecond */
+    uint32_t rtt;         /* RTT in microsecond */
+    uint64_t delivery_rate;  /* bytes per second */
   };
 
   virtual ~ABRAlgo() {}
 
-  virtual void video_chunk_acked(const VideoFormat & /* chunk format */,
-                                 const double /* chunk ssim */,
-                                 const unsigned int /* chunk size */,
-                                 const uint64_t /* transmission time */) {}
+  virtual void video_chunk_acked(Chunk &&) {}
   virtual VideoFormat select_video_format() = 0;
 
   /* accessors */

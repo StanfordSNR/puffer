@@ -12,10 +12,7 @@ public:
   Puffer(const WebSocketClient & client,
          const std::string & abr_name, const YAML::Node & abr_config);
 
-  void video_chunk_acked(const VideoFormat & format,
-                         const double ssim,
-                         const unsigned int size,
-                         const uint64_t trans_time) override;
+  void video_chunk_acked(Chunk && c) override;
   VideoFormat select_video_format() override;
 
 protected:
