@@ -47,14 +47,16 @@ def collect_ssim(video_acked_results, postgres_cursor):
             ssim_index = float(pt['ssim_index'])
             x[abr_cc].append(ssim_index)
 
-    # calculate average SSIM in dB
+    # calculate average SSIM in dB and record number of chunks
     ssim = {}
+    num_chunks = {}
     for abr_cc in x:
+        num_chunks[abr_cc] = len(x[abr_cc])
         avg_ssim_index = np.mean(x[abr_cc])
         avg_ssim_db = ssim_index_to_db(avg_ssim_index)
         ssim[abr_cc] = avg_ssim_db
 
-    return ssim
+    return ssim, num_chunks
 
 
 def collect_rebuffer(client_buffer_results, postgres_cursor):
@@ -68,7 +70,8 @@ def collect_rebuffer(client_buffer_results, postgres_cursor):
         if abr_cc not in x:
             x[abr_cc] = {}
 
-        session = (pt['user'], pt['init_id'])
+        session = (pt['user'], int(pt['init_id']),
+                   pt['channel'], int(pt['expt_id']))
         if session not in x[abr_cc]:
             x[abr_cc][session] = {}
             x[abr_cc][session]['min_time'] = None
@@ -112,7 +115,7 @@ def collect_rebuffer(client_buffer_results, postgres_cursor):
     return rebuffer
 
 
-def plot_ssim_rebuffer(ssim, rebuffer, output, days):
+def plot_ssim_rebuffer(ssim, num_chunks, rebuffer, output, days):
     time_str = '%Y-%m-%d'
     curr_ts = datetime.utcnow()
     start_ts = curr_ts - timedelta(days=days)
@@ -133,6 +136,9 @@ def plot_ssim_rebuffer(ssim, rebuffer, output, days):
         if abr_cc not in rebuffer:
             sys.exit('Error: {} does not exist both ssim and rebuffer'
                      .format(abr_cc_str))
+
+        total_duration = (num_chunks[abr_cc] * 2.002) / 3600
+        abr_cc_str += '\n({:.1f}h)'.format(total_duration)
 
         x = rebuffer[abr_cc]
         y = ssim[abr_cc]
@@ -179,14 +185,14 @@ def main():
     postgres_cursor = postgres_client.cursor()
 
     # collect ssim and rebuffer
-    ssim = collect_ssim(video_acked_results, postgres_cursor)
+    ssim, num_chunks = collect_ssim(video_acked_results, postgres_cursor)
     rebuffer = collect_rebuffer(client_buffer_results, postgres_cursor)
 
     if not ssim or not rebuffer:
         sys.exit('Error: no data found in the queried range')
 
     # plot ssim vs rebuffer
-    plot_ssim_rebuffer(ssim, rebuffer, output, days)
+    plot_ssim_rebuffer(ssim, num_chunks, rebuffer, output, days)
 
     postgres_cursor.close()
 
