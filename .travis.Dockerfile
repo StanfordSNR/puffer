@@ -8,7 +8,7 @@ RUN apt-get install -y -q gcc-7 g++-7 libmpeg2-4-dev libpq-dev \
                           libssl-dev libcrypto++-dev libyaml-cpp-dev \
                           libboost-dev liba52-dev opus-tools libopus-dev \
                           libsndfile-dev libavformat-dev libavutil-dev ffmpeg \
-                          git automake libtool python python3 cmake
+                          git automake libtool python python3 cmake wget
 
 RUN update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-7 99
 RUN update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-7 99
