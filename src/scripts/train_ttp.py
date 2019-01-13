@@ -22,6 +22,7 @@ MILLION = 1000000
 
 # training related
 BATCH_SIZE = 64
+NUM_EPOCHS = 100
 
 TUNING = False
 DEVICE = torch.device('cpu')
@@ -477,14 +478,13 @@ def train(i, model, input_data, output_data):
                          .format(i, num_training))
 
     train_losses = []
+
     # number of batches
     num_batches = int(np.ceil(num_training / BATCH_SIZE))
-
-    num_epochs = 500
-    sys.stderr.write('[{}] total epochs: {}\n'.format(i, num_epochs))
+    sys.stderr.write('[{}] total epochs: {}\n'.format(i, NUM_EPOCHS))
 
     # loop over the entire dataset multiple times
-    for epoch_id in range(num_epochs):
+    for epoch_id in range(NUM_EPOCHS):
         # permutate data in each epoch
         perm_indices = np.random.permutation(range(num_training))
 
@@ -533,6 +533,10 @@ def train(i, model, input_data, output_data):
 
 
 def train_or_eval_model(i, args, raw_in_data, raw_out_data):
+    # reduce number of threads as we're running FUTURE_CHUNKS parallel processes
+    num_threads = int(torch.get_num_threads() / Model.FUTURE_CHUNKS)
+    torch.set_num_threads(num_threads)
+
     # create or load a model
     model = Model()
     if args.load_model:
