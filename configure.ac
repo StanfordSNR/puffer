@@ -59,7 +59,6 @@ AC_CONFIG_FILES([
     src/net/Makefile
     src/notifier/Makefile
     src/atsc/Makefile
-    src/opus-encoder/Makefile
     src/forwarder/Makefile
     src/mp4/Makefile
     src/webm/Makefile
@@ -69,6 +68,7 @@ AC_CONFIG_FILES([
     src/time/Makefile
     src/monitoring/Makefile
     src/wrappers/Makefile
+    src/opus-encoder/Makefile
     src/media-server/Makefile
     src/tests/Makefile
 ])
