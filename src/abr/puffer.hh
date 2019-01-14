@@ -78,6 +78,9 @@ protected:
 
   /* discretize the buffer length */
   size_t discretize_buffer(double buf);
+
+  /* deal with the situation when all formats are banned */
+  void deal_all_ban(size_t i);
 };
 
 #endif /* PUFFER_HH */

@@ -104,6 +104,31 @@ void Puffer::reinit()
   reinit_sending_time();
 }
 
+void Puffer::deal_all_ban(size_t i)
+{
+  double min_v = 0;
+  size_t min_id = num_formats_;
+
+  for (size_t j = 0; j < num_formats_; j++) {
+    double tmp = curr_sizes_[i][j];
+    if (tmp > 0 and (min_id == num_formats_ or min_v > tmp)) {
+      min_v = curr_sizes_[i][j];
+      min_id = j;
+    }
+  }
+
+  if (min_id == num_formats_) {
+    min_id = 0;
+  }
+
+  is_ban_[i][min_id] = false;
+  for (size_t k = 0; k < dis_sending_time_; k++) {
+     sending_time_prob_[i][min_id][k] = 0;
+  }
+
+  sending_time_prob_[i][min_id][dis_sending_time_] = 1;
+}
+
 size_t Puffer::update_value(size_t i, size_t curr_buffer, size_t curr_format)
 {
   flag_[i][curr_buffer][curr_format] = curr_round_;

@@ -18,7 +18,6 @@ void PufferRaw::reinit_sending_time()
   static double st_prob[MAX_DIS_SENDING_TIME + 1];
 
   size_t num_past_chunks = past_chunks_.size();
-
   auto it = past_chunks_.begin();
 
   for (size_t i = 1; it != past_chunks_.end(); it++, i++) {
@@ -84,29 +83,8 @@ void PufferRaw::reinit_sending_time()
       }
     }
 
-    /* Choose the format with smallest size when all formats are banned */
     if (is_all_ban) {
-      double min_st = 0, st;
-      size_t min_id = num_formats_;
-
-      for (size_t j = 0; j < num_formats_; j++) {
-        if (curr_sizes_[i][j] > 0) {
-          st = curr_sizes_[i][j] * unit_st[i + num_past_chunks];
-        } else {
-          st = HIGH_SENDING_TIME;
-        }
-
-        if (min_id == num_formats_ or min_st > st) {
-          min_st = st;
-          min_id = j;
-        }
-      }
-
-      is_ban_[i][min_id] = false;
-      for (size_t k = 0; k < dis_sending_time_; k++) {
-        sending_time_prob_[i][min_id][k] = 0;
-      }
-      sending_time_prob_[i][min_id][dis_sending_time_] = 1;
+      deal_all_ban(i);
     }
   }
 }
