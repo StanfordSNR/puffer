@@ -17,10 +17,6 @@ void PufferRaw::reinit_sending_time()
   static double unit_st[MAX_LOOKAHEAD_HORIZON + 1 + MAX_NUM_PAST_CHUNKS];
   static double st_prob[MAX_DIS_SENDING_TIME + 1];
 
-  const auto & channel = client_.channel();
-  const auto & vformats = channel->vformats();
-  const unsigned int vduration = channel->vduration();
-  const uint64_t next_ts = client_.next_vts().value();
   size_t num_past_chunks = past_chunks_.size();
 
   auto it = past_chunks_.begin();
@@ -42,17 +38,15 @@ void PufferRaw::reinit_sending_time()
       unit_st[i + num_past_chunks] = HIGH_SENDING_TIME;
     }
 
-    const auto & data_map = channel->vdata(next_ts + vduration * (i - 1));
     double st;
     bool is_all_ban = true;
 
     for (size_t j = 0; j < num_formats_; j++) {
-      try {
-        st = get<1>(data_map.at(vformats[j])) * unit_st[i + num_past_chunks];
-      } catch (const exception & e) {
-        cerr << "Error occurs when getting the video size of "
-             << next_ts + vduration * (i - 1) << " " << vformats[j] << endl;
-        st = HIGH_SENDING_TIME;
+      if (curr_sizes_[i][j] > 0) {
+        st = curr_sizes_[i][j] * unit_st[i + num_past_chunks];
+      } else {
+        is_ban_[i][j] = true;
+        continue;
       }
 
       size_t dis_st = min(discretize_buffer(st), dis_sending_time_);
@@ -96,13 +90,12 @@ void PufferRaw::reinit_sending_time()
       size_t min_id = num_formats_;
 
       for (size_t j = 0; j < num_formats_; j++) {
-        try {
-          st = get<1>(data_map.at(vformats[j])) * unit_st[i + num_past_chunks];
-        } catch (const exception & e) {
-          cerr << "Error occurs when getting the video size of "
-               << next_ts + vduration * (i - 1) << " " << vformats[j] << endl;
+        if (curr_sizes_[i][j] > 0) {
+          st = curr_sizes_[i][j] * unit_st[i + num_past_chunks];
+        } else {
           st = HIGH_SENDING_TIME;
         }
+
         if (min_id == num_formats_ or min_st > st) {
           min_st = st;
           min_id = j;

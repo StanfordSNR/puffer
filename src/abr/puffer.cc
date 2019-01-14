@@ -77,7 +77,9 @@ void Puffer::reinit()
     curr_ssims_[0][0] = 0;
   }
 
-  for (size_t i = 1; i <= dis_buf_length_; i++) {
+  for (size_t i = 1; i <= lookahead_horizon_; i++) {
+    const auto & data_map = channel->vdata(next_ts + vduration * (i - 1));
+
     for (size_t j = 0; j < num_formats_; j++) {
       try {
         curr_ssims_[i][j] = channel->vssim(vformats[j],
@@ -86,6 +88,14 @@ void Puffer::reinit()
         cerr << "Error occurs when getting the ssim of "
              << next_ts + vduration * (i - 1) << " " << vformats[j] << endl;
         curr_ssims_[i][j] = 0;
+      }
+
+      try {
+        curr_sizes_[i][j] = get<1>(data_map.at(vformats[j]));
+      } catch (const exception & e) {
+        cerr << "Error occurs when getting the sizes of "
+             << next_ts + vduration * (i - 1) << " " << vformats[j] << endl;
+        curr_sizes_[i][j] = -1;
       }
     }
   }

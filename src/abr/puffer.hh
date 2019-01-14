@@ -22,8 +22,8 @@ protected:
   static constexpr double REBUFFER_LENGTH_COEFF = 100;
   static constexpr double SSIM_DIFF_COEFF = 1;
   static constexpr size_t MAX_NUM_FORMATS = 20;
-  static constexpr double UNIT_BUF_LENGTH = 0.25;
-  static constexpr size_t MAX_DIS_SENDING_TIME = 40;
+  static constexpr double UNIT_BUF_LENGTH = 0.5;
+  static constexpr size_t MAX_DIS_SENDING_TIME = 20;
   static constexpr double ST_PROB_EPS = 1e-5;
 
   /* past chunks and max number of them */
@@ -52,8 +52,9 @@ protected:
   /* record the current round of DP */
   uint64_t curr_round_ {};
 
-  /* the ssim of the chunk given the timestamp and format */
+  /* the ssim and size of the chunk given the timestamp and format */
   double curr_ssims_[MAX_LOOKAHEAD_HORIZON + 1][MAX_NUM_FORMATS] {};
+  int curr_sizes_[MAX_LOOKAHEAD_HORIZON + 1][MAX_NUM_FORMATS] {};
 
   /* the estimation of sending time given the timestamp and format */
   double sending_time_prob_[MAX_LOOKAHEAD_HORIZON + 1][MAX_NUM_FORMATS]
