@@ -12,6 +12,10 @@ public:
   PufferTTP(const WebSocketClient & client,
             const std::string & abr_name, const YAML::Node & abr_config);
 private:
+  static constexpr double BAN_PROB_ = 0.5;
+
+  double ban_prob_ {BAN_PROB_};
+
   std::shared_ptr<torch::jit::script::Module> ttp_modules_[MAX_LOOKAHEAD_HORIZON];
 
   /* stats of training data used for normalization */
@@ -20,6 +24,8 @@ private:
 
   /* preprocess the data */
   void normalize_in_place(size_t i, std::vector<double> & input);
+
+  void reinit_sending_time() override;
 };
 
 #endif /* PUFFERTTP_HH */

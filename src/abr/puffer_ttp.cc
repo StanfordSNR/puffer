@@ -4,6 +4,9 @@
 
 using namespace std;
 
+const size_t TTP_INPUT_DIM = 62;
+const size_t TTP_CURR_DIFF_POS = 5;
+
 PufferTTP::PufferTTP(const WebSocketClient & client,
                      const string & abr_name, const YAML::Node & abr_config)
   : Puffer(client, abr_name, abr_config)
@@ -42,6 +45,114 @@ void PufferTTP::normalize_in_place(size_t i, vector<double> & input)
 
     if (obs_std_[i][j] != 0) {
       input[j] /= obs_std_[i][j];
+    }
+  }
+}
+
+void PufferTTP::reinit_sending_time()
+{
+  assert(client_.tcp_info());
+
+  /* prepare the raw inputs for ttp */
+  auto curr_tcp_info = client_.tcp_info().value();
+  vector<double> raw_input {(double) curr_tcp_info.delivery_rate,
+                            (double) curr_tcp_info.cwnd,
+                            (double) curr_tcp_info.in_flight,
+                            (double) curr_tcp_info.min_rtt,
+                            (double) curr_tcp_info.rtt,
+                            0};
+
+  size_t num_past_chunks = past_chunks_.size();
+
+  if (num_past_chunks == 0) {
+    for (size_t i = 0; i < max_num_past_chunks_; i++) {
+      raw_input.insert(raw_input.end(), {
+        (double) curr_tcp_info.delivery_rate,
+        (double) curr_tcp_info.cwnd,
+        (double) curr_tcp_info.in_flight,
+        (double) curr_tcp_info.min_rtt,
+        (double) curr_tcp_info.rtt,
+        0, 0});
+    }
+  } else {
+    auto it = past_chunks_.begin();
+
+    for (size_t i = 0; i < max_num_past_chunks_; i++) {
+      raw_input.insert(raw_input.end(), {(double) it->delivery_rate,
+                                         (double) it->cwnd,
+                                         (double) it->in_flight,
+                                         (double) it->min_rtt,
+                                         (double) it->rtt,
+                                         (double) it->size,
+                                         (double) it->trans_time});
+      if (next(it, 1) != past_chunks_.end()) {
+        it++;
+      }
+    }
+  }
+
+  assert(raw_input.size() == TTP_INPUT_DIM);
+
+  for (size_t i = 1; i <= lookahead_horizon_; i++) {
+    /* prepare the inputs for each ahead timestamp and format */
+    static double inputs[MAX_NUM_FORMATS * TTP_INPUT_DIM];
+
+    for (size_t j = 0; j < num_formats_; j++) {
+      raw_input[TTP_CURR_DIFF_POS] = curr_sizes_[i][j];
+
+      vector<double> norm_input {raw_input};
+
+      normalize_in_place(i - 1, norm_input);
+      for (size_t k = 0; k < TTP_INPUT_DIM; k++) {
+        inputs[j * TTP_INPUT_DIM + k] = norm_input[k];
+      }
+    }
+
+    /* feed in the input batch and get the output batch */
+    vector<torch::jit::IValue> torch_inputs;
+
+    torch_inputs.push_back(torch::from_blob(inputs,
+                           {(int) num_formats_, TTP_INPUT_DIM}, torch::kF64));
+
+    at::Tensor output = torch::softmax(ttp_modules_[i - 1]->forward(torch_inputs)
+                                       .toTensor(), 1);
+
+    assert((size_t) output.sizes()[1] > dis_sending_time_);
+
+    /* extract distribution from the output */
+    bool is_all_ban = true;
+
+    for (size_t j = 0; j < num_formats_; j++) {
+      if (curr_sizes_[i][j] < 0) {
+        is_ban_[i][j] = true;
+        continue;
+      }
+
+      double good_prob = 0;
+
+      for (size_t k = 0; k < dis_sending_time_; k++) {
+        double tmp = output[j][k].item<double>();
+
+        if (tmp < st_prob_eps_) {
+          continue;
+        }
+
+        sending_time_prob_[i][j][k] = tmp;
+        good_prob += tmp;
+      }
+
+      sending_time_prob_[i][j][dis_sending_time_] = 1 - good_prob;
+
+      if (good_prob < ban_prob_) {
+        is_ban_[i][j] = true;
+      } else {
+        is_ban_[i][j] = false;
+        is_all_ban = false;
+      }
+    }
+
+    if (is_all_ban) {
+      deal_all_ban(i);
     }
   }
 }

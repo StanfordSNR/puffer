@@ -16,7 +16,7 @@ public:
   VideoFormat select_video_format() override;
 
 protected:
-  static constexpr size_t MAX_NUM_PAST_CHUNKS = 10;
+  static constexpr size_t MAX_NUM_PAST_CHUNKS = 8;
   static constexpr size_t MAX_LOOKAHEAD_HORIZON = 5;
   static constexpr size_t MAX_DIS_BUF_LENGTH = 100;
   static constexpr double REBUFFER_LENGTH_COEFF = 100;
