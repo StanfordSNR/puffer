@@ -13,7 +13,9 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
-from helpers import connect_to_influxdb, try_parsing_time, make_sure_path_exists
+from helpers import (
+    connect_to_influxdb, connect_to_postgres, try_parsing_time,
+    make_sure_path_exists, retrieve_expt_config)
 
 
 VIDEO_DURATION = 180180
@@ -26,6 +28,9 @@ NUM_EPOCHS = 100
 
 TUNING = False
 DEVICE = torch.device('cpu')
+
+# cache of Postgres data: experiment 'id' -> json 'data' of the experiment
+expt_id_cache = {}
 
 
 class Model:
@@ -266,13 +271,22 @@ def get_ssim_index(pt):
     return None
 
 
-def calculate_trans_times(video_sent_results, video_acked_results):
+def calculate_trans_times(video_sent_results, video_acked_results,
+                          cc, postgres_cursor):
     d = {}
     last_video_ts = {}
 
     for pt in video_sent_results['video_sent']:
+        expt_id = int(pt['expt_id'])
         session = (pt['user'], int(pt['init_id']),
-                   pt['channel'], int(pt['expt_id']))
+                   pt['channel'], expt_id)
+
+        # filter data points by congestion control
+        expt_config = retrieve_expt_config(expt_id, expt_id_cache,
+                                           postgres_cursor)
+        if expt_config['cc'] != cc:
+            continue
+
         if session not in d:
             d[session] = {}
             last_video_ts[session] = None
@@ -301,8 +315,16 @@ def calculate_trans_times(video_sent_results, video_acked_results):
         # dsv['ssim_index'] = get_ssim_index(pt)
 
     for pt in video_acked_results['video_acked']:
+        expt_id = int(pt['expt_id'])
         session = (pt['user'], int(pt['init_id']),
-                   pt['channel'], int(pt['expt_id']))
+                   pt['channel'], expt_id)
+
+        # filter data points by congestion control
+        expt_config = retrieve_expt_config(expt_id, expt_id_cache,
+                                           postgres_cursor)
+        if expt_config['cc'] != cc:
+            continue
+
         if session not in d:
             sys.stderr.write('Warning: ignored session {}\n'.format(session))
             continue
@@ -324,7 +346,7 @@ def calculate_trans_times(video_sent_results, video_acked_results):
     return d
 
 
-def prepare_raw_data(yaml_settings_path, time_start, time_end):
+def prepare_raw_data(yaml_settings_path, time_start, time_end, cc):
     with open(yaml_settings_path, 'r') as fh:
         yaml_settings = yaml.safe_load(fh)
 
@@ -349,8 +371,16 @@ def prepare_raw_data(yaml_settings_path, time_start, time_end):
     if not video_acked_results:
         sys.exit('Error: no results returned from query: ' + video_acked_query)
 
+    # create a client connected to Postgres
+    postgres_client = connect_to_postgres(yaml_settings)
+    postgres_cursor = postgres_client.cursor()
+
     # calculate chunk transmission times
-    return calculate_trans_times(video_sent_results, video_acked_results)
+    ret = calculate_trans_times(video_sent_results, video_acked_results,
+                                cc, postgres_cursor)
+
+    postgres_cursor.close()
+    return ret
 
 
 def append_past_chunks(ds, next_ts, row):
@@ -595,6 +625,7 @@ def main():
                         help='datetime in UTC conforming to RFC3339')
     parser.add_argument('--to', dest='time_end',
                         help='datetime in UTC conforming to RFC3339')
+    parser.add_argument('--cc', help='filter input data by congestion control')
     parser.add_argument('--load-model',
         help='folder to load {:d} models from'.format(Model.FUTURE_CHUNKS))
     parser.add_argument('--save-model',
@@ -609,7 +640,7 @@ def main():
 
     # query InfluxDB and retrieve raw data
     raw_data = prepare_raw_data(args.yaml_settings,
-                                args.time_start, args.time_end)
+                                args.time_start, args.time_end, args.cc)
 
     # collect input and output data from raw data
     raw_in_out = prepare_input_output(raw_data)
