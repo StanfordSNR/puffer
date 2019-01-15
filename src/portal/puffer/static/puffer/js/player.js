@@ -235,6 +235,11 @@ function ChannelBar() {
 
 
 function get_client_system_info() {
+  var connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+    var connectionType = "Unknown";
+  if (connection) {
+    connectionType = connection.effectiveType;
+  }
   /* Below code adapted from https://stackoverflow.com/a/18706818 */
   var nAgt = navigator.userAgent;
   var browser = navigator.appName;
@@ -320,7 +325,8 @@ function get_client_system_info() {
   }
   return {
     os: os,
-    browser: browser
+    browser: browser,
+    connectionType: connectionType
   };
 }
 

@@ -12,6 +12,7 @@ ClientInitMsg::ClientInitMsg(const json & msg)
 
   os = msg.at("os").get<string>();
   browser = msg.at("browser").get<string>();
+  connection_type = msg.at("connectionType").get<string>();
 
   screen_width = msg.at("screenWidth").get<uint16_t>();
   screen_height = msg.at("screenHeight").get<uint16_t>();

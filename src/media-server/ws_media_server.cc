@@ -745,6 +745,7 @@ int run_websocket_server(pqxx::nontransaction & db_work)
               /* set client's system info (OS, browser and screen size) */
               client.set_os(msg.os);
               client.set_browser(msg.browser);
+              client.set_connection_type(msg.connection_type);
               client.set_screen_size(msg.screen_width, msg.screen_height);
 
               /* record system information */
@@ -752,7 +753,7 @@ int run_websocket_server(pqxx::nontransaction & db_work)
                 string log_line = to_string(timestamp_ms()) + "," + expt_id
                   + "," + server_id + "," + client.username() + ","
                   + to_string(msg.init_id) + "," + client.address().ip() + ","
-                  + msg.os + "," + msg.browser + ","
+                  + msg.os + "," + msg.browser + "," + msg.connection_type + ","
                   + to_string(msg.screen_width) + ","
                   + to_string(msg.screen_height);
                 append_to_log("client_sysinfo", log_line);

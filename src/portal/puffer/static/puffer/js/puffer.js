@@ -456,6 +456,7 @@ function WebSocketClient(session_key, username_in, settings_debug,
       channel: channel,
       os: sysinfo.os,
       browser: sysinfo.browser,
+      connectionType: sysinfo.connectionType,
       screenWidth: screen_width,
       screenHeight: screen_height
     };

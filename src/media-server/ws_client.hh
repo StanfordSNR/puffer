@@ -55,6 +55,7 @@ public:
 
   std::string browser() const { return browser_; }
   std::string os() const { return os_; }
+  std::string connection_type() const { return connection_type_; }
   Address address() const { return address_; }
 
   uint16_t screen_width() const { return screen_width_; }
@@ -91,6 +92,7 @@ public:
 
   void set_browser(const std::string & browser) { browser_ = browser; }
   void set_os(const std::string & os) { os_ = os; }
+  void set_connection_type(const std::string & connection_type) { connection_type_ = connection_type; }
   void set_address(const Address & address) { address_ = address; }
 
   void set_screen_size(const uint16_t screen_width, const uint16_t screen_height);
@@ -149,6 +151,7 @@ private:
   /* fields set in client-init */
   std::string browser_ {};
   std::string os_ {};
+  std::string connection_type_ {};
   Address address_ {};
 
   uint16_t screen_width_ {0xFFFF};

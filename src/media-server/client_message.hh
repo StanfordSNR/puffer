@@ -37,6 +37,7 @@ public:
   /* client OS, browser and screen information */
   std::string os {};
   std::string browser {};
+  std::string connection_type {};
 
   uint16_t screen_width {};
   uint16_t screen_height {};
