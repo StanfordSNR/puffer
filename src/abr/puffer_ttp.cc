@@ -1,11 +1,7 @@
 #include "puffer_ttp.hh"
 #include "ws_client.hh"
-#include "torch/script.h"
 
 using namespace std;
-
-const size_t TTP_INPUT_DIM = 62;
-const size_t TTP_CURR_DIFF_POS = 5;
 
 PufferTTP::PufferTTP(const WebSocketClient & client,
                      const string & abr_name, const YAML::Node & abr_config)
@@ -51,10 +47,8 @@ void PufferTTP::normalize_in_place(size_t i, vector<double> & input)
 
 void PufferTTP::reinit_sending_time()
 {
-  assert(client_.tcp_info());
-
   /* prepare the raw inputs for ttp */
-  auto curr_tcp_info = client_.tcp_info().value();
+  const auto & curr_tcp_info = client_.tcp_info().value();
   vector<double> raw_input {(double) curr_tcp_info.delivery_rate,
                             (double) curr_tcp_info.cwnd,
                             (double) curr_tcp_info.in_flight,

@@ -1,5 +1,5 @@
-#ifndef PUFFERTTP_HH
-#define PUFFERTTP_HH
+#ifndef PUFFER_TTP_HH
+#define PUFFER_TTP_HH
 
 #include "puffer.hh"
 #include "torch/script.h"
@@ -13,6 +13,8 @@ public:
             const std::string & abr_name, const YAML::Node & abr_config);
 private:
   static constexpr double BAN_PROB_ = 0.5;
+  static constexpr size_t TTP_INPUT_DIM = 62;
+  static constexpr size_t TTP_CURR_DIFF_POS = 5;
 
   double ban_prob_ {BAN_PROB_};
 
@@ -28,4 +30,4 @@ private:
   void reinit_sending_time() override;
 };
 
-#endif /* PUFFERTTP_HH */
+#endif /* PUFFER_TTP_HH */

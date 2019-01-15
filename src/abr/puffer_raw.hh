@@ -1,5 +1,5 @@
-#ifndef PUFFERRAW_HH
-#define PUFFERRAW_HH
+#ifndef PUFFER_RAW_HH
+#define PUFFER_RAW_HH
 
 #include "puffer.hh"
 
@@ -20,4 +20,4 @@ private:
   void reinit_sending_time() override;
 };
 
-#endif /* PUFFERRAW_HH */
+#endif /* PUFFER_RAW_HH */
