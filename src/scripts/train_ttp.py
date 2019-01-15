@@ -21,7 +21,7 @@ PKT_BYTES = 1500
 MILLION = 1000000
 
 # training related
-BATCH_SIZE = 64
+BATCH_SIZE = 32
 NUM_EPOCHS = 100
 
 TUNING = False
@@ -35,16 +35,19 @@ class Model:
     BIN_SIZE = 0.5  # seconds
     BIN_MAX = 20
     DIM_OUT = BIN_MAX + 1
-    DIM_H = 40
-    WEIGHT_DECAY = 1e-3
-    LEARNING_RATE = 1e-3
+    DIM_H1 = 64
+    DIM_H2 = 64
+    WEIGHT_DECAY = 1e-4
+    LEARNING_RATE = 1e-4
 
     def __init__(self, model_path=None):
         # define model, loss function, and optimizer
         self.model = torch.nn.Sequential(
-            torch.nn.Linear(Model.DIM_IN, Model.DIM_H),
+            torch.nn.Linear(Model.DIM_IN, Model.DIM_H1),
             torch.nn.ReLU(),
-            torch.nn.Linear(Model.DIM_H, Model.DIM_OUT),
+            torch.nn.Linear(Model.DIM_H1, Model.DIM_H2),
+            torch.nn.ReLU(),
+            torch.nn.Linear(Model.DIM_H2, Model.DIM_OUT),
         ).double().to(device=DEVICE)
         self.loss_fn = torch.nn.CrossEntropyLoss().to(device=DEVICE)
         self.optimizer = torch.optim.Adam(self.model.parameters(),
