@@ -49,41 +49,42 @@ void PufferTTP::reinit_sending_time()
 {
   /* prepare the raw inputs for ttp */
   const auto & curr_tcp_info = client_.tcp_info().value();
-  vector<double> raw_input {(double) curr_tcp_info.delivery_rate,
-                            (double) curr_tcp_info.cwnd,
-                            (double) curr_tcp_info.in_flight,
-                            (double) curr_tcp_info.min_rtt,
-                            (double) curr_tcp_info.rtt,
-                            0};
+  vector<double> raw_input;
 
   size_t num_past_chunks = past_chunks_.size();
 
   if (num_past_chunks == 0) {
     for (size_t i = 0; i < max_num_past_chunks_; i++) {
       raw_input.insert(raw_input.end(), {
-        (double) curr_tcp_info.delivery_rate,
+        (double) curr_tcp_info.delivery_rate / PKT_BYTES,
         (double) curr_tcp_info.cwnd,
         (double) curr_tcp_info.in_flight,
-        (double) curr_tcp_info.min_rtt,
-        (double) curr_tcp_info.rtt,
+        (double) curr_tcp_info.min_rtt / MILLION,
+        (double) curr_tcp_info.rtt / MILLION,
         0, 0});
     }
   } else {
     auto it = past_chunks_.begin();
-
     for (size_t i = 0; i < max_num_past_chunks_; i++) {
-      raw_input.insert(raw_input.end(), {(double) it->delivery_rate,
+      raw_input.insert(raw_input.end(), {(double) it->delivery_rate / PKT_BYTES,
                                          (double) it->cwnd,
                                          (double) it->in_flight,
-                                         (double) it->min_rtt,
-                                         (double) it->rtt,
-                                         (double) it->size,
-                                         (double) it->trans_time});
-      if (next(it, 1) != past_chunks_.end()) {
+                                         (double) it->min_rtt / MILLION,
+                                         (double) it->rtt / MILLION,
+                                         (double) it->size / PKT_BYTES,
+                                         (double) it->trans_time / THOUSAND});
+      if (i + num_past_chunks >= max_num_past_chunks_) {
         it++;
       }
     }
   }
+
+  raw_input.insert(raw_input.end(), {(double) curr_tcp_info.delivery_rate / PKT_BYTES,
+                                     (double) curr_tcp_info.cwnd,
+                                     (double) curr_tcp_info.in_flight,
+                                     (double) curr_tcp_info.min_rtt / MILLION,
+                                     (double) curr_tcp_info.rtt / MILLION,
+                                     0});
 
   assert(raw_input.size() == TTP_INPUT_DIM);
 
@@ -92,8 +93,7 @@ void PufferTTP::reinit_sending_time()
     static double inputs[MAX_NUM_FORMATS * TTP_INPUT_DIM];
 
     for (size_t j = 0; j < num_formats_; j++) {
-      raw_input[TTP_CURR_DIFF_POS] = curr_sizes_[i][j];
-
+      raw_input[TTP_INPUT_DIM - 1] = (double) curr_sizes_[i][j] / PKT_BYTES;
       vector<double> norm_input {raw_input};
 
       normalize_in_place(i - 1, norm_input);

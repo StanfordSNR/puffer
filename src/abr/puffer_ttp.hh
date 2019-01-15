@@ -15,6 +15,9 @@ private:
   static constexpr double BAN_PROB_ = 0.5;
   static constexpr size_t TTP_INPUT_DIM = 62;
   static constexpr size_t TTP_CURR_DIFF_POS = 5;
+  static constexpr size_t PKT_BYTES = 1500;
+  static constexpr size_t MILLION = 1000000;
+  static constexpr size_t THOUSAND = 1000;
 
   double ban_prob_ {BAN_PROB_};
 
