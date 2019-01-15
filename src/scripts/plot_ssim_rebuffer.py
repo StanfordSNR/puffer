@@ -12,32 +12,19 @@ import matplotlib.pyplot as plt
 
 from helpers import (
     connect_to_postgres, connect_to_influxdb, try_parsing_time,
-    ssim_index_to_db)
+    ssim_index_to_db, retrieve_expt_config)
 
 
 # cache of Postgres data: experiment 'id' -> json 'data' of the experiment
 expt_id_cache = {}
 
-
-def retrieve_expt_config(postgres_cursor, expt_id):
-    if expt_id not in expt_id_cache:
-        postgres_cursor.execute(
-            'SELECT * FROM puffer_experiment WHERE id={};'.format(expt_id))
-        rows = postgres_cursor.fetchall()
-        if len(rows) != 1:
-            sys.exit('Error: invalid experiment ID {}'.format(expt_id))
-
-        expt_id_cache[expt_id] = rows[0][2]
-
-    return expt_id_cache[expt_id]
-
-
 def collect_ssim(video_acked_results, postgres_cursor):
     # process InfluxDB data
     x = {}
     for pt in video_acked_results['video_acked']:
-        expt_id = pt['expt_id']
-        expt_config = retrieve_expt_config(postgres_cursor, expt_id)
+        expt_id = int(pt['expt_id'])
+        expt_config = retrieve_expt_config(expt_id, expt_id_cache,
+                                           postgres_cursor)
         # index x by (abr, cc)
         abr_cc = (expt_config['abr'], expt_config['cc'])
         if abr_cc not in x:
@@ -63,8 +50,9 @@ def collect_rebuffer(client_buffer_results, postgres_cursor):
     # process InfluxDB data
     x = {}
     for pt in client_buffer_results['client_buffer']:
-        expt_id = pt['expt_id']
-        expt_config = retrieve_expt_config(postgres_cursor, expt_id)
+        expt_id = int(pt['expt_id'])
+        expt_config = retrieve_expt_config(expt_id, expt_id_cache,
+                                           postgres_cursor)
         # index x by (abr, cc)
         abr_cc = (expt_config['abr'], expt_config['cc'])
         if abr_cc not in x:
