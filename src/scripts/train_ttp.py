@@ -554,7 +554,7 @@ def train(i, model, input_data, output_data):
                                      validate_loss, validate_accuracy))
         else:
             train_losses.append(running_loss)
-            sys.stderr.write('[{}} epoch {}: training loss {:.3f}\n'
+            sys.stderr.write('[{}] epoch {}: training loss {:.3f}\n'
                              .format(i, epoch_id + 1, running_loss))
 
     # return losses for plotting
