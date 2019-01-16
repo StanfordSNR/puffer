@@ -24,8 +24,14 @@ private:
   static constexpr double HIGH_SENDING_TIME = 10000;
 
   /* past chunks and max number of them */
+  struct ChunkInfo {
+    double ssim;          /* chunk ssim */
+    unsigned int size;    /* chunk size */
+    uint64_t trans_time;  /* transmission time */
+    double pred_err;      /* throughput prediction error */
+  };
   size_t max_num_past_chunks_ {MAX_NUM_PAST_CHUNKS};
-  std::deque<Chunk> past_chunks_ {};
+  std::deque<ChunkInfo> past_chunks_ {};
 
   /* all the time durations are measured in sec */
   size_t max_lookahead_horizon_ {MAX_LOOKAHEAD_HORIZON};
@@ -36,6 +42,10 @@ private:
   size_t num_formats_ {};
   double rebuffer_length_coeff_ {REBUFFER_LENGTH_COEFF};
   double ssim_diff_coeff_ {SSIM_DIFF_COEFF};
+
+  /* for robust mpc */
+  bool is_robust_ {};
+  double last_tp_pred_ {-1};
 
   /* for the current buffer length */
   size_t curr_buffer_ {};

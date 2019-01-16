@@ -26,6 +26,10 @@ MPC::MPC(const WebSocketClient & client,
     ssim_diff_coeff_ = abr_config["ssim_diff_coeff"].as<double>();
   }
 
+  if (abr_config["is_robust"]) {
+    is_robust_ = true;
+  }
+
   unit_buf_length_ = WebSocketClient::MAX_BUFFER_S / dis_buf_length_;
 
   for (size_t i = 0; i <= dis_buf_length_; i++) {
@@ -35,7 +39,13 @@ MPC::MPC(const WebSocketClient & client,
 
 void MPC::video_chunk_acked(Chunk && c)
 {
-  past_chunks_.push_back(c);
+  double err = 0;
+
+  if (is_robust_ and last_tp_pred_ > 0) {
+    err = fabs(1 - last_tp_pred_ *  c.trans_time / c.size / 1000);
+  }
+
+  past_chunks_.push_back({c.ssim, c.size, c.trans_time, err});
   if (past_chunks_.size() > max_num_past_chunks_) {
     past_chunks_.pop_front();
   }
@@ -94,10 +104,16 @@ void MPC::reinit()
 
   /* init curr_sending_time */
   size_t num_past_chunks = past_chunks_.size();
-
   auto it = past_chunks_.begin();
+  double max_err = 0;
+
   for (size_t i = 1; it != past_chunks_.end(); it++, i++) {
     unit_sending_time_[i] = (double) it->trans_time / it->size / 1000;
+    max_err = max(max_err, it->pred_err);
+  }
+
+  if (not is_robust_) {
+    max_err = 0;
   }
 
   for (size_t i = 1; i <= lookahead_horizon_; i++) {
@@ -107,7 +123,13 @@ void MPC::reinit()
     }
 
     if (num_past_chunks != 0) {
-      unit_sending_time_[i + num_past_chunks] = tmp / num_past_chunks;
+      double unit_st = tmp / num_past_chunks;
+
+      if (i == 1) {
+        last_tp_pred_ = 1 / unit_st;
+      }
+
+      unit_sending_time_[i + num_past_chunks] = unit_st * (1 + max_err);
     } else {
       /* set the sending time to be a default hight value */
       unit_sending_time_[i + num_past_chunks] = HIGH_SENDING_TIME;
