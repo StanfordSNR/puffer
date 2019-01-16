@@ -284,7 +284,7 @@ def calculate_trans_times(video_sent_results, video_acked_results,
         # filter data points by congestion control
         expt_config = retrieve_expt_config(expt_id, expt_id_cache,
                                            postgres_cursor)
-        if expt_config['cc'] != cc:
+        if cc is not None and expt_config['cc'] != cc:
             continue
 
         if session not in d:
@@ -322,7 +322,7 @@ def calculate_trans_times(video_sent_results, video_acked_results,
         # filter data points by congestion control
         expt_config = retrieve_expt_config(expt_id, expt_id_cache,
                                            postgres_cursor)
-        if expt_config['cc'] != cc:
+        if cc is not None and expt_config['cc'] != cc:
             continue
 
         if session not in d:
