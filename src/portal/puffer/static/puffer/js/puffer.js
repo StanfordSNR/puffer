@@ -860,8 +860,8 @@ function WebSocketClient(session_key, username_in, settings_debug,
     }
 
     if (Date.now() - last_msg_recv_ts > CONN_TIMEOUT) {
-      set_fatal_error('Your connection has been closed after timeout. ' +
-                      'Please fresh the page.');
+      set_fatal_error('Your connection has been closed after a timeout. ' +
+                      'Please reload the page.');
       report_error(init_id, 'connection timed out');
       ws.close();
     }
