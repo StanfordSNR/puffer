@@ -44,7 +44,7 @@ private:
   double ssim_diff_coeff_ {SSIM_DIFF_COEFF};
 
   /* for robust mpc */
-  bool is_robust_ {};
+  bool is_robust_ {false};
   double last_tp_pred_ {-1};
 
   /* for the current buffer length */

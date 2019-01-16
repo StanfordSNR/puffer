@@ -26,7 +26,7 @@ MPC::MPC(const WebSocketClient & client,
     ssim_diff_coeff_ = abr_config["ssim_diff_coeff"].as<double>();
   }
 
-  if (abr_config["is_robust"]) {
+  if (abr_name_ == "robust_mpc") {
     is_robust_ = true;
   }
 

@@ -195,6 +195,8 @@ void WebSocketClient::init_abr_algo()
     abr_algo_ = make_unique<LinearBBA>(*this, abr_name_, abr_config_);
   } else if (abr_name_ == "mpc") {
     abr_algo_ = make_unique<MPC>(*this, abr_name_, abr_config_);
+  } else if (abr_name_ == "robust_mpc") {
+    abr_algo_ = make_unique<MPC>(*this, abr_name_, abr_config_);
   } else if (abr_name_ == "mpc_search") {
     abr_algo_ = make_unique<MPCSearch>(*this, abr_name_, abr_config_);
   } else if (abr_name_ == "pensieve") {
