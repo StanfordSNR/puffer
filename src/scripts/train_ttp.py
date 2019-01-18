@@ -24,7 +24,8 @@ MILLION = 1000000
 
 # training related
 BATCH_SIZE = 32
-NUM_EPOCHS = 100
+NUM_EPOCHS = 500
+CHECKPOINT = 50
 
 TUNING = False
 DEVICE = torch.device('cpu')
@@ -226,7 +227,7 @@ def check_args(args):
             sys.exit('Error: cannot tune or save model during inference')
     else:
         if not args.save_model:
-            sys.stderr.write('Warning: model will not be saved\n')
+            sys.exit('Error: specify a folder to save models\n')
 
     # want to tune hyperparameters
     if args.tune:
@@ -472,10 +473,10 @@ def print_stats(i, output_data):
 def plot_loss(losses, figure_path):
     fig, ax = plt.subplots()
 
-    if 'training' in losses:
-        ax.plot(losses['training'], 'g--', label='training')
-    if 'validation' in losses:
-        ax.plot(losses['validation'], 'r-', label='validation')
+    if 'train' in losses:
+        ax.plot(losses['train'], 'g--', label='training')
+    if 'validate' in losses:
+        ax.plot(losses['validate'], 'r-', label='validation')
 
     ax.set_xlabel('Epoch')
     ax.set_ylabel('Loss')
@@ -486,7 +487,7 @@ def plot_loss(losses, figure_path):
     sys.stderr.write('Saved plot to {}\n'.format(figure_path))
 
 
-def train(i, model, input_data, output_data):
+def train(i, args, model, input_data, output_data):
     if TUNING:
         # permutate input and output data before splitting
         perm_indices = np.random.permutation(range(len(input_data)))
@@ -517,7 +518,7 @@ def train(i, model, input_data, output_data):
     sys.stderr.write('[{}] total epochs: {}\n'.format(i, NUM_EPOCHS))
 
     # loop over the entire dataset multiple times
-    for epoch_id in range(NUM_EPOCHS):
+    for epoch_id in range(1, 1 + NUM_EPOCHS):
         # permutate data in each epoch
         perm_indices = np.random.permutation(range(num_training))
 
@@ -549,20 +550,44 @@ def train(i, model, input_data, output_data):
             sys.stderr.write('[{}] epoch {}:\n'
                              '\ttraining: loss {:.3f}, accuracy {:.2f}%\n'
                              '\tvalidation: loss {:.3f}, accuracy {:.2f}%\n'
-                             .format(i, epoch_id + 1,
+                             .format(i, epoch_id,
                                      train_loss, train_accuracy,
                                      validate_loss, validate_accuracy))
         else:
             train_losses.append(running_loss)
             sys.stderr.write('[{}] epoch {}: training loss {:.3f}\n'
-                             .format(i, epoch_id + 1, running_loss))
+                             .format(i, epoch_id, running_loss))
 
-    # return losses for plotting
-    losses = {}
-    losses['training'] = train_losses
-    if TUNING:
-        losses['validation'] = validate_losses
-    return losses
+        # save checkpoints or the final model
+        if epoch_id % CHECKPOINT == 0 or epoch_id == NUM_EPOCHS:
+            if epoch_id == NUM_EPOCHS:
+                suffix = ''
+            else:
+                suffix = '-checkpoint-{}'.format(epoch_id)
+
+            model_path = path.join(args.save_model,
+                                   'py-{}{}.pt'.format(i, suffix))
+            model.save(model_path)
+            sys.stderr.write('[{}] Saved model for Python to {}\n'
+                             .format(i, model_path))
+
+            model_path = path.join(args.save_model,
+                                   'cpp-{}{}.pt'.format(i, suffix))
+            meta_path = path.join(args.save_model,
+                                  'cpp-meta-{}{}.json'.format(i, suffix))
+            model.save_cpp_model(model_path, meta_path)
+            sys.stderr.write('[{}] Saved model for C++ to {} and {}\n'
+                             .format(i, model_path, meta_path))
+
+            # plot losses
+            losses = {}
+            losses['train'] = train_losses
+            if TUNING:
+                losses['validate'] = validate_losses
+
+            loss_path = path.join(args.save_model,
+                                  'loss{}{}.png'.format(i, suffix))
+            plot_loss(losses, loss_path)
 
 
 def train_or_eval_model(i, args, raw_in_data, raw_out_data):
@@ -600,22 +625,7 @@ def train_or_eval_model(i, args, raw_in_data, raw_out_data):
         model.set_model_train()
 
         # train a neural network with data
-        losses = train(i, model, input_data, output_data)
-
-        if args.save_model:
-            model_path = path.join(args.save_model, 'py-{}.pt'.format(i))
-            model.save(model_path)
-            sys.stderr.write('[{}] Saved model for Python to {}\n'
-                             .format(i, model_path))
-
-            model_path = path.join(args.save_model, 'cpp-{}.pt'.format(i))
-            meta_path = path.join(args.save_model, 'cpp-meta-{}.json'.format(i))
-            model.save_cpp_model(model_path, meta_path)
-            sys.stderr.write('[{}] Saved model for C++ to {} and {}\n'
-                             .format(i, model_path, meta_path))
-
-
-        plot_loss(losses, 'loss{}.png'.format(i))
+        train(i, args, model, input_data, output_data)
 
 
 def main():
