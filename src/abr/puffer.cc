@@ -72,22 +72,23 @@ void Puffer::reinit()
 
   /* init curr_ssims */
   if (past_chunks_.size() > 0) {
-    curr_ssims_[0][0] = past_chunks_.back().ssim;
+    curr_ssims_[0][0] = ssim_db(past_chunks_.back().ssim);
   } else {
-    curr_ssims_[0][0] = 0;
+    curr_ssims_[0][0] = INVALID_SSIM_DB;
   }
 
   for (size_t i = 1; i <= lookahead_horizon_; i++) {
     const auto & data_map = channel->vdata(next_ts + vduration * (i - 1));
 
     for (size_t j = 0; j < num_formats_; j++) {
+
       try {
-        curr_ssims_[i][j] = channel->vssim(vformats[j],
-                                           next_ts + vduration * (i - 1));
+        curr_ssims_[i][j] = ssim_db(
+            channel->vssim(vformats[j], next_ts + vduration * (i - 1)));
       } catch (const exception & e) {
         cerr << "Error occurs when getting the ssim of "
              << next_ts + vduration * (i - 1) << " " << vformats[j] << endl;
-        curr_ssims_[i][j] = 0;
+        curr_ssims_[i][j] = INVALID_SSIM_DB;
       }
 
       try {

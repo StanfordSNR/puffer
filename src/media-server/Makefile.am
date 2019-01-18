@@ -11,10 +11,14 @@ ws_media_server_SOURCES = ws_media_server.cc \
 	ws_client.hh ws_client.cc channel.hh channel.cc \
 	client_message.hh client_message.cc server_message.hh server_message.cc \
 	../notifier/inotify.hh ../notifier/inotify.cc \
-	../abr/abr_algo.hh ../abr/linear_bba.hh ../abr/linear_bba.cc \
-	../abr/mpc.hh ../abr/mpc.cc ../abr/mpc_search.hh ../abr/mpc_search.cc \
-	../abr/pensieve.hh ../abr/pensieve.cc ../abr/puffer.hh ../abr/puffer.cc \
-	../abr/puffer_raw.hh ../abr/puffer_raw.cc ../abr/puffer_ttp.cc ../abr/puffer_ttp.hh \
+	../abr/abr_algo.hh ../abr/abr_algo.cc \
+	../abr/linear_bba.hh ../abr/linear_bba.cc \
+	../abr/mpc.hh ../abr/mpc.cc \
+	../abr/mpc_search.hh ../abr/mpc_search.cc \
+	../abr/pensieve.hh ../abr/pensieve.cc \
+	../abr/puffer.hh ../abr/puffer.cc \
+	../abr/puffer_raw.hh ../abr/puffer_raw.cc \
+	../abr/puffer_ttp.cc ../abr/puffer_ttp.hh \
 	../../third_party/json.upstream/single_include/nlohmann/json.hpp
 ws_media_server_LDFLAGS = -L../../third_party/libtorch/lib \
 	'-Wl,-rpath,$$ORIGIN/../../third_party/libtorch/lib'

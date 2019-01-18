@@ -6,6 +6,9 @@
 
 class WebSocketClient;
 
+static const double INVALID_SSIM_DB = -4;
+double ssim_db(const double ssim);
+
 class ABRAlgo
 {
 public:
