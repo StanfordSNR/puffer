@@ -6,8 +6,8 @@ using namespace std;
 double ssim_db(const double ssim)
 {
   if (ssim != 1) {
-    return -10 * log10(1 - ssim);
+    return max(MIN_SSIM, min(MAX_SSIM, -10 * log10(1 - ssim)));
   } else {
-    return INVALID_SSIM_DB;
+    return MAX_SSIM;
   }
 }

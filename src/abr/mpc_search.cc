@@ -100,7 +100,7 @@ void MPCSearch::reinit()
       } catch (const exception & e) {
         cerr << "Error occurs when getting the ssim of "
              << next_ts + vduration * (i - 1) << " " << vformats[j] << endl;
-        curr_ssims_[i][j] = INVALID_SSIM_DB;
+        curr_ssims_[i][j] = MIN_SSIM;
       }
     }
   }

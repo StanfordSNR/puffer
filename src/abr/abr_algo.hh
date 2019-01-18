@@ -7,6 +7,8 @@
 class WebSocketClient;
 
 static const double INVALID_SSIM_DB = -4;
+static const double MAX_SSIM = 60;
+static const double MIN_SSIM = 0;
 double ssim_db(const double ssim);
 
 class ABRAlgo
