@@ -86,9 +86,10 @@ void MPCSearch::reinit()
 
   /* init curr_ssims */
   if (past_chunks_.size() > 0) {
+    is_init_ = false;
     curr_ssims_[0][0] = ssim_db(past_chunks_.back().ssim);
   } else {
-    curr_ssims_[0][0] = INVALID_SSIM_DB;
+    is_init_ = true;
   }
 
   for (size_t i = 1; i <= lookahead_horizon_; i++) {
@@ -148,6 +149,12 @@ double MPCSearch::get_qvalue(size_t i, double curr_buffer, size_t curr_format,
                            max(0.0, -real_rebuffer) + chunk_length_);
   if (is_discrete_buf_) {
     next_buffer = discretize_buffer(next_buffer);
+  }
+
+  if (is_init_ and i == 0) {
+    return curr_ssims_[i][curr_format]
+           - rebuffer_length_coeff_ * max(0.0, real_rebuffer)
+           + get_value(i + 1, next_buffer, next_format);
   }
   return curr_ssims_[i][curr_format]
          - ssim_diff_coeff_ * fabs(curr_ssims_[i][curr_format]

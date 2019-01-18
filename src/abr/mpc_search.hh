@@ -38,6 +38,9 @@ private:
   double rebuffer_length_coeff_ {REBUFFER_LENGTH_COEFF};
   double ssim_diff_coeff_ {SSIM_DIFF_COEFF};
 
+  /* whether the current chunk is the first chunk */
+  bool is_init_ {};
+
   /* for the current buffer length */
   double curr_buffer_ {};
 

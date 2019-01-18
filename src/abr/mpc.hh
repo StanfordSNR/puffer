@@ -47,6 +47,9 @@ private:
   bool is_robust_ {false};
   double last_tp_pred_ {-1};
 
+  /* whether the current chunk is the first chunk */
+  bool is_init_ {};
+
   /* for the current buffer length */
   size_t curr_buffer_ {};
 

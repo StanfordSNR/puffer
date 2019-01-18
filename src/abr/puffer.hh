@@ -42,6 +42,9 @@ protected:
   double ssim_diff_coeff_ {SSIM_DIFF_COEFF};
   double st_prob_eps_ {ST_PROB_EPS};
 
+  /* whether the current chunk is the first chunk */
+  bool is_init_ {};
+
   /* for the current buffer length */
   size_t curr_buffer_ {};
 
