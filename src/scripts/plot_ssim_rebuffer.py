@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 
 from helpers import (
     connect_to_postgres, connect_to_influxdb, try_parsing_time,
-    ssim_index_to_db, retrieve_expt_config)
+    ssim_index_to_db, retrieve_expt_config, create_time_clause)
 
 
 # cache of Postgres data: experiment 'id' -> json 'data' of the experiment
@@ -103,17 +103,11 @@ def collect_rebuffer(client_buffer_results, postgres_cursor):
     return rebuffer
 
 
-def plot_ssim_rebuffer(ssim, num_chunks, rebuffer, output, days):
-    time_str = '%Y-%m-%d'
-    curr_ts = datetime.utcnow()
-    start_ts = curr_ts - timedelta(days=days)
-    curr_ts_str = curr_ts.strftime(time_str)
-    start_ts_str = start_ts.strftime(time_str)
-
-    title = ('Performance in [{}, {}) (UTC)'
-             .format(start_ts_str, curr_ts_str))
-
+def plot_ssim_rebuffer(ssim, num_chunks, rebuffer, output,
+                       time_start, time_end):
     fig, ax = plt.subplots()
+
+    title = '[{}, {}] (UTC)'.format(time_start, time_end)
     ax.set_title(title)
     ax.set_xlabel('Time spent stalled (%)')
     ax.set_ylabel('Average SSIM (dB)')
@@ -148,25 +142,36 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('yaml_settings')
     parser.add_argument('-o', '--output', required=True)
-    parser.add_argument('-d', '--days', type=int, default=1)
+    parser.add_argument('--from', dest='time_start',
+                        help='datetime in UTC conforming to RFC3339')
+    parser.add_argument('--to', dest='time_end',
+                        help='datetime in UTC conforming to RFC3339')
     args = parser.parse_args()
     output = args.output
-    days = args.days
-
-    if days < 1:
-        sys.exit('-d/--days must be a positive integer')
 
     with open(args.yaml_settings, 'r') as fh:
         yaml_settings = yaml.safe_load(fh)
+
+    # construct time clause after 'WHERE'
+    time_clause = create_time_clause(args.time_start, args.time_end)
 
     # create an InfluxDB client and perform queries
     influx_client = connect_to_influxdb(yaml_settings)
 
     # query video_acked and client_buffer
-    video_acked_results = influx_client.query(
-        'SELECT * FROM video_acked WHERE time >= now() - {}d'.format(days))
-    client_buffer_results = influx_client.query(
-        'SELECT * FROM client_buffer WHERE time >= now() - {}d'.format(days))
+    video_acked_query = 'SELECT * FROM video_acked'
+    if time_clause is not None:
+        video_acked_query += ' WHERE ' + time_clause
+    video_acked_results = influx_client.query(video_acked_query)
+    if not video_acked_results:
+        sys.exit('Error: no results returned from query: ' + video_acked_query)
+
+    client_buffer_query = 'SELECT * FROM client_buffer'
+    if time_clause is not None:
+        client_buffer_query += ' WHERE ' + time_clause
+    client_buffer_results = influx_client.query(client_buffer_query)
+    if not client_buffer_results:
+        sys.exit('Error: no results returned from query: ' + client_buffer_query)
 
     # create a Postgres client and perform queries
     postgres_client = connect_to_postgres(yaml_settings)
@@ -180,7 +185,8 @@ def main():
         sys.exit('Error: no data found in the queried range')
 
     # plot ssim vs rebuffer
-    plot_ssim_rebuffer(ssim, num_chunks, rebuffer, output, days)
+    plot_ssim_rebuffer(ssim, num_chunks, rebuffer, output,
+                       args.time_start, args.time_end)
 
     postgres_cursor.close()
 

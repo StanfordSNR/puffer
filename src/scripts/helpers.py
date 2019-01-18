@@ -111,3 +111,17 @@ def retrieve_expt_config(expt_id, expt_id_cache, postgres_cursor):
         expt_id_cache[expt_id] = rows[0][2]
 
     return expt_id_cache[expt_id]
+
+
+def create_time_clause(time_start, time_end):
+    time_clause = None
+
+    if time_start is not None:
+        time_clause = "time >= '{}'".format(time_start)
+    if time_end is not None:
+        if time_clause is None:
+            time_clause = "time <= '{}'".format(time_end)
+        else:
+            time_clause += " AND time <= '{}'".format(time_end)
+
+    return time_clause
