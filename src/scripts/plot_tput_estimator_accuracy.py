@@ -17,6 +17,7 @@ matplotlib.use('Agg')
 
 VIDEO_DURATION = 180180
 MILLION = 1000000
+MAX_TRANS_TIME_ESTIMATE = 10  # seconds
 
 # cache of Postgres data: experiment 'id' -> json 'data' of the experiment
 expt_id_cache = {}
@@ -197,7 +198,10 @@ def calc_throughput_err(d, estimator):
 
             real_tputs.append(real_tput)
             if(est_tput != -1):  # Ignore first 5 chunks
-                est_trans_time = ds[next_ts]['size'] / est_tput
+                if est_tput > 0:
+                    est_trans_time = ds[next_ts]['size'] / est_tput
+                else:
+                    est_trans_time = MAX_TRANS_TIME_ESTIMATE
                 err_list_ms.append(abs(ds[next_ts]['trans_time'] -
                                    est_trans_time) * 1000)  # s --> ms
                 err_list_percent.append(abs(ds[next_ts]['trans_time'] -
@@ -281,7 +285,7 @@ def plot_session_duration_and_throughput(d, time_start, time_end):
             # Rebuffer time = cum rebuffer of last chunk - startup delay
             total_rebuffer.append(ds[sorted(ds.keys())[-1]]['cum_rebuffer'] -
                                   startup_delay)
-            rebuffer_percent.append(total_rebuffer[-1] / session_durations[-1])
+            rebuffer_percent.append(total_rebuffer[-1] / (session_durations[-1] + total_rebuffer[-1]) * 100)
         tputs.append(tput_sum/tput_count)  # Average tput for session
 
     fig, ax = plt.subplots()
