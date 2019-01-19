@@ -7,12 +7,11 @@ import yaml
 from datetime import datetime, timedelta
 import numpy as np
 import matplotlib
-matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-
 from helpers import (
     connect_to_influxdb, try_parsing_time,
     ssim_index_to_db, retrieve_expt_config)
+matplotlib.use('Agg')
 
 # This file currently generates a plot of ssim vs bitrate for all chunks
 # sent by puffer over a one day period.
@@ -27,14 +26,14 @@ def collect_ssim_and_bitrate(video_sent_results):
         if pt['ssim_index'] is not None:
             ssim_index = float(pt['ssim_index'])
             if (ssim_index == 1):
-                ssim_index = 1 - 0.000000001 #prevent division by 0 err
+                ssim_index = 1 - 0.000000001  # prevent division by 0 err
             if pt['size'] is None:
                 sys.exit('Found db entry with SSIM but not size')
             if pt['size'] * 8 / 2.002 / 1000 > 30000:
                 continue
             ssims_absolute.append(ssim_index)
             ssims_db.append(ssim_index_to_db(ssim_index))
-            bitrates.append(pt['size'] * 8 / 2.002 / 1000) #kbps
+            bitrates.append(pt['size'] * 8 / 2.002 / 1000)  # kbps
 
     return ssims_absolute, ssims_db, bitrates
 
@@ -62,14 +61,6 @@ def plot_ssim_v_bitrate(ssim, bitrate, output, hours, unit):
         x = bitrate[idx]
         y = ssim_val
         ax.scatter(x, y)
-        #ax.annotate(abr_cc_str, (x, y))
-
-    # clamp x-axis to [0, 100]
-    #xmin, xmax = ax.get_xlim()
-    #xmin = max(xmin, 0)
-    #xmax = min(xmax, 100)
-    #ax.set_xlim(xmin, xmax)
-    #ax.invert_xaxis()
 
     fig.savefig(output, dpi=300, bbox_inches='tight', pad_inches=0.2)
     sys.stderr.write('Saved plot to {}\n'.format(output))
@@ -104,7 +95,8 @@ def main():
         sys.exit('Error: no data found in the queried range')
 
     # plot ssim_absolute vs rebuffer
-    plot_ssim_v_bitrate(ssims_absolute, bitrates, output + "_absolute.png", hours, "absolute")
+    plot_ssim_v_bitrate(ssims_absolute, bitrates, output + "_absolute.png",
+                        hours, "absolute")
 
     # plot ssim_db vs rebuffer
     plot_ssim_v_bitrate(ssims_db, bitrates, output + "_db.png", hours, "db")
