@@ -161,77 +161,94 @@ def prepare_raw_data(yaml_settings_path, time_start, time_end, cc):
 
 
 def calc_throughput_err(d, estimator):
-    err_list = []
+    err_list_ms = []
+    err_list_percent = []
+    max_tput = 0
     for session in d:
         ds = d[session]
 
         real_tputs = []
-        first_ts = True
         for next_ts in ds:
             if 'trans_time' not in ds[next_ts]:
                 continue
 
-            print(ds[next_ts]['trans_time'])
+            #print(ds[next_ts]['trans_time'])
             real_tput = ds[next_ts]['size'] / ds[next_ts]['trans_time']  # bps
+            if real_tput > max_tput:
+                max_tput = real_tput
 
             if estimator == "tcp_info":
                 est_tput = ds[next_ts]['delivery_rate']
             elif estimator == "last_tput":
-                if first_ts: # first chunk
-                    est_tput = 0
+                if len(real_tputs) == 0: # first chunk
+                    est_tput = -1 # Will be ignored
                 else:
                     est_tput = real_tputs[-1]
-            elif estimator == "robust_mpc" or estimator == "mpc": # Harmonic mean of last 5 tputs
-                if first_ts: # first chunk
-                    est_tput = 0
+            elif estimator == "mpc": # Harmonic mean of last 5 tputs
+                if len(real_tputs) < 5: # first 5 chunks
+                    est_tput = -1
                 else:
-                    past_bandwidths = real_tputs[:-5]
-                    while len(past_bandwidths) < 5:
-                        past_bandwidths.insert(0, real_tputs[0])
+                    past_bandwidths = real_tputs[-5:]
 
                     bandwidth_sum = 0
 
                     for past_val in past_bandwidths:
                         bandwidth_sum += (1/float(past_val))
+                    if bandwidth_sum == 0:
+                        print("bwidth_sum = 0, past_bandwidths:" + str(past_bandwidths) + ", real_tputs: " + str(real_tputs))
                     harmonic_bandwidth = 1.0/(bandwidth_sum/len(past_bandwidths))
-                    max_error = 0
-                    error_pos = -5
-                    if ( len(err_list) < 5 ): # Modify to use local err_list for each session
-                        error_pos = -len(err_list)
-                    max_error = float(max(err_list[error_pos:]))
-                    robust_mpc_bandwidth = harmonic_bandwidth/(1+max_error)
-                    if estimator == "mpc":
-                        est_tput = harmonic_bandwidth
-                    else:
-                        est_tput = robust_mpc_bandwidth
-            first_ts = False
+                    est_tput = harmonic_bandwidth
 
 
             real_tputs.append(real_tput)
-            print("real_tput: " + str(real_tput) + ", est_tput: " + str(est_tput))
-            err_list.append(abs(real_tput - est_tput) / 1000000) # bps --> Mbps
+            #print("real_tput: " + str(real_tput) + ", est_tput: " + str(est_tput))
+            #err_list.append(abs(real_tput - est_tput) / 1000000) # bps --> Mbps
+            if(est_tput != -1): # Ignore first 5 chunks
+                est_trans_time = ds[next_ts]['size'] / est_tput
+                err_list_ms.append(abs(ds[next_ts]['trans_time'] - est_trans_time) * 1000) # s --> ms
+                err_list_percent.append(abs(ds[next_ts]['trans_time'] - est_trans_time)/ds[next_ts]['trans_time'] * 100)
 
-    return err_list
+    return (err_list_ms, err_list_percent, estimator)
 
 
-def plot_accuracy_cdf(err_lists):
+def plot_accuracy_cdf(err_lists, time_start, time_end):
     fig, ax = plt.subplots()
-    
 
-
+    # first plot with x axis in ms
     for errors in err_lists:
-        print(errors[0])
-        values, base = np.histogram(errors[0], bins=100)
-        cumulative = np.cumsum(values)
-        #errors = errors / errors.sum() #Normalize to PDF
-        ax.plot(base[:-1], cumulative / sum(errors[0]))
-
-        #plt.hist(errors, normed=True, cumulative=True, label='CDF',
-        #         histtype='step', alpha=0.8, color='k')
-    ax.set_xlabel('Throughput estimate error (Mbps)')
+        #print(errors[0])
+        ax.hist(errors[0], bins=100000, normed=1, cumulative=True, label=errors[2],
+                histtype='step')
+    ax.legend(loc='right')
+    ax.grid(True)
+    ax.set_xlabel('Transmission time estimate error (ms)')
     ax.set_ylabel('CDF')
-    fig.savefig("throughput_err.png", dpi=300, bbox_inches='tight', pad_inches=0.2)
-    sys.stderr.write('Saved plot to {}\n'.format("throughput_err.png"))
+    title = ('Throughput Estimator Accuracy from [{}, {}) (UTC)'.format(time_start, time_end))
+    xmin, xmax = ax.get_xlim()
+    xmax = 4000
+    ax.set_xlim(0, xmax)
+    ax.set_title(title)
+    fig.savefig("throughput_err.png", dpi=900, bbox_inches='tight', pad_inches=0.2)
+    sys.stderr.write('Saved plot on ms scale to {}\n'.format("throughput_err.png"))
+
+    fig, ax = plt.subplots()
+    # next plot with x axis in percent
+    for errors in err_lists:
+        #print(errors[0])
+        ax.hist(errors[1], bins=100000, normed=1, cumulative=True, label=errors[2],
+                histtype='step')
+    ax.legend(loc='right')
+    ax.grid(True)
+    ax.set_xlabel('Transmission time estimate error (%)')
+    ax.set_ylabel('CDF')
+    title = ('Throughput Estimator Accuracy from [{}, {}) (UTC)'.format(time_start, time_end))
+    xmin, xmax = ax.get_xlim()
+    xmax = 125
+    ax.set_xlim(0, xmax)
+    ax.set_title(title)
+    fig.savefig("throughput_err_percent.png", dpi=900, bbox_inches='tight', pad_inches=0.2)
+    sys.stderr.write('Saved plot on % scale to {}\n'.format("throughput_err_percent.png"))
+    
 
 def main():
     parser = argparse.ArgumentParser()
@@ -250,14 +267,14 @@ def main():
     # collect input and output data from raw data
     #TODO collect all 3 at once
     err_lists = []
-    #tcp_err_list = calc_throughput_err(raw_data, "tcp_info")
-    #err_lists.append((tcp_err_list, "tcp_info"))
+    tcp_err_list = calc_throughput_err(raw_data, "tcp_info")
     mpc_err_list = calc_throughput_err(raw_data, "mpc")
     last_tput_err_list = calc_throughput_err(raw_data, "last_tput")
-    err_lists.append((mpc_err_list, "mpc"))
-    err_lists.append((last_tput_err_list, "last_tput"))
+    err_lists.append(tcp_err_list)
+    err_lists.append(mpc_err_list)
+    err_lists.append(last_tput_err_list)
 
-    plot_accuracy_cdf(err_lists)
+    plot_accuracy_cdf(err_lists, args.time_start, args.time_end)
 
 
 
