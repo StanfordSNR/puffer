@@ -89,6 +89,7 @@ def calculate_trans_times(video_sent_results, video_acked_results,
         dsv['in_flight'] = float(pt['in_flight'])
         dsv['min_rtt'] = float(pt['min_rtt']) / MILLION  # us -> s
         dsv['rtt'] = float(pt['rtt']) / MILLION  # us -> s
+        dsv['cum_rebuffer'] = float(pt['cum_rebuffer']) # will be overwritten by value in ack if one rcvd
         # dsv['ssim_index'] = get_ssim_index(pt)
 
     for pt in video_acked_results['video_acked']:
@@ -119,6 +120,7 @@ def calculate_trans_times(video_sent_results, video_acked_results,
         acked_ts = try_parsing_time(pt['time'])
         dsv['acked_ts'] = acked_ts
         dsv['trans_time'] = (acked_ts - sent_ts).total_seconds()
+        dsv['cum_rebuffer'] = float(pt['cum_rebuffer']) # s
 
     return d
 
@@ -168,7 +170,7 @@ def calc_throughput_err(d, estimator):
         ds = d[session]
 
         real_tputs = []
-        for next_ts in ds:
+        for next_ts in sorted(ds.keys()): # Need to iterate through timestamps in increasing order!
             if 'trans_time' not in ds[next_ts]:
                 continue
 
@@ -253,26 +255,45 @@ def plot_accuracy_cdf(err_lists, time_start, time_end):
 def plot_session_duration_and_throughput(d, time_start, time_end):
     session_durations = []
     tputs = []
+    total_rebuffer = []
+    rebuffer_percent = []
     for session in d:
         ds = d[session]
-
-        session_durations.append(len(ds))
+        if len(ds) < 5:
+            # Dont count sessions that dont deliver 10 seconds of video
+            continue
+        session_durations.append(len(ds) * 2.002 / 60) # minutes
         tput_sum = 0
         tput_count = 0
-        for next_ts in ds:
+        first_ts = True
+        second_ts = True
+        for next_ts in sorted(ds.keys()): # Need to iterate through timestamps in increasing order!
+            if 'trans_time' not in ds[next_ts]:
+                continue
+            if first_ts:
+                first_ts = False
+            elif second_ts: # TODO: Better method for detecting end of startup delay
+                startup_delay = ds[next_ts]['cum_rebuffer']
+                second_ts = False
             tput_sum += (ds[next_ts]['size'] / ds[next_ts]['trans_time'] / 1000000) # Mbps
             tput_count += 1
+        if tput_count == 0:
+            continue
+        if not first_ts: #Video played
+            # Rebuffer time is cum rebuffer of last chunk in session - startup delay
+            total_rebuffer.append(ds[sorted(ds.keys())[-1]]['cum_rebuffer'] - startup_delay)
+            rebuffer_percent.append(total_rebuffer[-1] / session_durations[-1])
         tputs.append(tput_sum/tput_count) # Average tput for session
 
     fig, ax = plt.subplots()
     ax.hist(session_durations, bins=100000, normed=1, cumulative=True,
             histtype='step')
     ax.grid(True)
-    ax.set_xlabel('Session duration (s)')
+    ax.set_xlabel('Session duration (minutes)')
     ax.set_ylabel('CDF')
     title = ('Session Duration from [{}, {}) (UTC)'.format(time_start, time_end))
     xmin, xmax = ax.get_xlim()
-    #xmax = 4000
+    xmax = 50
     ax.set_xlim(0, xmax)
     ax.set_title(title)
     fig.savefig("session_duration.png", dpi=900, bbox_inches='tight', pad_inches=0.2)
@@ -286,11 +307,28 @@ def plot_session_duration_and_throughput(d, time_start, time_end):
     ax.set_ylabel('CDF')
     title = ('Session Throughputs from [{}, {}) (UTC)'.format(time_start, time_end))
     xmin, xmax = ax.get_xlim()
-    #xmax = 4000
+    xmax = 100
     ax.set_xlim(0, xmax)
     ax.set_title(title)
     fig.savefig("session_throughputs.png", dpi=900, bbox_inches='tight', pad_inches=0.2)
     sys.stderr.write('Saved session throughputs plot to {}\n'.format("session_throughputs.png"))
+
+
+    fig, ax = plt.subplots()
+    ax.hist(rebuffer_percent, bins=100000, normed=1, cumulative=True,
+            histtype='step')
+    ax.grid(True)
+    ax.set_xlabel('% Rebuffer (excluding startup) - all ABR')
+    ax.set_ylabel('CDF')
+    title = ('Rebuffer % (all ABR) from [{}, {}) (UTC)'.format(time_start, time_end))
+    xmin, xmax = ax.get_xlim()
+    #xmax = 100
+    ax.set_xlim(0, xmax)
+    ax.set_title(title)
+    fig.savefig("rebuffer_percent.png", dpi=900, bbox_inches='tight', pad_inches=0.2)
+    sys.stderr.write('Saved rebuffer percent plot to {}\n'.format("rebuffer_percent.png"))
+
+    print("Percentage of all sessions with a rebuffer: " + str( np.count_nonzero(total_rebuffer) / len(session_durations)))
 
 
 def main():
