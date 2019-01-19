@@ -248,7 +248,50 @@ def plot_accuracy_cdf(err_lists, time_start, time_end):
     ax.set_title(title)
     fig.savefig("throughput_err_percent.png", dpi=900, bbox_inches='tight', pad_inches=0.2)
     sys.stderr.write('Saved plot on % scale to {}\n'.format("throughput_err_percent.png"))
-    
+
+
+def plot_session_duration_and_throughput(d, time_start, time_end):
+    session_durations = []
+    tputs = []
+    for session in d:
+        ds = d[session]
+
+        session_durations.append(len(ds))
+        tput_sum = 0
+        tput_count = 0
+        for next_ts in ds:
+            tput_sum += (ds[next_ts]['size'] / ds[next_ts]['trans_time'] / 1000000) # Mbps
+            tput_count += 1
+        tputs.append(tput_sum/tput_count) # Average tput for session
+
+    fig, ax = plt.subplots()
+    ax.hist(session_durations, bins=100000, normed=1, cumulative=True,
+            histtype='step')
+    ax.grid(True)
+    ax.set_xlabel('Session duration (s)')
+    ax.set_ylabel('CDF')
+    title = ('Session Duration from [{}, {}) (UTC)'.format(time_start, time_end))
+    xmin, xmax = ax.get_xlim()
+    #xmax = 4000
+    ax.set_xlim(0, xmax)
+    ax.set_title(title)
+    fig.savefig("session_duration.png", dpi=900, bbox_inches='tight', pad_inches=0.2)
+    sys.stderr.write('Saved session duration plot to {}\n'.format("session_duration.png"))
+
+    fig, ax = plt.subplots()
+    ax.hist(tputs, bins=100000, normed=1, cumulative=True,
+            histtype='step')
+    ax.grid(True)
+    ax.set_xlabel('Session throughput (Mbps)')
+    ax.set_ylabel('CDF')
+    title = ('Session Throughputs from [{}, {}) (UTC)'.format(time_start, time_end))
+    xmin, xmax = ax.get_xlim()
+    #xmax = 4000
+    ax.set_xlim(0, xmax)
+    ax.set_title(title)
+    fig.savefig("session_throughputs.png", dpi=900, bbox_inches='tight', pad_inches=0.2)
+    sys.stderr.write('Saved session throughputs plot to {}\n'.format("session_throughputs.png"))
+
 
 def main():
     parser = argparse.ArgumentParser()
@@ -258,7 +301,12 @@ def main():
     parser.add_argument('--to', dest='time_end',
                         help='datetime in UTC conforming to RFC3339')
     parser.add_argument('--cc', help='filter input data by congestion control')
+    parser.add_argument('-s', '--session_info', help='plot session info', action='store_true')
+    parser.add_argument('-t', '--tput_estimates', help='plot throughput estimate accuracies', action='store_true')
     args = parser.parse_args()
+
+    if not args.tput_estimates and not args.session_info:
+        sys.exit("Please pass either -s, -t, or both to execute the portion of this script you would like to run")
 
     # query InfluxDB and retrieve raw data
     raw_data = prepare_raw_data(args.yaml_settings,
@@ -266,15 +314,18 @@ def main():
 
     # collect input and output data from raw data
     #TODO collect all 3 at once
-    err_lists = []
-    tcp_err_list = calc_throughput_err(raw_data, "tcp_info")
-    mpc_err_list = calc_throughput_err(raw_data, "mpc")
-    last_tput_err_list = calc_throughput_err(raw_data, "last_tput")
-    err_lists.append(tcp_err_list)
-    err_lists.append(mpc_err_list)
-    err_lists.append(last_tput_err_list)
+    if args.tput_estimates:
+        err_lists = []
+        tcp_err_list = calc_throughput_err(raw_data, "tcp_info")
+        mpc_err_list = calc_throughput_err(raw_data, "mpc")
+        last_tput_err_list = calc_throughput_err(raw_data, "last_tput")
+        err_lists.append(tcp_err_list)
+        err_lists.append(mpc_err_list)
+        err_lists.append(last_tput_err_list)
 
-    plot_accuracy_cdf(err_lists, args.time_start, args.time_end)
+        plot_accuracy_cdf(err_lists, args.time_start, args.time_end)
+    if args.session_info:
+        plot_session_duration_and_throughput(raw_data, args.time_start, args.time_end)
 
 
 
