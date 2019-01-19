@@ -7,18 +7,15 @@ import yaml
 from os import path
 import numpy as np
 from multiprocessing import Process
-
 import matplotlib
-matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-
 from helpers import (
     connect_to_influxdb, connect_to_postgres, try_parsing_time,
     make_sure_path_exists, retrieve_expt_config)
 
+matplotlib.use('Agg')
 
 VIDEO_DURATION = 180180
-PKT_BYTES = 1500
 MILLION = 1000000
 
 # cache of Postgres data: experiment 'id' -> json 'data' of the experiment
@@ -83,13 +80,13 @@ def calculate_trans_times(video_sent_results, video_acked_results,
         dsv = d[session][video_ts]  # short name
 
         dsv['sent_ts'] = try_parsing_time(pt['time'])
-        dsv['size'] = float(pt['size']) * 8 # bits
-        dsv['delivery_rate'] = float(pt['delivery_rate']) * 8 # bps
+        dsv['size'] = float(pt['size']) * 8  # bits
+        dsv['delivery_rate'] = float(pt['delivery_rate']) * 8  # bps
         dsv['cwnd'] = float(pt['cwnd'])
         dsv['in_flight'] = float(pt['in_flight'])
         dsv['min_rtt'] = float(pt['min_rtt']) / MILLION  # us -> s
         dsv['rtt'] = float(pt['rtt']) / MILLION  # us -> s
-        dsv['cum_rebuffer'] = float(pt['cum_rebuffer']) # will be overwritten by value in ack if one rcvd
+        dsv['cum_rebuffer'] = float(pt['cum_rebuffer'])  # will be overwritten
         # dsv['ssim_index'] = get_ssim_index(pt)
 
     for pt in video_acked_results['video_acked']:
@@ -120,7 +117,7 @@ def calculate_trans_times(video_sent_results, video_acked_results,
         acked_ts = try_parsing_time(pt['time'])
         dsv['acked_ts'] = acked_ts
         dsv['trans_time'] = (acked_ts - sent_ts).total_seconds()
-        dsv['cum_rebuffer'] = float(pt['cum_rebuffer']) # s
+        dsv['cum_rebuffer'] = float(pt['cum_rebuffer'])  # s
 
     return d
 
@@ -170,11 +167,10 @@ def calc_throughput_err(d, estimator):
         ds = d[session]
 
         real_tputs = []
-        for next_ts in sorted(ds.keys()): # Need to iterate through timestamps in increasing order!
+        for next_ts in sorted(ds.keys()):  # Need to iterate in order!
             if 'trans_time' not in ds[next_ts]:
                 continue
 
-            #print(ds[next_ts]['trans_time'])
             real_tput = ds[next_ts]['size'] / ds[next_ts]['trans_time']  # bps
             if real_tput > max_tput:
                 max_tput = real_tput
@@ -182,12 +178,12 @@ def calc_throughput_err(d, estimator):
             if estimator == "tcp_info":
                 est_tput = ds[next_ts]['delivery_rate']
             elif estimator == "last_tput":
-                if len(real_tputs) == 0: # first chunk
-                    est_tput = -1 # Will be ignored
+                if len(real_tputs) == 0:  # first chunk
+                    est_tput = -1  # Will be ignored
                 else:
                     est_tput = real_tputs[-1]
-            elif estimator == "mpc": # Harmonic mean of last 5 tputs
-                if len(real_tputs) < 5: # first 5 chunks
+            elif estimator == "mpc":  # Harmonic mean of last 5 tputs
+                if len(real_tputs) < 5:  # first 5 chunks
                     est_tput = -1
                 else:
                     past_bandwidths = real_tputs[-5:]
@@ -196,19 +192,16 @@ def calc_throughput_err(d, estimator):
 
                     for past_val in past_bandwidths:
                         bandwidth_sum += (1/float(past_val))
-                    if bandwidth_sum == 0:
-                        print("bwidth_sum = 0, past_bandwidths:" + str(past_bandwidths) + ", real_tputs: " + str(real_tputs))
                     harmonic_bandwidth = 1.0/(bandwidth_sum/len(past_bandwidths))
                     est_tput = harmonic_bandwidth
 
-
             real_tputs.append(real_tput)
-            #print("real_tput: " + str(real_tput) + ", est_tput: " + str(est_tput))
-            #err_list.append(abs(real_tput - est_tput) / 1000000) # bps --> Mbps
-            if(est_tput != -1): # Ignore first 5 chunks
+            if(est_tput != -1):  # Ignore first 5 chunks
                 est_trans_time = ds[next_ts]['size'] / est_tput
-                err_list_ms.append(abs(ds[next_ts]['trans_time'] - est_trans_time) * 1000) # s --> ms
-                err_list_percent.append(abs(ds[next_ts]['trans_time'] - est_trans_time)/ds[next_ts]['trans_time'] * 100)
+                err_list_ms.append(abs(ds[next_ts]['trans_time'] -
+                                   est_trans_time) * 1000)  # s --> ms
+                err_list_percent.append(abs(ds[next_ts]['trans_time'] -
+                                        est_trans_time)/ds[next_ts]['trans_time'] * 100)
 
     return (err_list_ms, err_list_percent, estimator)
 
@@ -218,38 +211,42 @@ def plot_accuracy_cdf(err_lists, time_start, time_end):
 
     # first plot with x axis in ms
     for errors in err_lists:
-        #print(errors[0])
-        ax.hist(errors[0], bins=100000, normed=1, cumulative=True, label=errors[2],
-                histtype='step')
+        ax.hist(errors[0], bins=100000, normed=1, cumulative=True,
+                label=errors[2], histtype='step')
     ax.legend(loc='right')
     ax.grid(True)
     ax.set_xlabel('Transmission time estimate error (ms)')
     ax.set_ylabel('CDF')
-    title = ('Throughput Estimator Accuracy from [{}, {}) (UTC)'.format(time_start, time_end))
+    title = ('Throughput Estimator Accuracy from [{}, {}) \
+              (UTC)'.format(time_start, time_end))
     xmin, xmax = ax.get_xlim()
     xmax = 4000
     ax.set_xlim(0, xmax)
     ax.set_title(title)
-    fig.savefig("throughput_err.png", dpi=900, bbox_inches='tight', pad_inches=0.2)
-    sys.stderr.write('Saved plot on ms scale to {}\n'.format("throughput_err.png"))
+    fig.savefig("throughput_err.png", dpi=900, bbox_inches='tight',
+                pad_inches=0.2)
+    sys.stderr.write('Saved plot on ms scale to \
+                      {}\n'.format("throughput_err.png"))
 
     fig, ax = plt.subplots()
     # next plot with x axis in percent
     for errors in err_lists:
-        #print(errors[0])
-        ax.hist(errors[1], bins=100000, normed=1, cumulative=True, label=errors[2],
-                histtype='step')
+        ax.hist(errors[1], bins=100000, normed=1, cumulative=True,
+                label=errors[2], histtype='step')
     ax.legend(loc='right')
     ax.grid(True)
     ax.set_xlabel('Transmission time estimate error (%)')
     ax.set_ylabel('CDF')
-    title = ('Throughput Estimator Accuracy from [{}, {}) (UTC)'.format(time_start, time_end))
+    title = ('Throughput Estimator Accuracy from [{}, {}) \
+              (UTC)'.format(time_start, time_end))
     xmin, xmax = ax.get_xlim()
     xmax = 125
     ax.set_xlim(0, xmax)
     ax.set_title(title)
-    fig.savefig("throughput_err_percent.png", dpi=900, bbox_inches='tight', pad_inches=0.2)
-    sys.stderr.write('Saved plot on % scale to {}\n'.format("throughput_err_percent.png"))
+    fig.savefig("throughput_err_percent.png", dpi=900, bbox_inches='tight',
+                pad_inches=0.2)
+    sys.stderr.write('Saved plot on % scale to \
+                      {}\n'.format("throughput_err_percent.png"))
 
 
 def plot_session_duration_and_throughput(d, time_start, time_end):
@@ -262,28 +259,30 @@ def plot_session_duration_and_throughput(d, time_start, time_end):
         if len(ds) < 5:
             # Dont count sessions that dont deliver 10 seconds of video
             continue
-        session_durations.append(len(ds) * 2.002 / 60) # minutes
+        session_durations.append(len(ds) * 2.002 / 60)  # minutes
         tput_sum = 0
         tput_count = 0
         first_ts = True
         second_ts = True
-        for next_ts in sorted(ds.keys()): # Need to iterate through timestamps in increasing order!
+        for next_ts in sorted(ds.keys()):  # Need to iterate in order!
             if 'trans_time' not in ds[next_ts]:
                 continue
             if first_ts:
                 first_ts = False
-            elif second_ts: # TODO: Better method for detecting end of startup delay
+            elif second_ts:  # TODO: Better method for detecting startup delay
                 startup_delay = ds[next_ts]['cum_rebuffer']
                 second_ts = False
-            tput_sum += (ds[next_ts]['size'] / ds[next_ts]['trans_time'] / 1000000) # Mbps
+            tput_sum += (ds[next_ts]['size'] / ds[next_ts]['trans_time'] /
+                         1000000)  # Mbps
             tput_count += 1
         if tput_count == 0:
             continue
-        if not first_ts: #Video played
-            # Rebuffer time is cum rebuffer of last chunk in session - startup delay
-            total_rebuffer.append(ds[sorted(ds.keys())[-1]]['cum_rebuffer'] - startup_delay)
+        if not first_ts:
+            # Rebuffer time = cum rebuffer of last chunk - startup delay
+            total_rebuffer.append(ds[sorted(ds.keys())[-1]]['cum_rebuffer'] -
+                                  startup_delay)
             rebuffer_percent.append(total_rebuffer[-1] / session_durations[-1])
-        tputs.append(tput_sum/tput_count) # Average tput for session
+        tputs.append(tput_sum/tput_count)  # Average tput for session
 
     fig, ax = plt.subplots()
     ax.hist(session_durations, bins=100000, normed=1, cumulative=True,
@@ -291,13 +290,16 @@ def plot_session_duration_and_throughput(d, time_start, time_end):
     ax.grid(True)
     ax.set_xlabel('Session duration (minutes)')
     ax.set_ylabel('CDF')
-    title = ('Session Duration from [{}, {}) (UTC)'.format(time_start, time_end))
+    title = ('Session Duration from [{}, {}) \
+              (UTC)'.format(time_start, time_end))
     xmin, xmax = ax.get_xlim()
     xmax = 50
     ax.set_xlim(0, xmax)
     ax.set_title(title)
-    fig.savefig("session_duration.png", dpi=900, bbox_inches='tight', pad_inches=0.2)
-    sys.stderr.write('Saved session duration plot to {}\n'.format("session_duration.png"))
+    fig.savefig("session_duration.png", dpi=900, bbox_inches='tight',
+                pad_inches=0.2)
+    sys.stderr.write('Saved session duration plot to \
+                      {}\n'.format("session_duration.png"))
 
     fig, ax = plt.subplots()
     ax.hist(tputs, bins=100000, normed=1, cumulative=True,
@@ -305,14 +307,16 @@ def plot_session_duration_and_throughput(d, time_start, time_end):
     ax.grid(True)
     ax.set_xlabel('Session throughput (Mbps)')
     ax.set_ylabel('CDF')
-    title = ('Session Throughputs from [{}, {}) (UTC)'.format(time_start, time_end))
+    title = ('Session Throughputs from [{}, {}) \
+              (UTC)'.format(time_start, time_end))
     xmin, xmax = ax.get_xlim()
     xmax = 100
     ax.set_xlim(0, xmax)
     ax.set_title(title)
-    fig.savefig("session_throughputs.png", dpi=900, bbox_inches='tight', pad_inches=0.2)
-    sys.stderr.write('Saved session throughputs plot to {}\n'.format("session_throughputs.png"))
-
+    fig.savefig("session_throughputs.png", dpi=900, bbox_inches='tight',
+                pad_inches=0.2)
+    sys.stderr.write('Saved session throughputs plot to \
+                      {}\n'.format("session_throughputs.png"))
 
     fig, ax = plt.subplots()
     ax.hist(rebuffer_percent, bins=100000, normed=1, cumulative=True,
@@ -320,15 +324,19 @@ def plot_session_duration_and_throughput(d, time_start, time_end):
     ax.grid(True)
     ax.set_xlabel('% Rebuffer (excluding startup) - all ABR')
     ax.set_ylabel('CDF')
-    title = ('Rebuffer % (all ABR) from [{}, {}) (UTC)'.format(time_start, time_end))
+    title = ('Rebuffer % (all ABR) from [{}, {}) \
+             (UTC)'.format(time_start, time_end))
     xmin, xmax = ax.get_xlim()
-    #xmax = 100
+    # xmax = 100
     ax.set_xlim(0, xmax)
     ax.set_title(title)
-    fig.savefig("rebuffer_percent.png", dpi=900, bbox_inches='tight', pad_inches=0.2)
-    sys.stderr.write('Saved rebuffer percent plot to {}\n'.format("rebuffer_percent.png"))
+    fig.savefig("rebuffer_percent.png", dpi=900, bbox_inches='tight',
+                pad_inches=0.2)
+    sys.stderr.write('Saved rebuffer percent plot to \
+                      {}\n'.format("rebuffer_percent.png"))
 
-    print("Percentage of all sessions with a rebuffer: " + str( np.count_nonzero(total_rebuffer) / len(session_durations)))
+    print("Percentage of all sessions with a rebuffer: " +
+          str(np.count_nonzero(total_rebuffer) / len(session_durations)))
 
 
 def main():
@@ -339,19 +347,23 @@ def main():
     parser.add_argument('--to', dest='time_end',
                         help='datetime in UTC conforming to RFC3339')
     parser.add_argument('--cc', help='filter input data by congestion control')
-    parser.add_argument('-s', '--session_info', help='plot session info', action='store_true')
-    parser.add_argument('-t', '--tput_estimates', help='plot throughput estimate accuracies', action='store_true')
+    parser.add_argument('-s', '--session_info', help='plot session info',
+                        action='store_true')
+    parser.add_argument('-t', '--tput_estimates',
+                        help='plot throughput estimate accuracies',
+                        action='store_true')
     args = parser.parse_args()
 
     if not args.tput_estimates and not args.session_info:
-        sys.exit("Please pass either -s, -t, or both to execute the portion of this script you would like to run")
+        sys.exit("Please pass either -s, -t, or both to execute the portion \
+                  of this script you would like to run")
 
     # query InfluxDB and retrieve raw data
     raw_data = prepare_raw_data(args.yaml_settings,
                                 args.time_start, args.time_end, args.cc)
 
     # collect input and output data from raw data
-    #TODO collect all 3 at once
+    # TODO faster to collect all 3 at once
     if args.tput_estimates:
         err_lists = []
         tcp_err_list = calc_throughput_err(raw_data, "tcp_info")
@@ -363,8 +375,8 @@ def main():
 
         plot_accuracy_cdf(err_lists, args.time_start, args.time_end)
     if args.session_info:
-        plot_session_duration_and_throughput(raw_data, args.time_start, args.time_end)
-
+        plot_session_duration_and_throughput(raw_data, args.time_start,
+                                             args.time_end)
 
 
 if __name__ == '__main__':
