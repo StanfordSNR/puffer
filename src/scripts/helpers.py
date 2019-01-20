@@ -1,11 +1,17 @@
 import os
 import sys
 import errno
+import yaml
 import subprocess
 import psycopg2
 import numpy as np
 from datetime import datetime
 from influxdb import InfluxDBClient
+
+
+VIDEO_DURATION = 180180
+PKT_BYTES = 1500
+MILLION = 1000000
 
 
 def print_cmd(cmd):
@@ -125,3 +131,128 @@ def create_time_clause(time_start, time_end):
             time_clause += " AND time <= '{}'".format(time_end)
 
     return time_clause
+
+
+def get_ssim_index(pt):
+    if 'ssim_index' in pt and pt['ssim_index'] is not None:
+        return float(pt['ssim_index'])
+
+    if 'ssim' in pt and pt['ssim'] is not None:
+        return ssim_db_to_index(float(pt['ssim']))
+
+    return None
+
+
+def calculate_trans_times(video_sent_results, video_acked_results,
+                          cc, postgres_cursor):
+    d = {}
+    last_video_ts = {}
+
+    # cache of Postgres data: experiment 'id' -> json 'data' of the experiment
+    expt_id_cache = {}
+
+    for pt in video_sent_results['video_sent']:
+        expt_id = int(pt['expt_id'])
+        session = (pt['user'], int(pt['init_id']),
+                   pt['channel'], expt_id)
+
+        # filter data points by congestion control
+        expt_config = retrieve_expt_config(expt_id, expt_id_cache,
+                                           postgres_cursor)
+        if cc is not None and expt_config['cc'] != cc:
+            continue
+
+        if session not in d:
+            d[session] = {}
+            last_video_ts[session] = None
+
+        video_ts = int(pt['video_ts'])
+
+        if last_video_ts[session] is not None:
+            if video_ts != last_video_ts[session] + VIDEO_DURATION:
+                sys.stderr.write('Warning in session {}: video_ts={}\n'
+                                 .format(session, video_ts))
+                continue
+
+        last_video_ts[session] = video_ts
+
+        d[session][video_ts] = {}
+        dsv = d[session][video_ts]  # short name
+
+        dsv['sent_ts'] = try_parsing_time(pt['time'])
+        dsv['size'] = float(pt['size']) / PKT_BYTES  # bytes -> packets
+        # byte/second -> packet/second
+        dsv['delivery_rate'] = float(pt['delivery_rate']) / PKT_BYTES
+        dsv['cwnd'] = float(pt['cwnd'])
+        dsv['in_flight'] = float(pt['in_flight'])
+        dsv['min_rtt'] = float(pt['min_rtt']) / MILLION  # us -> s
+        dsv['rtt'] = float(pt['rtt']) / MILLION  # us -> s
+        dsv['ssim_index'] = get_ssim_index(pt)
+
+    for pt in video_acked_results['video_acked']:
+        expt_id = int(pt['expt_id'])
+        session = (pt['user'], int(pt['init_id']),
+                   pt['channel'], expt_id)
+
+        # filter data points by congestion control
+        expt_config = retrieve_expt_config(expt_id, expt_id_cache,
+                                           postgres_cursor)
+        if cc is not None and expt_config['cc'] != cc:
+            continue
+
+        if session not in d:
+            sys.stderr.write('Warning: ignored session {}\n'.format(session))
+            continue
+
+        video_ts = int(pt['video_ts'])
+        if video_ts not in d[session]:
+            sys.stderr.write('Warning: ignored acked video_ts {} in the '
+                             'session {}\n'.format(video_ts, session))
+            continue
+
+        dsv = d[session][video_ts]  # short name
+
+        # calculate transmission time
+        sent_ts = dsv['sent_ts']
+        acked_ts = try_parsing_time(pt['time'])
+        dsv['acked_ts'] = acked_ts
+        dsv['trans_time'] = (acked_ts - sent_ts).total_seconds()
+
+    return d
+
+
+def prepare_raw_data(yaml_settings_path, time_start, time_end, cc):
+    with open(yaml_settings_path, 'r') as fh:
+        yaml_settings = yaml.safe_load(fh)
+
+    # construct time clause after 'WHERE'
+    time_clause = create_time_clause(time_start, time_end)
+
+    # create a client connected to InfluxDB
+    influx_client = connect_to_influxdb(yaml_settings)
+
+    # perform queries in InfluxDB
+    video_sent_query = 'SELECT * FROM video_sent'
+    if time_clause is not None:
+        video_sent_query += ' WHERE ' + time_clause
+    video_sent_results = influx_client.query(video_sent_query)
+    if not video_sent_results:
+        sys.exit('Error: no results returned from query: ' + video_sent_query)
+
+    video_acked_query = 'SELECT * FROM video_acked'
+    if time_clause is not None:
+        video_acked_query += ' WHERE ' + time_clause
+    video_acked_results = influx_client.query(video_acked_query)
+    if not video_acked_results:
+        sys.exit('Error: no results returned from query: ' + video_acked_query)
+
+    # create a client connected to Postgres
+    postgres_client = connect_to_postgres(yaml_settings)
+    postgres_cursor = postgres_client.cursor()
+
+    # calculate chunk transmission times
+    ret = calculate_trans_times(video_sent_results, video_acked_results,
+                                cc, postgres_cursor)
+
+    postgres_cursor.close()
+    return ret
