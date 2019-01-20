@@ -7,12 +7,11 @@ from os import path
 import numpy as np
 from multiprocessing import Process
 import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from helpers import (
     connect_to_influxdb, connect_to_postgres, try_parsing_time,
     make_sure_path_exists, retrieve_expt_config, prepare_raw_data)
-
-matplotlib.use('Agg')
 
 MAX_TRANS_TIME_ESTIMATE = 10  # seconds
 
@@ -84,7 +83,7 @@ def plot_accuracy_cdf(err_lists, time_start, time_end):
     xmax = 4000
     ax.set_xlim(0, xmax)
     ax.set_title(title)
-    fig.savefig('throughput_err.png', dpi=900, bbox_inches='tight',
+    fig.savefig('throughput_err.png', dpi=300, bbox_inches='tight',
                 pad_inches=0.2)
     sys.stderr.write('Saved plot on ms scale to {}\n'
                      .format('throughput_err.png'))
@@ -104,7 +103,7 @@ def plot_accuracy_cdf(err_lists, time_start, time_end):
     xmax = 125
     ax.set_xlim(0, xmax)
     ax.set_title(title)
-    fig.savefig('throughput_err_percent.png', dpi=900, bbox_inches='tight',
+    fig.savefig('throughput_err_percent.png', dpi=300, bbox_inches='tight',
                 pad_inches=0.2)
     sys.stderr.write('Saved plot on % scale to {}\n'
                      .format('throughput_err_percent.png'))
@@ -157,7 +156,7 @@ def plot_session_duration_and_throughput(d, time_start, time_end):
     xmax = 50
     ax.set_xlim(0, xmax)
     ax.set_title(title)
-    fig.savefig('session_duration.png', dpi=900, bbox_inches='tight',
+    fig.savefig('session_duration.png', dpi=300, bbox_inches='tight',
                 pad_inches=0.2)
     sys.stderr.write('Saved session duration plot to \
                       {}\n'.format('session_duration.png'))
@@ -174,7 +173,7 @@ def plot_session_duration_and_throughput(d, time_start, time_end):
     xmax = 100
     ax.set_xlim(0, xmax)
     ax.set_title(title)
-    fig.savefig('session_throughputs.png', dpi=900, bbox_inches='tight',
+    fig.savefig('session_throughputs.png', dpi=300, bbox_inches='tight',
                 pad_inches=0.2)
     sys.stderr.write('Saved session throughputs plot to \
                       {}\n'.format('session_throughputs.png'))
@@ -191,7 +190,7 @@ def plot_session_duration_and_throughput(d, time_start, time_end):
     # xmax = 100
     ax.set_xlim(0, xmax)
     ax.set_title(title)
-    fig.savefig('rebuffer_percent.png', dpi=900, bbox_inches='tight',
+    fig.savefig('rebuffer_percent.png', dpi=300, bbox_inches='tight',
                 pad_inches=0.2)
     sys.stderr.write('Saved rebuffer percent plot to \
                       {}\n'.format('rebuffer_percent.png'))
