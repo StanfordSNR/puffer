@@ -77,8 +77,8 @@ def plot_accuracy_cdf(err_lists, time_start, time_end):
     ax.grid(True)
     ax.set_xlabel('Transmission time estimate error (ms)')
     ax.set_ylabel('CDF')
-    title = ('Throughput Estimator Accuracy from [{}, {}) \
-              (UTC)'.format(time_start, time_end))
+    title = ('Throughput Estimator Accuracy from [{}, {}] (UTC)'
+             .format(time_start, time_end))
     xmin, xmax = ax.get_xlim()
     xmax = 4000
     ax.set_xlim(0, xmax)
@@ -97,8 +97,8 @@ def plot_accuracy_cdf(err_lists, time_start, time_end):
     ax.grid(True)
     ax.set_xlabel('Transmission time estimate error (%)')
     ax.set_ylabel('CDF')
-    title = ('Throughput Estimator Accuracy from [{}, {}) \
-              (UTC)'.format(time_start, time_end))
+    title = ('Throughput Estimator Accuracy from [{}, {}] (UTC)'
+             .format(time_start, time_end))
     xmin, xmax = ax.get_xlim()
     xmax = 125
     ax.set_xlim(0, xmax)
@@ -150,16 +150,16 @@ def plot_session_duration_and_throughput(d, time_start, time_end):
     ax.grid(True)
     ax.set_xlabel('Session duration (minutes)')
     ax.set_ylabel('CDF')
-    title = ('Session Duration from [{}, {}) \
-              (UTC)'.format(time_start, time_end))
+    title = ('Session Duration from [{}, {}] (UTC)'
+             .format(time_start, time_end))
     xmin, xmax = ax.get_xlim()
     xmax = 50
     ax.set_xlim(0, xmax)
     ax.set_title(title)
     fig.savefig('session_duration.png', dpi=300, bbox_inches='tight',
                 pad_inches=0.2)
-    sys.stderr.write('Saved session duration plot to \
-                      {}\n'.format('session_duration.png'))
+    sys.stderr.write('Saved session duration plot to {}\n'
+                     .format('session_duration.png'))
 
     fig, ax = plt.subplots()
     ax.hist(tputs, bins=100000, normed=1, cumulative=True,
@@ -167,16 +167,16 @@ def plot_session_duration_and_throughput(d, time_start, time_end):
     ax.grid(True)
     ax.set_xlabel('Session throughput (Mbps)')
     ax.set_ylabel('CDF')
-    title = ('Session Throughputs from [{}, {}) \
-              (UTC)'.format(time_start, time_end))
+    title = ('Session Throughputs from [{}, {}] (UTC)'
+             .format(time_start, time_end))
     xmin, xmax = ax.get_xlim()
     xmax = 100
     ax.set_xlim(0, xmax)
     ax.set_title(title)
     fig.savefig('session_throughputs.png', dpi=300, bbox_inches='tight',
                 pad_inches=0.2)
-    sys.stderr.write('Saved session throughputs plot to \
-                      {}\n'.format('session_throughputs.png'))
+    sys.stderr.write('Saved session throughputs plot to {}\n'
+                     .format('session_throughputs.png'))
 
     fig, ax = plt.subplots()
     ax.hist(rebuffer_percent, bins=100000, normed=1, cumulative=True,
@@ -192,8 +192,8 @@ def plot_session_duration_and_throughput(d, time_start, time_end):
     ax.set_title(title)
     fig.savefig('rebuffer_percent.png', dpi=300, bbox_inches='tight',
                 pad_inches=0.2)
-    sys.stderr.write('Saved rebuffer percent plot to \
-                      {}\n'.format('rebuffer_percent.png'))
+    sys.stderr.write('Saved rebuffer percent plot to {}\n'
+                     .format('rebuffer_percent.png'))
 
     print('Percentage of all sessions with a rebuffer: ' +
           str(np.count_nonzero(total_rebuffer) / len(session_durations)))
