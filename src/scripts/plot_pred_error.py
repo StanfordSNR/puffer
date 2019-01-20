@@ -10,9 +10,6 @@ import matplotlib.pyplot as plt
 from helpers import prepare_raw_data, VIDEO_DURATION
 
 
-MAX_TRANS_TIME_ESTIMATE = 10  # seconds
-
-
 def error(estimate, real):
     return (estimate - real) / real
 
@@ -52,8 +49,18 @@ def harmonic_mean(sess, ts):
     return hm_tput
 
 
+def hidden_markov(sess, ts):
+    # TODO
+    pass
+
+
+def puffer_ttp(sess, ts):
+    # TODO
+    pass
+
+
 def calc_pred_error(d):
-    midstream_err = {'TCP': [], 'LS': [], 'HM': []}
+    midstream_err = {'TCP': [], 'LS': [], 'HM': [], 'HMM': [], 'TTP': []}
 
     for session in d:
         for ts in d[session]:
@@ -73,10 +80,22 @@ def calc_pred_error(d):
             if est_tput is not None:
                 midstream_err['LS'].append(pred_error(dst, est_tput))
 
-            # Harmonic Mean
+            # Harmonic Mean (MPC)
             est_tput = harmonic_mean(d[session], ts)
             if est_tput is not None:
                 midstream_err['HM'].append(pred_error(dst, est_tput))
+
+            # Hidden Markov Model (CS2P)
+            est_tput = hidden_markov(d[session], ts)
+            if est_tput is not None:
+                midstream_err['HMM'].append(pred_error(dst, est_tput))
+
+            # Puffer TTP
+            est_tput = puffer_ttp(d[session], ts)
+            if est_tput is not None:
+                midstream_err['TTP'].append(pred_error(dst, est_tput))
+
+    # TODO: calculate errors for initial chunks and lookahead horizon
 
     return midstream_err
 
