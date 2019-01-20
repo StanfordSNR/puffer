@@ -72,22 +72,24 @@ void Puffer::reinit()
 
   /* init curr_ssims */
   if (past_chunks_.size() > 0) {
-    curr_ssims_[0][0] = past_chunks_.back().ssim;
+    is_init_ = false;
+    curr_ssims_[0][0] = ssim_db(past_chunks_.back().ssim);
   } else {
-    curr_ssims_[0][0] = 0;
+    is_init_ = true;
   }
 
   for (size_t i = 1; i <= lookahead_horizon_; i++) {
     const auto & data_map = channel->vdata(next_ts + vduration * (i - 1));
 
     for (size_t j = 0; j < num_formats_; j++) {
+
       try {
-        curr_ssims_[i][j] = channel->vssim(vformats[j],
-                                           next_ts + vduration * (i - 1));
+        curr_ssims_[i][j] = ssim_db(
+            channel->vssim(vformats[j], next_ts + vduration * (i - 1)));
       } catch (const exception & e) {
         cerr << "Error occurs when getting the ssim of "
              << next_ts + vduration * (i - 1) << " " << vformats[j] << endl;
-        curr_ssims_[i][j] = 0;
+        curr_ssims_[i][j] = MIN_SSIM;
       }
 
       try {
@@ -161,8 +163,12 @@ double Puffer::get_qvalue(size_t i, size_t curr_buffer, size_t curr_format,
 {
   assert(is_ban_[i + 1][next_format] == false);
 
-  double ans = curr_ssims_[i][curr_format] - ssim_diff_coeff_
-               * fabs(curr_ssims_[i][curr_format] - curr_ssims_[i + 1][next_format]);
+  double ans = curr_ssims_[i][curr_format];
+
+  if (not (is_init_ and i == 0)) {
+     ans -= ssim_diff_coeff_
+            * fabs(curr_ssims_[i][curr_format] - curr_ssims_[i + 1][next_format]);
+  }
 
   for (size_t st = 0; st <= dis_sending_time_; st++) {
     if (sending_time_prob_[i + 1][next_format][st] < st_prob_eps_) {

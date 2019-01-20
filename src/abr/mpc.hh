@@ -18,8 +18,8 @@ private:
   static constexpr size_t MAX_NUM_PAST_CHUNKS = 5;
   static constexpr size_t MAX_LOOKAHEAD_HORIZON = 10;
   static constexpr size_t MAX_DIS_BUF_LENGTH = 100;
-  static constexpr double REBUFFER_LENGTH_COEFF = 5;
-  static constexpr double SSIM_DIFF_COEFF = 0.3;
+  static constexpr double REBUFFER_LENGTH_COEFF = 20;
+  static constexpr double SSIM_DIFF_COEFF = 1;
   static constexpr size_t MAX_NUM_FORMATS = 20;
   static constexpr double HIGH_SENDING_TIME = 10000;
 
@@ -46,6 +46,9 @@ private:
   /* for robust mpc */
   bool is_robust_ {false};
   double last_tp_pred_ {-1};
+
+  /* whether the current chunk is the first chunk */
+  bool is_init_ {};
 
   /* for the current buffer length */
   size_t curr_buffer_ {};

@@ -89,11 +89,14 @@ class Model:
         mean_square = (old_sum_square + new_sum_square) / self.obs_size
         self.obs_std = np.sqrt(mean_square - np.square(self.obs_mean))
 
-    def normalize_input(self, raw_in):
+    def normalize_input(self, raw_in, update_obs=False):
         z = np.array(raw_in)
 
         # update mean and std of the data seen so far
-        self.update_obs_stats(z)
+        if update_obs:
+            self.update_obs_stats(z)
+
+        assert(self.obs_size is not None)
 
         for col in range(len(self.obs_mean)):
             z[:, col] -= self.obs_mean[col]
@@ -154,6 +157,23 @@ class Model:
 
         return correct / total
 
+    def predict(self, input_data):
+        with torch.no_grad():
+            x = torch.from_numpy(input_data).to(device=DEVICE)
+
+            y_scores = self.model(x)
+            y_predicted = torch.max(y_scores, 1)[1].to(device=DEVICE)
+
+            ret = y_predicted.double().numpy()
+            for i in range(len(ret)):
+                bin_id = ret[i]
+                if bin_id == 0:  # the first bin is defined differently
+                    ret[i] = 0.25 * Model.BIN_SIZE
+                else:
+                    ret[i] = bin_id * Model.BIN_SIZE
+
+            return ret
+
     def load(self, model_path):
         checkpoint = torch.load(model_path)
         self.model.load_state_dict(checkpoint['model_state_dict'])
@@ -163,6 +183,8 @@ class Model:
         self.obs_std = checkpoint['obs_std']
 
     def save(self, model_path):
+        assert(self.obs_size is not None)
+
         torch.save({
             'model_state_dict': self.model.state_dict(),
             'obs_size': self.obs_size,
@@ -464,8 +486,10 @@ def train_or_eval_model(i, args, raw_in_data, raw_out_data):
         sys.stderr.write('[{}] Created a new model\n'.format(i))
 
     # normalize input data
-    # save normalization weights on first training
-    input_data = model.normalize_input(raw_in_data)
+    if args.inference:
+        input_data = model.normalize_input(raw_in_data, update_obs=False)
+    else:
+        input_data = model.normalize_input(raw_in_data, update_obs=True)
 
     # discretize output data
     output_data = model.discretize_output(raw_out_data)
