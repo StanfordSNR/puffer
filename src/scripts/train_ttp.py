@@ -488,6 +488,8 @@ def train_or_eval_model(i, args, raw_in_data, raw_out_data):
 
 
 def main():
+    sys.exit("DON'T RUN ME; USE THE MASTER BRANCH")
+
     parser = argparse.ArgumentParser()
     parser.add_argument('yaml_settings')
     parser.add_argument('--from', dest='time_start',

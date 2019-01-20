@@ -1,69 +1,84 @@
 #!/usr/bin/env python3
 
 import sys
-import json
 import argparse
-from os import path
 import numpy as np
-from multiprocessing import Process
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-from helpers import (
-    connect_to_influxdb, connect_to_postgres, try_parsing_time,
-    make_sure_path_exists, retrieve_expt_config, prepare_raw_data)
+
+from helpers import prepare_raw_data, VIDEO_DURATION
+
 
 MAX_TRANS_TIME_ESTIMATE = 10  # seconds
 
 
-def calc_throughput_err(d, estimator):
-    err_list_ms = []
-    err_list_percent = []
-    max_tput = 0
-    for session in d:
-        ds = d[session]
+def error(estimate, real):
+    return (estimate - real) / real
 
-        real_tputs = []
-        for next_ts in sorted(ds.keys()):  # Need to iterate in order!
-            if 'trans_time' not in ds[next_ts]:
+
+def pred_error(dst, est_tput):
+    assert(est_tput is not None)
+
+    est_trans_time = dst['size'] / est_tput
+    real_trans_time = dst['trans_time']
+
+    return abs(error(est_trans_time, real_trans_time))
+
+
+def last_sample(sess, ts):
+    last_ts = ts - VIDEO_DURATION
+    if last_ts not in sess or 'throughput' not in sess[last_ts]:
+        return None
+
+    return sess[last_ts]['throughput']
+
+
+def harmonic_mean(sess, ts):
+    past_tputs = []
+
+    for i in range(1, 6):
+        prev_ts = ts - i * VIDEO_DURATION
+        if prev_ts not in sess or 'throughput' not in sess[prev_ts]:
+            return None
+
+        prev_tput = sess[prev_ts]['throughput']
+        if prev_tput <= 0:
+            return None
+
+        past_tputs.append(prev_tput)
+
+    hm_tput = len(past_tputs) / np.sum(1 / np.array(past_tputs))
+    return hm_tput
+
+
+def calc_pred_error(d):
+    midstream_err = {'TCP': [], 'LS': [], 'HM': []}
+
+    for session in d:
+        for ts in d[session]:
+            dst = d[session][ts]
+            if 'throughput' not in dst or 'trans_time' not in dst:
+                continue
+            if dst['throughput'] <= 0 or dst['trans_time'] <= 0:
                 continue
 
-            real_tput = ds[next_ts]['size'] / ds[next_ts]['trans_time']  # bps
-            if real_tput > max_tput:
-                max_tput = real_tput
+            # TCP info
+            est_tput = dst['delivery_rate']
+            if est_tput is not None:
+                midstream_err['TCP'].append(pred_error(dst, est_tput))
 
-            if estimator == 'tcp_info':
-                est_tput = ds[next_ts]['delivery_rate']
-            elif estimator == 'last_tput':
-                if len(real_tputs) == 0:  # first chunk
-                    est_tput = -1  # Will be ignored
-                else:
-                    est_tput = real_tputs[-1]
-            elif estimator == 'mpc':  # Harmonic mean of last 5 tputs
-                if len(real_tputs) < 5:  # first 5 chunks
-                    est_tput = -1
-                else:
-                    past_bandwidths = real_tputs[-5:]
+            # Last Sample
+            est_tput = last_sample(d[session], ts)
+            if est_tput is not None:
+                midstream_err['LS'].append(pred_error(dst, est_tput))
 
-                    bandwidth_sum = 0
+            # Harmonic Mean
+            est_tput = harmonic_mean(d[session], ts)
+            if est_tput is not None:
+                midstream_err['HM'].append(pred_error(dst, est_tput))
 
-                    for past_val in past_bandwidths:
-                        bandwidth_sum += (1/float(past_val))
-                    harmonic_bandwidth = 1.0/(bandwidth_sum/len(past_bandwidths))
-                    est_tput = harmonic_bandwidth
-
-            real_tputs.append(real_tput)
-            if(est_tput != -1):  # Ignore first 5 chunks
-                if est_tput > 0:
-                    est_trans_time = ds[next_ts]['size'] / est_tput
-                else:
-                    est_trans_time = MAX_TRANS_TIME_ESTIMATE
-                err_list_ms.append(abs(ds[next_ts]['trans_time'] -
-                                   est_trans_time) * 1000)  # s --> ms
-                err_list_percent.append(abs(ds[next_ts]['trans_time'] -
-                                        est_trans_time)/ds[next_ts]['trans_time'] * 100)
-
-    return (err_list_ms, err_list_percent, estimator)
+    return midstream_err
 
 
 def plot_accuracy_cdf(err_lists, time_start, time_end):
@@ -222,18 +237,19 @@ def main():
     raw_data = prepare_raw_data(args.yaml_settings,
                                 args.time_start, args.time_end, args.cc)
 
-    # collect input and output data from raw data
-    # TODO faster to collect all 3 at once
     if args.tput_estimates:
-        err_lists = []
-        tcp_err_list = calc_throughput_err(raw_data, 'tcp_info')
-        mpc_err_list = calc_throughput_err(raw_data, 'mpc')
-        last_tput_err_list = calc_throughput_err(raw_data, 'last_tput')
-        err_lists.append(tcp_err_list)
-        err_lists.append(mpc_err_list)
-        err_lists.append(last_tput_err_list)
+        midstream_err = calc_pred_error(raw_data)
 
-        plot_accuracy_cdf(err_lists, args.time_start, args.time_end)
+        # err_lists = []
+        # tcp_err_list = calc_throughput_err(raw_data, 'tcp_info')
+        # mpc_err_list = calc_throughput_err(raw_data, 'mpc')
+        # last_tput_err_list = calc_throughput_err(raw_data, 'last_tput')
+        # err_lists.append(tcp_err_list)
+        # err_lists.append(mpc_err_list)
+        # err_lists.append(last_tput_err_list)
+
+        # plot_accuracy_cdf(err_lists, args.time_start, args.time_end)
+
     if args.session_info:
         plot_session_duration_and_throughput(raw_data, args.time_start,
                                              args.time_end)
