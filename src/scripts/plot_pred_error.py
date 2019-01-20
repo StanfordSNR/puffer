@@ -81,47 +81,35 @@ def calc_pred_error(d):
     return midstream_err
 
 
-def plot_accuracy_cdf(err_lists, time_start, time_end):
+def plot_error_cdf(error_dict, time_start, time_end):
     fig, ax = plt.subplots()
 
-    # first plot with x axis in ms
-    for errors in err_lists:
-        ax.hist(errors[0], bins=100000, normed=1, cumulative=True,
-                label=errors[2], histtype='step')
-    ax.legend(loc='right')
-    ax.grid(True)
-    ax.set_xlabel('Transmission time estimate error (ms)')
-    ax.set_ylabel('CDF')
-    title = ('Throughput Estimator Accuracy from [{}, {}] (UTC)'
-             .format(time_start, time_end))
-    xmin, xmax = ax.get_xlim()
-    xmax = 4000
-    ax.set_xlim(0, xmax)
-    ax.set_title(title)
-    fig.savefig('throughput_err.png', dpi=300, bbox_inches='tight',
-                pad_inches=0.2)
-    sys.stderr.write('Saved plot on ms scale to {}\n'
-                     .format('throughput_err.png'))
+    x_min = 0
+    x_max = 1
+    num_bins = 10
+    for estimator, error_list in error_dict.items():
+        counts, bin_edges = np.histogram(error_list, bins=num_bins,
+                                         range=(x_min, x_max))
+        x = bin_edges
+        y = np.cumsum(counts) / len(error_list)
+        y = np.insert(y, 0, 0)  # prepend 0
 
-    fig, ax = plt.subplots()
-    # next plot with x axis in percent
-    for errors in err_lists:
-        ax.hist(errors[1], bins=100000, normed=1, cumulative=True,
-                label=errors[2], histtype='step')
-    ax.legend(loc='right')
-    ax.grid(True)
-    ax.set_xlabel('Transmission time estimate error (%)')
-    ax.set_ylabel('CDF')
-    title = ('Throughput Estimator Accuracy from [{}, {}] (UTC)'
+        ax.plot(x, y, label=estimator)
+
+    ax.set_xlim(x_min, x_max)
+    ax.set_ylim(0, 1)
+    ax.legend()
+    ax.grid()
+
+    title = ('Transmission Time Prediction Accuracy\n[{}, {}] (UTC)'
              .format(time_start, time_end))
-    xmin, xmax = ax.get_xlim()
-    xmax = 125
-    ax.set_xlim(0, xmax)
     ax.set_title(title)
-    fig.savefig('throughput_err_percent.png', dpi=300, bbox_inches='tight',
-                pad_inches=0.2)
-    sys.stderr.write('Saved plot on % scale to {}\n'
-                     .format('throughput_err_percent.png'))
+    ax.set_xlabel('Absolute Prediction Error')
+    ax.set_ylabel('CDF')
+
+    figname = 'trans_time_error.png'
+    fig.savefig(figname, dpi=150, bbox_inches='tight')
+    sys.stderr.write('Saved plot to {}\n'.format(figname))
 
 
 def plot_session_duration_and_throughput(d, time_start, time_end):
@@ -171,7 +159,7 @@ def plot_session_duration_and_throughput(d, time_start, time_end):
     xmax = 50
     ax.set_xlim(0, xmax)
     ax.set_title(title)
-    fig.savefig('session_duration.png', dpi=300, bbox_inches='tight',
+    fig.savefig('session_duration.png', dpi=150, bbox_inches='tight',
                 pad_inches=0.2)
     sys.stderr.write('Saved session duration plot to {}\n'
                      .format('session_duration.png'))
@@ -188,7 +176,7 @@ def plot_session_duration_and_throughput(d, time_start, time_end):
     xmax = 100
     ax.set_xlim(0, xmax)
     ax.set_title(title)
-    fig.savefig('session_throughputs.png', dpi=300, bbox_inches='tight',
+    fig.savefig('session_throughputs.png', dpi=150, bbox_inches='tight',
                 pad_inches=0.2)
     sys.stderr.write('Saved session throughputs plot to {}\n'
                      .format('session_throughputs.png'))
@@ -205,7 +193,7 @@ def plot_session_duration_and_throughput(d, time_start, time_end):
     # xmax = 100
     ax.set_xlim(0, xmax)
     ax.set_title(title)
-    fig.savefig('rebuffer_percent.png', dpi=300, bbox_inches='tight',
+    fig.savefig('rebuffer_percent.png', dpi=150, bbox_inches='tight',
                 pad_inches=0.2)
     sys.stderr.write('Saved rebuffer percent plot to {}\n'
                      .format('rebuffer_percent.png'))
@@ -240,15 +228,8 @@ def main():
     if args.tput_estimates:
         midstream_err = calc_pred_error(raw_data)
 
-        # err_lists = []
-        # tcp_err_list = calc_throughput_err(raw_data, 'tcp_info')
-        # mpc_err_list = calc_throughput_err(raw_data, 'mpc')
-        # last_tput_err_list = calc_throughput_err(raw_data, 'last_tput')
-        # err_lists.append(tcp_err_list)
-        # err_lists.append(mpc_err_list)
-        # err_lists.append(last_tput_err_list)
-
-        # plot_accuracy_cdf(err_lists, args.time_start, args.time_end)
+        # plot CDF graph of mistream prediction errors
+        plot_error_cdf(midstream_err, args.time_start, args.time_end)
 
     if args.session_info:
         plot_session_duration_and_throughput(raw_data, args.time_start,
