@@ -7,11 +7,53 @@ import argparse
 import signal
 from os import path
 from datetime import datetime, timedelta
-from helpers import Popen
+from helpers import Popen, check_call
 
 
 CL_HOUR = 11  # perform continual learning at 11:00 (UTC)
 DEVNULL = open(os.devnull, 'w')  # don't actually need to close
+
+
+def run_ttp(ttp_path, yaml_settings_path):
+    # load YAML settings from the disk
+    with open(yaml_settings_path, 'r') as fh:
+        yaml_settings = yaml.safe_load(fh)
+
+    for expt in yaml_settings['experiments']:
+        fingerprint = expt['fingerprint']
+        abr = fingerprint['abr']
+        if abr != 'puffer_ttp':
+            continue
+
+        cc = fingerprint['cc']
+
+        # find a name for the new model_dir
+        old_model_dir = fingerprint['abr_config']['model_dir']
+        model_parent_dir = path.dirname(old_model_dir)
+
+        new_model_base = cc + '-' + datetime.utcnow().strftime('%Y%m%d')
+        new_model_dir = path.join(model_parent_dir, new_model_base)
+
+        # run ttp.py
+        start_time = time.time()
+        print('Continual learning: loaded {} and training {}'
+              .format(path.basename(old_model_dir), new_model_base))
+
+        check_call([ttp_path, yaml_settings_path, '--cl', '--cc', cc,
+                    '--load-model', old_model_dir,
+                    '--save-model', new_model_dir])
+
+        end_time = time.time()
+        print('Continual learning: new model {} is available after {:.2f} hours'
+              .format(new_model_base, (end_time - start_time) / 3600))
+
+        # update model_dir
+        fingerprint['abr_config']['model_dir'] = new_model_dir
+
+    # write YAML settings with updated model_dir back to disk
+    with open(yaml_settings_path, 'w') as fh:
+        yaml.safe_dump(yaml_settings, fh, default_flow_style=False)
+    print('Updated model_dir in {}'.format(yaml_settings_path))
 
 
 def main():
@@ -20,13 +62,15 @@ def main():
     parser.add_argument('yaml_settings')
     args = parser.parse_args()
 
-    yaml_settings_path = args.yaml_settings
+    yaml_settings_path = path.abspath(args.yaml_settings)
     src_dir = path.dirname(path.dirname(path.abspath(__file__)))
     run_servers_path = path.join(src_dir, 'media-server', 'run_servers')
+    ttp_path = path.join(src_dir, 'scripts', 'ttp.py')
 
     # execute run_servers
     run_servers_proc = Popen([run_servers_path, yaml_settings_path],
                              preexec_fn=os.setsid, stderr=DEVNULL)
+    print('Started run_servers')
 
     while True:
         # sleep until next CL_HOUR
@@ -35,19 +79,18 @@ def main():
         if wakeup <= td:
             wakeup += timedelta(days=1)
 
-        print('Will perform continual learning at {} (UTC)'.format(wakeup))
+        print('Sleeping until {} (UTC) to perform continual learning'
+              .format(wakeup))
         time.sleep((wakeup - td).total_seconds())
 
-        # TODO: perform continual learning!
-        # run_ttp(yaml_settings_path)
+        # perform continual learning!
+        run_ttp(ttp_path, yaml_settings_path)
 
-        # TODO: update settings.yml
-        # update_yaml_settings(yaml_settings_path)
-
-        # kill and restart run_servers
+        # kill and restart run_servers with updated YAML settings
         os.killpg(os.getpgid(run_servers_proc.pid), signal.SIGTERM)
         run_servers_proc = Popen([run_servers_path, yaml_settings_path],
-                                 preexec_fn=os.setsid)
+                                 preexec_fn=os.setsid, stderr=DEVNULL)
+        print('Killed and restarted run_servers with updated YAML settings')
 
 
 if __name__ == '__main__':
