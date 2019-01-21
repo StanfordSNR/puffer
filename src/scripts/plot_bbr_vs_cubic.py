@@ -1,7 +1,13 @@
 #!/usr/bin/env python3
 
+import sys
 import yaml
 import argparse
+import numpy as np
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+
 
 from helpers import (
     prepare_raw_data, connect_to_postgres, retrieve_expt_config,
@@ -12,16 +18,73 @@ from helpers import (
 expt_id_cache = {}
 
 
-def plot_ssim(d, postgres_cursor):
+def plot_ssim_cdf(data, args):
+    fig, ax = plt.subplots()
+
+    x_min = 0
+    x_max = 25
+    num_bins = 100
+    for cc in data:
+        counts, bin_edges = np.histogram(data[cc]['ssim'], bins=num_bins,
+                                         range=(x_min, x_max))
+
+        x = bin_edges
+        y = np.cumsum(counts) / len(data[cc]['ssim'])
+        y = np.insert(y, 0, 0)  # prepend 0
+
+        ax.plot(x, y, label=cc)
+
+    ax.set_xlim(x_min, x_max)
+    ax.set_ylim(0, 1)
+    ax.legend()
+    ax.grid()
+
+    title = '[{}, {}] (UTC)'.format(args.time_start, args.time_end)
+    ax.set_title(title)
+    ax.set_xlabel('SSIM (dB)')
+    ax.set_ylabel('CDF')
+
+    figname = 'bbr_cubic_ssim_cdf.png'
+    fig.savefig(figname, dpi=150, bbox_inches='tight')
+    sys.stderr.write('Saved plot to {}\n'.format(figname))
+
+
+def plot_ssim_var_cdf(data, args):
+    fig, ax = plt.subplots()
+
+    x_min = 0
+    x_max = 4
+    num_bins = 100
+    for cc in data:
+        counts, bin_edges = np.histogram(data[cc]['ssim_var'], bins=num_bins,
+                                         range=(x_min, x_max))
+
+        x = bin_edges
+        y = np.cumsum(counts) / len(data[cc]['ssim_var'])
+        y = np.insert(y, 0, 0)  # prepend 0
+
+        ax.plot(x, y, label=cc)
+
+    ax.set_xlim(x_min, x_max)
+    ax.set_ylim(0, 1)
+    ax.legend()
+    ax.grid()
+
+    title = '[{}, {}] (UTC)'.format(args.time_start, args.time_end)
+    ax.set_title(title)
+    ax.set_xlabel('Absolute SSIM variation')
+    ax.set_ylabel('CDF')
+
+    figname = 'bbr_cubic_ssim_var_cdf.png'
+    fig.savefig(figname, dpi=150, bbox_inches='tight')
+    sys.stderr.write('Saved plot to {}\n'.format(figname))
+
+
+def plot_ssim(d, postgres_cursor, args):
     data = {
         'cubic': {'ssim': [], 'ssim_var': []},
         'bbr': {'ssim': [], 'ssim_var': []}
     }
-
-    ssim_min = float('inf')
-    ssim_max = float('-inf')
-    ssim_var_min = float('inf')
-    ssim_var_max = float('-inf')
 
     for session in d:
         expt_id = session[3]
@@ -42,9 +105,6 @@ def plot_ssim(d, postgres_cursor):
             curr_ssim_db = ssim_index_to_db(curr_ssim_index)
             data[cc]['ssim'].append(curr_ssim_db)
 
-            ssim_min = min(ssim_min, curr_ssim_db)
-            ssim_max = max(ssim_max, curr_ssim_db)
-
             # append SSIM variation
             prev_ts = video_ts - VIDEO_DURATION
             if prev_ts not in d[session]:
@@ -58,10 +118,12 @@ def plot_ssim(d, postgres_cursor):
             ssim_diff = abs(curr_ssim_db - prev_ssim_db)
             data[cc]['ssim_var'].append(ssim_diff)
 
-            ssim_var_min = min(ssim_var_min, ssim_diff)
-            ssim_var_max = max(ssim_var_max, ssim_diff)
+    # plot CDF of SSIM
+    plot_ssim_cdf(data, args)
 
-    # TODO plot CDF of SSIM and SSIM variation
+    # plto CDF of SSIM variation
+    plot_ssim_var_cdf(data, args)
+
 
 def main():
     parser = argparse.ArgumentParser()
@@ -84,8 +146,8 @@ def main():
     postgres_client = connect_to_postgres(yaml_settings)
     postgres_cursor = postgres_client.cursor()
 
-    # plot CDF of SSIM and SSIM variation
-    plot_ssim(raw_data, postgres_cursor)
+    # plot SSIM and SSIM variation
+    plot_ssim(raw_data, postgres_cursor, args)
 
     postgres_cursor.close()
 

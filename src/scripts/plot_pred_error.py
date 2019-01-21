@@ -105,7 +105,7 @@ def plot_error_cdf(error_dict, time_start, time_end):
 
     x_min = 0
     x_max = 1
-    num_bins = 10
+    num_bins = 100
     for estimator, error_list in error_dict.items():
         counts, bin_edges = np.histogram(error_list, bins=num_bins,
                                          range=(x_min, x_max))
@@ -251,6 +251,8 @@ def main():
         plot_error_cdf(midstream_err, args.time_start, args.time_end)
 
     if args.session_info:
+        # TODO (REMOVEME) raw_data has different units now
+        # TODO (REMOVEME) check out helpers.py:calculate_trans_times()
         plot_session_duration_and_throughput(raw_data, args.time_start,
                                              args.time_end)
 
