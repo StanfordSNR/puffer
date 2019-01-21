@@ -284,16 +284,6 @@ def create_time_clause(time_start, time_end):
     return time_clause
 
 
-def get_ssim_index(pt):
-    if 'ssim_index' in pt and pt['ssim_index'] is not None:
-        return float(pt['ssim_index'])
-
-    if 'ssim' in pt and pt['ssim'] is not None:
-        return ssim_db_to_index(float(pt['ssim']))
-
-    return None
-
-
 def calculate_trans_times(video_sent_results, video_acked_results,
                           cc, postgres_cursor):
     d = {}
@@ -335,7 +325,6 @@ def calculate_trans_times(video_sent_results, video_acked_results,
         dsv['in_flight'] = float(pt['in_flight'])
         dsv['min_rtt'] = float(pt['min_rtt']) / MILLION  # us -> s
         dsv['rtt'] = float(pt['rtt']) / MILLION  # us -> s
-        # dsv['ssim_index'] = get_ssim_index(pt)
 
     for pt in video_acked_results['video_acked']:
         expt_id = int(pt['expt_id'])

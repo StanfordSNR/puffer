@@ -111,3 +111,13 @@ def retrieve_expt_config(expt_id, expt_id_cache, postgres_cursor):
         expt_id_cache[expt_id] = rows[0][2]
 
     return expt_id_cache[expt_id]
+
+
+def get_ssim_index(pt):
+    if 'ssim_index' in pt and pt['ssim_index'] is not None:
+        return float(pt['ssim_index'])
+
+    if 'ssim' in pt and pt['ssim'] is not None:
+        return ssim_db_to_index(float(pt['ssim']))
+
+    return None

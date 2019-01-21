@@ -12,11 +12,12 @@ import matplotlib.pyplot as plt
 
 from helpers import (
     connect_to_postgres, connect_to_influxdb, try_parsing_time,
-    ssim_index_to_db, retrieve_expt_config)
+    ssim_index_to_db, retrieve_expt_config, get_ssim_index)
 
 
 # cache of Postgres data: experiment 'id' -> json 'data' of the experiment
 expt_id_cache = {}
+
 
 def collect_ssim(video_acked_results, postgres_cursor):
     # process InfluxDB data
@@ -30,20 +31,18 @@ def collect_ssim(video_acked_results, postgres_cursor):
         if abr_cc not in x:
             x[abr_cc] = []
 
-        if pt['ssim_index'] is not None:
-            ssim_index = float(pt['ssim_index'])
+        ssim_index = get_ssim_index(pt)
+        if ssim_index is not None:
             x[abr_cc].append(ssim_index)
 
-    # calculate average SSIM in dB and record number of chunks
+    # calculate average SSIM in dB
     ssim = {}
-    num_chunks = {}
     for abr_cc in x:
-        num_chunks[abr_cc] = len(x[abr_cc])
         avg_ssim_index = np.mean(x[abr_cc])
         avg_ssim_db = ssim_index_to_db(avg_ssim_index)
         ssim[abr_cc] = avg_ssim_db
 
-    return ssim, num_chunks
+    return ssim
 
 
 def collect_rebuffer(client_buffer_results, postgres_cursor):
@@ -58,52 +57,73 @@ def collect_rebuffer(client_buffer_results, postgres_cursor):
         if abr_cc not in x:
             x[abr_cc] = {}
 
+        # index x[abr_cc] by session
         session = (pt['user'], int(pt['init_id']),
                    pt['channel'], int(pt['expt_id']))
         if session not in x[abr_cc]:
             x[abr_cc][session] = {}
-            x[abr_cc][session]['min_time'] = None
-            x[abr_cc][session]['max_time'] = None
+            x[abr_cc][session]['min_play_time'] = None
+            x[abr_cc][session]['max_play_time'] = None
             x[abr_cc][session]['min_cum_rebuf'] = None
             x[abr_cc][session]['max_cum_rebuf'] = None
 
-        # shorthand variable
-        y = x[abr_cc][session]
+        y = x[abr_cc][session]  # short name
+
         ts = try_parsing_time(pt['time'])
         cum_rebuf = float(pt['cum_rebuf'])
 
-        if y['min_time'] is None or ts < y['min_time']:
-            y['min_time'] = ts
-        if y['max_time'] is None or ts > y['max_time']:
-            y['max_time'] = ts
-
-        if y['min_cum_rebuf'] is None or cum_rebuf < y['min_cum_rebuf']:
+        if pt['event'] == 'startup':
+            y['min_play_time'] = ts
             y['min_cum_rebuf'] = cum_rebuf
+
+        if y['max_play_time'] is None or ts > y['max_play_time']:
+            y['max_play_time'] = ts
+
         if y['max_cum_rebuf'] is None or cum_rebuf > y['max_cum_rebuf']:
             y['max_cum_rebuf'] = cum_rebuf
 
     # calculate rebuffer rate
     rebuffer = {}
+    total_play = {}
+    total_rebuf = {}
+
     for abr_cc in x:
-        total_play = 0
-        total_rebuf = 0
+        abr_cc_play = 0
+        abr_cc_rebuf = 0
 
         for session in x[abr_cc]:
-            # shorthand variable
-            y = x[abr_cc][session]
-            total_play += (y['max_time'] - y['min_time']).total_seconds()
-            total_rebuf += y['max_cum_rebuf'] - y['min_cum_rebuf']
+            y = x[abr_cc][session]  # short name
 
-        if total_play == 0:
-            sys.exit('Error: total play time is 0')
+            if y['min_play_time'] is None or y['min_cum_rebuf'] is None:
+                continue
 
-        rebuf_rate = total_rebuf / total_play
+            sess_play = (y['max_play_time'] - y['min_play_time']).total_seconds()
+            sess_rebuf = y['max_cum_rebuf'] - y['min_cum_rebuf']
+
+            # exclude too short sessions
+            if sess_play < 2:
+                continue
+
+            # TODO: identify and ignore outliers
+            if sess_rebuf / sess_play > 0.5:
+                continue
+
+            abr_cc_play += sess_play
+            abr_cc_rebuf += sess_rebuf
+
+        if abr_cc_play == 0:
+            sys.exit('Error: {}: total play time is 0'.format(abr_cc))
+
+        total_play[abr_cc] = abr_cc_play
+        total_rebuf[abr_cc] = abr_cc_rebuf
+
+        rebuf_rate = abr_cc_rebuf / abr_cc_play
         rebuffer[abr_cc] = rebuf_rate * 100
 
-    return rebuffer
+    return rebuffer, total_play, total_rebuf
 
 
-def plot_ssim_rebuffer(ssim, num_chunks, rebuffer, output, days):
+def plot_ssim_rebuffer(ssim, rebuffer, total_play, total_rebuf, output, days):
     time_str = '%Y-%m-%d'
     curr_ts = datetime.utcnow()
     start_ts = curr_ts - timedelta(days=days)
@@ -125,8 +145,8 @@ def plot_ssim_rebuffer(ssim, num_chunks, rebuffer, output, days):
             sys.exit('Error: {} does not exist both ssim and rebuffer'
                      .format(abr_cc_str))
 
-        total_duration = (num_chunks[abr_cc] * 2.002) / 3600
-        abr_cc_str += '\n({:.1f}h)'.format(total_duration)
+        abr_cc_str += '\n({:.1f}h/{:.1f}h)'.format(total_rebuf[abr_cc] / 3600,
+                                                   total_play[abr_cc] / 3600)
 
         x = rebuffer[abr_cc]
         y = ssim[abr_cc]
@@ -140,7 +160,7 @@ def plot_ssim_rebuffer(ssim, num_chunks, rebuffer, output, days):
     ax.set_xlim(xmin, xmax)
     ax.invert_xaxis()
 
-    fig.savefig(output, dpi=300, bbox_inches='tight', pad_inches=0.2)
+    fig.savefig(output, dpi=150, bbox_inches='tight')
     sys.stderr.write('Saved plot to {}\n'.format(output))
 
 
@@ -173,14 +193,15 @@ def main():
     postgres_cursor = postgres_client.cursor()
 
     # collect ssim and rebuffer
-    ssim, num_chunks = collect_ssim(video_acked_results, postgres_cursor)
-    rebuffer = collect_rebuffer(client_buffer_results, postgres_cursor)
+    ssim = collect_ssim(video_acked_results, postgres_cursor)
+    rebuffer, total_play, total_rebuf = collect_rebuffer(
+        client_buffer_results, postgres_cursor)
 
     if not ssim or not rebuffer:
         sys.exit('Error: no data found in the queried range')
 
     # plot ssim vs rebuffer
-    plot_ssim_rebuffer(ssim, num_chunks, rebuffer, output, days)
+    plot_ssim_rebuffer(ssim, rebuffer, total_play, total_rebuf, output, days)
 
     postgres_cursor.close()
 
