@@ -48,6 +48,8 @@ def collect_ssim(video_acked_results, postgres_cursor):
 def collect_rebuffer(client_buffer_results, postgres_cursor):
     # process InfluxDB data
     x = {}
+    last_ts = {}
+
     for pt in client_buffer_results['client_buffer']:
         expt_id = int(pt['expt_id'])
         expt_config = retrieve_expt_config(expt_id, expt_id_cache,
@@ -60,6 +62,7 @@ def collect_rebuffer(client_buffer_results, postgres_cursor):
         # index x[abr_cc] by session
         session = (pt['user'], int(pt['init_id']),
                    pt['channel'], int(pt['expt_id']))
+
         if session not in x[abr_cc]:
             x[abr_cc][session] = {}
             x[abr_cc][session]['min_play_time'] = None
@@ -67,10 +70,20 @@ def collect_rebuffer(client_buffer_results, postgres_cursor):
             x[abr_cc][session]['min_cum_rebuf'] = None
             x[abr_cc][session]['max_cum_rebuf'] = None
 
+        if session not in last_ts:
+            last_ts[session] = None
+
         y = x[abr_cc][session]  # short name
 
         ts = try_parsing_time(pt['time'])
         cum_rebuf = float(pt['cum_rebuf'])
+
+        # verify that time is basically continuous in the same session
+        if last_ts[session] is not None:
+            diff = (ts - last_ts[session]).total_seconds()
+            if diff > 60:  # a new but different session should be ignored
+                continue
+        last_ts[session] = ts
 
         if pt['event'] == 'startup':
             y['min_play_time'] = ts
@@ -100,8 +113,8 @@ def collect_rebuffer(client_buffer_results, postgres_cursor):
             sess_play = (y['max_play_time'] - y['min_play_time']).total_seconds()
             sess_rebuf = y['max_cum_rebuf'] - y['min_cum_rebuf']
 
-            # exclude too short sessions
-            if sess_play < 2:
+            # exclude short sessions
+            if sess_play < 5:
                 continue
 
             # TODO: identify and ignore outliers
@@ -145,7 +158,7 @@ def plot_ssim_rebuffer(ssim, rebuffer, total_play, total_rebuf, output, days):
             sys.exit('Error: {} does not exist both ssim and rebuffer'
                      .format(abr_cc_str))
 
-        abr_cc_str += '\n({:.1f}h/{:.1f}h)'.format(total_rebuf[abr_cc] / 3600,
+        abr_cc_str += '\n({:.1f}m/{:.1f}h)'.format(total_rebuf[abr_cc] / 60,
                                                    total_play[abr_cc] / 3600)
 
         x = rebuffer[abr_cc]
