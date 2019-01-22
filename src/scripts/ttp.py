@@ -6,6 +6,7 @@ import argparse
 import yaml
 import torch
 from os import path
+from datetime import datetime, timedelta
 import numpy as np
 from multiprocessing import Process
 
@@ -25,7 +26,11 @@ MILLION = 1000000
 # training related
 BATCH_SIZE = 32
 NUM_EPOCHS = 500
-CHECKPOINT = 50
+CHECKPOINT = 100
+
+CL_MAX_DATA_SIZE = 1000000  # 1 million rows of data
+CL_DISCOUNT = 0.8  # sampling weight discount
+CL_MAX_DAYS = 7  # sample from last 7 days
 
 TUNING = False
 DEVICE = torch.device('cpu')
@@ -269,6 +274,22 @@ def check_args(args):
         DEVICE = torch.device('cuda')
         torch.backends.cudnn.benchmark = True
 
+    # continual learning
+    if args.cl:
+        if not args.load_model or not args.save_model:
+            sys.exit('Error: pass --load-model and --save-model to perform '
+                     'continual learning')
+
+        if args.time_start or args.time_end:
+            sys.exit('Error: --cl conflicts with --from and --to; it has its '
+                     'own strategy to sample data from specific durations')
+
+        if args.inference:
+            sys.exit('Error: cannot perform inference with --cl turned on')
+
+        global NUM_EPOCHS
+        NUM_EPOCHS = 100
+
 
 def create_time_clause(time_start, time_end):
     time_clause = None
@@ -308,8 +329,6 @@ def calculate_trans_times(video_sent_results, video_acked_results,
 
         if last_video_ts[session] is not None:
             if video_ts != last_video_ts[session] + VIDEO_DURATION:
-                sys.stderr.write('Warning in session {}: video_ts={}\n'
-                                 .format(session, video_ts))
                 continue
 
         last_video_ts[session] = video_ts
@@ -338,13 +357,10 @@ def calculate_trans_times(video_sent_results, video_acked_results,
             continue
 
         if session not in d:
-            sys.stderr.write('Warning: ignored session {}\n'.format(session))
             continue
 
         video_ts = int(pt['video_ts'])
         if video_ts not in d[session]:
-            sys.stderr.write('Warning: ignored acked video_ts {} in the '
-                             'session {}\n'.format(video_ts, session))
             continue
 
         dsv = d[session][video_ts]  # short name
@@ -466,6 +482,63 @@ def prepare_input_output(d):
     return ret
 
 
+def cl_sample(args, time_start, time_end, max_size, ret):
+    raw_data = prepare_raw_data(args.yaml_settings,
+                                time_start, time_end, args.cc)
+    raw_in_out = prepare_input_output(raw_data)
+
+    ret_sample_size = None
+    for i in range(Model.FUTURE_CHUNKS):
+        real_size = len(raw_in_out[i]['in'])
+        assert(real_size == len(raw_in_out[i]['out']))
+        perm_indices = np.random.permutation(real_size)[:max_size]
+
+        if ret_sample_size is None or len(perm_indices) < ret_sample_size:
+            ret_sample_size = len(perm_indices)
+
+        for j in perm_indices:
+            ret[i]['in'].append(raw_in_out[i]['in'][j])
+            ret[i]['out'].append(raw_in_out[i]['out'][j])
+
+    return ret_sample_size
+
+
+def prepare_cl_data(args):
+    # calculate sampling weights and max data size to sample
+    total_weights = 0
+    for day in range(CL_MAX_DAYS):
+        total_weights += CL_DISCOUNT ** day
+
+    max_data_size = []
+    for day in range(CL_MAX_DAYS):
+        max_data_size.append(
+            int((CL_DISCOUNT ** day / total_weights) * CL_MAX_DATA_SIZE))
+
+    # training data set to return
+    ret = [{'in':[], 'out':[]} for _ in range(Model.FUTURE_CHUNKS)]
+
+    time_str = '%Y-%m-%dT%H:%M:%SZ'
+    td = datetime.utcnow()
+    today = datetime(td.year, td.month, td.day, td.hour, 0)
+
+    # sample data from the past week
+    for day in range(CL_MAX_DAYS):
+        end_ts = today - timedelta(days=day)
+        start_ts = today - timedelta(days=day+1)
+
+        end_ts_str = end_ts.strftime(time_str)
+        start_ts_str = start_ts.strftime(time_str)
+
+        # sample data between 'day+1' and 'day' days ago, and save into 'ret'
+        max_size = max_data_size[day]
+        sample_size = cl_sample(args, start_ts_str, end_ts_str, max_size, ret)
+
+        sys.stderr.write('Sampled {} data vs required {} data in day -{}\n'
+                         .format(sample_size, max_size, day + 1))
+
+    return ret
+
+
 def print_stats(i, output_data):
     # print label distribution
     bin_sizes = np.zeros(Model.BIN_MAX + 1, dtype=int)
@@ -501,7 +574,7 @@ def plot_loss(losses, figure_path):
 def train(i, args, model, input_data, output_data):
     if TUNING:
         # permutate input and output data before splitting
-        perm_indices = np.random.permutation(range(len(input_data)))
+        perm_indices = np.random.permutation(len(input_data))
         input_data = input_data[perm_indices]
         output_data = output_data[perm_indices]
 
@@ -531,7 +604,7 @@ def train(i, args, model, input_data, output_data):
     # loop over the entire dataset multiple times
     for epoch_id in range(1, 1 + NUM_EPOCHS):
         # permutate data in each epoch
-        perm_indices = np.random.permutation(range(num_training))
+        perm_indices = np.random.permutation(num_training)
 
         running_loss = 0
         for batch_id in range(num_batches):
@@ -656,17 +729,21 @@ def main():
     parser.add_argument('--enable-gpu', action='store_true')
     parser.add_argument('--tune', action='store_true')
     parser.add_argument('--inference', action='store_true')
+    parser.add_argument('--cl', action='store_true', help='continual learning')
     args = parser.parse_args()
 
     # validate and process args
     check_args(args)
 
-    # query InfluxDB and retrieve raw data
-    raw_data = prepare_raw_data(args.yaml_settings,
-                                args.time_start, args.time_end, args.cc)
-
-    # collect input and output data from raw data
-    raw_in_out = prepare_input_output(raw_data)
+    if not args.cl:
+        # query InfluxDB and retrieve raw data
+        raw_data = prepare_raw_data(args.yaml_settings,
+                                    args.time_start, args.time_end, args.cc)
+        # collect input and output data from raw data
+        raw_in_out = prepare_input_output(raw_data)
+    else:
+        # continual learning
+        raw_in_out = prepare_cl_data(args)
 
     # train or test FUTURE_CHUNKS models
     proc_list = []

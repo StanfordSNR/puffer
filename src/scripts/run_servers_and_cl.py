@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import os
+import sys
 import yaml
 import math
 import time
@@ -76,12 +77,12 @@ def main():
     run_servers_path = path.join(src_dir, 'media-server', 'run_servers')
     ttp_path = path.join(src_dir, 'scripts', 'ttp.py')
 
-    # execute run_servers
-    run_servers_proc = Popen([run_servers_path, yaml_settings_path],
-                             preexec_fn=os.setsid, stderr=DEVNULL)
-    sys.stderr.write('Started run_servers\n')
-
     try:
+        # execute run_servers
+        run_servers_proc = Popen([run_servers_path, yaml_settings_path],
+                                 preexec_fn=os.setsid, stderr=DEVNULL)
+        sys.stderr.write('Started run_servers\n')
+
         while True:
             # sleep until next CL_HOUR
             td = datetime.utcnow()
@@ -99,15 +100,17 @@ def main():
             # kill and restart run_servers with updated YAML settings
             if run_servers_proc:
                 os.killpg(os.getpgid(run_servers_proc.pid), signal.SIGTERM)
+
             run_servers_proc = Popen([run_servers_path, yaml_settings_path],
                                      preexec_fn=os.setsid, stderr=DEVNULL)
             sys.stderr.write('Killed and restarted run_servers with updated '
                              'YAML settings\n')
     except Exception as e:
+        print(e, file=sys.stderr)
+    finally:
         # clean up in case on exceptions
         if run_servers_proc:
             os.killpg(os.getpgid(run_servers_proc.pid), signal.SIGTERM)
-        print(e, file=sys.stderr)
 
 
 if __name__ == '__main__':
