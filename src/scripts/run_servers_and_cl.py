@@ -13,7 +13,6 @@ from helpers import Popen, check_call
 
 
 CL_HOUR = 11  # perform continual learning at 11:00 (UTC)
-DEVNULL = open(os.devnull, 'w')  # don't actually need to close
 
 
 def run_ttp(ttp_path, yaml_settings_path):
@@ -78,9 +77,12 @@ def main():
     ttp_path = path.join(src_dir, 'scripts', 'ttp.py')
 
     try:
+        curr_dt = datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')
+        logfile = open('run_servers_{}.log'.format(curr_dt), 'w')
+
         # execute run_servers
         run_servers_proc = Popen([run_servers_path, yaml_settings_path],
-                                 preexec_fn=os.setsid, stderr=DEVNULL)
+                                 preexec_fn=os.setsid, stderr=logfile)
         sys.stderr.write('Started run_servers\n')
 
         while True:
@@ -102,7 +104,7 @@ def main():
                 os.killpg(os.getpgid(run_servers_proc.pid), signal.SIGTERM)
 
             run_servers_proc = Popen([run_servers_path, yaml_settings_path],
-                                     preexec_fn=os.setsid, stderr=DEVNULL)
+                                     preexec_fn=os.setsid, stderr=logfile)
             sys.stderr.write('Killed and restarted run_servers with updated '
                              'YAML settings\n')
     except Exception as e:
@@ -111,6 +113,7 @@ def main():
         # clean up in case on exceptions
         if run_servers_proc:
             os.killpg(os.getpgid(run_servers_proc.pid), signal.SIGTERM)
+        logfile.close()
 
 
 if __name__ == '__main__':
