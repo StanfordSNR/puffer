@@ -67,7 +67,8 @@ def run_ttp(ttp_path, yaml_settings_path):
 
 def main():
     parser = argparse.ArgumentParser(
-        description='start "run_servers" and continual learning at 3AM (UTC)')
+        description='start "run_servers" and continual learning at '
+                    '{}:00 (UTC)'.format(CL_HOUR))
     parser.add_argument('yaml_settings')
     args = parser.parse_args()
 

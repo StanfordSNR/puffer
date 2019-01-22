@@ -34,8 +34,8 @@ def main():
     start_ts = end_ts - timedelta(days=1)
 
     # convert datetime to time strings
-    time_str = "%Y-%m-%dT%H:%M:%SZ"
-    short_time_str = "%Y-%m-%dT%H"
+    time_str = '%Y-%m-%dT%H:%M:%SZ'
+    short_time_str = '%Y-%m-%dT%H'
 
     end_ts_str = end_ts.strftime(time_str)
     start_ts_str = start_ts.strftime(time_str)
