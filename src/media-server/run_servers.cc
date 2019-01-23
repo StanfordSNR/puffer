@@ -38,52 +38,6 @@ string sha256(const string & input)
   return digest;
 }
 
-int retrieve_expt_id(const string & json_str)
-{
-  try {
-    /* compute SHA-256 */
-    string hash = sha256(json_str);
-
-    /* connect to PostgreSQL */
-    string db_conn_str = postgres_connection_string(config["postgres_connection"]);
-    pqxx::connection db_conn(db_conn_str);
-
-    /* create table if not exists */
-    pqxx::work create_table(db_conn);
-    create_table.exec("CREATE TABLE IF NOT EXISTS puffer_experiment "
-                      "(id SERIAL PRIMARY KEY,"
-                      " hash VARCHAR(64) UNIQUE NOT NULL,"
-                      " data jsonb);");
-    create_table.commit();
-
-    /* prepare two statements */
-    db_conn.prepare("select_id",
-      "SELECT id FROM puffer_experiment WHERE hash = $1;");
-    db_conn.prepare("insert_json",
-      "INSERT INTO puffer_experiment (hash, data) VALUES ($1, $2) RETURNING id;");
-
-    pqxx::work db_work(db_conn);
-
-    /* try to fetch an existing row */
-    pqxx::result r = db_work.prepared("select_id")(hash).exec();
-    if (r.size() == 1 and r[0].size() == 1) {
-      /* the same hash already exists */
-      return r[0][0].as<int>();
-    }
-
-    /* insert if no record exists and return the ID of inserted row */
-    r = db_work.prepared("insert_json")(hash)(json_str).exec();
-    db_work.commit();
-    if (r.size() == 1 and r[0].size() == 1) {
-      return r[0][0].as<int>();
-    }
-  } catch (const exception & e) {
-    print_exception("retrieve_expt_id", e);
-  }
-
-  return -1;
-}
-
 int main(int argc, char * argv[])
 {
   if (argc < 1) {
@@ -136,7 +90,8 @@ int main(int argc, char * argv[])
     /* run expt_json.py to represent experimental settings as a JSON string */
     string json_str = run(expt_json, {expt_json, fingerprint}, true).first;
 
-    int expt_id = retrieve_expt_id(json_str);
+    string expt_id = expt["fingerprint"]["abr"].as<string>() + "+" +
+                     expt["fingerprint"]["cc"].as<string>();
     unsigned int num_servers = expt["num_servers"].as<unsigned int>();
 
     cerr << "Running experiment " << expt_id << " on "
@@ -147,7 +102,7 @@ int main(int argc, char * argv[])
 
       /* run ws_media_server */
       vector<string> args { ws_media_server, yaml_config,
-                            to_string(server_id), to_string(expt_id) };
+                            to_string(server_id), expt_id };
       proc_manager.run_as_child(ws_media_server, args);
 
       /* run log_reporter */

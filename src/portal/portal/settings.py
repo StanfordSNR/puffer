@@ -18,7 +18,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PUFFER_BASE_DIR = os.path.dirname(os.path.dirname(BASE_DIR));
 
 # Modify if needed: path of Puffer's YAML configuration file
-yaml_config_path = os.path.join(PUFFER_BASE_DIR, 'src', 'settings.yml')
+yaml_config_path = os.path.join(PUFFER_BASE_DIR, 'src', 'settings_offline.yml')
 
 # load YAML configuration
 with open(yaml_config_path, 'r') as fh:
@@ -40,7 +40,7 @@ SECRET_KEY = os.environ[portal_config['secret_key']]
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = portal_config['debug']
 
-ALLOWED_HOSTS = portal_config['allowed_hosts']
+ALLOWED_HOSTS = ['*']
 
 # Application definition
 
