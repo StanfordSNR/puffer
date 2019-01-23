@@ -47,8 +47,11 @@ def collect_ssim(video_acked_results, postgres_cursor):
 
 def collect_rebuffer(client_buffer_results, postgres_cursor):
     # process InfluxDB data
-    x = {}
     last_ts = {}
+    last_cum_rebuf = {}
+    outlier_time = {}
+    excluded_sessions = {}
+    x = {}
 
     for pt in client_buffer_results['client_buffer']:
         expt_id = int(pt['expt_id'])
@@ -63,19 +66,28 @@ def collect_rebuffer(client_buffer_results, postgres_cursor):
         session = (pt['user'], int(pt['init_id']),
                    pt['channel'], int(pt['expt_id']))
 
+        if session not in last_ts:
+            last_ts[session] = None
+        if session not in last_cum_rebuf:
+            last_cum_rebuf[session] = None
+        if session not in outlier_time:
+            outlier_time[session] = None
+
         if session not in x[abr_cc]:
+            if session in excluded_sessions:
+                # ignore sessions that were intentionally removed from x[abr_cc]
+                continue
+
             x[abr_cc][session] = {}
             x[abr_cc][session]['min_play_time'] = None
             x[abr_cc][session]['max_play_time'] = None
             x[abr_cc][session]['min_cum_rebuf'] = None
             x[abr_cc][session]['max_cum_rebuf'] = None
 
-        if session not in last_ts:
-            last_ts[session] = None
-
         y = x[abr_cc][session]  # short name
 
         ts = try_parsing_time(pt['time'])
+        buf = float(pt['buffer'])
         cum_rebuf = float(pt['cum_rebuf'])
 
         # verify that time is basically continuous in the same session
@@ -84,6 +96,32 @@ def collect_rebuffer(client_buffer_results, postgres_cursor):
             if diff > 60:  # a new but different session should be ignored
                 continue
         last_ts[session] = ts
+
+        # identify outliers: exclude the session if there is one-minute long
+        # duration when buffer is lower than 1 second
+        if buf > 1:
+            outlier_time[session] = None
+        else:
+            if outlier_time[session] is None:
+                outlier_time[session] = ts
+            else:
+                diff = (ts - outlier_time[session]).total_seconds()
+                if diff > 30:
+                    print('Outlier session', abr_cc, session)
+                    del x[abr_cc][session]
+                    excluded_sessions[session] = True
+                    continue
+
+        # identify stalls caused by slow video decoding
+        if last_cum_rebuf[session] is not None:
+            if buf > 5 and cum_rebuf > last_cum_rebuf[session] + 0.25:
+                # should not have stalls
+                print('Decoding stalls', abr_cc, session)
+                del x[abr_cc][session]
+                excluded_sessions[session] = True
+                continue
+
+        last_cum_rebuf[session] = cum_rebuf
 
         if pt['event'] == 'startup':
             y['min_play_time'] = ts
@@ -115,10 +153,6 @@ def collect_rebuffer(client_buffer_results, postgres_cursor):
 
             # exclude short sessions
             if sess_play < 5:
-                continue
-
-            # TODO: identify and ignore outliers
-            if sess_rebuf / sess_play > 0.5:
                 continue
 
             abr_cc_play += sess_play
