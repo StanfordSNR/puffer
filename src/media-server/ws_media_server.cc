@@ -630,22 +630,6 @@ void create_channels(Inotify & inotify)
   }
 }
 
-bool auth_client(const string & session_key, pqxx::nontransaction & db_work)
-{
-  try {
-    pqxx::result r = db_work.prepared("auth")(session_key).exec();
-
-    if (r.size() == 1 and r[0].size() == 1) {
-      /* returned record is valid containing only true or false */
-      return r[0][0].as<bool>();
-    }
-  } catch (const exception & e) {
-    print_exception("auth_client", e);
-  }
-
-  return false;
-}
-
 void validate_id(const string & id)
 {
   int id_int = -1;
@@ -661,7 +645,7 @@ void validate_id(const string & id)
   }
 }
 
-int run_websocket_server(pqxx::nontransaction & db_work)
+int run_websocket_server()
 {
   /* default congestion control and ABR algorithm */
   string cc_name = "cubic";
@@ -722,7 +706,7 @@ int run_websocket_server(pqxx::nontransaction & db_work)
 
   /* set server callbacks */
   server.set_message_callback(
-    [&server, &db_work](const uint64_t connection_id, const WSMessage & ws_msg)
+    [&server](const uint64_t connection_id, const WSMessage & ws_msg)
     {
       try {
         WebSocketClient & client = clients.at(connection_id);
@@ -732,53 +716,37 @@ int run_websocket_server(pqxx::nontransaction & db_work)
         if (msg_parser.msg_type() == ClientMsgParser::Type::Init) {
           ClientInitMsg msg = msg_parser.parse_client_init();
 
-          /* authenticate user */
-          if (not client.is_authenticated()) {
-            if (auth_client(msg.session_key, db_work)) {
-              client.set_authenticated(true);
+          /* turn off user authentication */
+          client.set_authenticated(true);
 
-              /* set client's username and IP */
-              client.set_session_key(msg.session_key);
-              client.set_username(msg.username);
-              client.set_address(server.peer_addr(connection_id));
+          /* set client's username and IP */
+          client.set_session_key(msg.session_key);
+          client.set_username(msg.username);
+          client.set_address(server.peer_addr(connection_id));
 
-              /* set client's system info (OS, browser and screen size) */
-              client.set_os(msg.os);
-              client.set_browser(msg.browser);
-              client.set_screen_size(msg.screen_width, msg.screen_height);
+          /* set client's system info (OS, browser and screen size) */
+          client.set_os(msg.os);
+          client.set_browser(msg.browser);
+          client.set_screen_size(msg.screen_width, msg.screen_height);
 
-              /* record system information */
-              if (enable_logging) {
-                string log_line = to_string(timestamp_ms()) + "," + expt_id
-                  + "," + server_id + "," + client.username() + ","
-                  + to_string(msg.init_id) + "," + client.address().ip() + ","
-                  + msg.os + "," + msg.browser + ","
-                  + to_string(msg.screen_width) + ","
-                  + to_string(msg.screen_height);
-                append_to_log("client_sysinfo", log_line);
-              }
-
-              cerr << connection_id << ": authentication succeeded" << endl;
-              cerr << client.signature() << ": " << client.browser() << " on "
-                   << client.os() << ", " << client.address().str() << endl;
-            } else {
-              cerr << connection_id << ": authentication failed" << endl;
-              server.close_connection(connection_id);
-              return;
-            }
+          /* record system information */
+          if (enable_logging) {
+            string log_line = to_string(timestamp_ms()) + "," + expt_id
+              + "," + server_id + "," + client.username() + ","
+              + to_string(msg.init_id) + "," + client.address().ip() + ","
+              + msg.os + "," + msg.browser + ","
+              + to_string(msg.screen_width) + ","
+              + to_string(msg.screen_height);
+            append_to_log("client_sysinfo", log_line);
           }
+
+          cerr << connection_id << ": authentication succeeded" << endl;
+          cerr << client.signature() << ": " << client.browser() << " on "
+               << client.os() << ", " << client.address().str() << endl;
 
           /* handle client-init and initialize client's channel */
           handle_client_init(server, client, msg);
         } else {
-          /* parse a message other than client-init only if user is authed */
-          if (not client.is_authenticated()) {
-            cerr << connection_id << ": ignored messages from a "
-                 << "non-authenticated user" << endl;
-            server.close_connection(connection_id);
-            return;
-          }
-
           switch (msg_parser.msg_type()) {
           case ClientMsgParser::Type::Info:
             handle_client_info(client, msg_parser.parse_client_info());
@@ -878,18 +846,6 @@ int main(int argc, char * argv[])
     throw runtime_error("signal: failed to ignore SIGPIPE");
   }
 
-  /* connect to the database for user authentication */
-  string db_conn_str = postgres_connection_string(config["postgres_connection"]);
-  pqxx::connection db_conn(db_conn_str);
-  cerr << "Connected to database: " << db_conn.hostname() << endl;
-
-  /* prepare a statement to check if the session_key in client-init is valid */
-  db_conn.prepare("auth", "SELECT EXISTS(SELECT 1 FROM django_session WHERE "
-    "session_key = $1 AND expire_date > now());");
-
-  /* reuse the same nontransaction as the server only reads the database */
-  pqxx::nontransaction db_work(db_conn);
-
   /* run a WebSocketServer instance */
-  return run_websocket_server(db_work);
+  return run_websocket_server();
 }
