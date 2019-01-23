@@ -740,7 +740,6 @@ int run_websocket_server()
             append_to_log("client_sysinfo", log_line);
           }
 
-          cerr << connection_id << ": authentication succeeded" << endl;
           cerr << client.signature() << ": " << client.browser() << " on "
                << client.os() << ", " << client.address().str() << endl;
 

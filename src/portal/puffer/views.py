@@ -28,15 +28,17 @@ def terms(request):
     return render(request, 'puffer/terms.html')
 
 
-@login_required(login_url='/accounts/login/')
+# turn off user authentication
+# @login_required(login_url='/accounts/login/')
 def player(request):
     # parameters passed to Javascript stored in JSON
-    params = {'session_key': request.session.session_key,
-              'username': request.user.username,
+    params = {'session_key': 'fake',
+              'username': 'fake',
               'debug': settings.DEBUG}
     context = {'params_json': json.dumps(params)}
 
     return render(request, 'puffer/player.html', context)
+
 
 @login_required(login_url='/accounts/login/')
 def error_reporting(request):
