@@ -180,8 +180,9 @@ def calculate_trans_times(video_sent_results, video_acked_results,
         dsv = d[session][video_ts]  # short name
 
         dsv['sent_ts'] = try_parsing_time(pt['time'])  # datetime object
-        dsv['size'] = float(pt['size'])  # bytes
-        dsv['delivery_rate'] = float(pt['delivery_rate'])  # byte/second
+        dsv['size'] = float(pt['size']) / PKT_BYTES  # bytes -> packets
+        # byte/second -> packet/second
+        dsv['delivery_rate'] = float(pt['delivery_rate']) / PKT_BYTE
         dsv['cwnd'] = float(pt['cwnd'])  # packets
         dsv['in_flight'] = float(pt['in_flight'])  # packets
         dsv['min_rtt'] = float(pt['min_rtt']) / MILLION  # us -> s
