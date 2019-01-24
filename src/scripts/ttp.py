@@ -406,20 +406,20 @@ def append_past_chunks(ds, next_ts, row):
     while i <= Model.PAST_CHUNKS:
         ts = next_ts - i * VIDEO_DURATION
         if ts in ds and 'trans_time' in ds[ts]:
-            past_chunks = [ds[ts]['delivery_rate'],
+            past_chunks = [ds[ts]['delivery_rate'] / PKT_BYTES,
                            ds[ts]['cwnd'], ds[ts]['in_flight'],
                            ds[ts]['min_rtt'], ds[ts]['rtt'],
-                           ds[ts]['size'], ds[ts]['trans_time']] + past_chunks
+                           ds[ts]['size'] / PKT_BYTES, ds[ts]['trans_time']] + past_chunks
         else:
             nts = ts + VIDEO_DURATION  # padding with the nearest ts
-            padding = [ds[nts]['delivery_rate'],
+            padding = [ds[nts]['delivery_rate'] / PKT_BYTES,
                        ds[nts]['cwnd'], ds[nts]['in_flight'],
                        ds[nts]['min_rtt'], ds[nts]['rtt']]
 
             if nts == next_ts:
                 padding += [0, 0]  # next_ts is the first chunk to send
             else:
-                padding += [ds[nts]['size'], ds[nts]['trans_time']]
+                padding += [ds[nts]['size'] / PKT_BYTES, ds[nts]['trans_time']]
 
             break
 
@@ -433,6 +433,28 @@ def append_past_chunks(ds, next_ts, row):
     row += past_chunks
 
 
+def prepare_input_pre(ds, next_ts):
+    # construct a single row of input data
+    row = []
+
+    # append past chunks with padding
+    append_past_chunks(ds, next_ts, row)
+
+    # append the TCP info of the next chunk
+    row += [ds[next_ts]['delivery_rate'] / PKT_BYTES,
+            ds[next_ts]['cwnd'], ds[next_ts]['in_flight'],
+            ds[next_ts]['min_rtt'], ds[next_ts]['rtt']]
+
+    return row
+
+
+def prepare_input(ds, ts, row):
+    row_i = row.copy()
+    row_i += [ds[ts]['size'] / PKT_BYTES]
+
+    return row_i
+
+
 # return FUTURE_CHUNKS pairs of (raw_in, raw_out)
 def prepare_input_output(d):
     ret = [{'in':[], 'out':[]} for _ in range(Model.FUTURE_CHUNKS)]
@@ -444,24 +466,13 @@ def prepare_input_output(d):
             if 'trans_time' not in ds[next_ts]:
                 continue
 
-            # construct a single row of input data
-            row = []
-
-            # append past chunks with padding
-            append_past_chunks(ds, next_ts, row)
-
-            # append the TCP info of the next chunk
-            row += [ds[next_ts]['delivery_rate'],
-                    ds[next_ts]['cwnd'], ds[next_ts]['in_flight'],
-                    ds[next_ts]['min_rtt'], ds[next_ts]['rtt']]
+            row = prepare_input_pre(ds, next_ts)
 
             # generate FUTURE_CHUNKS rows
             for i in range(Model.FUTURE_CHUNKS):
-                row_i = row.copy()
-
                 ts = next_ts + i * VIDEO_DURATION
                 if ts in ds and 'trans_time' in ds[ts]:
-                    row_i += [ds[ts]['size']]
+                    row_i = prepare_input(ds, ts, row)
 
                     assert(len(row_i) == Model.DIM_IN)
                     ret[i]['in'].append(row_i)
@@ -703,6 +714,8 @@ def train_or_eval_model(i, args, raw_in_data, raw_out_data):
 
 
 def main():
+    sys
+
     parser = argparse.ArgumentParser()
     parser.add_argument('yaml_settings')
     parser.add_argument('--from', dest='time_start',

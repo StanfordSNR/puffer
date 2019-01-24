@@ -8,19 +8,31 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
 from collect_data import collect_video_data, VIDEO_DURATION
+import ttp
+
+BIN_SIZE = 0.5
 
 
 def error(estimate, real):
     return (estimate - real) / real
 
 
-def pred_error(dst, est_tput):
+def abs_error(estimate, real):
+    dis_est = int((estimate + 0.5 * BIN_SIZE) / BIN_SIZE)
+    dis_real = int((real + 0.5 * BIN_SIZE) / BIN_SIZE)
+    return dis_est != dis_real
+
+
+def pred_error(dst, est_tput, verbose=False):
     assert(est_tput is not None)
 
     est_trans_time = dst['size'] / est_tput
     real_trans_time = dst['trans_time']
 
-    return abs(error(est_trans_time, real_trans_time))
+    if verbose:
+        print(est_trans_time, ' ', real_trans_time)
+
+    return int(abs_error(est_trans_time, real_trans_time))
 
 
 def last_sample(sess, ts):
@@ -51,12 +63,18 @@ def hidden_markov(sess, ts):
     pass
 
 
-def puffer_ttp(sess, ts):
-    # TODO
-    pass
+def puffer_ttp(sess, ts, model):
+    in_raw = ttp.prepare_input(sess, ts, ttp.prepare_input_pre(sess, ts))
+
+    assert(len(in_raw) == model.DIM_IN)
+    input_data = model.normalize_input([in_raw], update_obs=False)
+    model.set_model_eval()
+
+    pred = model.predict(input_data)
+    return sess[ts]['size'] / pred[0]
 
 
-def calc_pred_error(d):
+def calc_pred_error(d, models):
     midstream_err = {'TCP': [], 'LS': [], 'HM': [], 'HMM': [], 'TTP': []}
 
     for session in d:
@@ -84,11 +102,12 @@ def calc_pred_error(d):
                 midstream_err['HMM'].append(pred_error(dst, est_tput))
 
             # Puffer TTP
-            est_tput = puffer_ttp(d[session], ts)  # byte/second
+            est_tput = puffer_ttp(d[session], ts, models['ttp'])
             if est_tput is not None:
                 midstream_err['TTP'].append(pred_error(dst, est_tput))
 
     # TODO: calculate errors for initial chunks and lookahead horizon
+
     return midstream_err
 
 
@@ -216,6 +235,16 @@ def plot_session_duration_and_throughput(d, time_start, time_end):
           str(np.count_nonzero(total_rebuffer) / len(session_durations)))
 
 
+def load_models():
+    ttp_model_path = '/home/ubuntu/models/puffer-models-0122/bbr-20190122-1/py-0.pt'
+
+    ttp_model = ttp.Model()
+    ttp_model.load(ttp_model_path)
+    sys.stderr.write('Loaded ttp model from {}\n'.format(ttp_model_path))
+
+    return {'ttp': ttp_model}
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('yaml_settings')
@@ -237,11 +266,12 @@ def main():
 
     video_data = collect_video_data(args.yaml_settings,
                                     args.time_start, args.time_end, args.cc)
+    models = load_models()
 
     if args.tput_estimates:
-        midstream_err = calc_pred_error(video_data)
+        midstream_err = calc_pred_error(video_data, models)
 
-        # plot CDF graph of mistream prediction errors
+        #plot CDF graph of mistream prediction errors
         plot_error_cdf(midstream_err, args.time_start, args.time_end)
 
     #FIXME
