@@ -190,6 +190,13 @@ class Model:
 
             return ret
 
+    def predict_distr(self, input_data):
+        with torch.no_grad():
+            x = torch.from_numpy(input_data).to(device=DEVICE)
+
+            y_scores = self.model(x)
+            return torch.softmax(y_scores, dim=1)
+
     def load(self, model_path):
         checkpoint = torch.load(model_path)
         self.model.load_state_dict(checkpoint['model_state_dict'])

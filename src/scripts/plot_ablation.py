@@ -11,6 +11,7 @@ from collect_data import collect_video_data, VIDEO_DURATION
 import ttp
 
 BIN_SIZE = 0.5
+BIN_MAX = 20
 TCP_INFO = ['delivery_rate', 'cwnd', 'in_flight', 'min_rtt', 'rtt']
 TCP_SETTINGS = {'no cwnd in_flight': ['delivery_rate', 'min_rtt', 'rtt'],
                 'no deliver_rate': ['cwnd', 'in_flight', 'min_rtt', 'rtt'],
@@ -42,8 +43,10 @@ def abs_error(estimate, real):
     return dis_est != dis_real
 
 
-def discretized(trans_time):
-    dis_time = int((trans_time + 0.5 * BIN_SIZE) / BIN_SIZE)
+def ttp_discretized(trans_time):
+    return int((trans_time + 0.5 * BIN_SIZE) / BIN_SIZE)
+
+def ttp_map_dis_to_real(dis_time):
     if dis_time == 0:
         return BIN_SIZE * 0.25
     else:
@@ -56,8 +59,8 @@ def pred_error(dst, est_tput, verbose=False):
     est_trans_time = dst['size'] / est_tput
     real_trans_time = dst['trans_time']
 
-    dis_est = discretized(est_trans_time)
-    dis_real = discretized(real_trans_time)
+    dis_est = ttp_map_dis_to_real(ttp_discretized(est_trans_time))
+    dis_real = ttp_map_dis_to_real(ttp_discretized(real_trans_time))
 
     if verbose:
         print(est_trans_time, ' ', real_trans_time)
@@ -65,33 +68,47 @@ def pred_error(dst, est_tput, verbose=False):
     return abs(error(dis_est, dis_real))
 
 
-def puffer_ttp(sess, ts, model):
+def prepare_ttp_input(sess, ts, model):
     in_raw = ttp.prepare_input(sess, ts,
                                ttp.prepare_input_pre(sess, ts, model))
 
     assert(len(in_raw) == model.dim_in)
     input_data = model.normalize_input([in_raw], update_obs=False)
+
+    return input_data
+
+
+# the error using maximum likelihood estimation
+def MLE_error(sess, ts, model):
+    input_data = prepare_ttp_input(sess, ts, model)
     model.set_model_eval()
-
     pred = model.predict(input_data)
-    return sess[ts]['size'] / pred[0]
+    return pred_error(sess[ts], sess[ts]['size'] / pred[0])
 
 
-def calc_pred_error(d, models):
+# the error using cross entropy loss
+def CE_error(sess, ts, model):
+    input_data = prepare_ttp_input(sess, ts, model)
+    model.set_model_eval()
+    scores = model.predict_distr(input_data).reshape(-1)
+    dis_real = min(BIN_MAX, ttp_discretized(sess[ts]['trans_time']))
+    return - np.log(scores[dis_real])
+
+
+def calc_pred_error(d, models, error_func):
     midstream_err = {setting: [] for setting in TCP_SETTINGS}
 
     for session in d:
         for ts in d[session]:
             dst = d[session][ts]
             for setting in TCP_SETTINGS:
-                est_tput = puffer_ttp(d[session], ts, models[setting])
-                if est_tput is not None:
-                    midstream_err[setting].append(pred_error(dst, est_tput))
+                midstream_err[setting].append( \
+                    error_func(d[session], ts, models[setting]))
 
     return midstream_err
 
 
-def plot_error_cdf(error_dict, time_start, time_end):
+def plot_error_cdf(error_dict, time_start, time_end, xlabel):
     fig, ax = plt.subplots()
 
     x_min = 0
@@ -117,7 +134,7 @@ def plot_error_cdf(error_dict, time_start, time_end):
     title = ('Transmission Time Prediction Accuracy\n[{}, {}] (UTC)'
              .format(time_start, time_end))
     ax.set_title(title)
-    ax.set_xlabel('Absolute Prediction Error')
+    ax.set_xlabel(xlabel)
     ax.set_ylabel('CDF')
 
     figname = 'ablation.png'
@@ -149,6 +166,7 @@ def main():
     parser.add_argument('--to', dest='time_end',
                         help='datetime in UTC conforming to RFC3339')
     parser.add_argument('--cc', help='filter input data by congestion control')
+    parser.add_argument('--error-func', help='set different error function')
     args = parser.parse_args()
 
     video_data = collect_video_data(args.yaml_settings,
@@ -157,10 +175,20 @@ def main():
     # for ablation study of tcp_info
     models = load_models(0)
 
-    midstream_err = calc_pred_error(video_data, models)
+    # choose error func
+    error_func = None
+    xlabel = None
+    if args.error_func == 'MLE':
+        error_func = MLE_error
+        xlabel = 'MLE predict error'
+    if args.error_func == 'CE':
+        error_func = CE_error
+        xlabel = 'CE predict error'
+
+    midstream_err = calc_pred_error(video_data, models, error_func)
 
     #plot CDF graph of mistream prediction errors
-    plot_error_cdf(midstream_err, args.time_start, args.time_end)
+    plot_error_cdf(midstream_err, args.time_start, args.time_end, xlabel)
 
 if __name__ == '__main__':
     main()
