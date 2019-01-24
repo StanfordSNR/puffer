@@ -154,7 +154,7 @@ def plot_session_duration_and_throughput(d, time_start, time_end):
             elif second_ts:  # TODO: Better method for detecting startup delay
                 startup_delay = ds[next_ts]['cum_rebuffer']
                 second_ts = False
-            tput_sum += (ds[next_ts]['size'] / ds[next_ts]['trans_time'] /
+            tput_sum += (ds[next_ts]['size'] * PKT_BYTES / ds[next_ts]['trans_time'] /
                          1000000)  # Mbps
             tput_count += 1
         if tput_count == 0:
