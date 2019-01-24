@@ -14,6 +14,7 @@ def start_maimahi_clients(num_clients):
     plist = []
     try:
         trace_dir = "/home/ubuntu/fcc_mahimahi_traces"
+        # To test nowrway traces use: /home/ubuntu/norway_traces"
         files = os.listdir(trace_dir)
         for filename in files:
             mahimahi_cmd = 'mm-delay 40 mm-link 12mbps ' + trace_dir + '/' + \
