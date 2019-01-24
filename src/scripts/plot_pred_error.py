@@ -23,16 +23,27 @@ def abs_error(estimate, real):
     return dis_est != dis_real
 
 
+def discretized(trans_time):
+    dis_time = int((trans_time + 0.5 * BIN_SIZE) / BIN_SIZE)
+    if dis_time == 0:
+        return BIN_SIZE * 0.25
+    else:
+        return dis_time * BIN_SIZE
+
+
 def pred_error(dst, est_tput, verbose=False):
     assert(est_tput is not None)
 
     est_trans_time = dst['size'] / est_tput
     real_trans_time = dst['trans_time']
 
+    dis_est = discretized(est_trans_time)
+    dis_real = discretized(real_trans_time)
+
     if verbose:
         print(est_trans_time, ' ', real_trans_time)
 
-    return int(abs_error(est_trans_time, real_trans_time))
+    return abs(error(dis_est, dis_real))
 
 
 def last_sample(sess, ts):
