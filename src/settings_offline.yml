@@ -1,0 +1,137 @@
+ws_port: 9361
+portal_settings:
+  secret_key: PUFFER_PORTAL_SECRET_KEY
+  debug: true
+  allowed_hosts:
+    - 127.0.0.1
+    - 100.64.0.1
+postgres_connection:
+  host: 127.0.0.1
+  port: 5432
+  dbname: puffer
+  user: puffer
+  password: PUFFER_PORTAL_DB_KEY
+enable_logging: True
+log_dir: /home/ubuntu/puffer/src/monitoring
+influxdb_connection:
+  host: 127.0.0.1
+  port: 8086
+  dbname: puffer
+  user: puffer
+  password: INFLUXDB_PASSWORD
+enforce_moving_live_edge: false
+media_dir: /home/ubuntu/media-181230
+channels:
+  - abc
+  - nbc
+  - fox
+  - pbs
+  - cbs
+  - univision
+channel_configs:
+  abc:
+    live: true
+    video:
+      1280x720: [20, 22, 24, 26]
+      854x480: [22, 24, 26]
+      640x360: [24, 26]
+      426x240: [26]
+    audio:
+      - 128k
+      - 64k
+      - 32k
+    present_delay_chunk: 300
+  nbc:
+    live: true
+    video:
+      1920x1080: [22, 24]
+      1280x720: [20, 22, 24, 26]
+      854x480: [24, 26]
+      640x360: [24]
+      426x240: [26]
+    audio:
+      - 128k
+      - 64k
+      - 32k
+    present_delay_chunk: 300
+  fox:
+    live: true
+    video:
+      1280x720: [20, 22, 24, 26]
+      854x480: [22, 24, 26]
+      640x360: [24, 26]
+      426x240: [26]
+    audio:
+      - 128k
+      - 64k
+      - 32k
+    present_delay_chunk: 300
+  pbs:
+    live: true
+    video:
+      1920x1080: [22, 24]
+      1280x720: [20, 22, 24, 26]
+      854x480: [24, 26]
+      640x360: [24]
+      426x240: [26]
+    audio:
+      - 128k
+      - 64k
+      - 32k
+    present_delay_chunk: 300
+  cbs:
+    live: true
+    video:
+      1920x1080: [22, 24]
+      1280x720: [20, 22, 24, 26]
+      854x480: [24, 26]
+      640x360: [24]
+      426x240: [26]
+    audio:
+      - 128k
+      - 64k
+      - 32k
+    present_delay_chunk: 300
+  univision:
+    live: true
+    video:
+      1280x720: [20, 22, 24, 26]
+      854x480: [22, 24, 26]
+      640x360: [24, 26]
+      426x240: [26]
+    audio:
+      - 128k
+      - 64k
+      - 32k
+    present_delay_chunk: 300
+experiments:
+        #  - num_servers: 1
+        #    fingerprint:
+        #      abr: pensieve
+        #      cc: bbr
+        #      abr_config:
+        #        pensieve_path: "/home/ubuntu/puffer/third_party/pensieve/multi_video_sim/rl_test.py"
+        #        nn_path: "/home/ubuntu/nn_model_ep_77400.ckpt"
+        #  - num_servers: 1
+        #    fingerprint:
+        #      abr: linear_bba
+        #      cc: bbr
+        #  - num_servers: 1
+        #    fingerprint:
+        #      abr: linear_bba
+        #      cc: bbr
+  - num_servers: 1
+    fingerprint:
+      abr: robust_mpc
+      cc: cubic
+  - num_servers: 1
+    fingerprint:
+      abr: robust_mpc
+      cc: bbr
+      #  - num_servers: 1
+      #    fingerprint:
+      #      abr: puffer_ttp
+      #      abr_config:
+      #        model_dir: /home/ubuntu/puffer/models/puffer_ttp/bbr-20190122-1
+      #        rebuffer_length_coeff: 100
+      #      cc: bbr
