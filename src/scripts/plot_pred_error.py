@@ -7,7 +7,7 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
-from helpers import collect_video_data, VIDEO_DURATION
+from collect_data import collect_video_data, VIDEO_DURATION
 
 
 def error(estimate, real):
@@ -17,8 +17,8 @@ def error(estimate, real):
 def pred_error(dst, est_tput):
     assert(est_tput is not None)
 
-    est_trans_time = dst['size'] / est_tput  # seconds
-    real_trans_time = dst['trans_time']  # seconds
+    est_trans_time = dst['size'] / est_tput
+    real_trans_time = dst['trans_time']
 
     return abs(error(est_trans_time, real_trans_time))
 
@@ -28,7 +28,7 @@ def last_sample(sess, ts):
     if last_ts not in sess:
         return None
 
-    return sess[last_ts]['size'] / sess[last_ts]['trans_time']  # bytes/second
+    return sess[last_ts]['size'] / sess[last_ts]['trans_time']  # byte/second
 
 
 def harmonic_mean(sess, ts):
@@ -39,8 +39,8 @@ def harmonic_mean(sess, ts):
         if prev_ts not in sess:
             return None
 
-        prev_tput = sess[prev_ts]['size'] / sess[prev_ts]['trans_time'] # Bps
-        past_tputs.append(prev_tput)
+        prev_tput = sess[prev_ts]['size'] / sess[prev_ts]['trans_time']
+        past_tputs.append(prev_tput)  # byte/second
 
     hm_tput = len(past_tputs) / np.sum(1 / np.array(past_tputs))
     return hm_tput
@@ -74,22 +74,21 @@ def calc_pred_error(d):
                 midstream_err['LS'].append(pred_error(dst, est_tput))
 
             # Harmonic Mean (MPC)
-            est_tput = harmonic_mean(d[session], ts)
+            est_tput = harmonic_mean(d[session], ts)  # byte/second
             if est_tput is not None:
                 midstream_err['HM'].append(pred_error(dst, est_tput))
 
             # Hidden Markov Model (CS2P)
-            est_tput = hidden_markov(d[session], ts)
+            est_tput = hidden_markov(d[session], ts)  # byte/second
             if est_tput is not None:
                 midstream_err['HMM'].append(pred_error(dst, est_tput))
 
             # Puffer TTP
-            est_tput = puffer_ttp(d[session], ts)
+            est_tput = puffer_ttp(d[session], ts)  # byte/second
             if est_tput is not None:
                 midstream_err['TTP'].append(pred_error(dst, est_tput))
 
     # TODO: calculate errors for initial chunks and lookahead horizon
-
     return midstream_err
 
 
@@ -100,6 +99,9 @@ def plot_error_cdf(error_dict, time_start, time_end):
     x_max = 1
     num_bins = 100
     for estimator, error_list in error_dict.items():
+        if not error_list:
+            continue
+
         counts, bin_edges = np.histogram(error_list, bins=num_bins,
                                          range=(x_min, x_max))
         x = bin_edges
