@@ -8,10 +8,9 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
-
 from helpers import (
-    prepare_raw_data, connect_to_postgres, retrieve_expt_config,
-    ssim_index_to_db, VIDEO_DURATION)
+    connect_to_postgres, retrieve_expt_config, ssim_index_to_db)
+from collect_data import collect_video_data, VIDEO_DURATION
 
 
 # cache of Postgres data: experiment 'id' -> json 'data' of the experiment
@@ -138,16 +137,15 @@ def main():
     with open(yaml_settings_path, 'r') as fh:
         yaml_settings = yaml.safe_load(fh)
 
-    # query InfluxDB and retrieve raw data (without filtering by cc)
-    raw_data = prepare_raw_data(yaml_settings_path,
-                                args.time_start, args.time_end, None)
+    video_data = collect_video_data(yaml_settings_path,
+                                    args.time_start, args.time_end, None)
 
     # create a client connected to Postgres
     postgres_client = connect_to_postgres(yaml_settings)
     postgres_cursor = postgres_client.cursor()
 
     # plot SSIM and SSIM variation
-    plot_ssim(raw_data, postgres_cursor, args)
+    plot_ssim(video_data, postgres_cursor, args)
 
     postgres_cursor.close()
 

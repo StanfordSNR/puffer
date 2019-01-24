@@ -16,7 +16,8 @@ import matplotlib.pyplot as plt
 
 from helpers import (
     connect_to_influxdb, connect_to_postgres, try_parsing_time,
-    make_sure_path_exists, retrieve_expt_config, create_time_clause)
+    make_sure_path_exists, retrieve_expt_config, create_time_clause,
+    get_ssim_index)
 
 
 VIDEO_DURATION = 180180
@@ -330,6 +331,7 @@ def calculate_trans_times(video_sent_results, video_acked_results,
         dsv['in_flight'] = float(pt['in_flight'])
         dsv['min_rtt'] = float(pt['min_rtt']) / MILLION  # us -> s
         dsv['rtt'] = float(pt['rtt']) / MILLION  # us -> s
+        dsv['ssim_index'] = get_ssim_index(pt)  # unitless
 
     for pt in video_acked_results['video_acked']:
         expt_id = int(pt['expt_id'])
