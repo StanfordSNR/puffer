@@ -2,6 +2,7 @@
 import time
 import os
 import subprocess
+import signal
 
 
 def run_offline_media_servers():
@@ -9,15 +10,15 @@ def run_offline_media_servers():
     p1 = subprocess.Popen(run_servers_cmd, shell=True)
 
 
-def start_maimahi_clients():
-    trace_dir = "/home/hudson/cooked_traces/fcc_mahimahi_traces"
+def start_maimahi_clients(num_clients):
+    trace_dir = "/home/ubuntu/fcc_mahimahi_traces"
     files = os.listdir(trace_dir)
     for filename in files:
         mahimahi_cmd = 'mm-delay 40 mm-link 12mbps ' + trace_dir + '/' + \
                         filename
         plist = []
         base_port = 9362
-        for i in range(0, 4):
+        for i in range(0, num_clients + 1):
             port = base_port + i
             chrome_cmd = 'chromium-browser --headless --disable-gpu --remote-debugging-port=9222 ' + \
                          'http://$MAHIMAHI_BASE:8080/player/?wsport=' + \
@@ -25,7 +26,7 @@ def start_maimahi_clients():
                          '.profile'
             chrome_cmd_b = chrome_cmd.encode('utf-8')
             p = subprocess.Popen(mahimahi_cmd, shell=True,
-                                 stdin=subprocess.PIPE)
+                                 stdin=subprocess.PIPE, preexec_fn=os.setsid)
             p.stdin.write(chrome_cmd_b)
             p.stdin.flush()
             p.stdin.close()
@@ -43,7 +44,7 @@ def start_maimahi_clients():
 def main():
     subprocess.check_call('sudo sysctl -w net.ipv4.ip_forward=1', shell=True)
     # run_media_servers()
-    start_maimahi_clients()
+    start_maimahi_clients(2)
 
 
 if __name__ == '__main__':
