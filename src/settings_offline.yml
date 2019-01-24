@@ -111,7 +111,7 @@ experiments:
         #      cc: bbr
         #      abr_config:
         #        pensieve_path: "/home/ubuntu/puffer/third_party/pensieve/multi_video_sim/rl_test.py"
-        #        nn_path: "/home/ubuntu/nn_model_ep_77400.ckpt"
+        #        nn_path: "/home/ubuntu/puffer/models/pensieve/nn_model_ep_77400.ckpt"
         #  - num_servers: 1
         #    fingerprint:
         #      abr: linear_bba
