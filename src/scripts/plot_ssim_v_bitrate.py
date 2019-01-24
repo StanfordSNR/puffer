@@ -30,7 +30,7 @@ def collect_ssim_and_bitrate(video_sent_results):
             if pt['size'] is None:
                 sys.exit('Found db entry with SSIM but not size')
 
-            bitrate_kbps = pt['size'] * PKT_BYTES * 8 / 2.002 / 1000
+            bitrate_kbps = pt['size'] * 8 / 2.002 / 1000
             if bitrate_kbps > 30000:
                 continue
             ssims_absolute.append(ssim_index)

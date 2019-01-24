@@ -7,7 +7,7 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
-from helpers import prepare_raw_data, VIDEO_DURATION, PKT_BYTES
+from helpers import collect_video_data, VIDEO_DURATION
 
 
 def error(estimate, real):
@@ -17,18 +17,18 @@ def error(estimate, real):
 def pred_error(dst, est_tput):
     assert(est_tput is not None)
 
-    est_trans_time = dst['size']  * PKT_BYTES / est_tput
-    real_trans_time = dst['trans_time']
+    est_trans_time = dst['size'] / est_tput  # seconds
+    real_trans_time = dst['trans_time']  # seconds
 
     return abs(error(est_trans_time, real_trans_time))
 
 
 def last_sample(sess, ts):
     last_ts = ts - VIDEO_DURATION
-    if last_ts not in sess or 'throughput' not in sess[last_ts]:
+    if last_ts not in sess:
         return None
 
-    return sess[last_ts]['throughput']
+    return sess[last_ts]['size'] / sess[last_ts]['trans_time']  # bytes/second
 
 
 def harmonic_mean(sess, ts):
@@ -36,13 +36,10 @@ def harmonic_mean(sess, ts):
 
     for i in range(1, 6):
         prev_ts = ts - i * VIDEO_DURATION
-        if prev_ts not in sess or 'throughput' not in sess[prev_ts]:
+        if prev_ts not in sess:
             return None
 
-        prev_tput = sess[prev_ts]['throughput']
-        if prev_tput <= 0:
-            return None
-
+        prev_tput = sess[prev_ts]['size'] / sess[prev_ts]['trans_time'] # Bps
         past_tputs.append(prev_tput)
 
     hm_tput = len(past_tputs) / np.sum(1 / np.array(past_tputs))
@@ -65,18 +62,14 @@ def calc_pred_error(d):
     for session in d:
         for ts in d[session]:
             dst = d[session][ts]
-            if 'throughput' not in dst or 'trans_time' not in dst:
-                continue
-            if dst['throughput'] <= 0 or dst['trans_time'] <= 0:
-                continue
 
             # TCP info
-            est_tput = dst['delivery_rate'] * PKT_BYTES  # byte/second
+            est_tput = dst['delivery_rate']  # byte/second
             if est_tput is not None:
                 midstream_err['TCP'].append(pred_error(dst, est_tput))
 
             # Last Sample
-            est_tput = last_sample(d[session], ts)
+            est_tput = last_sample(d[session], ts)  # byte/second
             if est_tput is not None:
                 midstream_err['LS'].append(pred_error(dst, est_tput))
 
@@ -154,7 +147,7 @@ def plot_session_duration_and_throughput(d, time_start, time_end):
             elif second_ts:  # TODO: Better method for detecting startup delay
                 startup_delay = ds[next_ts]['cum_rebuffer']
                 second_ts = False
-            tput_sum += (ds[next_ts]['size'] * PKT_BYTES / ds[next_ts]['trans_time'] /
+            tput_sum += (ds[next_ts]['size'] * 8 / ds[next_ts]['trans_time'] /
                          1000000)  # Mbps
             tput_count += 1
         if tput_count == 0:
@@ -240,21 +233,19 @@ def main():
         sys.exit('Please pass either -s, -t, or both to execute the portion '
                  'of this script you would like to run')
 
-    # query InfluxDB and retrieve raw data
-    raw_data = prepare_raw_data(args.yaml_settings,
-                                args.time_start, args.time_end, args.cc)
+    video_data = collect_video_data(args.yaml_settings,
+                                    args.time_start, args.time_end, args.cc)
 
     if args.tput_estimates:
-        midstream_err = calc_pred_error(raw_data)
+        midstream_err = calc_pred_error(video_data)
 
         # plot CDF graph of mistream prediction errors
         plot_error_cdf(midstream_err, args.time_start, args.time_end)
 
-    if args.session_info:
-        # TODO (REMOVEME) raw_data has different units now
-        # TODO (REMOVEME) check out helpers.py:calculate_trans_times()
-        plot_session_duration_and_throughput(raw_data, args.time_start,
-                                             args.time_end)
+    #FIXME
+    #if args.session_info:
+    #    plot_session_duration_and_throughput(raw_data, args.time_start,
+    #                                         args.time_end)
 
 
 if __name__ == '__main__':
