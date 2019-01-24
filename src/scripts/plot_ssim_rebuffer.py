@@ -50,8 +50,7 @@ def collect_buffer_data(client_buffer_results):
     last_low_buf = {}
 
     for pt in client_buffer_results['client_buffer']:
-        session = (pt['user'], int(pt['init_id']),
-                   pt['channel'], int(pt['expt_id']))
+        session = (pt['user'], int(pt['init_id']))
         if session in excluded_sessions:
             continue
 
@@ -102,7 +101,7 @@ def collect_buffer_data(client_buffer_results):
         # identify outliers: exclude the sessions if there is a long rebuffer?
         if last_low_buf[session] is not None:
             diff = (ts - last_low_buf[session]).total_seconds()
-            if diff > 60:
+            if diff > 30:
                 print('Outlier session', session)
                 excluded_sessions[session] = True
                 continue
