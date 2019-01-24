@@ -50,7 +50,7 @@ def collect_buffer_data(client_buffer_results):
     last_low_buf = {}
 
     for pt in client_buffer_results['client_buffer']:
-        session = (pt['user'], int(pt['init_id']))
+        session = (pt['user'], int(pt['init_id']), int(pt['expt_id']))
         if session in excluded_sessions:
             continue
 
