@@ -75,9 +75,10 @@ def hidden_markov(sess, ts):
 
 
 def puffer_ttp(sess, ts, model):
-    in_raw = ttp.prepare_input(sess, ts, ttp.prepare_input_pre(sess, ts))
+    in_raw = ttp.prepare_input(sess, ts,
+                               ttp.prepare_input_pre(sess, ts, model))
 
-    assert(len(in_raw) == model.DIM_IN)
+    assert(len(in_raw) == model.dim_in)
     input_data = model.normalize_input([in_raw], update_obs=False)
     model.set_model_eval()
 

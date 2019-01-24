@@ -36,14 +36,15 @@ CL_MAX_DAYS = 7  # sample from last 7 days
 TUNING = False
 DEVICE = torch.device('cpu')
 
+PAST_CHUNKS = 8
+TCP_INFO = ['delivery_rate', 'cwnd', 'in_flight', 'min_rtt', 'rtt']
+
 # cache of Postgres data: experiment 'id' -> json 'data' of the experiment
 expt_id_cache = {}
 
 
 class Model:
-    PAST_CHUNKS = 8
     FUTURE_CHUNKS = 5
-    DIM_IN = 62
     BIN_SIZE = 0.5  # seconds
     BIN_MAX = 20
     DIM_OUT = BIN_MAX + 1
@@ -52,10 +53,14 @@ class Model:
     WEIGHT_DECAY = 1e-4
     LEARNING_RATE = 1e-4
 
-    def __init__(self, model_path=None):
+    def __init__(self, model_path=None, past_chunks=8, tcp_info=TCP_INFO):
+        self.past_chunks = past_chunks
+        self.tcp_info = tcp_info
+        self.dim_in = (self.past_chunks + 1) * (len(self.tcp_info) + 2) - 1
+
         # define model, loss function, and optimizer
         self.model = torch.nn.Sequential(
-            torch.nn.Linear(Model.DIM_IN, Model.DIM_H1),
+            torch.nn.Linear(self.dim_in, Model.DIM_H1),
             torch.nn.ReLU(),
             torch.nn.Linear(Model.DIM_H1, Model.DIM_H2),
             torch.nn.ReLU(),
@@ -205,7 +210,7 @@ class Model:
 
     def save_cpp_model(self, model_path, meta_path):
         # save model to model_path
-        example = torch.rand(1, Model.DIM_IN).double()
+        example = torch.rand(1, model.dim_in).double()
         traced_script_module = torch.jit.trace(self.model, example)
         traced_script_module.save(model_path)
 
@@ -399,22 +404,29 @@ def prepare_raw_data(yaml_settings_path, time_start, time_end, cc):
     return ret
 
 
-def append_past_chunks(ds, next_ts, row):
+def prepare_tcp_info(ds, ts, model):
+    row = []
+    for term in model.tcp_info:
+        if term == 'delivery_rate':
+            row += [ds[ts][term] / PKT_BYTES]
+        else:
+            row += [ds[ts][term]]
+
+    return row
+
+def append_past_chunks(ds, next_ts, row, model):
     i = 1
     past_chunks = []
 
-    while i <= Model.PAST_CHUNKS:
+    while i <= model.past_chunks:
         ts = next_ts - i * VIDEO_DURATION
         if ts in ds and 'trans_time' in ds[ts]:
-            past_chunks = [ds[ts]['delivery_rate'] / PKT_BYTES,
-                           ds[ts]['cwnd'], ds[ts]['in_flight'],
-                           ds[ts]['min_rtt'], ds[ts]['rtt'],
-                           ds[ts]['size'] / PKT_BYTES, ds[ts]['trans_time']] + past_chunks
+            past_chunks = prepare_tcp_info(ds, ts, model) \
+                + [ds[ts]['size'] / PKT_BYTES, ds[ts]['trans_time']] \
+                + past_chunks
         else:
             nts = ts + VIDEO_DURATION  # padding with the nearest ts
-            padding = [ds[nts]['delivery_rate'] / PKT_BYTES,
-                       ds[nts]['cwnd'], ds[nts]['in_flight'],
-                       ds[nts]['min_rtt'], ds[nts]['rtt']]
+            padding = prepare_tcp_info(ds, nts, model)
 
             if nts == next_ts:
                 padding += [0, 0]  # next_ts is the first chunk to send
@@ -425,25 +437,23 @@ def append_past_chunks(ds, next_ts, row):
 
         i += 1
 
-    if i != Model.PAST_CHUNKS + 1:  # break in the middle; padding must exist
-        while i <= Model.PAST_CHUNKS:
+    if i != model.past_chunks + 1:  # break in the middle; padding must exist
+        while i <= model.past_chunks:
             past_chunks = padding + past_chunks
             i += 1
 
     row += past_chunks
 
 
-def prepare_input_pre(ds, next_ts):
+def prepare_input_pre(ds, next_ts, model):
     # construct a single row of input data
     row = []
 
     # append past chunks with padding
-    append_past_chunks(ds, next_ts, row)
+    append_past_chunks(ds, next_ts, row, model)
 
     # append the TCP info of the next chunk
-    row += [ds[next_ts]['delivery_rate'] / PKT_BYTES,
-            ds[next_ts]['cwnd'], ds[next_ts]['in_flight'],
-            ds[next_ts]['min_rtt'], ds[next_ts]['rtt']]
+    row += prepare_tcp_info(ds, next_ts, model)
 
     return row
 
@@ -456,7 +466,7 @@ def prepare_input(ds, ts, row):
 
 
 # return FUTURE_CHUNKS pairs of (raw_in, raw_out)
-def prepare_input_output(d):
+def prepare_input_output(d, model):
     ret = [{'in':[], 'out':[]} for _ in range(Model.FUTURE_CHUNKS)]
 
     for session in d:
@@ -466,7 +476,7 @@ def prepare_input_output(d):
             if 'trans_time' not in ds[next_ts]:
                 continue
 
-            row = prepare_input_pre(ds, next_ts)
+            row = prepare_input_pre(ds, next_ts, model)
 
             # generate FUTURE_CHUNKS rows
             for i in range(Model.FUTURE_CHUNKS):
@@ -474,7 +484,7 @@ def prepare_input_output(d):
                 if ts in ds and 'trans_time' in ds[ts]:
                     row_i = prepare_input(ds, ts, row)
 
-                    assert(len(row_i) == Model.DIM_IN)
+                    assert(len(row_i) == model.dim_in)
                     ret[i]['in'].append(row_i)
                     ret[i]['out'].append(ds[ts]['trans_time'])
 
