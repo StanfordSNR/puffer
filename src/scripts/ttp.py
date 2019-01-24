@@ -16,7 +16,7 @@ import matplotlib.pyplot as plt
 
 from helpers import (
     connect_to_influxdb, connect_to_postgres, try_parsing_time,
-    make_sure_path_exists, retrieve_expt_config)
+    make_sure_path_exists, retrieve_expt_config, create_time_clause)
 
 
 VIDEO_DURATION = 180180
@@ -289,20 +289,6 @@ def check_args(args):
 
         global NUM_EPOCHS
         NUM_EPOCHS = 100
-
-
-def create_time_clause(time_start, time_end):
-    time_clause = None
-
-    if time_start is not None:
-        time_clause = "time >= '{}'".format(time_start)
-    if time_end is not None:
-        if time_clause is None:
-            time_clause = "time <= '{}'".format(time_end)
-        else:
-            time_clause += " AND time <= '{}'".format(time_end)
-
-    return time_clause
 
 
 def calculate_trans_times(video_sent_results, video_acked_results,

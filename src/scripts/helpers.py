@@ -121,3 +121,17 @@ def get_ssim_index(pt):
         return ssim_db_to_index(float(pt['ssim']))
 
     return None
+
+
+def create_time_clause(time_start, time_end):
+    time_clause = None
+
+    if time_start is not None:
+        time_clause = "time >= '{}'".format(time_start)
+    if time_end is not None:
+        if time_clause is None:
+            time_clause = "time <= '{}'".format(time_end)
+        else:
+            time_clause += " AND time <= '{}'".format(time_end)
+
+    return time_clause
