@@ -217,7 +217,7 @@ def calculate_trans_times(video_sent_results, video_acked_results,
         acked_ts = try_parsing_time(pt['time'])  # datetime object
         dsv['acked_ts'] = acked_ts
         dsv['trans_time'] = (acked_ts - sent_ts).total_seconds()  # seconds
-        dsv['throughput'] = dsv['size'] / dsv['trans_time']  # byte/second
+        dsv['throughput'] = dsv['size'] * PKT_BYTE / dsv['trans_time']  # byte/second
 
     return d
 

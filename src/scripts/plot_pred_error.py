@@ -7,7 +7,7 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
-from helpers import prepare_raw_data, VIDEO_DURATION
+from helpers import prepare_raw_data, VIDEO_DURATION, PKT_BYTES
 
 
 def error(estimate, real):
@@ -17,7 +17,7 @@ def error(estimate, real):
 def pred_error(dst, est_tput):
     assert(est_tput is not None)
 
-    est_trans_time = dst['size'] / est_tput
+    est_trans_time = dst['size']  * PKT_BYTES / est_tput
     real_trans_time = dst['trans_time']
 
     return abs(error(est_trans_time, real_trans_time))
@@ -71,7 +71,7 @@ def calc_pred_error(d):
                 continue
 
             # TCP info
-            est_tput = dst['delivery_rate']
+            est_tput = dst['delivery_rate'] * PKT_BYTES  # byte/second
             if est_tput is not None:
                 midstream_err['TCP'].append(pred_error(dst, est_tput))
 
