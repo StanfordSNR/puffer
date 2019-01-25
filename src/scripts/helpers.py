@@ -150,3 +150,26 @@ def query_measurement(influx_client, measurement, time_start, time_end):
         sys.exit('Error: no results returned from query: ' + query)
 
     return results
+
+
+def filter_video_data_by_cc(d, yaml_settings, required_cc):
+    # cache of Postgres data: experiment 'id' -> json 'data' of the experiment
+    expt_id_cache = {}
+
+    # create a client connected to Postgres
+    postgres_client = connect_to_postgres(yaml_settings)
+    postgres_cursor = postgres_client.cursor()
+
+    sessions_to_remove = []
+    for session in d:
+        expt_id = int(session[-1])
+        expt_config = retrieve_expt_config(expt_id, expt_id_cache,
+                                           postgres_cursor)
+        cc = expt_config['cc']
+        if cc != required_cc:
+            sessions_to_remove.append(session)
+
+    for session in sessions_to_remove:
+        del d[session]
+
+    postgres_cursor.close()

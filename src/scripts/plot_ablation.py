@@ -1,13 +1,17 @@
 #!/usr/bin/env python3
 
 import sys
+import yaml
 import argparse
 import numpy as np
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
-from collect_data import collect_video_data, VIDEO_DURATION
+from helpers import (
+    connect_to_influxdb, connect_to_postgres, query_measurement,
+    retrieve_expt_config, filter_video_data_by_cc)
+from collect_data import video_data_by_session, VIDEO_DURATION
 import ttp
 
 BIN_SIZE = 0.5
@@ -22,7 +26,7 @@ TCP_SETTINGS = {'no cwnd in_flight': [8, ['delivery_rate', 'min_rtt', 'rtt']],
 
 MODEL_PATH = '/home/ubuntu/models'
 TCP_PATHS = {'no cwnd in_flight': \
-                '/ablation/0101-0115-no-cwndinflight-bbr',
+                '/ablation/0101-0115-no-cwmdinflight-bbr',
             'no deliver_rate': \
                 '/ablation/0101-0115-no-delirate-bbr',
             'no rtt': \
@@ -87,7 +91,7 @@ def pred_error(dst, est_tput, verbose=False):
     if verbose:
         print(est_trans_time, ' ', real_trans_time)
 
-    return abs(error(dis_est, dis_real))
+    return abs(error(est_trans_time, real_trans_time))
 
 
 def prepare_ttp_input(sess, ts, model):
@@ -106,6 +110,7 @@ def MLE_error(sess, ts, model):
     model.set_model_eval()
     pred = model.predict(input_data)
     return pred_error(sess[ts], sess[ts]['size'] / pred[0])
+
 
 # the error using cross entropy loss
 def CE_error(sess, ts, model):
@@ -133,21 +138,26 @@ def harmonic_mean(sess, ts):
 
 
 
-def calc_pred_error(d, models, error_func):
+def calc_pred_error(d, models, error_func, cut_small):
     midstream_err = {setting: [] for setting in models}
     midstream_err['HM'] = []
 
     for session in d:
         for ts in d[session]:
             dst = d[session][ts]
+
+            if cut_small and dst['trans_time'] < 0.5:
+                continue
+
+            est = harmonic_mean(d[session], ts)
+            if est == None:
+                continue
+
             for setting in models:
                 if error_func == 'Absolute':
                     midstream_err[setting].append( \
                         MLE_error(d[session], ts, models[setting]))
 
-            est = harmonic_mean(d[session], ts)
-            if est == None:
-                continue
             if error_func == 'Absolute':
                 midstream_err['HM'].append(pred_error(dst, est))
 
@@ -191,8 +201,10 @@ def plot_error_cdf(error_dict, time_start, time_end, xlabel):
 
 def print_statistic(errors):
     for term in errors:
-        error = numpy.array(errors[term])
-        print(tmp, ':', error.mean(), ',', error.std())
+        error = np.array(errors[term])
+        print(term, ': num:', error.shape[0],
+                    ', mean:', error.mean(),
+                    ', std:', error.std())
 
 
 def load_models(i, settings, paths):
@@ -222,10 +234,25 @@ def main():
     parser.add_argument('--cc', help='filter input data by congestion control')
     parser.add_argument('--error-func', help='set different error function')
     parser.add_argument('--ablation', help='set ablation term')
+    parser.add_argument('--cut-small', action='store_true')
     args = parser.parse_args()
 
-    video_data = collect_video_data(args.yaml_settings,
-                                    args.time_start, args.time_end, args.cc)
+    yaml_settings_path = args.yaml_settings
+    with open(yaml_settings_path, 'r') as fh:
+        yaml_settings = yaml.safe_load(fh)
+
+    # create an InfluxDB client and perform queries
+    influx_client = connect_to_influxdb(yaml_settings)
+
+    # query data from video_sent and video_acked
+    video_sent_results = query_measurement(influx_client, 'video_sent',
+                                           args.time_start, args.time_end)
+    video_acked_results = query_measurement(influx_client, 'video_acked',
+                                            args.time_start, args.time_end)
+    video_data = video_data_by_session(video_sent_results, video_acked_results)
+
+    # modify video_data in place by deleting sessions not with args.cc
+    filter_video_data_by_cc(video_data, yaml_settings, args.cc)
 
     # for ablation study of tcp_info
     models = None
@@ -241,7 +268,8 @@ def main():
     if args.error_func == 'CE':
         xlabel = 'CE predict error'
 
-    midstream_err = calc_pred_error(video_data, models, args.error_func)
+    midstream_err = calc_pred_error(video_data, models, args.error_func,
+                                    args.cut_small)
 
     # print the statistic
     print_statistic(midstream_err)
