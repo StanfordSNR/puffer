@@ -17,22 +17,23 @@ def start_maimahi_clients(num_clients):
         # To test nowrway traces use: /home/ubuntu/norway_traces"
         files = os.listdir(trace_dir)
         for filename in files:
-            mahimahi_cmd = 'mm-delay 40 mm-link 12mbps ' + trace_dir + '/' + \
+            # mahimahi_cmd = 'mm-delay 40 mm-link 12mbps ' + trace_dir + '/' + \
                             filename
             base_port = 9361
             plist = []
             for i in range(1, num_clients + 1):
                 port = base_port + i
-                chrome_cmd = 'chromium-browser --headless --disable-gpu --remote-debugging-port=9222 ' + \
-                             'http://$MAHIMAHI_BASE:8080/player/?wsport=' + \
-                             str(port) + ' --user-data-dir=./' + str(port) + \
-                             '.profile'
-                chrome_cmd_b = chrome_cmd.encode('utf-8')
+                #chrome_cmd = 'chromium-browser --headless --disable-gpu --remote-debugging-port=9222 ' + \
+                #             'http://$MAHIMAHI_BASE:8080/player/?wsport=' + \
+                #             str(port) + ' --user-data-dir=./' + str(port) + \
+                #             '.profile'
+                mahimahi_chrome_cmd = "mm-link 12mbps.trace {}/{} --meter-downlink -- \
+                sh -c 'chromium-browser --headless --disable-gpu --remote-debugging-port=9222 \
+                http://$MAHIMAHI_BASE/player/?wsport={} \
+                --user-data-dir=./{}.profile'".format(trace_dir, filename, port, port)
+                chrome_cmd_b = mahimahi_chrome_cmd.encode('utf-8')
                 p = subprocess.Popen(mahimahi_cmd, shell=True,
-                                     stdin=subprocess.PIPE, preexec_fn=os.setsid)
-                p.stdin.write(chrome_cmd_b)
-                p.stdin.flush()
-                p.stdin.close()
+                                     preexec_fn=os.setsid)
                 plist.append(p)
 
             time.sleep(60*10)
