@@ -61,12 +61,16 @@ TCP_TERMS = ['no cwnd in_flight', 'no deliver_rate', 'no tcp_info',
 PC_TERMS = ['past 1 chunk', 'past 2 chunks', 'past 4 chunks',
             'past 8 chunks', 'past 16 chunks', 'continue']
 
-def error(estimate, real):
-    return estimate - real
+def absolute_error(estimate, real):
+    return abs(estimate - real)
 
 
 def zero_one_error(estimate, real):
     return int((estimate - real) > 0.25)
+
+
+def cut_error(estimate, real):
+    return max(abs(estimate - real) - 0.25, 0)
 
 
 def ttp_discretized(trans_time):
@@ -80,17 +84,13 @@ def ttp_map_dis_to_real(dis_time):
         return dis_time * BIN_SIZE
 
 
-def pred_error(dst, est_tput, zero_one_err=False):
+def pred_error(dst, est_tput, err_func):
     assert(est_tput is not None)
 
     est_trans_time = dst['size'] / est_tput
     real_trans_time = dst['trans_time']
 
-    if zero_one_err:
-        return zero_one_error(est_trans_time, real_trans_time)
-    else:
-        return abs(error(est_trans_time, real_trans_time))
-
+    return err_func(est_trans_time, real_trans_time)
 
 def prepare_ttp_input(sess, ts, model):
     in_raw = ttp.prepare_input(sess, ts,
@@ -103,12 +103,11 @@ def prepare_ttp_input(sess, ts, model):
 
 
 # the error using maximum likelihood estimation
-def MLE_error(sess, ts, model, zero_one_err=False):
+def MLE_error(sess, ts, model, err_func):
     input_data = prepare_ttp_input(sess, ts, model)
     model.set_model_eval()
     pred = model.predict(input_data)
-    return pred_error(sess[ts], sess[ts]['size'] / pred[0],
-                      zero_one_err=zero_one_err)
+    return pred_error(sess[ts], sess[ts]['size'] / pred[0], err_func)
 
 
 # the error using cross entropy loss
@@ -167,21 +166,29 @@ def calc_pred_error(d, models, error_func, cut_small):
             for setting in models:
                 if error_func == 'absolute':
                     midstream_err[setting].append( \
-                        MLE_error(d[session], ts, models[setting]))
+                        MLE_error(d[session], ts, models[setting],
+                                  absolute_error))
                 if error_func == 'ave_dis':
                     midstream_err[setting].append( \
                         WD_error(d[session], ts, models[setting]))
                 if error_func == 'zero_one':
                     midstream_err[setting].append( \
                         MLE_error(d[session], ts, models[setting],
-                                  zero_one_err=True))
+                                  zero_one_error))
+                if error_func == 'cut_dis':
+                    midstream_err[setting].append( \
+                        MLE_error(d[session], ts, models[setting],
+                                  cut_error))
 
             if error_func == 'absolute' or error_func == 'ave_dis':
-                midstream_err['HM'].append(pred_error(dst, est))
-
+                midstream_err['HM'].append(pred_error(dst, est,
+                                                absolute_error))
             if error_func == 'zero_one':
                 midstream_err['HM'].append(pred_error(dst, est,
-                                                      zero_one_err=True))
+                                                zero_one_error))
+            if error_func == 'cut_dis':
+                midstream_err['HM'].append(pred_error(dst, est,
+                                                cut_error))
 
     return midstream_err
 
