@@ -1,7 +1,7 @@
 ws_port: 9361
 portal_settings:
   secret_key: PUFFER_PORTAL_SECRET_KEY
-  debug: true
+  debug: false
   allowed_hosts:
     - puffer.stanford.edu
 postgres_connection:
@@ -19,7 +19,7 @@ influxdb_connection:
   user: puffer
   password: INFLUXDB_PASSWORD
 enforce_moving_live_edge: false
-media_dir: /home/ubuntu/media-181230
+media_dir: /dev/shm/media-181230
 channels:
   - abc
   - nbc
@@ -117,6 +117,20 @@ experiments:
       cc: bbr
       abr_config:
         model_dir: /home/ubuntu/puffer/models/puffer_ttp/0101-0115-bbr
+        rebuffer_length_coeff: 100
+  - num_servers: 1
+    fingerprint:
+      abr: puffer_ttp
+      cc: cubic
+      abr_config:
+        model_dir: /home/ubuntu/puffer/models/puffer_ttp/cubic-20190122-1
+        rebuffer_length_coeff: 100
+  - num_servers: 1
+    fingerprint:
+      abr: puffer_ttp
+      cc: bbr
+      abr_config:
+        model_dir: /home/ubuntu/puffer/models/puffer_ttp/bbr-20190122-1
         rebuffer_length_coeff: 100
   - num_servers: 1
     fingerprint:

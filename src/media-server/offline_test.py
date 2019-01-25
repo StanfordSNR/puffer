@@ -28,14 +28,14 @@ def start_maimahi_clients(num_clients):
                 #             str(port) + ' --user-data-dir=./' + str(port) + \
                 #             '.profile'
                 time.sleep(4)
-                mahimahi_chrome_cmd = "mm-delay 40 mm-link 12mbps {}/{} -- sh -c 'chromium-browser --headless --disable-gpu --remote-debugging-port=9222 http://$MAHIMAHI_BASE:8080/player/?wsport={} --user-data-dir=./{}.profile'".format(trace_dir, filename, port, port)
+                mahimahi_chrome_cmd = "mm-delay 40 mm-link 12mbps {}/{} -- sh -c 'chromium-browser --headless --disable-gpu --remote-debugging-port=9222 http://$MAHIMAHI_BASE/player/?wsport={} --user-data-dir=./{}.profile'".format(trace_dir, filename, port, port)
                 print(mahimahi_chrome_cmd)
                 chrome_cmd_b = mahimahi_chrome_cmd.encode('utf-8')
                 p = subprocess.Popen(mahimahi_chrome_cmd, shell=True,
                                      preexec_fn=os.setsid)
                 plist.append(p)
 
-            time.sleep(60*8)
+            time.sleep(50)
             for p in plist:
                 os.killpg(os.getpgid(p.pid), signal.SIGTERM)
                 time.sleep(4)
