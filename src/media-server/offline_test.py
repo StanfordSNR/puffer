@@ -27,18 +27,19 @@ def start_maimahi_clients(num_clients):
                 #             'http://$MAHIMAHI_BASE:8080/player/?wsport=' + \
                 #             str(port) + ' --user-data-dir=./' + str(port) + \
                 #             '.profile'
-                mahimahi_chrome_cmd = "mm-delay 40 mm-link 12mbps {}/{} --meter-downlink -- sh -c 'chromium-browser --headless --disable-gpu --remote-debugging-port=9222 http://$MAHIMAHI_BASE:8080/player/?wsport={} --user-data-dir=./{}.profile'".format(trace_dir, filename, port, port)
+                time.sleep(4)
+                mahimahi_chrome_cmd = "mm-delay 40 mm-link 12mbps {}/{} -- sh -c 'chromium-browser --headless --disable-gpu --remote-debugging-port=9222 http://$MAHIMAHI_BASE:8080/player/?wsport={} --user-data-dir=./{}.profile'".format(trace_dir, filename, port, port)
                 print(mahimahi_chrome_cmd)
                 chrome_cmd_b = mahimahi_chrome_cmd.encode('utf-8')
                 p = subprocess.Popen(mahimahi_chrome_cmd, shell=True,
                                      preexec_fn=os.setsid)
                 plist.append(p)
 
-            time.sleep(60*10)
+            time.sleep(60*8)
             for p in plist:
                 os.killpg(os.getpgid(p.pid), signal.SIGTERM)
+                time.sleep(4)
 
-            subprocess.check_call("killall chromium-browser", shell=True)
             subprocess.check_call("rm -rf ./*.profile", shell=True,
                                   executable='/bin/bash')
     except Exception as e:
@@ -54,7 +55,7 @@ def start_maimahi_clients(num_clients):
 def main():
     subprocess.check_call('sudo sysctl -w net.ipv4.ip_forward=1', shell=True)
     # run_media_servers()
-    start_maimahi_clients(4)
+    start_maimahi_clients(12)
 
 
 if __name__ == '__main__':
