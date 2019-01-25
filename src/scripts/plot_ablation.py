@@ -17,47 +17,49 @@ import ttp
 BIN_SIZE = 0.5
 BIN_MAX = 20
 TCP_INFO = ['delivery_rate', 'cwnd', 'in_flight', 'min_rtt', 'rtt']
-TCP_SETTINGS = {'no cwnd in_flight': [8, ['delivery_rate', 'min_rtt', 'rtt']],
+TTP_SETTINGS = {'no cwnd in_flight': [8, ['delivery_rate', 'min_rtt', 'rtt']],
                 'no deliver_rate': [8, ['cwnd', 'in_flight', 'min_rtt', 'rtt']],
                 'no rtt': [8, ['delivery_rate', 'cwnd', 'in_flight']],
                 'no tcp_info': [8, []],
                 'origin': [8, TCP_INFO],
+                'past 1 chunk': [1, TCP_INFO],
+                'past 2 chunks': [2, TCP_INFO],
+                'past 4 chunks': [4, TCP_INFO],
+                'past 8 chunks': [8, TCP_INFO],
+                'past 16 chunks': [16, TCP_INFO],
+                'continue': [8, TCP_INFO],
                }
 
 MODEL_PATH = '/home/ubuntu/models'
-TCP_PATHS = {'no cwnd in_flight': \
-                '/ablation/0101-0115-no-cwmdinflight-bbr',
-            'no deliver_rate': \
-                '/ablation/0101-0115-no-delirate-bbr',
-            'no rtt': \
-                '/ablation/0101-0115-no-rtt-bbr',
-            'no tcp_info': \
-                '/ablation/0101-0115-no-tcp-info-bbr',
-            'origin': \
-                '/ablation/0101-0115-past8-bbr',
+TTP_PATHS = {'no cwnd in_flight': \
+                 '/ablation/0101-0115-no-cwmdinflight-bbr',
+             'no deliver_rate': \
+                 '/ablation/0101-0115-no-delirate-bbr',
+             'no rtt': \
+                 '/ablation/0101-0115-no-rtt-bbr',
+             'no tcp_info': \
+                 '/ablation/0101-0115-no-tcp-info-bbr',
+             'origin': \
+                 '/ablation/0101-0115-past8-bbr',
+             'past 1 chunk': \
+                 '/ablation/0101-0115-past1-bbr',
+             'past 2 chunks': \
+                 '/ablation/0101-0115-past2-bbr',
+             'past 4 chunks': \
+                 '/ablation/0101-0115-past4-bbr',
+             'past 8 chunks': \
+                 '/ablation/0101-0115-past8-bbr',
+             'past 16 chunks': \
+                 '/ablation/0101-0115-past16-bbr',
+             'continue': \
+                 '/puffer-models-0122/bbr-20190122-1',
            }
 
-PC_SETTINGS = {'past 1 chunk': [1, TCP_INFO],
-               'past 2 chunks': [2, TCP_INFO],
-               'past 4 chunks': [4, TCP_INFO],
-               'past 8 chunks': [8, TCP_INFO],
-               'past 16 chunks': [16, TCP_INFO],
-               'continue': [8, TCP_INFO],
-              }
-PC_PATHS = {'past 1 chunk': \
-                '/ablation/0101-0115-past1-bbr',
-            'past 2 chunks': \
-                '/ablation/0101-0115-past2-bbr',
-            'past 4 chunks': \
-                '/ablation/0101-0115-past4-bbr',
-            'past 8 chunks': \
-                '/ablation/0101-0115-past8-bbr',
-            'past 16 chunks': \
-                '/ablation/0101-0115-past16-bbr',
-            'continue': \
-                '/puffer-models-0122/bbr-20190122-1',
-           }
+TCP_TERMS = ['no cwnd in_flight', 'no deliver_rate', 'no tcp_info',
+             'no rtt', 'origin']
 
+PC_TERMS = ['past 1 chunk', 'past 2 chunks', 'past 4 chunks',
+            'past 8 chunks', 'past 16 chunks', 'continue']
 
 def error(estimate, real):
     return estimate - real
@@ -71,6 +73,7 @@ def abs_error(estimate, real):
 
 def ttp_discretized(trans_time):
     return int((trans_time + 0.5 * BIN_SIZE) / BIN_SIZE)
+
 
 def ttp_map_dis_to_real(dis_time):
     if dis_time == 0:
@@ -137,7 +140,6 @@ def harmonic_mean(sess, ts):
     return hm_tput
 
 
-
 def calc_pred_error(d, models, error_func, cut_small):
     midstream_err = {setting: [] for setting in models}
     midstream_err['HM'] = []
@@ -162,7 +164,6 @@ def calc_pred_error(d, models, error_func, cut_small):
                 midstream_err['HM'].append(pred_error(dst, est))
 
     return midstream_err
-
 
 
 def plot_error_cdf(error_dict, time_start, time_end, xlabel):
@@ -207,19 +208,19 @@ def print_statistic(errors):
                     ', std:', error.std())
 
 
-def load_models(i, settings, paths):
+def load_models(i, terms):
     models = {}
 
-    for setting in settings:
-        model_path = MODEL_PATH + paths[setting] + '/py-{}.pt'.format(i)
+    for term in terms:
+        model_path = MODEL_PATH + TTP_PATHS[term] + '/py-{}.pt'.format(i)
 
-        model = ttp.Model(past_chunks=settings[setting][0],
-                          tcp_info=settings[setting][1])
+        model = ttp.Model(past_chunks=TTP_SETTINGS[term][0],
+                          tcp_info=TTP_SETTINGS[term][1])
         model.load(model_path)
         sys.stderr.write('Loaded ttp model {} from {}\n' \
-                         .format(setting, model_path))
+                         .format(term, model_path))
 
-        models[setting] = model
+        models[term] = model
 
     return models
 
@@ -255,12 +256,13 @@ def main():
     filter_video_data_by_cc(video_data, yaml_settings, args.cc)
 
     # for ablation study of tcp_info
-    models = None
+    models = {}
     if args.ablation == 'tcp_info':
-        models = load_models(0, TCP_SETTINGS, TCP_PATHS)
+        models = load_models(0, TCP_TERMS)
     if args.ablation == 'past_chunks':
-        models = load_models(0, PC_SETTINGS, PC_PATHS)
-
+        models = load_models(0, PC_TERMS)
+    if args.ablation == 'both':
+        models = load_models(0, TCP_TERMS + PC_TERMS)
     # choose error func
     xlabel = None
     if args.error_func == 'Absolute':
