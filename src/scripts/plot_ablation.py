@@ -65,10 +65,8 @@ def error(estimate, real):
     return estimate - real
 
 
-def abs_error(estimate, real):
-    dis_est = int((estimate + 0.5 * BIN_SIZE) / BIN_SIZE)
-    dis_real = int((real + 0.5 * BIN_SIZE) / BIN_SIZE)
-    return int(dis_est != dis_real)
+def zero_one_error(estimate, real):
+    return int((estimate - real) > 0.25)
 
 
 def ttp_discretized(trans_time):
@@ -82,19 +80,16 @@ def ttp_map_dis_to_real(dis_time):
         return dis_time * BIN_SIZE
 
 
-def pred_error(dst, est_tput, verbose=False):
+def pred_error(dst, est_tput, zero_one_err=False):
     assert(est_tput is not None)
 
     est_trans_time = dst['size'] / est_tput
     real_trans_time = dst['trans_time']
 
-    dis_est = ttp_map_dis_to_real(ttp_discretized(est_trans_time))
-    dis_real = ttp_map_dis_to_real(ttp_discretized(real_trans_time))
-
-    if verbose:
-        print(est_trans_time, ' ', real_trans_time)
-
-    return abs(error(est_trans_time, real_trans_time))
+    if zero_one_err:
+        return zero_one_error(est_trans_time, real_trans_time)
+    else:
+        return abs(error(est_trans_time, real_trans_time))
 
 
 def prepare_ttp_input(sess, ts, model):
@@ -108,11 +103,12 @@ def prepare_ttp_input(sess, ts, model):
 
 
 # the error using maximum likelihood estimation
-def MLE_error(sess, ts, model):
+def MLE_error(sess, ts, model, zero_one_err=False):
     input_data = prepare_ttp_input(sess, ts, model)
     model.set_model_eval()
     pred = model.predict(input_data)
-    return pred_error(sess[ts], sess[ts]['size'] / pred[0])
+    return pred_error(sess[ts], sess[ts]['size'] / pred[0],
+                      zero_one_err=zero_one_err)
 
 
 # the error using cross entropy loss
@@ -175,9 +171,17 @@ def calc_pred_error(d, models, error_func, cut_small):
                 if error_func == 'ave_dis':
                     midstream_err[setting].append( \
                         WD_error(d[session], ts, models[setting]))
+                if error_func == 'zero_one':
+                    midstream_err[setting].append( \
+                        MLE_error(d[session], ts, models[setting],
+                                  zero_one_err=True))
 
             if error_func == 'absolute' or error_func == 'ave_dis':
                 midstream_err['HM'].append(pred_error(dst, est))
+
+            if error_func == 'zero_one':
+                midstream_err['HM'].append(pred_error(dst, est,
+                                                      zero_one_err=True))
 
     return midstream_err
 
