@@ -136,3 +136,17 @@ def get_ssim_index(pt):
         return ssim_db_to_index(float(pt['ssim']))
 
     return None
+
+
+def query_measurement(influx_client, measurement, time_start, time_end):
+    time_clause = create_time_clause(time_start, time_end)
+
+    query = 'SELECT * FROM ' + measurement
+    if time_clause is not None:
+        query += ' WHERE ' + time_clause
+
+    results = influx_client.query(query)
+    if not results:
+        sys.exit('Error: no results returned from query: ' + query)
+
+    return results
