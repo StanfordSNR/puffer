@@ -124,6 +124,19 @@ def CE_error(sess, ts, model):
     return - np.log(scores[dis_real])
 
 
+# the error using average distance
+def WD_error(sess, ts, model):
+    input_data = prepare_ttp_input(sess, ts, model)
+    model.set_model_eval()
+    scores = np.array(model.predict_distr(input_data)).reshape(-1)
+    real_trans_time = sess[ts]['trans_time']
+    dis = np.array([abs(ttp_map_dis_to_real(i) - real_trans_time) \
+                        for i in range(BIN_MAX + 1)])
+
+    ave_dis = np.sum(scores * dis)
+    return ave_dis
+
+
 # HM prediction
 def harmonic_mean(sess, ts):
     past_tputs = []
@@ -156,11 +169,14 @@ def calc_pred_error(d, models, error_func, cut_small):
                 continue
 
             for setting in models:
-                if error_func == 'Absolute':
+                if error_func == 'absolute':
                     midstream_err[setting].append( \
                         MLE_error(d[session], ts, models[setting]))
+                if error_func == 'ave_dis':
+                    midstream_err[setting].append( \
+                        WD_error(d[session], ts, models[setting]))
 
-            if error_func == 'Absolute':
+            if error_func == 'absolute' or error_func == 'ave_dis':
                 midstream_err['HM'].append(pred_error(dst, est))
 
     return midstream_err
@@ -265,10 +281,10 @@ def main():
         models = load_models(0, TCP_TERMS + PC_TERMS)
     # choose error func
     xlabel = None
-    if args.error_func == 'Absolute':
+    if args.error_func == 'absolute':
         xlabel = 'Absolute Predict Error'
-    if args.error_func == 'CE':
-        xlabel = 'CE predict error'
+    if args.error_func == 'ave_dis':
+        xlabel = 'Average Distance Predict Error'
 
     midstream_err = calc_pred_error(video_data, models, args.error_func,
                                     args.cut_small)
