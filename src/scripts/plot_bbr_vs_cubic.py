@@ -154,7 +154,8 @@ def plot_rebuf_time_cdf(d, args):
     ax.legend()
     ax.grid()
 
-    title = '[{}, {}] (UTC)'.format(args.time_start, args.time_end)
+    title = ('Rebuffer time (excluding 0)\n[{}, {}] (UTC)'
+             .format(args.time_start, args.time_end))
     ax.set_title(title)
     ax.set_xlabel('Rebuffer time (min)')
     ax.set_ylabel('CDF')
