@@ -1,14 +1,17 @@
 #!/usr/bin/env python3
 
 import sys
+import yaml
 import argparse
 import numpy as np
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
-from collect_data import collect_video_data, VIDEO_DURATION
+from helpers import connect_to_influxdb, query_measurement
+from collect_data import video_data_by_session, VIDEO_DURATION
 import ttp
+
 
 BIN_SIZE = 0.5
 
@@ -247,9 +250,7 @@ def plot_session_duration_and_throughput(d, time_start, time_end):
           str(np.count_nonzero(total_rebuffer) / len(session_durations)))
 
 
-def load_models():
-    ttp_model_path = '/home/ubuntu/models/puffer-models-0122/bbr-20190122-1/py-0.pt'
-
+def load_models(ttp_model_path):
     ttp_model = ttp.Model()
     ttp_model.load(ttp_model_path)
     sys.stderr.write('Loaded ttp model from {}\n'.format(ttp_model_path))
@@ -264,32 +265,31 @@ def main():
                         help='datetime in UTC conforming to RFC3339')
     parser.add_argument('--to', dest='time_end',
                         help='datetime in UTC conforming to RFC3339')
-    parser.add_argument('--cc', help='filter input data by congestion control')
-    parser.add_argument('-s', '--session-info', help='plot session info',
-                        action='store_true')
-    parser.add_argument('-t', '--tput-estimates',
-                        help='plot throughput estimate accuracies',
-                        action='store_true')
+    parser.add_argument('--ttp-model', help='path to a "py-0.pt"')
     args = parser.parse_args()
 
-    if not args.tput_estimates and not args.session_info:
-        sys.exit('Please pass either -s, -t, or both to execute the portion '
-                 'of this script you would like to run')
+    yaml_settings_path = args.yaml_settings
+    with open(yaml_settings_path, 'r') as fh:
+        yaml_settings = yaml.safe_load(fh)
 
-    video_data = collect_video_data(args.yaml_settings,
-                                    args.time_start, args.time_end, args.cc)
-    models = load_models()
+    # create an InfluxDB client and perform queries
+    influx_client = connect_to_influxdb(yaml_settings)
 
-    if args.tput_estimates:
-        midstream_err = calc_pred_error(video_data, models)
+    # query data from video_sent and video_acked
+    video_sent_results = query_measurement(influx_client, 'video_sent',
+                                           args.time_start, args.time_end)
+    video_acked_results = query_measurement(influx_client, 'video_acked',
+                                            args.time_start, args.time_end)
+    video_data = video_data_by_session(video_sent_results, video_acked_results)
 
-        #plot CDF graph of mistream prediction errors
-        plot_error_cdf(midstream_err, args.time_start, args.time_end)
+    # load models
+    models = load_models(args.ttp_model)
 
-    #FIXME
-    #if args.session_info:
-    #    plot_session_duration_and_throughput(raw_data, args.time_start,
-    #                                         args.time_end)
+    # calculate prediction error
+    midstream_err = calc_pred_error(video_data, models)
+
+    # plot CDF graph of mistream prediction errors
+    plot_error_cdf(midstream_err, args.time_start, args.time_end)
 
 
 if __name__ == '__main__':
