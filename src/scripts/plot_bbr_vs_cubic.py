@@ -77,7 +77,7 @@ def plot_ssim_var_cdf(data, args):
     sys.stderr.write('Saved plot to {}\n'.format(figname))
 
 
-def plot_ssim(d, expt_id_cache, postgres_cursor, args):
+def do_plot_ssim(d, expt_id_cache, postgres_cursor, args):
     ssim_by_cc = {}
     ssim_var_by_cc = {}
 
@@ -165,7 +165,7 @@ def plot_rebuf_time_cdf(d, args):
     sys.stderr.write('Saved plot to {}\n'.format(figname))
 
 
-def plot_rebuf_time(d, expt_id_cache, postgres_cursor, args):
+def do_plot_rebuf_time(d, expt_id_cache, postgres_cursor, args):
     rebuf_time_by_cc = {}
 
     for session in d:
@@ -180,6 +180,40 @@ def plot_rebuf_time(d, expt_id_cache, postgres_cursor, args):
             rebuf_time_by_cc[cc].append(d[session]['rebuf'] / 60.0)
 
     plot_rebuf_time_cdf(rebuf_time_by_cc, args)
+
+
+def get_video_data(influx_client, args):
+    video_sent_results = query_measurement(influx_client, 'video_sent',
+                                           args.time_start, args.time_end)
+    video_acked_results = query_measurement(influx_client, 'video_acked',
+                                            args.time_start, args.time_end)
+
+    video_data = video_data_by_session(video_sent_results, video_acked_results)
+
+    return video_data
+
+
+def get_buffer_data(influx_client, args):
+    client_buffer_results = query_measurement(influx_client, 'client_buffer',
+                                              args.time_start, args.time_end)
+
+    buffer_data = buffer_data_by_session(client_buffer_results)
+
+    return buffer_data
+
+
+def plot_ssim(influx_client, expt_id_cache, postgres_cursor, args):
+    # query data from video_sent and video_acked
+    video_data = get_video_data(influx_client, args)
+
+    do_plot_ssim(video_data, expt_id_cache, postgres_cursor, args)
+
+
+def plot_rebuf_time(influx_client, expt_id_cache, postgres_cursor, args):
+    # query data from client_buffer
+    buffer_data = get_buffer_data(influx_client, args)
+
+    do_plot_rebuf_time(buffer_data, expt_id_cache, postgres_cursor, args)
 
 
 def main():
@@ -198,19 +232,6 @@ def main():
     # create an InfluxDB client and perform queries
     influx_client = connect_to_influxdb(yaml_settings)
 
-    # query data from video_sent and video_acked
-    video_sent_results = query_measurement(influx_client, 'video_sent',
-                                           args.time_start, args.time_end)
-    video_acked_results = query_measurement(influx_client, 'video_acked',
-                                            args.time_start, args.time_end)
-    video_data = video_data_by_session(video_sent_results, video_acked_results)
-
-    # query data from client_buffer
-    client_buffer_results = query_measurement(influx_client, 'client_buffer',
-                                              args.time_start, args.time_end)
-
-    buffer_data = buffer_data_by_session(client_buffer_results)
-
     # cache of Postgres data: experiment 'id' -> json 'data' of the experiment
     expt_id_cache = {}
 
@@ -219,10 +240,10 @@ def main():
     postgres_cursor = postgres_client.cursor()
 
     # plot SSIM and its variation
-    plot_ssim(video_data, expt_id_cache, postgres_cursor, args)
+    plot_ssim(influx_client, expt_id_cache, postgres_cursor, args)
 
     # plot rebuffer times
-    plot_rebuf_time(buffer_data, expt_id_cache, postgres_cursor, args)
+    plot_rebuf_time(influx_client, expt_id_cache, postgres_cursor, args)
 
     postgres_cursor.close()
 
