@@ -189,6 +189,12 @@ def plot_error_cdf(error_dict, time_start, time_end, xlabel):
     sys.stderr.write('Saved plot to {}\n'.format(figname))
 
 
+def print_statistic(errors):
+    for term in errors:
+        error = numpy.array(errors[term])
+        print(tmp, ':', error.mean(), ',', error.std())
+
+
 def load_models(i, settings, paths):
     models = {}
 
@@ -237,7 +243,10 @@ def main():
 
     midstream_err = calc_pred_error(video_data, models, args.error_func)
 
-    #plot CDF graph of mistream prediction errors
+    # print the statistic
+    print_statistic(midstream_err)
+
+    # plot CDF graph of mistream prediction errors
     plot_error_cdf(midstream_err, args.time_start, args.time_end, xlabel)
 
 if __name__ == '__main__':
