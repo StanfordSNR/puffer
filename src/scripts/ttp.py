@@ -336,9 +336,9 @@ def calculate_trans_times(video_sent_results, video_acked_results,
         dsv = d[session][video_ts]  # short name
 
         dsv['sent_ts'] = try_parsing_time(pt['time'])
-        dsv['size'] = float(pt['size']) / PKT_BYTES  # bytes -> packets
+        dsv['size'] = float(pt['size'])  # bytes -> packets
         # byte/second -> packet/second
-        dsv['delivery_rate'] = float(pt['delivery_rate']) / PKT_BYTES
+        dsv['delivery_rate'] = float(pt['delivery_rate'])
         dsv['cwnd'] = float(pt['cwnd'])
         dsv['in_flight'] = float(pt['in_flight'])
         dsv['min_rtt'] = float(pt['min_rtt']) / MILLION  # us -> s
@@ -696,7 +696,7 @@ def train_or_eval_model(i, args, raw_in_data, raw_out_data):
     torch.set_num_threads(num_threads)
 
     # create or load a model
-    model = Model()
+    model = Model(past_chunks=8)
     if args.load_model:
         model_path = path.join(args.load_model, 'py-{}.pt'.format(i))
         model.load(model_path)
@@ -758,7 +758,7 @@ def main():
         raw_data = prepare_raw_data(args.yaml_settings,
                                     args.time_start, args.time_end, args.cc)
         # collect input and output data from raw data
-        raw_in_out = prepare_input_output(raw_data)
+        raw_in_out = prepare_input_output(raw_data, Model(past_chunks=8))
     else:
         # continual learning
         raw_in_out = prepare_cl_data(args)
