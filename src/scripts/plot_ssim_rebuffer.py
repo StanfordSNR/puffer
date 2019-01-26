@@ -167,9 +167,20 @@ def filt_by_percentile(x, p):
         seq_rate = np.array([t['rate'] for t in x[abr_cc]])
         th_rate = np.percentile(seq_rate, p)
         y[abr_cc] = [t for t in x[abr_cc] if t['rate'] <= th_rate]
+        if len(y[abr_cc]) == 0:
+            sys.exit('Error: not data for {} after percentile'.format(abr_cc))
 
     return y
 
+
+def filt_unrebuf(x):
+    y = {}
+    for abr_cc in x:
+        y[abr_cc] = [t for t in x[abr_cc] if t['rebuf'] > 1e-8]
+        if len(y[abr_cc]) == 0:
+            sys.exit('Error: not data for {} after percentile'.format(abr_cc))
+
+    return y
 
 def get_max_rate(x):
     y = {}
@@ -179,7 +190,7 @@ def get_max_rate(x):
     return y
 
 
-def plot_ssim_rebuffer(ssim, rebuffer, start_time, end_time, output):
+def plot_ssim_rebuffer_dots(ssim, rebuffer, start_time, end_time, output):
     if end_time == None:
         end_time == 'now'
     title = ('Performance in [{}, {}) (UTC)'
@@ -199,9 +210,9 @@ def plot_ssim_rebuffer(ssim, rebuffer, start_time, end_time, output):
 
         rebuf_rate = rebuffer[abr_cc]['rate']
 
-        abr_cc_str += '\n({:.1f}m/{:.1f}h)'.format(
-                rebuffer[abr_cc]['rebuf'] / 60,
-                rebuffer[abr_cc]['play'] / 3600)
+#        abr_cc_str += '\n({:.1f}m/{:.1f}h)'.format(
+ #               rebuffer[abr_cc]['rebuf'] / 60,
+  #              rebuffer[abr_cc]['play'] / 3600)
 
         x = rebuf_rate * 100  # %
         y = ssim[abr_cc]
@@ -226,14 +237,12 @@ def main():
                         help='datetime in UTC conforming to RFC3339')
     parser.add_argument('--to', dest='time_end',
                         help='datetime in UTC conforming to RFC3339')
+    parser.add_argument('-o', default='tmp')
     parser.add_argument('-d', '--days', type=int, default=1)
     parser.add_argument('--percentile', help='for percentile rebuffer')
     parser.add_argument('--plot-dots', action='store_true')
+    parser.add_argument('--remove-unrebuf', action='store_true')
     args = parser.parse_args()
-    days = args.days
-
-    if days < 1:
-        sys.exit('-d/--days must be a positive integer')
 
     with open(args.yaml_settings, 'r') as fh:
         yaml_settings = yaml.safe_load(fh)
@@ -261,6 +270,9 @@ def main():
     rebuffer_rate = calculate_rebuffer_by_abr_cc(buffer_data,
                                                 expt_id_cache, postgres_cursor)
 
+    if args.remove_unrebuf:
+        rebuffer_rate = filt_unrebuf(rebuffer_rate)
+
     if args.percentile:
         p = float(args.percentile)
         rebuffer_rate = filt_by_percentile(rebuffer_rate, p)
@@ -273,8 +285,8 @@ def main():
         #if args.percentile:
         #   output += '_pt_' + args.percentile
         rebuffer = get_max_rate(rebuffer_rate)
-        plot_ssim_rebuffer(ssim, rebuffer, args.time_start, args.time_end,
-                          'tmp')
+        plot_ssim_rebuffer_dots(ssim, rebuffer, args.time_start, args.time_end,
+                                args.o)
 
     postgres_cursor.close()
 
