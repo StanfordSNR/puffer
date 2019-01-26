@@ -23,7 +23,10 @@ def collect_ssim(video_acked_results, expt_id_cache, postgres_cursor):
         expt_config = retrieve_expt_config(expt_id, expt_id_cache,
                                            postgres_cursor)
         # index x by (abr, cc)
-        abr_cc = (expt_config['abr'], expt_config['cc'])
+        if 'abr_name' in expt_config:
+            abr_cc = (expt_config['abr_name'], expt_config['cc'])
+        else:
+            abr_cc = (expt_config['abr'], expt_config['cc'])
         if abr_cc not in x:
             x[abr_cc] = []
 
@@ -164,7 +167,10 @@ def calculate_rebuffer_by_abr_cc(d, expt_id_cache, postgres_cursor):
         expt_id = int(session[-1])
         expt_config = retrieve_expt_config(expt_id, expt_id_cache,
                                            postgres_cursor)
-        abr_cc = (expt_config['abr'], expt_config['cc'])
+        if 'abr_name' in expt_config:
+            abr_cc = (expt_config['abr_name'], expt_config['cc'])
+        else:
+            abr_cc = (expt_config['abr'], expt_config['cc'])
 
         if abr_cc not in x:
             x[abr_cc] = {}
