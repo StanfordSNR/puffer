@@ -19,7 +19,7 @@ def collect_ssim(video_acked_results, expt_id_cache, postgres_cursor):
     # process InfluxDB data
     x = {}
     for pt in video_acked_results['video_acked']:
-        expt_id = pt['expt_id']
+        expt_id = int(pt['expt_id'])
         expt_config = retrieve_expt_config(expt_id, expt_id_cache,
                                            postgres_cursor)
         # index x by (abr, cc)
@@ -49,7 +49,7 @@ def collect_buffer_data(client_buffer_results):
     last_cum_rebuf = {}
 
     for pt in client_buffer_results['client_buffer']:
-        session = (pt['user'], int(pt['init_id']), pt['expt_id'])
+        session = (pt['user'], int(pt['init_id']), int(pt['expt_id']))
         if session in excluded_sessions:
             continue
 
@@ -145,7 +145,7 @@ def calculate_rebuffer_by_abr_cc(d, expt_id_cache, postgres_cursor):
     x = {}  # indexed by (abr, cc)
 
     for session in d:
-        expt_id = session[-1]
+        expt_id = int(session[-1])
         expt_config = retrieve_expt_config(expt_id, expt_id_cache,
                                            postgres_cursor)
         abr_cc = (expt_config['abr'], expt_config['cc'])
@@ -190,6 +190,14 @@ def get_max_rate(x):
     return y
 
 
+def get_rate(x):
+    y = {}
+    for abr_cc in x:
+        y[abr_cc] = [t['rate'] for t in x[abr_cc]]
+
+    return y
+
+
 def plot_ssim_rebuffer_dots(ssim, rebuffer, start_time, end_time, output):
     if end_time == None:
         end_time == 'now'
@@ -230,6 +238,38 @@ def plot_ssim_rebuffer_dots(ssim, rebuffer, start_time, end_time, output):
     sys.stderr.write('Saved plot to {}\n'.format(output))
 
 
+def plot_cdf(value_dict, x_min, x_max, time_start, time_end, xlabel, output):
+    fig, ax = plt.subplots()
+
+    num_bins = 100
+    for term, values in value_dict.items():
+        if not values:
+            continue
+
+        counts, bin_edges = np.histogram(values, bins=num_bins,
+                                         range=(x_min, x_max))
+        x = bin_edges
+        y = np.cumsum(counts) / len(values)
+        y = np.insert(y, 0, 0)  # prepend 0
+
+        ax.plot(x, y, label=term)
+
+    ax.set_xlim(x_min, x_max)
+    ax.set_ylim(0, 1)
+    ax.legend()
+    ax.grid()
+
+    title = ('Transmission Time Prediction Accuracy\n[{}, {}] (UTC)'
+             .format(time_start, time_end))
+    ax.set_title(title)
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel('CDF')
+
+    figname = output
+    fig.savefig(figname, dpi=150, bbox_inches='tight')
+    sys.stderr.write('Saved plot to {}\n'.format(figname))
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('yaml_settings')
@@ -242,6 +282,7 @@ def main():
     parser.add_argument('--percentile', help='for percentile rebuffer')
     parser.add_argument('--plot-dots', action='store_true')
     parser.add_argument('--remove-unrebuf', action='store_true')
+    parser.add_argument('--plot-cdf', action='store_true')
     args = parser.parse_args()
 
     with open(args.yaml_settings, 'r') as fh:
@@ -286,7 +327,13 @@ def main():
         #   output += '_pt_' + args.percentile
         rebuffer = get_max_rate(rebuffer_rate)
         plot_ssim_rebuffer_dots(ssim, rebuffer, args.time_start, args.time_end,
-                                args.o)
+                                args.o + '_dots')
+
+    if args.plot_cdf:
+        rebuffer_rate = get_rate(rebuffer_rate)
+        plot_cdf(rebuffer_rate, 0, 0.0005, args.time_start,
+                                args.time_end, 'rebuffer_rate',
+                                args.o + '_cdf')
 
     postgres_cursor.close()
 
