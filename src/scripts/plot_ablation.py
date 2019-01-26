@@ -2,6 +2,8 @@
 
 import sys
 import yaml
+import pickle
+import json
 import argparse
 import numpy as np
 import matplotlib
@@ -18,7 +20,7 @@ BIN_SIZE = 0.5
 BIN_MAX = 20
 TCP_INFO = ['delivery_rate', 'cwnd', 'in_flight', 'min_rtt', 'rtt']
 TTP_SETTINGS = {'no cwnd in_flight': [8, ['delivery_rate', 'min_rtt', 'rtt']],
-                'no deliver_rate': [8, ['cwnd', 'in_flight', 'min_rtt', 'rtt']],
+                'no delivery_rate': [8, ['cwnd', 'in_flight', 'min_rtt', 'rtt']],
                 'no rtt': [8, ['delivery_rate', 'cwnd', 'in_flight']],
                 'no tcp_info': [8, []],
                 'origin': [8, TCP_INFO],
@@ -33,7 +35,7 @@ TTP_SETTINGS = {'no cwnd in_flight': [8, ['delivery_rate', 'min_rtt', 'rtt']],
 MODEL_PATH = '/home/ubuntu/models'
 TTP_PATHS = {'no cwnd in_flight': \
                  '/ablation/0101-0115-no-cwmdinflight-bbr',
-             'no deliver_rate': \
+             'no delivery_rate': \
                  '/ablation/0101-0115-no-delirate-bbr',
              'no rtt': \
                  '/ablation/0101-0115-no-rtt-bbr',
@@ -55,7 +57,7 @@ TTP_PATHS = {'no cwnd in_flight': \
                  '/puffer-models-0122/bbr-20190122-1',
            }
 
-TCP_TERMS = ['no cwnd in_flight', 'no deliver_rate', 'no tcp_info',
+TCP_TERMS = ['no cwnd in_flight', 'no delivery_rate', 'no tcp_info',
              'no rtt', 'origin']
 
 PC_TERMS = ['past 1 chunk', 'past 2 chunks', 'past 4 chunks',
@@ -119,11 +121,16 @@ def CE_error(sess, ts, model):
     return - np.log(scores[dis_real])
 
 
-# the error using average distance
-def WD_error(sess, ts, model):
+def ttp_pred_distr(sess, ts, model):
     input_data = prepare_ttp_input(sess, ts, model)
     model.set_model_eval()
     scores = np.array(model.predict_distr(input_data)).reshape(-1)
+    return scores
+
+
+# the error using average distance
+def WD_error(sess, ts, model):
+    scores = ttp_pred_distr(sess, ts, model)
     real_trans_time = sess[ts]['trans_time']
     dis = np.array([abs(ttp_map_dis_to_real(i) - real_trans_time) \
                         for i in range(BIN_MAX + 1)])
@@ -191,6 +198,30 @@ def calc_pred_error(d, models, error_func, cut_small):
                                                 cut_error))
 
     return midstream_err
+
+
+def calc_pred(d, models):
+    pred_data = []
+
+    for session in d:
+        for ts in d[session]:
+            dst = d[session][ts]
+
+            est = harmonic_mean(d[session], ts)
+            if est == None:
+                continue
+
+            pred_data_ts = {'size': dst['size'],
+                             'trans_time': dst['trans_time'],
+                             'HM': dst['size'] / est,
+                            }
+
+            for setting in models:
+                pred_data_ts[setting] = list(ttp_pred_distr(d[session], ts,
+                                                        models[setting]))
+
+            pred_data.append(pred_data_ts)
+    return pred_data
 
 
 def plot_error_cdf(error_dict, time_start, time_end, xlabel):
@@ -296,6 +327,18 @@ def main():
         xlabel = 'Absolute Predict Error'
     if args.error_func == 'ave_dis':
         xlabel = 'Average Distance Predict Error'
+
+    pred_data = calc_pred(video_data, models)
+
+    with open('video-data-from-' + args.time_start + '-to-' \
+            + args.time_end + '.txt', 'w') as fp:
+        for term in pred_data:
+            fp.write(str(term))
+            fp.write('\n')
+
+    print("Write finished!")
+
+    return
 
     midstream_err = calc_pred_error(video_data, models, args.error_func,
                                     args.cut_small)
