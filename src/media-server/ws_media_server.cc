@@ -389,14 +389,16 @@ void start_slow_timer(Timerfd & slow_timer, WebSocketServer & server)
         const auto curr_time = timestamp_ms();
         const auto this_minute = curr_time - curr_time % 60000;
 
-        if (this_minute > last_minute) {
+        if (last_minute == 0) {
           last_minute = this_minute;
-
+        } else if (this_minute > last_minute) {
           /* server info: server heartbeats, etc. */
           log_server_info(this_minute);
 
           /* write active_streams count to file */
           log_active_streams(this_minute);
+
+          last_minute = this_minute;
         }
       }
 
