@@ -12,7 +12,7 @@ from datetime import datetime, timedelta
 from helpers import Popen, check_call
 
 
-CL_HOUR = 11  # perform continual learning at 11:00 (UTC)
+CL_HOUR = 8  # perform continual learning at 8:00 (UTC)
 
 
 def run_ttp(ttp_path, yaml_settings_path):
