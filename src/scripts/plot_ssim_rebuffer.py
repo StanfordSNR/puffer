@@ -12,8 +12,8 @@ import matplotlib.pyplot as plt
 
 from helpers import (
     connect_to_postgres, connect_to_influxdb, try_parsing_time,
-    ssim_index_to_db, retrieve_expt_config, get_ssim_index)
-
+    ssim_index_to_db, retrieve_expt_config, get_ssim_index,
+    query_measurement)
 
 def collect_ssim(video_acked_results, expt_id_cache, postgres_cursor):
     # process InfluxDB data
@@ -47,7 +47,6 @@ def collect_buffer_data(client_buffer_results):
     last_ts = {}
     last_buf = {}
     last_cum_rebuf = {}
-    last_low_buf = {}
 
     for pt in client_buffer_results['client_buffer']:
         session = (pt['user'], int(pt['init_id']), pt['expt_id'])
@@ -68,8 +67,6 @@ def collect_buffer_data(client_buffer_results):
             last_buf[session] = None
         if session not in last_cum_rebuf:
             last_cum_rebuf[session] = None
-        if session not in last_low_buf:
-            last_low_buf[session] = None
 
         ts = try_parsing_time(pt['time'])
         buf = float(pt['buffer'])
@@ -98,14 +95,6 @@ def collect_buffer_data(client_buffer_results):
                 excluded_sessions[session] = True
                 continue
 
-        # identify outliers: exclude the sessions if there is a long rebuffer?
-        if last_low_buf[session] is not None:
-            diff = (ts - last_low_buf[session]).total_seconds()
-            if diff > 30:
-                print('Outlier session', session)
-                excluded_sessions[session] = True
-                continue
-
         # identify stalls caused by slow video decoding
         if last_buf[session] is not None and last_cum_rebuf[session] is not None:
             if (buf > 5 and last_buf[session] > 5 and
@@ -118,11 +107,6 @@ def collect_buffer_data(client_buffer_results):
         last_ts[session] = ts
         last_buf[session] = buf
         last_cum_rebuf[session] = cum_rebuf
-        if buf > 0.1:
-            last_low_buf[session] = None
-        else:
-            if last_low_buf[session] is None:
-                last_low_buf[session] = ts
 
     ret = {}  # indexed by session
 
@@ -139,7 +123,7 @@ def collect_buffer_data(client_buffer_results):
 
         sess_play = (ds['max_play_time'] - ds['min_play_time']).total_seconds()
         # exclude short sessions
-        if sess_play < 5:
+        if sess_play < 10:
             continue
 
         sess_rebuf = ds['max_cum_rebuf'] - ds['min_cum_rebuf']
@@ -167,25 +151,39 @@ def calculate_rebuffer_by_abr_cc(d, expt_id_cache, postgres_cursor):
         abr_cc = (expt_config['abr'], expt_config['cc'])
 
         if abr_cc not in x:
-            x[abr_cc] = {}
-            x[abr_cc]['total_play'] = 0
-            x[abr_cc]['total_rebuf'] = 0
+            x[abr_cc] = []
 
-        x[abr_cc]['total_play'] += d[session]['play']
-        x[abr_cc]['total_rebuf'] += d[session]['rebuf']
+        x[abr_cc].append({'rebuf': d[session]['rebuf'],
+                          'play': d[session]['play'],
+                          'rate': d[session]['rebuf'] / d[session]['play'],
+                         })
 
     return x
 
 
-def plot_ssim_rebuffer(ssim, rebuffer, output, days):
-    time_str = '%Y-%m-%d'
-    curr_ts = datetime.utcnow()
-    start_ts = curr_ts - timedelta(days=days)
-    curr_ts_str = curr_ts.strftime(time_str)
-    start_ts_str = start_ts.strftime(time_str)
+def filt_by_percentile(x, p):
+    y = {}
+    for abr_cc in x:
+        seq_rate = np.array([t['rate'] for t in x[abr_cc]])
+        th_rate = np.percentile(seq_rate, p)
+        y[abr_cc] = [t for t in x[abr_cc] if t['rate'] <= th_rate]
 
+    return y
+
+
+def get_max_rate(x):
+    y = {}
+    for abr_cc in x:
+        y[abr_cc] = max(x[abr_cc], key=lambda t: t['rate'])
+
+    return y
+
+
+def plot_ssim_rebuffer(ssim, rebuffer, start_time, end_time, output):
+    if end_time == None:
+        end_time == 'now'
     title = ('Performance in [{}, {}) (UTC)'
-             .format(start_ts_str, curr_ts_str))
+             .format(start_time, end_time))
 
     fig, ax = plt.subplots()
     ax.set_title(title)
@@ -199,12 +197,11 @@ def plot_ssim_rebuffer(ssim, rebuffer, output, days):
             sys.exit('Error: {} does not exist in both ssim and rebuffer'
                      .format(abr_cc))
 
-        total_rebuf = rebuffer[abr_cc]['total_rebuf']
-        total_play = rebuffer[abr_cc]['total_play']
-        rebuf_rate = total_rebuf / total_play
+        rebuf_rate = rebuffer[abr_cc]['rate']
 
-        abr_cc_str += '\n({:.1f}m/{:.1f}h)'.format(total_rebuf / 60,
-                                                   total_play / 3600)
+        abr_cc_str += '\n({:.1f}m/{:.1f}h)'.format(
+                rebuffer[abr_cc]['rebuf'] / 60,
+                rebuffer[abr_cc]['play'] / 3600)
 
         x = rebuf_rate * 100  # %
         y = ssim[abr_cc]
@@ -225,10 +222,14 @@ def plot_ssim_rebuffer(ssim, rebuffer, output, days):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('yaml_settings')
-    parser.add_argument('-o', '--output', required=True)
+    parser.add_argument('--from', dest='time_start',
+                        help='datetime in UTC conforming to RFC3339')
+    parser.add_argument('--to', dest='time_end',
+                        help='datetime in UTC conforming to RFC3339')
     parser.add_argument('-d', '--days', type=int, default=1)
+    parser.add_argument('--percentile', help='for percentile rebuffer')
+    parser.add_argument('--plot-dots', action='store_true')
     args = parser.parse_args()
-    output = args.output
     days = args.days
 
     if days < 1:
@@ -241,10 +242,10 @@ def main():
     influx_client = connect_to_influxdb(yaml_settings)
 
     # query video_acked and client_buffer
-    video_acked_results = influx_client.query(
-        'SELECT * FROM video_acked WHERE time >= now() - {}d'.format(days))
-    client_buffer_results = influx_client.query(
-        'SELECT * FROM client_buffer WHERE time >= now() - {}d'.format(days))
+    video_acked_results = query_measurement(influx_client, 'video_acked',
+         args.time_start, args.time_end)
+    client_buffer_results = query_measurement(influx_client, 'client_buffer',
+         args.time_start, args.time_end)
 
     # cache of Postgres data: experiment 'id' -> json 'data' of the experiment
     expt_id_cache = {}
@@ -257,14 +258,23 @@ def main():
     ssim = collect_ssim(video_acked_results, expt_id_cache, postgres_cursor)
 
     buffer_data = collect_buffer_data(client_buffer_results)
-    rebuffer = calculate_rebuffer_by_abr_cc(buffer_data,
-                                            expt_id_cache, postgres_cursor)
+    rebuffer_rate = calculate_rebuffer_by_abr_cc(buffer_data,
+                                                expt_id_cache, postgres_cursor)
 
-    if not ssim or not rebuffer:
+    if args.percentile:
+        p = float(args.percentile)
+        rebuffer_rate = filt_by_percentile(rebuffer_rate, p)
+
+    if not ssim or not rebuffer_rate:
         sys.exit('Error: no data found in the queried range')
 
-    # plot ssim vs rebuffer
-    plot_ssim_rebuffer(ssim, rebuffer, output, days)
+    if args.plot_dots:
+        # plot ssim vs rebuffer
+        #if args.percentile:
+        #   output += '_pt_' + args.percentile
+        rebuffer = get_max_rate(rebuffer_rate)
+        plot_ssim_rebuffer(ssim, rebuffer, args.time_start, args.time_end,
+                          'tmp')
 
     postgres_cursor.close()
 
