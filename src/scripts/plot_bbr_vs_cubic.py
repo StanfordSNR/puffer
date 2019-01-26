@@ -82,7 +82,7 @@ def do_plot_ssim(d, expt_id_cache, postgres_cursor, args):
     ssim_var_by_cc = {}
 
     for session in d:
-        expt_id = int(session[-1])
+        expt_id = session[-1]
         expt_config = retrieve_expt_config(expt_id, expt_id_cache,
                                            postgres_cursor)
         cc = expt_config['cc']
@@ -169,7 +169,7 @@ def do_plot_rebuf_time(d, expt_id_cache, postgres_cursor, args):
     rebuf_time_by_cc = {}
 
     for session in d:
-        expt_id = int(session[-1])
+        expt_id = session[-1]
         expt_config = retrieve_expt_config(expt_id, expt_id_cache,
                                            postgres_cursor)
         cc = expt_config['cc']

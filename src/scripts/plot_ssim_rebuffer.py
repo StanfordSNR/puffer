@@ -19,7 +19,7 @@ def collect_ssim(video_acked_results, expt_id_cache, postgres_cursor):
     # process InfluxDB data
     x = {}
     for pt in video_acked_results['video_acked']:
-        expt_id = int(pt['expt_id'])
+        expt_id = pt['expt_id']
         expt_config = retrieve_expt_config(expt_id, expt_id_cache,
                                            postgres_cursor)
         # index x by (abr, cc)
@@ -50,7 +50,7 @@ def collect_buffer_data(client_buffer_results):
     last_low_buf = {}
 
     for pt in client_buffer_results['client_buffer']:
-        session = (pt['user'], int(pt['init_id']), int(pt['expt_id']))
+        session = (pt['user'], int(pt['init_id']), pt['expt_id'])
         if session in excluded_sessions:
             continue
 
@@ -161,7 +161,7 @@ def calculate_rebuffer_by_abr_cc(d, expt_id_cache, postgres_cursor):
     x = {}  # indexed by (abr, cc)
 
     for session in d:
-        expt_id = int(session[-1])
+        expt_id = session[-1]
         expt_config = retrieve_expt_config(expt_id, expt_id_cache,
                                            postgres_cursor)
         abr_cc = (expt_config['abr'], expt_config['cc'])

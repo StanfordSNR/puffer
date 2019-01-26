@@ -162,7 +162,7 @@ def filter_video_data_by_cc(d, yaml_settings, required_cc):
 
     sessions_to_remove = []
     for session in d:
-        expt_id = int(session[-1])
+        expt_id = session[-1]
         expt_config = retrieve_expt_config(expt_id, expt_id_cache,
                                            postgres_cursor)
         cc = expt_config['cc']

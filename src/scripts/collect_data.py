@@ -12,7 +12,7 @@ def video_data_by_session(video_sent_results, video_acked_results):
     last_video_ts = {}
 
     for pt in video_sent_results['video_sent']:
-        session = (pt['user'], int(pt['init_id']), int(pt['expt_id']))
+        session = (pt['user'], int(pt['init_id']), pt['expt_id'])
         if session not in d:
             d[session] = {}
             last_video_ts[session] = None
@@ -36,7 +36,7 @@ def video_data_by_session(video_sent_results, video_acked_results):
         dsv['ssim_index'] = get_ssim_index(pt)  # unitless
 
     for pt in video_acked_results['video_acked']:
-        session = (pt['user'], int(pt['init_id']), int(pt['expt_id']))
+        session = (pt['user'], int(pt['init_id']), pt['expt_id'])
         if session not in d:
             continue
 
