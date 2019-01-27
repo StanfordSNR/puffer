@@ -49,7 +49,7 @@ def collect_buffer_data(client_buffer_results):
     last_cum_rebuf = {}
 
     for pt in client_buffer_results['client_buffer']:
-        session = (pt['user'], int(pt['init_id']), int(pt['expt_id']))
+        session = (pt['user'], int(pt['init_id']), pt['expt_id'])
         if session in excluded_sessions:
             continue
 
@@ -91,7 +91,7 @@ def collect_buffer_data(client_buffer_results):
         if last_ts[session] is not None:
             diff = (ts - last_ts[session]).total_seconds()
             if diff > 60:  # ambiguous / suspicious session
-                print('Ambiguous session', session)
+                sys.stderr.write('Ambiguous session: {}\n'.format(session))
                 excluded_sessions[session] = True
                 continue
 
@@ -99,7 +99,7 @@ def collect_buffer_data(client_buffer_results):
         if last_buf[session] is not None and last_cum_rebuf[session] is not None:
             if (buf > 5 and last_buf[session] > 5 and
                 cum_rebuf > last_cum_rebuf[session] + 0.25):
-                print('Decoding stalls', session)
+                sys.stderr.write('Decoding stalls: {}\n'.format(session))
                 excluded_sessions[session] = True
                 continue
 
@@ -118,7 +118,7 @@ def collect_buffer_data(client_buffer_results):
         ds = d[session]
         if ds['min_play_time'] is None or ds['min_cum_rebuf'] is None:
             # no 'startup' is found
-            print('No startup found', session)
+            sys.stderr.write('No startup found: {}\n'.format(session))
             continue
 
         sess_play = (ds['max_play_time'] - ds['min_play_time']).total_seconds()
@@ -128,7 +128,8 @@ def collect_buffer_data(client_buffer_results):
 
         sess_rebuf = ds['max_cum_rebuf'] - ds['min_cum_rebuf']
         if sess_rebuf > 300:
-            print('Warning: bad session (rebuffer > 5min)', session)
+            sys.stderr.write('Warning: bad session (rebuffer > 5min): {}\n'
+                             .format(session))
 
         if session not in ret:
             ret[session] = {}
@@ -137,7 +138,7 @@ def collect_buffer_data(client_buffer_results):
         ret[session]['rebuf'] = sess_rebuf
         ret[session]['startup'] = ds['min_cum_rebuf']
 
-    print('Valid session count', len(ret))
+    sys.stderr.write('Valid session count: {}\n'.format(len(ret)))
     return ret
 
 
