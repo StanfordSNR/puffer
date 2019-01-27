@@ -113,16 +113,6 @@ def retrieve_expt_config(expt_id, expt_id_cache, postgres_cursor):
     return expt_id_cache[expt_id]
 
 
-def get_ssim_index(pt):
-    if 'ssim_index' in pt and pt['ssim_index'] is not None:
-        return float(pt['ssim_index'])
-
-    if 'ssim' in pt and pt['ssim'] is not None:
-        return ssim_db_to_index(float(pt['ssim']))
-
-    return None
-
-
 def create_time_clause(time_start, time_end):
     time_clause = None
 
@@ -135,3 +125,45 @@ def create_time_clause(time_start, time_end):
             time_clause += " AND time <= '{}'".format(time_end)
 
     return time_clause
+
+
+def get_ssim_index(pt):
+    if 'ssim_index' in pt and pt['ssim_index'] is not None:
+        return float(pt['ssim_index'])
+
+    if 'ssim' in pt and pt['ssim'] is not None:
+        return ssim_db_to_index(float(pt['ssim']))
+
+    return None
+
+
+def query_measurement(influx_client, measurement, time_start, time_end):
+    time_clause = create_time_clause(time_start, time_end)
+
+    query = 'SELECT * FROM ' + measurement
+    if time_clause is not None:
+        query += ' WHERE ' + time_clause
+
+    results = influx_client.query(query)
+    if not results:
+        sys.exit('Error: no results returned from query: ' + query)
+
+    return results
+
+
+def get_abr_cc(expt_config):
+    if 'abr_name' in expt_config:
+        abr_cc = (expt_config['abr_name'], expt_config['cc'])
+    else:
+        abr = expt_config['abr']
+
+        if 'puffer_ttp' in abr:
+            model_dir = path.basename(expt_config['abr_config']['model_dir'])
+
+            if 'bbr-2019' in model_dir or 'cubic-2019' in model_dir:
+                abr = 'puffer_ttp_cl'
+            else:
+                abr = 'puffer_ttp_static'
+        abr_cc = (abr, expt_config['cc'])
+
+    return abr_cc
