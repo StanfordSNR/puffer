@@ -13,6 +13,7 @@ backup_hour = 11
 
 def validate_influxdb(influx_client):
     time_str = "%Y-%m-%dT%H:%M:%SZ"
+    short_time_str = "%Y-%m-%dT%H"
 
     td = datetime.utcnow()
     end_dt = datetime(td.year, td.month, td.day, backup_hour, 0)
@@ -35,10 +36,16 @@ def validate_influxdb(influx_client):
             count = pt['count']
             break
 
-        if count < 10000:
-            sys.stderr.write('ERROR: data is probably missing from {} to {}\n'
-                             .format(start_time, end_time))
-        print('{} - {}: {}'.format(start_time, end_time, count))
+        ss = dt.strftime(short_time_str)
+        se = next_dt.strftime(short_time_str)
+
+        if count < 20000:
+            backup_data_name = '{}_{}.tar.gz'.format(ss, se)
+
+            print('ERROR: {} - {}, count {}'.format(ss, se, count))
+            print("    probably didn't restore {}".format(backup_data_name))
+        else:
+            print('OK: {} - {}, count {}'.format(ss, se, count))
 
         dt = next_dt
 
