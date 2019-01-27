@@ -15,6 +15,7 @@ from helpers import (
     ssim_index_to_db, retrieve_expt_config, get_ssim_index,
     query_measurement)
 
+
 def collect_ssim(video_acked_results, expt_id_cache, postgres_cursor):
     # process InfluxDB data
     x = {}
@@ -51,6 +52,7 @@ def collect_buffer_data(client_buffer_results):
     last_ts = {}
     last_buf = {}
     last_cum_rebuf = {}
+    last_low_buf = {}
 
     for pt in client_buffer_results['client_buffer']:
         session = (pt['user'], int(pt['init_id']), pt['expt_id'])
@@ -72,6 +74,8 @@ def collect_buffer_data(client_buffer_results):
             last_buf[session] = None
         if session not in last_cum_rebuf:
             last_cum_rebuf[session] = None
+        if session not in last_low_buf:
+            last_low_buf[session] = None
 
         ts = try_parsing_time(pt['time'])
         buf = float(pt['buffer'])
@@ -111,6 +115,14 @@ def collect_buffer_data(client_buffer_results):
                 excluded_sessions[session] = True
                 continue
 
+        # identify outliers: exclude the sessions if there is a long rebuffer?
+        if last_low_buf[session] is not None:
+            diff = (ts - last_low_buf[session]).total_seconds()
+            if diff > 30:
+                sys.stderr.write('Outlier session: {}\n'.format(session))
+                excluded_sessions[session] = True
+                continue
+
         # identify stalls caused by slow video decoding
         if last_buf[session] is not None and last_cum_rebuf[session] is not None:
             if (buf > 5 and last_buf[session] > 5 and
@@ -123,6 +135,11 @@ def collect_buffer_data(client_buffer_results):
         last_ts[session] = ts
         last_buf[session] = buf
         last_cum_rebuf[session] = cum_rebuf
+        if buf > 0.1:
+            last_low_buf[session] = None
+        else:
+            if last_low_buf[session] is None:
+                last_low_buf[session] = ts
 
     ret = {}  # indexed by session
 
@@ -139,7 +156,7 @@ def collect_buffer_data(client_buffer_results):
 
         sess_play = (ds['max_play_time'] - ds['min_play_time']).total_seconds()
         # exclude short sessions
-        if sess_play < 10:
+        if sess_play < 5:
             continue
 
         sess_rebuf = ds['max_cum_rebuf'] - ds['min_cum_rebuf']
