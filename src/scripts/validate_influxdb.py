@@ -36,8 +36,8 @@ def validate_influxdb(influx_client):
             break
 
         if count < 10000:
-            sys.exit('ERROR: missing data from {} to {}'
-                     .format(start_time, end_time))
+            sys.stderr.write('ERROR: data is probably missing from {} to {}\n'
+                             .format(start_time, end_time))
         print('{} - {}: {}'.format(start_time, end_time, count))
 
         dt = next_dt
