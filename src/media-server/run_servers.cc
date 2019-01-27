@@ -92,12 +92,10 @@ int main(int argc, char * argv[])
 
     string expt_id = expt["fingerprint"]["abr"].as<string>() + "+" +
                      expt["fingerprint"]["cc"].as<string>();
-    if (expt["fingerprint"]["abr"].as<string>() == "puffer_ttp") {
-	    cerr << "HUDSON: " << expt["fingerprint"]["abr_config"]["model_dir"].as<string>() << endl;
-	    if (expt["fingerprint"]["abr_config"]["model_dir"].as<string>().find("0101-0115") != string::npos) {
-		    expt_id = expt["fingerprint"]["abr"].as<string>() + "_init+" +
-				     expt["fingerprint"]["cc"].as<string>();
-	    }
+    if (expt["fingerprint"]["abr_name"]) {
+      expt_id = expt["fingerprint"]["abr_name"].as<string>() + "+" +
+                expt["fingerprint"]["cc"].as<string>();
+
     }
     unsigned int num_servers = expt["num_servers"].as<unsigned int>();
 
