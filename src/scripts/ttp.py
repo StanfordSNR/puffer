@@ -288,7 +288,7 @@ def check_args(args):
             sys.exit('Error: cannot perform inference with --cl turned on')
 
         global NUM_EPOCHS
-        NUM_EPOCHS = 150
+        NUM_EPOCHS = 200
 
 
 def calculate_trans_times(video_sent_results, video_acked_results,

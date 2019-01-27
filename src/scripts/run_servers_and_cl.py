@@ -22,8 +22,8 @@ def run_ttp(ttp_path, yaml_settings_path):
 
     for expt in yaml_settings['experiments']:
         fingerprint = expt['fingerprint']
-        abr = fingerprint['abr']
-        if abr != 'puffer_ttp':
+        abr_name = fingerprint['abr_name']
+        if abr_name != 'puffer_ttp_cl':
             continue
 
         cc = fingerprint['cc']
