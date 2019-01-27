@@ -26,6 +26,10 @@ PufferTTP::PufferTTP(const WebSocketClient & client,
       obs_mean_[i] = j.at("obs_mean").get<vector<double>>();
       obs_std_[i] = j.at("obs_std").get<vector<double>>();
     }
+
+    if (abr_name == "puffer_ttp_mle") {
+      is_mle_= true;
+    }
   } else {
     throw runtime_error("Puffer requires specifying model_dir in abr_config");
   }
@@ -120,6 +124,25 @@ void PufferTTP::reinit_sending_time()
       if (curr_sizes_[i][j] < 0) {
         is_ban_[i][j] = true;
         continue;
+      }
+
+      if (is_mle_) {
+        is_all_ban = false;
+
+        size_t max_k = dis_sending_time_;
+        double max_value = 0;
+        for (size_t k = 0; k < dis_sending_time_; k++) {
+          double tmp = output[j][k].item<double>();
+
+          if (max_k == dis_sending_time_ or tmp > max_value) {
+            max_k = k;
+            max_value = tmp;
+          }
+        }
+
+        for (size_t k = 0; k < dis_sending_time_; k++) {
+          sending_time_prob_[i][j][k] = (k == max_k);
+        }
       }
 
       double good_prob = 0;
