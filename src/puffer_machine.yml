@@ -1,4 +1,6 @@
 ws_port: 9361
+ssl_private_key: /home/ubuntu/.ssl/mahihost.key
+ssl_certificate: /home/ubuntu/.ssl/mahihost.crt
 portal_settings:
   secret_key: PUFFER_PORTAL_SECRET_KEY
   debug: false

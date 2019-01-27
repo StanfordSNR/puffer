@@ -402,7 +402,7 @@ function WebSocketClient(session_key, username_in, settings_debug,
                          csrf_token_in, sysinfo) {
   /* if DEBUG = True in settings.py, connect to non-secure WebSocket server */
   debug = settings_debug;
-  nonsecure = true;
+  nonsecure = settings_debug;
 
   username = username_in;
   csrf_token = csrf_token_in;

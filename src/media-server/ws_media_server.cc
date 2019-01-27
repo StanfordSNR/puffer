@@ -693,6 +693,7 @@ int run_websocket_server()
   
   if (not portal_debug) {
     cerr << "Error in YAML config: 'debug' must be true in 'portal_settings'" << endl;
+    return EXIT_FAILURE;
   }
   #else
   server.ssl_context().use_private_key_file(config["ssl_private_key"].as<string>());
