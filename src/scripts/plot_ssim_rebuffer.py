@@ -68,6 +68,7 @@ def collect_buffer_data(client_buffer_results):
             d[session]['max_play_time'] = None
             d[session]['min_cum_rebuf'] = None
             d[session]['max_cum_rebuf'] = None
+            d[session]['is_rebuffer'] = True
         ds = d[session]  # short name
 
         if session not in last_ts:
@@ -87,16 +88,27 @@ def collect_buffer_data(client_buffer_results):
         if pt['event'] == 'startup':
             ds['min_play_time'] = ts
             ds['min_cum_rebuf'] = cum_rebuf
+            ds['is_rebuffer'] = False
+
+        if pt['event'] == 'rebuffer':
+            if ds['is_rebuffer']:
+                sys.stderr.write('Warning: repeated rebuffer events in {}\n'
+                                 .format(session))
+            ds['is_rebuffer'] = True
+
+        if pt['event'] == 'play':
+            ds['is_rebuffer'] = False
 
         if ds['min_play_time'] is None or ds['min_cum_rebuf'] is None:
             # wait until 'startup' is found
             continue
 
-        if ds['max_play_time'] is None or ts > ds['max_play_time']:
-            ds['max_play_time'] = ts
+        if not ds['is_rebuffer']:
+            if ds['max_play_time'] is None or ts > ds['max_play_time']:
+                ds['max_play_time'] = ts
 
-        if ds['max_cum_rebuf'] is None or cum_rebuf > ds['max_cum_rebuf']:
-            ds['max_cum_rebuf'] = cum_rebuf
+            if ds['max_cum_rebuf'] is None or cum_rebuf > ds['max_cum_rebuf']:
+                ds['max_cum_rebuf'] = cum_rebuf
 
         # verify that time is basically successive in the same session
         if last_ts[session] is not None:
