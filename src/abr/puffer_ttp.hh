@@ -27,6 +27,8 @@ private:
   std::vector<double> obs_mean_[MAX_LOOKAHEAD_HORIZON];
   std::vector<double> obs_std_[MAX_LOOKAHEAD_HORIZON];
 
+  bool is_mle_ {false};
+
   /* preprocess the data */
   void normalize_in_place(size_t i, std::vector<double> & input);
 
