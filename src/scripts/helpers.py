@@ -1,4 +1,5 @@
 import os
+from os import path
 import sys
 import errno
 import yaml
