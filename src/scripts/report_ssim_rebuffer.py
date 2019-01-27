@@ -18,17 +18,24 @@ def main():
     plot_src = path.join(curr_dir, 'plot_ssim_rebuffer.py')
 
     days = 1
-    time_str = '%Y-%m-%d'
-    curr_ts = datetime.utcnow()
+    time_str = '%Y-%m-%dT%H:%M:%SZ'
+    short_time_str = '%Y-%m-%d'
+
+    td = datetime.utcnow()
+    curr_ts = datetime(td.year, td.month, td.day, td.hour, 0)
     start_ts = curr_ts - timedelta(days=days)
 
-    time_range = start_ts.strftime(time_str) + '_' + curr_ts.strftime(time_str)
+    time_range = '{}_{}'.format(start_ts.strftime(short_time_str),
+                                curr_ts.strftime(short_time_str))
     output_fig_name = time_range + '.png'
     output_fig = path.join(curr_dir, output_fig_name)
 
     # run plot_ssim_rebuffer.py
-    cmd = [plot_src, args.yaml_settings, '-d', str(days), '-o', output_fig]
+    cmd = [plot_src, args.yaml_settings, '-o', output_fig,
+           '--from', start_ts.strftime(time_str),
+           '--to', curr_ts.strftime(time_str)]
     sys.stderr.write(' '.join(cmd) + '\n')
+
     check_call(cmd)
 
     # upload output_fig to Google cloud storage
