@@ -12,19 +12,23 @@ import matplotlib.pyplot as plt
 
 from helpers import (
     connect_to_postgres, connect_to_influxdb, try_parsing_time,
-    ssim_index_to_db, retrieve_expt_config, get_ssim_index, get_abr_cc,
-    create_time_clause, query_measurement)
+    ssim_index_to_db, retrieve_expt_config, get_ssim_index,
+    query_measurement)
 
 
-def do_collect_ssim(video_acked_results, expt_id_cache, postgres_cursor):
+def collect_ssim(video_acked_results, expt_id_cache, postgres_cursor):
     # process InfluxDB data
     x = {}
     for pt in video_acked_results['video_acked']:
-        expt_id = pt['expt_id']
+        expt_id = int(pt['expt_id'])
         expt_config = retrieve_expt_config(expt_id, expt_id_cache,
                                            postgres_cursor)
+        # index x by (abr, cc)
+        if 'abr_name' in expt_config:
+            abr_cc = (expt_config['abr_name'], expt_config['cc'])
+        else:
+            abr_cc = (expt_config['abr'], expt_config['cc'])
 
-        abr_cc = get_abr_cc(expt_config)
         if abr_cc not in x:
             x[abr_cc] = []
 
@@ -39,13 +43,6 @@ def do_collect_ssim(video_acked_results, expt_id_cache, postgres_cursor):
         x[abr_cc] = avg_ssim_db
 
     return x
-
-
-def collect_ssim(influx_client, expt_id_cache, postgres_cursor, args):
-    video_acked_results = query_measurement(influx_client, 'video_acked',
-                                            args.time_start, args.time_end)
-
-    return do_collect_ssim(video_acked_results, expt_id_cache, postgres_cursor)
 
 
 def collect_buffer_data(client_buffer_results):
@@ -185,30 +182,73 @@ def calculate_rebuffer_by_abr_cc(d, expt_id_cache, postgres_cursor):
         expt_id = int(session[-1])
         expt_config = retrieve_expt_config(expt_id, expt_id_cache,
                                            postgres_cursor)
-        abr_cc = get_abr_cc(expt_config)
-        if abr_cc not in x:
-            x[abr_cc] = {}
-            x[abr_cc]['total_play'] = 0
-            x[abr_cc]['total_rebuf'] = 0
+        abr_cc = (expt_config['abr'], expt_config['cc'])
 
-        x[abr_cc]['total_play'] += d[session]['play']
-        x[abr_cc]['total_rebuf'] += d[session]['rebuf']
+        if abr_cc not in x:
+            x[abr_cc] = []
+
+        x[abr_cc].append({'rebuf': d[session]['rebuf'],
+                          'play': d[session]['play'],
+                          'rate': d[session]['rebuf'] / d[session]['play'],
+                          'session_id': session})
 
     return x
 
 
-def collect_rebuffer(influx_client, expt_id_cache, postgres_cursor, args):
-    client_buffer_results = query_measurement(influx_client, 'client_buffer',
-                                              args.time_start, args.time_end)
-    buffer_data = collect_buffer_data(client_buffer_results)
+def filt_by_percentile(x, p):
+    y = {}
+    for abr_cc in x:
+        seq_rate = np.array([t['rate'] for t in x[abr_cc]])
+        th_rate = np.percentile(seq_rate, p)
+        y[abr_cc] = [t for t in x[abr_cc] if t['rate'] <= th_rate]
+        if len(y[abr_cc]) == 0:
+            sys.exit('Error: not data for {} after percentile'.format(abr_cc))
 
-    return calculate_rebuffer_by_abr_cc(buffer_data,
-                                        expt_id_cache, postgres_cursor)
+    return y
 
 
-def plot_ssim_rebuffer(ssim, rebuffer, output, args):
+def filt_unrebuf(x):
+    y = {}
+    for abr_cc in x:
+        y[abr_cc] = [t for t in x[abr_cc] if t['rebuf'] > 1e-8]
+        if len(y[abr_cc]) == 0:
+            sys.exit('Error: not data for {} after percentile'.format(abr_cc))
+
+    return y
+
+def filt_max_rate(x):
+    y = {}
+    for abr_cc in x:
+        y[abr_cc] = max(x[abr_cc], key=lambda t: t['rate'])
+
+    return y
+
+
+def get_rate(x):
+    y = {}
+    for abr_cc in x:
+        y[abr_cc] = [t['rate'] for t in x[abr_cc]]
+
+    return y
+
+
+def get_nonzero_rate(x):
+    y = {}
+    for abr_cc in x:
+        y[abr_cc] = sum([1 for t in x[abr_cc] if t['rebuf'] > 1e-8]) \
+                    / len(x[abr_cc])
+
+    return y
+
+
+
+def plot_ssim_rebuffer_dots(ssim, rebuffer, start_time, end_time, output):
+    if end_time == None:
+        end_time == 'now'
+    title = ('Performance in [{}, {}) (UTC)'
+             .format(start_time, end_time))
+
     fig, ax = plt.subplots()
-    title = '[{}, {}] (UTC)'.format(args.time_start, args.time_end)
     ax.set_title(title)
     ax.set_xlabel('Time spent stalled (%)')
     ax.set_ylabel('Average SSIM (dB)')
@@ -217,19 +257,21 @@ def plot_ssim_rebuffer(ssim, rebuffer, output, args):
     for abr_cc in ssim:
         abr_cc_str = '{}+{}'.format(*abr_cc)
         if abr_cc not in rebuffer:
-            sys.exit('Error: {} does not exist in rebuffer'
+            sys.exit('Error: {} does not exist in both ssim and rebuffer'
                      .format(abr_cc))
 
-        total_rebuf = rebuffer[abr_cc]['total_rebuf']
-        total_play = rebuffer[abr_cc]['total_play']
-        rebuf_rate = total_rebuf / total_play
+        if type(rebuffer[abr_cc]) is dict:
+            rebuf_rate = rebuffer[abr_cc]['rate']
+            abr_cc_str += str(rebuffer[abr_cc]['session_id'])
+        else:
+            rebuf_rate = rebuffer[abr_cc]
 
-        abr_cc_str += '\n({:.1f}m/{:.1f}h)'.format(total_rebuf / 60,
-                                                   total_play / 3600)
+#        abr_cc_str += '\n({:.1f}m/{:.1f}h)'.format(
+ #               rebuffer[abr_cc]['rebuf'] / 60,
+  #              rebuffer[abr_cc]['play'] / 3600)
 
         x = rebuf_rate * 100  # %
         y = ssim[abr_cc]
-        print(abr_cc, x, y)
         ax.scatter(x, y)
         ax.annotate(abr_cc_str, (x, y))
 
@@ -240,9 +282,43 @@ def plot_ssim_rebuffer(ssim, rebuffer, output, args):
     ax.set_xlim(xmin, xmax)
     ax.invert_xaxis()
 
-    #fig.savefig(output, dpi=150, bbox_inches='tight')
-    fig.savefig(output)
+    fig.savefig(output, dpi=150, bbox_inches='tight')
     sys.stderr.write('Saved plot to {}\n'.format(output))
+
+
+def plot_cdf(value_dict, x_min, x_max, time_start, time_end, xlabel, output,
+             y_min=0, y_max=1):
+    fig, ax = plt.subplots()
+
+    num_bins = 100
+
+    print(y_min)
+    for term, values in value_dict.items():
+        if not values:
+            continue
+
+        counts, bin_edges = np.histogram(values, bins=num_bins,
+                                         range=(x_min, x_max))
+        x = bin_edges
+        y = np.cumsum(counts) / len(values)
+        y = np.insert(y, 0, 0)  # prepend 0
+
+        ax.plot(x, y, label=term)
+
+    ax.set_xlim(x_min, x_max)
+    ax.set_ylim(y_min, y_max)
+    ax.legend()
+    ax.grid()
+
+    title = ('Transmission Time Prediction Accuracy\n[{}, {}] (UTC)'
+             .format(time_start, time_end))
+    ax.set_title(title)
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel('CDF')
+
+    figname = output
+    fig.savefig(figname, dpi=150, bbox_inches='tight')
+    sys.stderr.write('Saved plot to {}\n'.format(figname))
 
 
 def main():
@@ -252,15 +328,26 @@ def main():
                         help='datetime in UTC conforming to RFC3339')
     parser.add_argument('--to', dest='time_end',
                         help='datetime in UTC conforming to RFC3339')
-    parser.add_argument('-o', '--output', required=True)
+    parser.add_argument('-o', default='tmp')
+    parser.add_argument('-d', '--days', type=int, default=1)
+    parser.add_argument('--percentile', help='for percentile rebuffer')
+    parser.add_argument('--plot-dots-pt', action='store_true')
+    parser.add_argument('--plot-dots-nb', action='store_true')
+    parser.add_argument('--remove-unrebuf', action='store_true')
+    parser.add_argument('--plot-cdf-pt', action='store_true')
     args = parser.parse_args()
-    output = args.output
 
     with open(args.yaml_settings, 'r') as fh:
         yaml_settings = yaml.safe_load(fh)
 
     # create an InfluxDB client and perform queries
     influx_client = connect_to_influxdb(yaml_settings)
+
+    # query video_acked and client_buffer
+    video_acked_results = query_measurement(influx_client, 'video_acked',
+         args.time_start, args.time_end)
+    client_buffer_results = query_measurement(influx_client, 'client_buffer',
+         args.time_start, args.time_end)
 
     # cache of Postgres data: experiment 'id' -> json 'data' of the experiment
     expt_id_cache = {}
@@ -270,15 +357,46 @@ def main():
     postgres_cursor = postgres_client.cursor()
 
     # collect ssim and rebuffer
-    ssim = collect_ssim(influx_client, expt_id_cache, postgres_cursor, args)
-    rebuffer = collect_rebuffer(influx_client,
-                                expt_id_cache, postgres_cursor, args)
+    ssim = collect_ssim(video_acked_results, expt_id_cache, postgres_cursor)
 
-    if not ssim or not rebuffer:
+    buffer_data = collect_buffer_data(client_buffer_results)
+    rebuffer_rate = calculate_rebuffer_by_abr_cc(buffer_data,
+                                                expt_id_cache, postgres_cursor)
+
+    if not ssim or not rebuffer_rate:
         sys.exit('Error: no data found in the queried range')
 
-    # plot ssim vs rebuffer
-    plot_ssim_rebuffer(ssim, rebuffer, output, args)
+    nonzero_rate_v = get_nonzero_rate(rebuffer_rate)
+
+    if args.remove_unrebuf:
+        rebuffer_rate = filt_unrebuf(rebuffer_rate)
+
+    if args.percentile:
+        p = float(args.percentile)
+        rebuffer_rate = filt_by_percentile(rebuffer_rate, p)
+
+    nonzero_rate_pt_v = get_nonzero_rate(rebuffer_rate)
+
+    if args.plot_dots_pt:
+        # plot ssim vs rebuffer
+        #if args.percentile:
+        #   output += '_pt_' + args.percentile
+        rebuffer = filt_max_rate(rebuffer_rate)
+        plot_ssim_rebuffer_dots(ssim, rebuffer, args.time_start, args.time_end,
+                                args.o + '_dots_pt')
+
+    if args.plot_dots_nb:
+        plot_ssim_rebuffer_dots(ssim, nonzero_rate_v, args.time_start,
+                                args.time_end, args.o + '_dots_nb')
+
+    if args.plot_cdf_pt:
+        rebuffer_max = filt_max_rate(rebuffer_rate)
+        rebuffer_rate_v = get_rate(rebuffer_rate)
+        max_rate = max([t['rate'] for t in rebuffer_max.values()])
+        plot_cdf(rebuffer_rate_v, 0, max_rate,
+                 args.time_start, args.time_end, 'rebuffer_rate',
+                 args.o + '_cdf_pt',
+                 y_min=0.95)
 
     postgres_cursor.close()
 
