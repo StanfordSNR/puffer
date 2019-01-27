@@ -30,6 +30,11 @@ PufferTTP::PufferTTP(const WebSocketClient & client,
     if (abr_name == "puffer_ttp_mle") {
       is_mle_= true;
     }
+
+    if (abr_name == "puffer_ttp_no_tcp_info") {
+      ttp_input_dim_ = 17;
+      no_tcp_info_ = true;
+    }
   } else {
     throw runtime_error("Puffer requires specifying model_dir in abr_config");
   }
@@ -59,50 +64,65 @@ void PufferTTP::reinit_sending_time()
 
   if (num_past_chunks == 0) {
     for (size_t i = 0; i < max_num_past_chunks_; i++) {
-      raw_input.insert(raw_input.end(), {
-        (double) curr_tcp_info.delivery_rate / PKT_BYTES,
-        (double) curr_tcp_info.cwnd,
-        (double) curr_tcp_info.in_flight,
-        (double) curr_tcp_info.min_rtt / MILLION,
-        (double) curr_tcp_info.rtt / MILLION,
-        0, 0});
+      if (not no_tcp_info_) {
+        raw_input.insert(raw_input.end(), {
+          (double) curr_tcp_info.delivery_rate / PKT_BYTES,
+          (double) curr_tcp_info.cwnd,
+          (double) curr_tcp_info.in_flight,
+          (double) curr_tcp_info.min_rtt / MILLION,
+          (double) curr_tcp_info.rtt / MILLION,
+        });
+      }
+      raw_input.insert(raw_input.end(), {0, 0});
     }
   } else {
     auto it = past_chunks_.begin();
     for (size_t i = 0; i < max_num_past_chunks_; i++) {
-      raw_input.insert(raw_input.end(), {(double) it->delivery_rate / PKT_BYTES,
-                                         (double) it->cwnd,
-                                         (double) it->in_flight,
-                                         (double) it->min_rtt / MILLION,
-                                         (double) it->rtt / MILLION,
-                                         (double) it->size / PKT_BYTES,
-                                         (double) it->trans_time / THOUSAND});
+      if (not no_tcp_info_) {
+        raw_input.insert(raw_input.end(), {
+          (double) it->delivery_rate / PKT_BYTES,
+          (double) it->cwnd,
+          (double) it->in_flight,
+          (double) it->min_rtt / MILLION,
+          (double) it->rtt / MILLION,
+        });
+      }
+
+      raw_input.insert(raw_input.end(), {
+        (double) it->size / PKT_BYTES,
+        (double) it->trans_time / THOUSAND,
+      });
+
       if (i + num_past_chunks >= max_num_past_chunks_) {
         it++;
       }
     }
   }
 
-  raw_input.insert(raw_input.end(), {(double) curr_tcp_info.delivery_rate / PKT_BYTES,
-                                     (double) curr_tcp_info.cwnd,
-                                     (double) curr_tcp_info.in_flight,
-                                     (double) curr_tcp_info.min_rtt / MILLION,
-                                     (double) curr_tcp_info.rtt / MILLION,
-                                     0});
+  if (not no_tcp_info_) {
+    raw_input.insert(raw_input.end(), {
+      (double) curr_tcp_info.delivery_rate / PKT_BYTES,
+      (double) curr_tcp_info.cwnd,
+      (double) curr_tcp_info.in_flight,
+      (double) curr_tcp_info.min_rtt / MILLION,
+      (double) curr_tcp_info.rtt / MILLION,
+    });
+  }
+  raw_input.insert(raw_input.end(), {0});
 
-  assert(raw_input.size() == TTP_INPUT_DIM);
+  assert(raw_input.size() == ttp_input_dim_);
 
   for (size_t i = 1; i <= lookahead_horizon_; i++) {
     /* prepare the inputs for each ahead timestamp and format */
     static double inputs[MAX_NUM_FORMATS * TTP_INPUT_DIM];
 
     for (size_t j = 0; j < num_formats_; j++) {
-      raw_input[TTP_INPUT_DIM - 1] = (double) curr_sizes_[i][j] / PKT_BYTES;
+      raw_input[ttp_input_dim_ - 1] = (double) curr_sizes_[i][j] / PKT_BYTES;
       vector<double> norm_input {raw_input};
 
       normalize_in_place(i - 1, norm_input);
-      for (size_t k = 0; k < TTP_INPUT_DIM; k++) {
-        inputs[j * TTP_INPUT_DIM + k] = norm_input[k];
+      for (size_t k = 0; k < ttp_input_dim_; k++) {
+        inputs[j * ttp_input_dim_ + k] = norm_input[k];
       }
     }
 
@@ -110,7 +130,8 @@ void PufferTTP::reinit_sending_time()
     vector<torch::jit::IValue> torch_inputs;
 
     torch_inputs.push_back(torch::from_blob(inputs,
-                           {(int) num_formats_, TTP_INPUT_DIM}, torch::kF64));
+                           {(int) num_formats_, (int)ttp_input_dim_},
+                           torch::kF64));
 
     at::Tensor output = torch::softmax(ttp_modules_[i - 1]->forward(torch_inputs)
                                        .toTensor(), 1);
