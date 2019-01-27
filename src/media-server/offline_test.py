@@ -57,7 +57,7 @@ def start_maimahi_clients(num_clients):
 def main():
     subprocess.check_call('sudo sysctl -w net.ipv4.ip_forward=1', shell=True)
     # run_media_servers()
-    start_maimahi_clients(12)
+    start_maimahi_clients(4)
 
 
 if __name__ == '__main__':
