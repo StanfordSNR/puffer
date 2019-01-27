@@ -152,6 +152,24 @@ def query_measurement(influx_client, measurement, time_start, time_end):
     return results
 
 
+def get_abr_cc(expt_config):
+    if 'abr_name' in expt_config:
+        abr_cc = (expt_config['abr_name'], expt_config['cc'])
+    else:
+        abr = expt_config['abr']
+
+        if 'puffer_ttp' in abr:
+            model_dir = path.basename(expt_config['abr_config']['model_dir'])
+
+            if 'bbr-2019' in model_dir or 'cubic-2019' in model_dir:
+                abr = 'puffer_ttp_cl'
+            else:
+                abr = 'puffer_ttp_static'
+        abr_cc = (abr, expt_config['cc'])
+
+    return abr_cc
+
+
 def filter_video_data_by_cc(d, yaml_settings, required_cc):
     # cache of Postgres data: experiment 'id' -> json 'data' of the experiment
     expt_id_cache = {}

@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 
 from helpers import (
     connect_to_postgres, connect_to_influxdb, retrieve_expt_config,
-    ssim_index_to_db, get_ssim_index, query_measurement)
+    ssim_index_to_db, get_ssim_index, query_measurement, get_abr_cc)
 from collect_data import (
     video_data_by_session, buffer_data_by_session, VIDEO_DURATION)
 
@@ -37,11 +37,7 @@ def collect_ssim(influx_client, expt_id_cache, postgres_cursor, args):
         expt_id = session[-1]
         expt_config = retrieve_expt_config(expt_id, expt_id_cache,
                                            postgres_cursor)
-        if 'abr_name' in expt_config:
-            abr = expt_config['abr_name']
-        else:
-            abr = expt_config['abr']
-        cc = expt_config['cc']
+        abr, cc = get_abr_cc(expt_config)
 
         if abr not in ssim_mean:
             ssim_mean[abr] = {}
@@ -118,11 +114,7 @@ def collect_rebuffer_rate(influx_client, expt_id_cache, postgres_cursor, args):
         expt_id = session[-1]
         expt_config = retrieve_expt_config(expt_id, expt_id_cache,
                                            postgres_cursor)
-        if 'abr_name' in expt_config:
-            abr = expt_config['abr_name']
-        else:
-            abr = expt_config['abr']
-        cc = expt_config['cc']
+        abr, cc = get_abr_cc(expt_config)
 
         if abr not in rebuffer_rate:
             rebuffer_rate[abr] = {}
@@ -140,7 +132,7 @@ def tabulate_rebuffer_rate(influx_client, expt_id_cache, postgres_cursor, args):
     rebuffer_rate = collect_rebuffer_rate(influx_client,
                                           expt_id_cache, postgres_cursor, args)
 
-    for p in [95, 99]:
+    for p in [95, 97, 99]:
         print('Reduction of {}th percentile rebuffer rate (%)'.format(p))
         for abr in rebuffer_rate:
             bbr = np.percentile(rebuffer_rate[abr]['bbr'], p)
