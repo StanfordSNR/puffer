@@ -27,7 +27,9 @@ private:
   std::vector<double> obs_mean_[MAX_LOOKAHEAD_HORIZON];
   std::vector<double> obs_std_[MAX_LOOKAHEAD_HORIZON];
 
+  size_t ttp_input_dim_ {TTP_INPUT_DIM};
   bool is_mle_ {false};
+  bool no_tcp_info_ {false};
 
   /* preprocess the data */
   void normalize_in_place(size_t i, std::vector<double> & input);
