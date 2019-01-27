@@ -12,21 +12,19 @@ import matplotlib.pyplot as plt
 
 from helpers import (
     connect_to_postgres, connect_to_influxdb, try_parsing_time,
-    ssim_index_to_db, retrieve_expt_config, get_ssim_index)
+    ssim_index_to_db, retrieve_expt_config, get_ssim_index, get_abr_cc,
+    create_time_clause, query_measurement)
 
 
-def collect_ssim(video_acked_results, expt_id_cache, postgres_cursor):
+def do_collect_ssim(video_acked_results, expt_id_cache, postgres_cursor):
     # process InfluxDB data
     x = {}
     for pt in video_acked_results['video_acked']:
         expt_id = int(pt['expt_id'])
         expt_config = retrieve_expt_config(expt_id, expt_id_cache,
                                            postgres_cursor)
-        # index x by (abr, cc)
-        if 'abr_name' in expt_config:
-            abr_cc = (expt_config['abr_name'], expt_config['cc'])
-        else:
-            abr_cc = (expt_config['abr'], expt_config['cc'])
+
+        abr_cc = get_abr_cc(expt_config)
         if abr_cc not in x:
             x[abr_cc] = []
 
@@ -41,6 +39,13 @@ def collect_ssim(video_acked_results, expt_id_cache, postgres_cursor):
         x[abr_cc] = avg_ssim_db
 
     return x
+
+
+def collect_ssim(influx_client, expt_id_cache, postgres_cursor, args):
+    video_acked_results = query_measurement(influx_client, 'video_acked',
+                                            args.time_start, args.time_end)
+
+    return do_collect_ssim(video_acked_results, expt_id_cache, postgres_cursor)
 
 
 def collect_buffer_data(client_buffer_results):
@@ -97,7 +102,7 @@ def collect_buffer_data(client_buffer_results):
         if last_ts[session] is not None:
             diff = (ts - last_ts[session]).total_seconds()
             if diff > 60:  # ambiguous / suspicious session
-                print('Ambiguous session', session)
+                sys.stderr.write('Ambiguous session: {}\n'.format(session))
                 excluded_sessions[session] = True
                 continue
 
@@ -105,7 +110,7 @@ def collect_buffer_data(client_buffer_results):
         if last_low_buf[session] is not None:
             diff = (ts - last_low_buf[session]).total_seconds()
             if diff > 30:
-                print('Outlier session', session)
+                sys.stderr.write('Outlier session: {}\n'.format(session))
                 excluded_sessions[session] = True
                 continue
 
@@ -113,7 +118,7 @@ def collect_buffer_data(client_buffer_results):
         if last_buf[session] is not None and last_cum_rebuf[session] is not None:
             if (buf > 5 and last_buf[session] > 5 and
                 cum_rebuf > last_cum_rebuf[session] + 0.25):
-                print('Decoding stalls', session)
+                sys.stderr.write('Decoding stalls: {}\n'.format(session))
                 excluded_sessions[session] = True
                 continue
 
@@ -137,7 +142,7 @@ def collect_buffer_data(client_buffer_results):
         ds = d[session]
         if ds['min_play_time'] is None or ds['min_cum_rebuf'] is None:
             # no 'startup' is found
-            print('No startup found', session)
+            sys.stderr.write('No startup found: {}\n'.format(session))
             continue
 
         sess_play = (ds['max_play_time'] - ds['min_play_time']).total_seconds()
@@ -147,7 +152,8 @@ def collect_buffer_data(client_buffer_results):
 
         sess_rebuf = ds['max_cum_rebuf'] - ds['min_cum_rebuf']
         if sess_rebuf > 300:
-            print('Warning: bad session (rebuffer > 5min)', session)
+            sys.stderr.write('Warning: bad session (rebuffer > 5min): {}\n'
+                             .format(session))
 
         if session not in ret:
             ret[session] = {}
@@ -156,7 +162,7 @@ def collect_buffer_data(client_buffer_results):
         ret[session]['rebuf'] = sess_rebuf
         ret[session]['startup'] = ds['min_cum_rebuf']
 
-    print('Valid session count', len(ret))
+    sys.stderr.write('Valid session count: {}\n'.format(len(ret)))
     return ret
 
 
@@ -167,11 +173,7 @@ def calculate_rebuffer_by_abr_cc(d, expt_id_cache, postgres_cursor):
         expt_id = int(session[-1])
         expt_config = retrieve_expt_config(expt_id, expt_id_cache,
                                            postgres_cursor)
-        if 'abr_name' in expt_config:
-            abr_cc = (expt_config['abr_name'], expt_config['cc'])
-        else:
-            abr_cc = (expt_config['abr'], expt_config['cc'])
-
+        abr_cc = get_abr_cc(expt_config)
         if abr_cc not in x:
             x[abr_cc] = {}
             x[abr_cc]['total_play'] = 0
@@ -183,17 +185,18 @@ def calculate_rebuffer_by_abr_cc(d, expt_id_cache, postgres_cursor):
     return x
 
 
-def plot_ssim_rebuffer(ssim, rebuffer, output, days):
-    time_str = '%Y-%m-%d'
-    curr_ts = datetime.utcnow()
-    start_ts = curr_ts - timedelta(days=days)
-    curr_ts_str = curr_ts.strftime(time_str)
-    start_ts_str = start_ts.strftime(time_str)
+def collect_rebuffer(influx_client, expt_id_cache, postgres_cursor, args):
+    client_buffer_results = query_measurement(influx_client, 'client_buffer',
+                                              args.time_start, args.time_end)
+    buffer_data = collect_buffer_data(client_buffer_results)
 
-    title = ('Performance in [{}, {}) (UTC)'
-             .format(start_ts_str, curr_ts_str))
+    return calculate_rebuffer_by_abr_cc(buffer_data,
+                                        expt_id_cache, postgres_cursor)
 
+
+def plot_ssim_rebuffer(ssim, rebuffer, output, args):
     fig, ax = plt.subplots()
+    title = '[{}, {}] (UTC)'.format(args.time_start, args.time_end)
     ax.set_title(title)
     ax.set_xlabel('Time spent stalled (%)')
     ax.set_ylabel('Average SSIM (dB)')
@@ -202,7 +205,7 @@ def plot_ssim_rebuffer(ssim, rebuffer, output, days):
     for abr_cc in ssim:
         abr_cc_str = '{}+{}'.format(*abr_cc)
         if abr_cc not in rebuffer:
-            sys.exit('Error: {} does not exist in both ssim and rebuffer'
+            sys.exit('Error: {} does not exist in rebuffer'
                      .format(abr_cc))
 
         total_rebuf = rebuffer[abr_cc]['total_rebuf']
@@ -231,26 +234,19 @@ def plot_ssim_rebuffer(ssim, rebuffer, output, days):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('yaml_settings')
+    parser.add_argument('--from', dest='time_start',
+                        help='datetime in UTC conforming to RFC3339')
+    parser.add_argument('--to', dest='time_end',
+                        help='datetime in UTC conforming to RFC3339')
     parser.add_argument('-o', '--output', required=True)
-    parser.add_argument('-d', '--days', type=int, default=1)
     args = parser.parse_args()
     output = args.output
-    days = args.days
-
-    if days < 1:
-        sys.exit('-d/--days must be a positive integer')
 
     with open(args.yaml_settings, 'r') as fh:
         yaml_settings = yaml.safe_load(fh)
 
     # create an InfluxDB client and perform queries
     influx_client = connect_to_influxdb(yaml_settings)
-
-    # query video_acked and client_buffer
-    video_acked_results = influx_client.query(
-        'SELECT * FROM video_acked WHERE time >= now() - {}d'.format(days))
-    client_buffer_results = influx_client.query(
-        'SELECT * FROM client_buffer WHERE time >= now() - {}d'.format(days))
 
     # cache of Postgres data: experiment 'id' -> json 'data' of the experiment
     expt_id_cache = {}
@@ -260,17 +256,15 @@ def main():
     postgres_cursor = postgres_client.cursor()
 
     # collect ssim and rebuffer
-    ssim = collect_ssim(video_acked_results, expt_id_cache, postgres_cursor)
-
-    buffer_data = collect_buffer_data(client_buffer_results)
-    rebuffer = calculate_rebuffer_by_abr_cc(buffer_data,
-                                            expt_id_cache, postgres_cursor)
+    ssim = collect_ssim(influx_client, expt_id_cache, postgres_cursor, args)
+    rebuffer = collect_rebuffer(influx_client,
+                                expt_id_cache, postgres_cursor, args)
 
     if not ssim or not rebuffer:
         sys.exit('Error: no data found in the queried range')
 
     # plot ssim vs rebuffer
-    plot_ssim_rebuffer(ssim, rebuffer, output, days)
+    plot_ssim_rebuffer(ssim, rebuffer, output, args)
 
     postgres_cursor.close()
 
