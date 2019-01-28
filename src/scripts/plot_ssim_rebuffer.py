@@ -69,6 +69,7 @@ def collect_buffer_data(client_buffer_results):
             d[session]['min_cum_rebuf'] = None
             d[session]['max_cum_rebuf'] = None
             d[session]['is_rebuffer'] = True
+            d[session]['num_rebuf'] = 0
         ds = d[session]  # short name
 
         if session not in last_ts:
@@ -90,18 +91,17 @@ def collect_buffer_data(client_buffer_results):
             ds['min_cum_rebuf'] = cum_rebuf
             ds['is_rebuffer'] = False
 
+        if ds['min_play_time'] is None or ds['min_cum_rebuf'] is None:
+            # wait until 'startup' is found
+            continue
+
         if pt['event'] == 'rebuffer':
-            if ds['is_rebuffer']:
-                sys.stderr.write('Warning: repeated rebuffer events in {}\n'
-                                 .format(session))
+            if not ds['is_rebuffer']:
+                ds['num_rebuf'] += 1
             ds['is_rebuffer'] = True
 
         if pt['event'] == 'play':
             ds['is_rebuffer'] = False
-
-        if ds['min_play_time'] is None or ds['min_cum_rebuf'] is None:
-            # wait until 'startup' is found
-            continue
 
         if not ds['is_rebuffer']:
             if ds['max_play_time'] is None or ts > ds['max_play_time']:
@@ -147,19 +147,21 @@ def collect_buffer_data(client_buffer_results):
     ret = {}  # indexed by session
 
     # second pass to exclude short sessions
+    short_session_cnt = 0  # count of short sessions
+
     for session in d:
         if session in excluded_sessions:
             continue
 
         ds = d[session]
         if ds['min_play_time'] is None or ds['min_cum_rebuf'] is None:
-            # no 'startup' is found
-            sys.stderr.write('No startup found: {}\n'.format(session))
+            # no 'startup' is found in the range
             continue
 
         sess_play = (ds['max_play_time'] - ds['min_play_time']).total_seconds()
         # exclude short sessions
         if sess_play < 5:
+            short_session_cnt += 1
             continue
 
         sess_rebuf = ds['max_cum_rebuf'] - ds['min_cum_rebuf']
@@ -173,8 +175,12 @@ def collect_buffer_data(client_buffer_results):
         ret[session]['play'] = sess_play
         ret[session]['rebuf'] = sess_rebuf
         ret[session]['startup'] = ds['min_cum_rebuf']
+        ret[session]['num_rebuf'] = ds['num_rebuf']
 
-    sys.stderr.write('Valid session count: {}\n'.format(len(ret)))
+    sys.stderr.write('Short session (play < 5s) count in buffer_data: {}\n'
+                     .format(short_session_cnt))
+    sys.stderr.write('Valid session count in buffer_data: {}\n'
+                     .format(len(ret)))
     return ret
 
 
