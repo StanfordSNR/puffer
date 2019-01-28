@@ -51,23 +51,18 @@ def collect_buffer_data(influx_client, args):
 
 def save_to_pickle(video_data, buffer_data, args):
     mutual_sessions = video_data.keys() & buffer_data.keys()
-
-    video_data_exclude = video_data.keys() - mutual_sessions
-    buffer_data_exclude = buffer_data.keys() - mutual_sessions
-
-    for session in video_data_exclude:
-        del video_data[session]
-    for session in buffer_data_exclude:
-        del buffer_data[session]
-
     sys.stderr.write('Mutual session count in video_data & buffer_data: {}\n'
                      .format(len(mutual_sessions)))
 
     t1 = time.time()
 
     # save video_data
-    video_data_file_name = 'video_data_{}_{}.pickle'.format(args.time_start,
-                                                            args.time_end)
+    if args.time_start and args.time_end:
+        video_data_file_name = 'video_data_{}_{}.pickle'.format(
+            args.time_start, args.time_end)
+    else:
+        video_data_file_name = 'video_data.pickle'
+
     with open(video_data_file_name, 'wb') as fh:
         pickle.dump(video_data, fh, protocol=pickle.HIGHEST_PROTOCOL)
 
@@ -76,8 +71,12 @@ def save_to_pickle(video_data, buffer_data, args):
                      .format(video_data_file_name, (t2 - t1) / 60.0))
 
     # save buffer_data
-    buffer_data_file_name = 'buffer_data_{}_{}.pickle'.format(args.time_start,
-                                                              args.time_end)
+    if args.time_start and args.time_end:
+        buffer_data_file_name = 'buffer_data_{}_{}.pickle'.format(
+            args.time_start, args.time_end)
+    else:
+        buffer_data_file_name = 'buffer_data.pickle'
+
     with open(buffer_data_file_name, 'wb') as fh:
         pickle.dump(buffer_data, fh, protocol=pickle.HIGHEST_PROTOCOL)
 
