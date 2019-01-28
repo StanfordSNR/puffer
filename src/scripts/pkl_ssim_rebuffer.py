@@ -20,9 +20,13 @@ def collect_ssim(d, expt_id_cache, postgres_cursor):
 
     for session in d:
         expt_id = session[-1]
-        expt_config = retrieve_expt_config(expt_id, expt_id_cache,
-                                           postgres_cursor)
-        abr_cc = get_abr_cc(expt_config)
+
+        if postgres_cursor:
+            expt_config = retrieve_expt_config(expt_id, expt_id_cache,
+                                               postgres_cursor)
+            abr_cc = get_abr_cc(expt_config)
+        else:
+            abr_cc = tuple(expt_id.split('+'))
 
         if abr_cc not in ssim_mean:
             ssim_mean[abr_cc] = []
@@ -65,9 +69,13 @@ def collect_rebuffer(d, expt_id_cache, postgres_cursor):
 
     for session in d:
         expt_id = session[-1]
-        expt_config = retrieve_expt_config(expt_id, expt_id_cache,
-                                           postgres_cursor)
-        abr_cc = get_abr_cc(expt_config)
+        if postgres_cursor:
+            expt_config = retrieve_expt_config(expt_id, expt_id_cache,
+                                               postgres_cursor)
+            abr_cc = get_abr_cc(expt_config)
+        else:
+            abr_cc = tuple(expt_id.split('+'))
+
         if abr_cc not in total_play:
             total_play[abr_cc] = 0
             total_rebuf[abr_cc] = 0
@@ -138,21 +146,26 @@ def main():
     parser.add_argument('-v', '--video-data-pickle', required=True)
     parser.add_argument('-b', '--buffer-data-pickle', required=True)
     parser.add_argument('-o', '--output', required=True)
+    parser.add_argument('--emu', action='store_true')
     args = parser.parse_args()
 
     with open(args.yaml_settings, 'r') as fh:
         yaml_settings = yaml.safe_load(fh)
 
-    # cache of Postgres data: experiment 'id' -> json 'data' of the experiment
-    expt_id_cache = {}
+    if not args.emu:
+        # cache of Postgres: experiment 'id' -> json 'data' of the experiment
+        expt_id_cache = {}
 
-    # create a Postgres client and perform queries
-    postgres_client = connect_to_postgres(yaml_settings)
-    postgres_cursor = postgres_client.cursor()
+        # create a Postgres client and perform queries
+        postgres_client = connect_to_postgres(yaml_settings)
+        postgres_cursor = postgres_client.cursor()
 
-    plot(expt_id_cache, postgres_cursor, args)
+        plot(expt_id_cache, postgres_cursor, args)
 
-    postgres_cursor.close()
+        postgres_cursor.close()
+    else:
+        # emulation
+        plot(None, None, args)
 
 
 if __name__ == '__main__':
