@@ -192,3 +192,27 @@ def filter_video_data_by_cc(d, yaml_settings, required_cc):
         del d[session]
 
     postgres_cursor.close()
+
+
+pretty_names = {
+    'bbr': 'BBR',
+    'cubic': 'Cubic',
+    'puffer_ttp_cl': 'Fugu',
+    'puffer_ttp_static': 'Non-continual Fugu',
+    'puffer_ttp_emu': 'Emulation-trained Fugu',
+    'linear_bba': 'BB',
+    'mpc': 'FastMPC',
+    'robust_mpc': 'RobustMPC',
+    'pensieve': 'Pensieve',
+}
+
+
+pretty_colors = {
+  'puffer_ttp_cl': '#d62728',
+  'puffer_ttp_static': '#ff7f0e',
+  'puffer_ttp_emu': '#e377c2',
+  'linear_bba': '#2ca02c',
+  'mpc': '#1f77b4',
+  'robust_mpc': '#8c564b',
+  'pensieve': '#17becf',
+}
