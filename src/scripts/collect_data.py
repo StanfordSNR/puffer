@@ -1,5 +1,6 @@
 import sys
 from helpers import try_parsing_time, get_ssim_index
+from datetime import datetime
 
 
 VIDEO_DURATION = 180180
@@ -35,6 +36,7 @@ def video_data_by_session(video_sent_results, video_acked_results):
         dsv['rtt'] = float(pt['rtt']) / MILLION  # us -> s
         dsv['ssim_index'] = get_ssim_index(pt)  # unitless
         dsv['channel'] = pt['channel']
+        dsv['ts'] = (dsv['sent_ts'] - datetime(1970,1,1)).total_seconds()
 
     for pt in video_acked_results['video_acked']:
         session = (pt['user'], int(pt['init_id']), pt['expt_id'])
