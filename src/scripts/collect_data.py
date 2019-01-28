@@ -27,7 +27,8 @@ def video_data_by_session(video_sent_results, video_acked_results):
         d[session][video_ts] = {}
         dsv = d[session][video_ts]  # short name
 
-        dsv['sent_ts'] = try_parsing_time(pt['time'])  # removed eventually
+        dsv['sent_ts'] = pt['time']
+        dsv['format'] = pt['format']
         dsv['size'] = float(pt['size'])  # bytes
         dsv['delivery_rate'] = float(pt['delivery_rate'])  # byte/second
         dsv['cwnd'] = float(pt['cwnd'])  # packets
@@ -36,7 +37,6 @@ def video_data_by_session(video_sent_results, video_acked_results):
         dsv['rtt'] = float(pt['rtt']) / MILLION  # us -> s
         dsv['ssim_index'] = get_ssim_index(pt)  # unitless
         dsv['channel'] = pt['channel']
-        dsv['ts'] = (dsv['sent_ts'] - datetime(1970,1,1)).total_seconds()
 
     for pt in video_acked_results['video_acked']:
         session = (pt['user'], int(pt['init_id']), pt['expt_id'])
@@ -50,10 +50,10 @@ def video_data_by_session(video_sent_results, video_acked_results):
         dsv = d[session][video_ts]  # short name
 
         # calculate transmission time
-        sent_ts = dsv['sent_ts']
-        acked_ts = try_parsing_time(pt['time'])
+        dsv['acked_ts'] = pt['time']
+        sent_ts = try_parsing_time(dsv['sent_ts'])
+        acked_ts = try_parsing_time(dsv['acked_ts'])
         dsv['trans_time'] = (acked_ts - sent_ts).total_seconds()
-        del dsv['sent_ts']
 
     # a pass on d to remove video_ts without trans_time
     sessions_to_remove = []
