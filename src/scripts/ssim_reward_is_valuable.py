@@ -43,23 +43,46 @@ def query_with_channel(influx_client, measurement, time_start, time_end, channel
 
 def plot(data, output):
     fig, ax = plt.subplots()
-    title = 'SSIM of 3 consecutive chunks played on NBC (2019-01-27 18:18:48)'
+    title = 'SSIM of 3 consecutive chunks played on NBC (2019-01-06)'
     ax.set_title(title)
     ax.set_xlabel('Chunk Number')
     ax.set_ylabel('Average SSIM (dB)')
     ax.grid()
 
+    quality_dict = {}
     for index, chunk in enumerate(data):
         for q_and_s in chunk:
             ssim_db = ssim_index_to_db(q_and_s[1])
-            ax.scatter(index, ssim_db)
-            if index == 0:
-                ax.annotate(q_and_s[0], (index, ssim_db))
+            #ax.scatter(index, ssim_db)
+            if q_and_s[0] not in quality_dict:
+                quality_dict[q_and_s[0]] = {}
+                quality_dict[q_and_s[0]]['x'] = []
+                quality_dict[q_and_s[0]]['x'].append(index)
+                quality_dict[q_and_s[0]]['y'] = []
+                quality_dict[q_and_s[0]]['y'].append(ssim_db)
+            else:
+                quality_dict[q_and_s[0]]['x'].append(index)
+                quality_dict[q_and_s[0]]['y'].append(ssim_db)
 
+            if index == 0:
+                if q_and_s[0] == '426x240-26':
+                    #ax.annotate('189 kbps', (index, ssim_db))
+                    pass
+                elif q_and_s[0] == '1920x1080-20':
+                    #ax.annotate('5540 kbps', (index, ssim_db))
+                    pass
+    for key, item in quality_dict.items():
+        if key == '426x240-26':
+            ax.plot(item['x'], item['y'], '-o', label='200 kbps')
+        elif key == '1920x1080-20':
+            ax.plot(item['x'], item['y'], '-o', label='5500 kbps')
+        else:
+            ax.plot(item['x'], item['y'], '-o')
     xmin, xmax = ax.get_xlim()
     #xmin = max(xmin, 0)
     #xmax = min(xmax, 100)
     ax.set_xlim(xmin, xmax)
+    ax.legend(loc='lower left')
     fig.savefig(output, dpi=200, bbox_inches='tight')
     sys.stderr.write('Saved plot to {}\n'.format(output))
 
@@ -73,7 +96,7 @@ def main():
     influx_client = connect_to_influxdb(yaml_settings)
 
     # query data from video_sent and video_acked
-    for cnt in range(14):
+    for cnt in range(8,9):
         ssim_results = query_with_channel(influx_client, 'ssim',
                 '2019-01-' + str(14-cnt).zfill(2) + 'T00:00:00Z', '2019-01-' + str(14-cnt).zfill(2) + 'T23:59:00Z', 'nbc')
         results = []
