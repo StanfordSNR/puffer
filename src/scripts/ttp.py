@@ -465,9 +465,12 @@ def prepare_input_pre(ds, next_ts, model):
     return row
 
 
-def prepare_input(ds, ts, row):
+def prepare_input(ds, ts, row, curr_size=None):
     row_i = row.copy()
-    row_i += [ds[ts]['size'] / PKT_BYTES]
+    if curr_size != None:
+        row_i += [curr_size / PKT_BYTES]
+    else:
+        row_i += [ds[ts]['size'] / PKT_BYTES]
 
     return row_i
 
@@ -496,6 +499,23 @@ def prepare_input_output(d, model):
                     ret[i]['out'].append(ds[ts]['trans_time'])
 
     return ret
+
+
+def prepare_ttp_input(sess, ts, model, curr_size=None):
+    in_raw = prepare_input(sess, ts,
+        prepare_input_pre(sess, ts, model) , curr_size)
+
+    assert(len(in_raw) == model.dim_in)
+    input_data = model.normalize_input([in_raw], update_obs=False)
+
+    return input_data
+
+
+def ttp_pred_distr(sess, ts, model, curr_size=None):
+    input_data = prepare_ttp_input(sess, ts, model, curr_size)
+    model.set_model_eval()
+    scores = np.array(model.predict_distr(input_data)).reshape(-1)
+    return scores
 
 
 def cl_sample(args, time_start, time_end, max_size, ret):

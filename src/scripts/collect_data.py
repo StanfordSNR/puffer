@@ -34,6 +34,7 @@ def video_data_by_session(video_sent_results, video_acked_results):
         dsv['min_rtt'] = float(pt['min_rtt']) / MILLION  # us -> s
         dsv['rtt'] = float(pt['rtt']) / MILLION  # us -> s
         dsv['ssim_index'] = get_ssim_index(pt)  # unitless
+        dsv['channel'] = pt['channel']
 
     for pt in video_acked_results['video_acked']:
         session = (pt['user'], int(pt['init_id']), pt['expt_id'])
@@ -210,3 +211,16 @@ def buffer_data_by_session(client_buffer_results):
     sys.stderr.write('Valid session count in buffer_data: {}\n'
                      .format(len(ret)))
     return ret
+
+
+def video_size_by_channel_timestamp(video_size):
+    d = {}
+    for pt in video_size['video_size']:
+        video_id = (pt['channel'], pt['timestamp'])
+
+        if video_id not in d:
+            d[video_id] = {}
+
+        d[video_id][pt['format']] = pt['size']
+
+    return d

@@ -94,9 +94,9 @@ def pred_error(dst, est_tput, err_func):
 
     return err_func(est_trans_time, real_trans_time)
 
-def prepare_ttp_input(sess, ts, model):
+def prepare_ttp_input(sess, ts, model, curr_size=None):
     in_raw = ttp.prepare_input(sess, ts,
-                               ttp.prepare_input_pre(sess, ts, model))
+        ttp.prepare_input_pre(sess, ts, model) , curr_size)
 
     assert(len(in_raw) == model.dim_in)
     input_data = model.normalize_input([in_raw], update_obs=False)
@@ -121,8 +121,8 @@ def CE_error(sess, ts, model):
     return - np.log(scores[dis_real])
 
 
-def ttp_pred_distr(sess, ts, model):
-    input_data = prepare_ttp_input(sess, ts, model)
+def ttp_pred_distr(sess, ts, model, curr_size=None):
+    input_data = prepare_ttp_input(sess, ts, model, curr_size)
     model.set_model_eval()
     scores = np.array(model.predict_distr(input_data)).reshape(-1)
     return scores
