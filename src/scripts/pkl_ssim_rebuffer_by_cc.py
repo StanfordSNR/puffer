@@ -81,6 +81,10 @@ def plot_ssim_mean_vs_rebuf_rate(ssim_mean, rebuffer_rate, args):
         ax.set_xlabel('Time spent stalled (%)')
         ax.set_ylabel('Average SSIM (dB)')
 
+        # Hide the right and top spines
+        ax.spines['right'].set_visible(False)
+        ax.spines['top'].set_visible(False)
+
         for abr_cc in ssim_mean:
             if abr_cc[1] != cc:
                 continue
