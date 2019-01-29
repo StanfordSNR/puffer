@@ -51,16 +51,27 @@ class Model:
     WEIGHT_DECAY = 1e-4
     LEARNING_RATE = 1e-4
 
-    def __init__(self, model_path=None):
+    def __init__(self, regression=False):
         # define model, loss function, and optimizer
-        self.model = torch.nn.Sequential(
-            torch.nn.Linear(Model.DIM_IN, Model.DIM_H1),
-            torch.nn.ReLU(),
-            torch.nn.Linear(Model.DIM_H1, Model.DIM_H2),
-            torch.nn.ReLU(),
-            torch.nn.Linear(Model.DIM_H2, Model.DIM_OUT),
-        ).double().to(device=DEVICE)
-        self.loss_fn = torch.nn.CrossEntropyLoss().to(device=DEVICE)
+        if not regression:  # classifier
+            self.model = torch.nn.Sequential(
+                torch.nn.Linear(Model.DIM_IN, Model.DIM_H1),
+                torch.nn.ReLU(),
+                torch.nn.Linear(Model.DIM_H1, Model.DIM_H2),
+                torch.nn.ReLU(),
+                torch.nn.Linear(Model.DIM_H2, Model.DIM_OUT),
+            ).double().to(device=DEVICE)
+            self.loss_fn = torch.nn.CrossEntropyLoss().to(device=DEVICE)
+        else:  # regressor
+            self.model = torch.nn.Sequential(
+                torch.nn.Linear(Model.DIM_IN, Model.DIM_H1),
+                torch.nn.ReLU(),
+                torch.nn.Linear(Model.DIM_H1, Model.DIM_H2),
+                torch.nn.ReLU(),
+                torch.nn.Linear(Model.DIM_H2, 1),
+            ).double().to(device=DEVICE)
+            self.loss_fn = torch.nn.MSELoss().to(device=DEVICE)
+
         self.optimizer = torch.optim.Adam(self.model.parameters(),
                                           lr=Model.LEARNING_RATE,
                                           weight_decay=Model.WEIGHT_DECAY)
@@ -129,8 +140,8 @@ class Model:
         y = torch.from_numpy(output_data).to(device=DEVICE)
 
         # forward pass
-        y_scores = self.model(x)
-        loss = self.loss_fn(y_scores, y)
+        y_pred = self.model(x)
+        loss = self.loss_fn(y_pred, y)
 
         # backpropagation and optimize
         self.optimizer.zero_grad()
@@ -145,8 +156,8 @@ class Model:
             x = torch.from_numpy(input_data).to(device=DEVICE)
             y = torch.from_numpy(output_data).to(device=DEVICE)
 
-            y_scores = self.model(x)
-            loss = self.loss_fn(y_scores, y)
+            y_pred = self.model(x)
+            loss = self.loss_fn(y_pred, y)
 
             return loss.item()
 
@@ -159,8 +170,8 @@ class Model:
             x = torch.from_numpy(input_data).to(device=DEVICE)
             y = torch.from_numpy(output_data).to(device=DEVICE)
 
-            y_scores = self.model(x)
-            y_predicted = torch.max(y_scores, 1)[1].to(device=DEVICE)
+            y_pred = self.model(x)
+            y_predicted = torch.max(y_pred, 1)[1].to(device=DEVICE)
 
             total += y.size(0)
             correct += (y_predicted == y).sum().item()
@@ -171,8 +182,8 @@ class Model:
         with torch.no_grad():
             x = torch.from_numpy(input_data).to(device=DEVICE)
 
-            y_scores = self.model(x)
-            y_predicted = torch.max(y_scores, 1)[1].to(device=DEVICE)
+            y_pred = self.model(x)
+            y_predicted = torch.max(y_pred, 1)[1].to(device=DEVICE)
 
             ret = y_predicted.double().numpy()
             for i in range(len(ret)):
@@ -612,17 +623,23 @@ def train(i, args, model, input_data, output_data):
             train_losses.append(train_loss)
             validate_losses.append(validate_loss)
 
-            train_accuracy = 100 * model.compute_accuracy(
-                    train_input, train_output)
-            validate_accuracy = 100 * model.compute_accuracy(
-                    validate_input, validate_output)
+            if not args.regression:
+                train_accuracy = 100 * model.compute_accuracy(
+                        train_input, train_output)
+                validate_accuracy = 100 * model.compute_accuracy(
+                        validate_input, validate_output)
 
-            sys.stderr.write('[{}] epoch {}:\n'
-                             '\ttraining: loss {:.3f}, accuracy {:.2f}%\n'
-                             '\tvalidation: loss {:.3f}, accuracy {:.2f}%\n'
-                             .format(i, epoch_id,
-                                     train_loss, train_accuracy,
-                                     validate_loss, validate_accuracy))
+                sys.stderr.write('[{}] epoch {}:\n'
+                                 '\ttraining: loss {:.3f}, accuracy {:.2f}%\n'
+                                 '\tvalidation: loss {:.3f}, accuracy {:.2f}%\n'
+                                 .format(i, epoch_id,
+                                         train_loss, train_accuracy,
+                                         validate_loss, validate_accuracy))
+            else:
+                sys.stderr.write('[{}] epoch {}:\n'
+                                 '\ttraining: loss {:.3f}\n'
+                                 '\tvalidation: loss {:.3f}\n'
+                                 .format(i, epoch_id, train_loss, validate_loss))
         else:
             train_losses.append(running_loss)
             sys.stderr.write('[{}] epoch {}: training loss {:.3f}\n'
@@ -666,7 +683,8 @@ def train_or_eval_model(i, args, raw_in_data, raw_out_data):
     torch.set_num_threads(num_threads)
 
     # create or load a model
-    model = Model()
+    model = Model(args.regression)
+
     if args.load_model:
         model_path = path.join(args.load_model, 'py-{}.pt'.format(i))
         model.load(model_path)
@@ -680,19 +698,27 @@ def train_or_eval_model(i, args, raw_in_data, raw_out_data):
     else:
         input_data = model.normalize_input(raw_in_data, update_obs=True)
 
-    # discretize output data
-    output_data = model.discretize_output(raw_out_data)
+    if not args.regression:
+        # discretize output data before classification
+        output_data = model.discretize_output(raw_out_data)
 
-    # print some stats
-    print_stats(i, output_data)
+        # print some stats
+        print_stats(i, output_data)
+    else:
+        output_data = np.array(raw_out_data)
 
     if args.inference:
         model.set_model_eval()
 
         sys.stderr.write('[{}] test set size: {}\n'.format(i, len(input_data)))
-        sys.stderr.write('[{}] loss: {:.3f}, accuracy: {:.2f}%\n'
-            .format(i, model.compute_loss(input_data, output_data),
-                    100 * model.compute_accuracy(input_data, output_data)))
+
+        if not args.regression:
+            sys.stderr.write('[{}] loss: {:.3f}, accuracy: {:.2f}%\n'
+                .format(i, model.compute_loss(input_data, output_data),
+                        100 * model.compute_accuracy(input_data, output_data)))
+        else:
+            sys.stderr.write('[{}] loss: {:.3f}\n'
+                .format(i, model.compute_loss(input_data, output_data)))
     else:  # training
         model.set_model_train()
 
@@ -715,6 +741,8 @@ def main():
     parser.add_argument('--enable-gpu', action='store_true')
     parser.add_argument('--tune', action='store_true')
     parser.add_argument('--inference', action='store_true')
+    parser.add_argument('--regression', action='store_true',
+                        help='change the last layer of NN to regressor')
     parser.add_argument('--cl', action='store_true', help='continual learning')
     args = parser.parse_args()
 
