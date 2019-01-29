@@ -194,6 +194,9 @@ def filter_video_data_by_cc(d, yaml_settings, required_cc):
     postgres_cursor.close()
 
 
+abr_order = ['puffer_ttp_cl', 'puffer_ttp_static', 'puffer_ttp_emu',
+             'linear_bba', 'mpc', 'robust_mpc', 'pensieve']
+
 pretty_names = {
     'bbr': 'BBR',
     'cubic': 'Cubic',
