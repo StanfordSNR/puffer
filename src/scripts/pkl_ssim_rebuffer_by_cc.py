@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import os
 import sys
 import pickle
 import argparse
@@ -81,11 +82,46 @@ def collect_rebuffer(d, expt_id_cache, args):
     return rebuffer_rate
 
 
+def filt_fast(video_data, buffer_data, min_tput):
+    Mbps_unit = 125000
+
+    del_video_sess = []
+
+    for sess in video_data:
+        avg_tput = np.mean([t['size'] / t['trans_time'] / Mbps_unit \
+                            for t in video_data[sess].values()])
+
+        if avg_tput < min_tput:
+            continue
+
+        del_video_sess.append(sess)
+
+    del_buffer = 0
+
+    for sess in del_video_sess:
+        del video_data[sess]
+        if sess in buffer_data:
+            del buffer_data[sess]
+            del_buffer += 1
+
+    print('Number of deleted video_data sessions:', len(del_video_sess))
+    print('Number of left video_data sessions:', len(video_data))
+    print('Number of deleted buffer_data sessions:', del_buffer)
+    print('Number of left buffer_data sessions:', len(buffer_data))
+
+
 def plot_ssim_mean_vs_rebuf_rate(ssim_mean, ssim_sem, rebuffer_rate, args):
-    xmin = 0
-    xmax = 0.85
-    ymin = 15.1
-    ymax = 17.1
+
+    if args.filt_fast:
+        xmin = 0
+        xmax = 6
+        ymin = 12.5
+        ymax = 16
+    else:
+        xmin = 0
+        xmax = 0.85
+        ymin = 15.1
+        ymax = 17.1
 
     for cc in ['bbr', 'cubic']:
         fig, ax = plt.subplots()
@@ -114,22 +150,38 @@ def plot_ssim_mean_vs_rebuf_rate(ssim_mean, ssim_sem, rebuffer_rate, args):
 
         ax.set_xlim(xmin, xmax)
         ax.set_ylim(ymin, ymax)
+
         ax.invert_xaxis()
 
-        fig_name = '{}_ssim_rebuffer.svg'.format(cc)
-        fig.savefig(fig_name)
-        sys.stderr.write('Saved plot to {}\n'.format(fig_name))
+        if args.filt_fast:
+            fig_name = '{}_ssim_rebuffer_slow'.format(cc)
+        else:
+            fig_name = '{}_ssim_rebuffer'.format(cc)
+        fig.savefig(fig_name + '.png')
+        sys.stderr.write('Saved plot to {}\n'.format(fig_name + '.png'))
 
 
 def plot(expt_id_cache, args):
-    with open(args.video_data_pickle, 'rb') as fh:
-        video_data = pickle.load(fh)
+    if args.pre_dp != None and os.path.isfile(args.pre_dp):
+        with open(args.pre_dp, 'rb') as fp:
+            ssim_mean, ssim_sem, rebuffer_rate = pickle.load(fp)
+    else:
+        with open(args.video_data_pickle, 'rb') as fh:
+            video_data = pickle.load(fh)
 
-    with open(args.buffer_data_pickle, 'rb') as fh:
-        buffer_data = pickle.load(fh)
+        with open(args.buffer_data_pickle, 'rb') as fh:
+            buffer_data = pickle.load(fh)
 
-    ssim_mean, ssim_sem = collect_ssim(video_data, expt_id_cache, args)
-    rebuffer_rate = collect_rebuffer(buffer_data, expt_id_cache, args)
+        print('Finish loading the data!')
+
+        if args.filt_fast:
+            filt_fast(video_data, buffer_data, 6)
+
+        ssim_mean, ssim_sem = collect_ssim(video_data, expt_id_cache, args)
+        rebuffer_rate = collect_rebuffer(buffer_data, expt_id_cache, args)
+
+        with open(args.pre_dp, 'wb') as fp:
+            pickle.dump((ssim_mean, ssim_sem, rebuffer_rate), fp)
 
     plot_ssim_mean_vs_rebuf_rate(ssim_mean, ssim_sem, rebuffer_rate, args)
 
@@ -140,6 +192,10 @@ def main():
     parser.add_argument('-b', '--buffer-data-pickle', required=True)
     parser.add_argument('-e', '--expt-id-cache')
     parser.add_argument('--emu', action='store_true')
+    parser.add_argument('--filt-fast', action='store_true',
+                        help='filt ithe session with average tput faster than\
+                              6 Mpbs')
+    parser.add_argument('--pre-dp', default='ssim_rebuffer.pickle')
     args = parser.parse_args()
 
     if not args.emu:
