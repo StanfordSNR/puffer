@@ -14,7 +14,7 @@ from collect_data import VIDEO_DURATION
 
 
 def collect_ssim(d, expt_id_cache, args):
-    ssim_mean = {}
+    ssim = {}
 
     for session in d:
         expt_id = session[-1]
@@ -25,20 +25,32 @@ def collect_ssim(d, expt_id_cache, args):
         else:
             abr_cc = tuple(expt_id.split('+'))
 
-        if abr_cc not in ssim_mean:
-            ssim_mean[abr_cc] = []
+        if abr_cc not in ssim:
+            ssim[abr_cc] = []
 
         for video_ts in d[session]:
             dsv = d[session][video_ts]
             curr_ssim_index = dsv['ssim_index']
 
             # append SSIM index
-            ssim_mean[abr_cc].append(curr_ssim_index)
+            ssim[abr_cc].append(curr_ssim_index)
 
-    for abr_cc in ssim_mean:
-        ssim_mean[abr_cc] = ssim_index_to_db(np.mean(ssim_mean[abr_cc]))
+    ssim_mean = {}
+    ssim_sem = {}
 
-    return ssim_mean
+    for abr_cc in ssim:
+        ssim_index_mean = np.mean(ssim[abr_cc])
+        sem = np.std(ssim[abr_cc]) / np.sqrt(len(ssim[abr_cc]))
+
+        ssim_db_lower = ssim_index_to_db(ssim_index_mean - sem)
+        ssim_db_upper = ssim_index_to_db(ssim_index_mean + sem)
+
+        ssim_db_mean = ssim_index_to_db(ssim_index_mean)
+        ssim_mean[abr_cc] = ssim_db_mean
+        ssim_sem[abr_cc] = (ssim_db_mean - ssim_db_lower,
+                            ssim_db_upper - ssim_db_mean)
+
+    return ssim_mean, ssim_sem
 
 
 def collect_rebuffer(d, expt_id_cache, args):
@@ -69,11 +81,11 @@ def collect_rebuffer(d, expt_id_cache, args):
     return rebuffer_rate
 
 
-def plot_ssim_mean_vs_rebuf_rate(ssim_mean, rebuffer_rate, args):
+def plot_ssim_mean_vs_rebuf_rate(ssim_mean, ssim_sem, rebuffer_rate, args):
     xmin = 0
-    xmax = 0.9
-    ymin = 15.2
-    ymax = 17.2
+    xmax = 0.85
+    ymin = 15.1
+    ymax = 17.1
 
     for cc in ['bbr', 'cubic']:
         fig, ax = plt.subplots()
@@ -92,9 +104,12 @@ def plot_ssim_mean_vs_rebuf_rate(ssim_mean, rebuffer_rate, args):
 
             x = rebuffer_rate[abr_cc] * 100  # %
             y = ssim_mean[abr_cc]  # dB
-            print(abr_cc, x, y)
+            sem = ssim_sem[abr_cc]
+            print(abr_cc, x, y, sem)
 
             ax.scatter(x, y, color=pretty_colors[abr])
+            # error bars are too small
+            # ax.errorbar(x, y, yerr=[[sem[0]], [sem[1]]])
             ax.annotate(pretty_names[abr], (x, y))
 
         ax.set_xlim(xmin, xmax)
@@ -113,10 +128,10 @@ def plot(expt_id_cache, args):
     with open(args.buffer_data_pickle, 'rb') as fh:
         buffer_data = pickle.load(fh)
 
-    ssim_mean = collect_ssim(video_data, expt_id_cache, args)
+    ssim_mean, ssim_sem = collect_ssim(video_data, expt_id_cache, args)
     rebuffer_rate = collect_rebuffer(buffer_data, expt_id_cache, args)
 
-    plot_ssim_mean_vs_rebuf_rate(ssim_mean, rebuffer_rate, args)
+    plot_ssim_mean_vs_rebuf_rate(ssim_mean, ssim_sem, rebuffer_rate, args)
 
 
 def main():
