@@ -203,7 +203,7 @@ pretty_names = {
     'puffer_ttp_cl': 'Fugu',
     'puffer_ttp_static': 'Non-continual Fugu',
     'puffer_ttp_emu': 'Emulation-trained Fugu',
-    'linear_bba': 'BB',
+    'linear_bba': 'Buffer-based',
     'mpc': 'FastMPC',
     'robust_mpc': 'RobustMPC',
     'pensieve': 'Pensieve',
