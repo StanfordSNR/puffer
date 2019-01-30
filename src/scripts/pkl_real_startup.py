@@ -54,7 +54,8 @@ def collect_buffer_data(d, expt_id_cache, args):
 
     for abr in x:
         y[abr] = {'buffer_num': len(x[abr]),
-                  'startup_mean': np.mean(x[abr])}
+                  'startup_mean': np.mean(x[abr]),
+                  'startup_data': x[abr]}
 
     return y
 
@@ -99,6 +100,7 @@ def collect_video_data(d, expt_id_cache, args):
     for abr in x:
         y[abr] = {'video_num': len(x[abr]),
                   'ssim_mean': ssim_index_to_db(np.mean(x[abr])),
+                  'ssim_data': [ssim_index_to_db(t) for t in x[abr] if t != 1]
                  }
 
     return y
@@ -130,7 +132,7 @@ def print_d(d, cc, fp):
         fp.write('\n')
 
 
-def plot_dots(x_mean, y_mean, args):
+def plot_dots(x_mean, y_mean, output, xlabel):
     xmin = 0
     xmax = 0.85
     ymin = 15.1
@@ -139,12 +141,6 @@ def plot_dots(x_mean, y_mean, args):
     for cc in ['bbr', 'cubic']:
         fig, ax = plt.subplots()
 
-        if args.filt_mode == 'no_filt':
-            ax.set_xlabel('Start-up Delay (Sec)')
-        elif args.filt_mode == 'filt_fake':
-            ax.set_xlabel('Initial Video Delay (Sec)')
-        elif args.filt_mode == 'filt_real':
-            ax.set_xlabel('Video Swich Delay (Sec)')
         ax.set_ylabel('Average SSIM (dB)')
 
         # Hide the right and top spines
@@ -169,20 +165,91 @@ def plot_dots(x_mean, y_mean, args):
         #ax.set_ylim(ymin, ymax)
 
         ax.invert_xaxis()
+        ax.set_xlabel(xlabel)
 
-        if args.filt_mode == 'no_filt':
-            fig_name = '{}_ssim_startup'.format(cc)
-        elif args.filt_mode == 'filt_fake':
-            fig_name = '{}_ssim_initial_delay'.format(cc)
-        elif args.filt_mode == 'filt_real':
-            fig_name = '{}_ssim_switch_delay'.format(cc)
-        fig.savefig(fig_name + '.png')
-        sys.stderr.write('Saved plot to {}\n'.format(fig_name + '.png'))
+        figname = '{}_{}_dots'.format(output, cc) + '.png'
+        fig.savefig(figname)
+        sys.stderr.write('Saved plot to {}\n'.format(figname))
+
+
+def plot_cdf_ssim(d, cc, args, output):
+    fig, ax = plt.subplots()
+
+    x_min = 3.5
+    x_max = 22.5
+    y_min = 0
+    y_max = 1
+    num_bins = 100
+
+    for abr in abr_order:
+        abr_cc = (abr, cc)
+
+        if abr_cc not in d or not d[abr_cc]:
+            continue
+
+        if args.filt_mode == 'filt_fake' and abr == 'pensieve':
+            continue
+
+        counts, bin_edges = np.histogram(d[abr_cc], bins=num_bins,
+                                         range=(x_min, x_max))
+        x = bin_edges
+        y = np.cumsum(counts) / len(d[abr_cc])
+        y = np.insert(y, 0, 0)  # prepend 0
+
+        ax.plot(x, y, label=pretty_names[abr], color=pretty_colors[abr])
+
+    ax.set_xlim(x_min, x_max)
+    ax.set_ylim(y_min, y_max)
+    ax.legend()
+
+    ax.set_xlabel('SSIM (dB)')
+    ax.set_ylabel('CDF')
+
+    figname = '{}_ssim_{}_cdf'.format(output, cc) + '.png'
+    fig.savefig(figname)
+    sys.stderr.write('Saved plot to {}\n'.format(figname))
+
+
+def plot_cdf_delay(d, cc, args, output, xlabel):
+    fig, ax = plt.subplots()
+
+    x_min = 0
+    x_max = 3
+    y_min = 0
+    y_max = 1
+    num_bins = 100
+
+    for abr in abr_order:
+        abr_cc = (abr, cc)
+
+        if abr_cc not in d or not d[abr_cc]:
+            continue
+
+        if args.filt_mode == 'filt_fake' and abr == 'pensieve':
+            continue
+
+        counts, bin_edges = np.histogram(d[abr_cc], bins=num_bins,
+                                         range=(x_min, x_max))
+        x = bin_edges
+        y = np.cumsum(counts) / len(d[abr_cc])
+        y = np.insert(y, 0, 0)  # prepend 0
+
+        ax.plot(x, y, label=pretty_names[abr], color=pretty_colors[abr])
+
+    ax.set_xlim(x_min, x_max)
+    ax.set_ylim(y_min, y_max)
+    ax.legend()
+
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel('CDF')
+
+    figname = '{}_time_{}_cdf'.format(output, cc) + '.png'
+    fig.savefig(figname)
+    sys.stderr.write('Saved plot to {}\n'.format(figname))
 
 
 def plot(expt_id_cache, args):
     pre_dp = args.pre_dp + '_' + args.filt_mode + '.pickle'
-
 
     if os.path.isfile(pre_dp):
         with open(pre_dp, 'rb') as fp:
@@ -204,13 +271,15 @@ def plot(expt_id_cache, args):
             pickle.dump(d, fp)
 
     if args.filt_mode == 'no_filt':
-        output = 'all_startup'
+        output = 'ssim_startup'
     elif args.filt_mode == 'filt_fake':
-        output = 'real_startup'
+        output = 'ssim_initial_delay'
     elif args.filt_mode == 'filt_real':
-        output = 'fake_startup'
+        output = 'ssim_switch_delay'
 
     with open(output + '.txt', 'w') as fp:
+
+        # print to txt
         for abr in d:
             fp.write(str(list(d[abr].keys())))
             break
@@ -220,9 +289,26 @@ def plot(expt_id_cache, args):
         print_d(d, 'cubic', fp)
         sys.stderr.write('Print to {}\n'.format(output + '.txt'))
 
-        plot_dots(pick_by_cc(d, 'startup_mean'),
-                  pick_by_cc(d, 'ssim_mean'),
-                  args)
+
+    # print to figure
+    if args.filt_mode == 'no_filt':
+        xlabel = 'Start-up Delay (s)'
+    elif args.filt_mode == 'filt_fake':
+        xlabel = 'Initial Video Delay (s)'
+    elif args.filt_mode == 'filt_real':
+        xlabel = 'Video Switch Delay (s)'
+
+    ssim_data = pick_by_cc(d, 'ssim_data')
+    startup_data = pick_by_cc(d, 'startup_data')
+
+    plot_cdf_ssim(ssim_data, 'bbr', args, output)
+    plot_cdf_ssim(ssim_data, 'cubic', args, output)
+    plot_cdf_delay(startup_data, 'bbr', args, output, xlabel)
+    plot_cdf_delay(startup_data, 'cubic', args, output, xlabel)
+
+    #    plot_dots(pick_by_cc(d, 'startup_mean'),
+     #             pick_by_cc(d, 'ssim_mean'),
+      #            output, xlabel)
 
 
 def main():
