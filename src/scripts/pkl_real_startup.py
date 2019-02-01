@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 
 from helpers import (
     connect_to_postgres, ssim_index_to_db, retrieve_expt_config, get_abr_cc,
-    pretty_names, pretty_colors, abr_order)
+    pretty_names, pretty_colors, abr_order, pretty_styles)
 from collect_data import VIDEO_DURATION
 
 
@@ -43,6 +43,9 @@ def collect_buffer_data(d, expt_id_cache, args):
         else:
             abr_cc = tuple(expt_id.split('+'))
 
+        if abr_cc[0] == 'puffer_ttp_emu' or abr_cc[0] == 'puffer_ttp_static':
+            continue
+
         if abr_cc not in x:
             x[abr_cc] = []
 
@@ -55,7 +58,8 @@ def collect_buffer_data(d, expt_id_cache, args):
     for abr in x:
         y[abr] = {'buffer_num': len(x[abr]),
                   'startup_mean': np.mean(x[abr]),
-                  'startup_data': x[abr]}
+                  'startup_data': x[abr],
+                 }
 
     return y
 
@@ -167,12 +171,16 @@ def plot_dots(x_mean, y_mean, output, xlabel):
         ax.invert_xaxis()
         ax.set_xlabel(xlabel)
 
-        figname = '{}_{}_dots'.format(output, cc) + '.png'
+        figname = '{}_{}_dots'.format(output, cc) + '.svg'
         fig.savefig(figname)
         sys.stderr.write('Saved plot to {}\n'.format(figname))
 
 
 def plot_cdf_ssim(d, cc, args, output):
+    font = {'size': 16}
+
+    matplotlib.rc('font', **font)
+
     fig, ax = plt.subplots()
 
     x_min = 3.5
@@ -181,13 +189,13 @@ def plot_cdf_ssim(d, cc, args, output):
     y_max = 1
     num_bins = 100
 
+    ax.spines['right'].set_visible(False)
+    ax.spines['top'].set_visible(False)
+
     for abr in abr_order:
         abr_cc = (abr, cc)
 
         if abr_cc not in d or not d[abr_cc]:
-            continue
-
-        if args.filt_mode == 'filt_fake' and abr == 'pensieve':
             continue
 
         counts, bin_edges = np.histogram(d[abr_cc], bins=num_bins,
@@ -196,7 +204,8 @@ def plot_cdf_ssim(d, cc, args, output):
         y = np.cumsum(counts) / len(d[abr_cc])
         y = np.insert(y, 0, 0)  # prepend 0
 
-        ax.plot(x, y, label=pretty_names[abr], color=pretty_colors[abr])
+        ax.plot(x, y, label=pretty_names[abr], color=pretty_colors[abr],
+                linestyle=pretty_styles[abr])
 
     ax.set_xlim(x_min, x_max)
     ax.set_ylim(y_min, y_max)
@@ -205,12 +214,15 @@ def plot_cdf_ssim(d, cc, args, output):
     ax.set_xlabel('SSIM (dB)')
     ax.set_ylabel('CDF')
 
-    figname = '{}_ssim_{}_cdf'.format(output, cc) + '.png'
-    fig.savefig(figname)
+    figname = '{}_ssim_{}_cdf'.format(output, cc) + '.svg'
+    fig.savefig(figname, bbox_inches='tight')
     sys.stderr.write('Saved plot to {}\n'.format(figname))
 
 
 def plot_cdf_delay(d, cc, args, output, xlabel):
+    font = {'size': 16}
+    matplotlib.rc('font', **font)
+
     fig, ax = plt.subplots()
 
     x_min = 0
@@ -218,6 +230,9 @@ def plot_cdf_delay(d, cc, args, output, xlabel):
     y_min = 0
     y_max = 1
     num_bins = 100
+
+    ax.spines['right'].set_visible(False)
+    ax.spines['top'].set_visible(False)
 
     for abr in abr_order:
         abr_cc = (abr, cc)
@@ -234,7 +249,8 @@ def plot_cdf_delay(d, cc, args, output, xlabel):
         y = np.cumsum(counts) / len(d[abr_cc])
         y = np.insert(y, 0, 0)  # prepend 0
 
-        ax.plot(x, y, label=pretty_names[abr], color=pretty_colors[abr])
+        ax.plot(x, y, label=pretty_names[abr], color=pretty_colors[abr],
+                linestyle=pretty_styles[abr])
 
     ax.set_xlim(x_min, x_max)
     ax.set_ylim(y_min, y_max)
@@ -243,8 +259,8 @@ def plot_cdf_delay(d, cc, args, output, xlabel):
     ax.set_xlabel(xlabel)
     ax.set_ylabel('CDF')
 
-    figname = '{}_time_{}_cdf'.format(output, cc) + '.png'
-    fig.savefig(figname)
+    figname = '{}_time_{}_cdf'.format(output, cc) + '.svg'
+    fig.savefig(figname, bbox_inches='tight')
     sys.stderr.write('Saved plot to {}\n'.format(figname))
 
 
