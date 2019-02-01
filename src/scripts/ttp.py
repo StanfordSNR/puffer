@@ -53,10 +53,12 @@ class Model:
     WEIGHT_DECAY = 1e-4
     LEARNING_RATE = 1e-4
 
-    def __init__(self, model_path=None, past_chunks=8, tcp_info=TCP_INFO):
+    def __init__(self, model_path=None, past_chunks=8, tcp_info=TCP_INFO,
+                 dim_out=DIM_OUT):
         self.past_chunks = past_chunks
         self.tcp_info = tcp_info
         self.dim_in = (self.past_chunks + 1) * (len(self.tcp_info) + 2) - 1
+        self.dim_out = dim_out
 
         # define model, loss function, and optimizer
         self.model = torch.nn.Sequential(
@@ -64,7 +66,7 @@ class Model:
             torch.nn.ReLU(),
             torch.nn.Linear(Model.DIM_H1, Model.DIM_H2),
             torch.nn.ReLU(),
-            torch.nn.Linear(Model.DIM_H2, Model.DIM_OUT),
+            torch.nn.Linear(Model.DIM_H2, self.dim_out),
         ).double().to(device=DEVICE)
         self.loss_fn = torch.nn.CrossEntropyLoss().to(device=DEVICE)
         self.optimizer = torch.optim.Adam(self.model.parameters(),
@@ -178,6 +180,9 @@ class Model:
             x = torch.from_numpy(input_data).to(device=DEVICE)
 
             y_scores = self.model(x)
+            if self.dim_out == 1:
+                return float(y_scores.view(-1)[0])
+
             y_predicted = torch.max(y_scores, 1)[1].to(device=DEVICE)
 
             ret = y_predicted.double().numpy()
