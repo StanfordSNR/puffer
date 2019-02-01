@@ -202,6 +202,8 @@ pretty_names = {
     'cubic': 'Cubic',
     'puffer_ttp_cl': 'Fugu',
     'puffer_ttp_static': 'Non-continual Fugu',
+    'puffer_ttp_init': 'Non-continual Fugu',
+    'puffer_ttp': 'Fugu',
     'puffer_ttp_emu': 'Emulation-trained Fugu',
     'linear_bba': 'Buffer-based',
     'mpc': 'MPC',
@@ -212,10 +214,24 @@ pretty_names = {
 
 pretty_colors = {
   'puffer_ttp_cl': '#d62728',
+  'puffer_ttp': '#d62778',
   'puffer_ttp_static': '#ff7f0e',
+  'puffer_ttp_init': '#ff7f0e',
   'puffer_ttp_emu': '#e377c2',
   'linear_bba': '#2ca02c',
   'mpc': '#1f77b4',
   'robust_mpc': '#8c564b',
   'pensieve': '#17becf',
+}
+
+pretty_styles = {
+    'puffer_ttp_cl': (0, ()),
+    'puffer_ttp': (0, ()),
+    'puffer_ttp_static': (0, (3, 1, 1, 1)),
+    'puffer_ttp_init': (0, (3, 1, 1, 1)),
+    'puffer_ttp_emu': (0, (1, 3)),
+    'linear_bba': (0, (3, 5, 1, 5)),
+    'mpc': (0, (1,1)),
+    'robust_mpc': (0, (3,3)),
+    'pensieve': (0, (4,1)),
 }
