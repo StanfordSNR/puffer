@@ -3,6 +3,7 @@
 #include <vector>
 #include <tuple>
 #include <set>
+#include <getopt.h>
 
 #include "filesystem.hh"
 #include "path.hh"
@@ -20,10 +21,12 @@ static fs::path src_path;
 static fs::path media_dir;
 static string notifier;
 
+static bool no_decoder = false;
+
 void print_usage(const string & program_name)
 {
   cerr <<
-  "Usage: " << program_name << " <YAML configuration>"
+  "Usage: " << program_name << " <YAML configuration> [--no-decoder]"
   << endl;
 }
 
@@ -339,7 +342,9 @@ void run_pipeline(ProcessManager & proc_manager,
   run_windowcleaner(proc_manager, aready, clean_window_ts);
 
   /* run decoder */
-  run_decoder(proc_manager, output_path, channel_config);
+  if (not no_decoder) {
+    run_decoder(proc_manager, output_path, channel_config);
+  }
 }
 
 int main(int argc, char * argv[])
@@ -348,13 +353,34 @@ int main(int argc, char * argv[])
     abort();
   }
 
-  if (argc != 2) {
+  const option cmd_line_opts[] = {
+    {"no-decoder", no_argument, nullptr, 'd'},
+    { nullptr,     0,           nullptr,  0 },
+  };
+
+  while (true) {
+    const int opt = getopt_long(argc, argv, "d", cmd_line_opts, nullptr);
+    if (opt == -1) {
+      break;
+    }
+
+    switch (opt) {
+    case 'd':
+      no_decoder = true;
+      break;
+    default:
+      print_usage(argv[0]);
+      return EXIT_FAILURE;
+    }
+  }
+
+  if (optind != argc - 1) {
     print_usage(argv[0]);
     return EXIT_FAILURE;
   }
 
   /* load YAML configuration */
-  string yaml_config = fs::absolute(argv[1]);
+  string yaml_config = fs::absolute(argv[optind]);
   YAML::Node config = YAML::LoadFile(yaml_config);
 
   /* get the path of wrappers directory and notifier */
