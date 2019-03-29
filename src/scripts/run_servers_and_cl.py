@@ -71,6 +71,7 @@ def main():
         description='start "run_servers" and continual learning at '
                     '{}:00 (UTC)'.format(CL_HOUR))
     parser.add_argument('yaml_settings')
+    parser.add_argument('--save-log', action='store_true')
     args = parser.parse_args()
 
     yaml_settings_path = path.abspath(args.yaml_settings)
@@ -80,7 +81,11 @@ def main():
 
     try:
         curr_dt = datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')
-        logfile = open('run_servers_{}.log'.format(curr_dt), 'w')
+
+        if args.save_log:
+            logfile = open('run_servers_{}.log'.format(curr_dt), 'w')
+        else:
+            logfile = open(os.devnull, 'w')
 
         # execute run_servers
         run_servers_proc = Popen([run_servers_path, yaml_settings_path],
