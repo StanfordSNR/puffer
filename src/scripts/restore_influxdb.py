@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import os
 import sys
 import time
 import argparse
@@ -28,6 +29,13 @@ def sanity_check_influxdb(influx_client):
 
 
 def download_untar(file_to_restore):
+    # check if directory already exists
+    filename = file_to_restore[:file_to_restore.index('.')]
+    if os.path.isdir(filename):
+        sys.stderr.write('Warning: directory {} already exists\n'
+                         .format(filename))
+        return
+
     # download
     cmd = 'gsutil cp gs://puffer-influxdb-backup/{} .'.format(file_to_restore)
     check_call(cmd, shell=True)

@@ -1,18 +1,20 @@
 #!/usr/bin/env python3
 
 from datetime import datetime, timedelta
-from subprocess import check_call
+from subprocess import call
 
 
 def restore_influxdb(fname):
-    cmd = './restore_influxdb.py ../databases.yml ' + fname
-    print(cmd)
-    check_call(cmd, shell=True)
+    for cnt in range(1, 4):
+        cmd = './restore_influxdb.py ../databases.yml ' + fname
+        print('Trial {}:'.format(cnt), cmd)
+        if call(cmd, shell=True) == 0:
+            break
 
 
 def main():
     start_date = datetime(2019, 1, 1, 11)
-    end_date = datetime(2019, 1, 15, 11)
+    end_date = datetime(2019, 4, 1, 11)
     f = "%Y-%m-%dT%H"
 
     s = start_date
