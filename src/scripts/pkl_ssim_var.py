@@ -12,19 +12,23 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
 from helpers import (
-    connect_to_postgres, ssim_index_to_db, retrieve_expt_config, get_abr_cc,
+    ssim_index_to_db, get_abr_cc,
     pretty_names, pretty_colors, abr_order)
 from collect_data import VIDEO_DURATION
 
 
-def collect_ssim_var(d, expt_id_cache, postgres_cursor):
+def collect_ssim_var(d, expt_id_cache, args):
     x = {}
+
     for session in d:
         expt_id = session[-1]
 
-        if postgres_cursor:
-            expt_config = retrieve_expt_config(expt_id, expt_id_cache,
-                                               postgres_cursor)
+        # exclude contaminated experiments
+        if int(expt_id) == 343 or int(expt_id) == 344:
+            continue
+
+        if not args.emu:
+            expt_config = expt_id_cache[int(expt_id)]
             abr_cc = get_abr_cc(expt_config)
         else:
             abr_cc = tuple(expt_id.split('+'))
@@ -55,10 +59,11 @@ def collect_ssim_var(d, expt_id_cache, postgres_cursor):
     ssim_var_mean = {}
     ssim_var_std = {}
 
+    print('(ABR, CC), SSIM var mean, SSIM var median')
     for abr_cc in x:
         ssim_var_mean[abr_cc] = np.mean(x[abr_cc])
         ssim_var_std[abr_cc] = np.std(x[abr_cc])
-        print(abr_cc, ':', np.min(x[abr_cc]), ',', np.max(x[abr_cc]))
+        print('{}, {}, {}'.format(abr_cc, np.mean(x[abr_cc]), np.median(x[abr_cc])))
 
     return ssim_var_mean, ssim_var_std
 
@@ -99,7 +104,7 @@ def plot_ssim_var_bar(d, stds, plot_cc):
     sys.stderr.write('Saved plot to {}\n'.format(output))
 
 
-def plot(expt_id_cache, postgres_cursor, args):
+def plot(expt_id_cache, args):
 
     if args.pre_dp != None and os.path.isfile(args.pre_dp):
         with open(args.pre_dp, 'rb') as fp:
@@ -109,39 +114,31 @@ def plot(expt_id_cache, postgres_cursor, args):
             video_data = pickle.load(fh)
 
         ssim_var_mean, ssim_var_std = collect_ssim_var(
-                video_data, expt_id_cache, postgres_cursor)
+                video_data, expt_id_cache, args)
 
         with open('ssim_var.pickle', 'wb') as fp:
             pickle.dump((ssim_var_mean, ssim_var_std), fp)
 
-    plot_ssim_var_bar(ssim_var_mean, ssim_var_std, 'bbr')
-    plot_ssim_var_bar(ssim_var_mean, ssim_var_std, 'cubic')
+    #plot_ssim_var_bar(ssim_var_mean, ssim_var_std, 'bbr')
+    #plot_ssim_var_bar(ssim_var_mean, ssim_var_std, 'cubic')
 
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('yaml_settings')
     parser.add_argument('-v', '--video-data-pickle', required=True)
+    parser.add_argument('-e', '--expt-id-cache',
+                        default='expt_id_cache.pickle')
     parser.add_argument('-o', '--output', default='tmp')
     parser.add_argument('--emu', action='store_true')
     parser.add_argument('--pre-dp', default='ssim_var.pickle')
 
     args = parser.parse_args()
 
-    with open(args.yaml_settings, 'r') as fh:
-        yaml_settings = yaml.safe_load(fh)
-
     if not args.emu:
-        # cache of Postgres: experiment 'id' -> json 'data' of the experiment
-        expt_id_cache = {}
+        with open(args.expt_id_cache, 'rb') as fh:
+            expt_id_cache = pickle.load(fh)
 
-        # create a Postgres client and perform queries
-        postgres_client = connect_to_postgres(yaml_settings)
-        postgres_cursor = postgres_client.cursor()
-
-        plot(expt_id_cache, postgres_cursor, args)
-
-        postgres_cursor.close()
+        plot(expt_id_cache, args)
     else:
         # emulation
         plot(None, None, args)
