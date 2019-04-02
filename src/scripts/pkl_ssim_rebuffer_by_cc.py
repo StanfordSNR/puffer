@@ -20,6 +20,10 @@ def collect_video_data(d, expt_id_cache, args):
     for session in d:
         expt_id = session[-1]
 
+        # exclude contaminated experiments
+        if int(expt_id) == 343 or int(expt_id) == 344:
+            continue
+
         if not args.emu:
             expt_config = expt_id_cache[int(expt_id)]
             abr_cc = get_abr_cc(expt_config)
@@ -37,16 +41,17 @@ def collect_video_data(d, expt_id_cache, args):
 
     for abr_cc in x:
         y[abr_cc] = {'ssim_mean': ssim_index_to_db(np.mean(x[abr_cc]))}
+
         #ssim_index_mean = np.mean(x[abr_cc])
         #sem = np.std(ssim[abr_cc]) / np.sqrt(len(ssim[abr_cc]))
 
-#        ssim_db_lower = ssim_index_to_db(ssim_index_mean - sem)
-#        ssim_db_upper = ssim_index_to_db(ssim_index_mean + sem)
+        #ssim_db_lower = ssim_index_to_db(ssim_index_mean - sem)
+        #ssim_db_upper = ssim_index_to_db(ssim_index_mean + sem)
 
- #       ssim_db_mean = ssim_index_to_db(ssim_index_mean)
- #       ssim_mean[abr_cc] = ssim_db_mean
- #       ssim_sem[abr_cc] = (ssim_db_mean - ssim_db_lower,
- #                           ssim_db_upper - ssim_db_mean)
+        #ssim_db_mean = ssim_index_to_db(ssim_index_mean)
+        #ssim_mean[abr_cc] = ssim_db_mean
+        #ssim_sem[abr_cc] = (ssim_db_mean - ssim_db_lower,
+        #                    ssim_db_upper - ssim_db_mean)
 
     return y
 
@@ -57,6 +62,10 @@ def collect_buffer_data(d, expt_id_cache, args):
 
     for session in d:
         expt_id = session[-1]
+
+        # exclude contaminated experiments
+        if int(expt_id) == 343 or int(expt_id) == 344:
+            continue
 
         if not args.emu:
             expt_config = expt_id_cache[int(expt_id)]
@@ -79,7 +88,7 @@ def collect_buffer_data(d, expt_id_cache, args):
     return y
 
 
-def filt_fast(video_data, buffer_data, min_tput):
+def filter_fast(video_data, buffer_data, min_tput):
     Mbps_unit = 125000
 
     del_video_sess = []
@@ -112,7 +121,7 @@ def plot_ssim_mean_vs_rebuf_rate(x_mean, y_mean, args):
     # x for rebuf_rate
     # y for ssim
 
-    if args.filt_fast:
+    if args.filter_fast:
         xmin = 0
         xmax = 6
         ymin = 12.5
@@ -151,7 +160,7 @@ def plot_ssim_mean_vs_rebuf_rate(x_mean, y_mean, args):
 
         ax.invert_xaxis()
 
-        if args.filt_fast:
+        if args.filter_fast:
             fig_name = '{}_ssim_rebuffer_slow'.format(cc)
         else:
             fig_name = '{}_ssim_rebuffer'.format(cc)
@@ -164,7 +173,7 @@ def plot_compare_dots(x_mean, y_mean, args):
     # x for rebuf_rate
     # y for ssim
 
-    if args.filt_fast:
+    if args.filter_fast:
         xmin = 0
         xmax = 6
         ymin = 12.5
@@ -210,7 +219,7 @@ def plot_compare_dots(x_mean, y_mean, args):
 
     ax.invert_xaxis()
 
-    if args.filt_fast:
+    if args.filter_fast:
         fig_name = 'compare_cc_slow'
     else:
         fig_name = 'compare_cc'
@@ -255,13 +264,13 @@ def print_d(d, output):
 
 
 def plot(expt_id_cache, args):
-    if args.filt_fast:
-        pre_dp = args.pre_dp + '_slow.pickle'
+    if args.filter_fast:
+        output_base = args.output_base + '_slow.pickle'
     else:
-        pre_dp = args.pre_dp + '.pickle'
+        output_base = args.output_base + '.pickle'
 
-    if pre_dp != None and os.path.isfile(pre_dp):
-        with open(pre_dp, 'rb') as fp:
+    if os.path.isfile(output_base):
+        with open(output_base, 'rb') as fp:
             d = pickle.load(fp)
     else:
         with open(args.video_data_pickle, 'rb') as fh:
@@ -270,16 +279,16 @@ def plot(expt_id_cache, args):
         with open(args.buffer_data_pickle, 'rb') as fh:
             buffer_data = pickle.load(fh)
 
-        print('Finish loading the data!')
+        sys.stderr.write('Finish loading data\n')
 
-        if args.filt_fast:
-            filt_fast(video_data, buffer_data, 6)
+        if args.filter_fast:
+            filter_fast(video_data, buffer_data, 6)
 
         dv = collect_video_data(video_data, expt_id_cache, args)
         db = collect_buffer_data(buffer_data, expt_id_cache, args)
         d = combine_by_cc(dv, db)
 
-        with open(pre_dp, 'wb') as fp:
+        with open(output_base, 'wb') as fp:
             pickle.dump(d, fp)
 
     print_d(d, 'ssim_buffer.txt')
@@ -299,10 +308,10 @@ def main():
     parser.add_argument('-e', '--expt-id-cache',
                         default='expt_id_cache.pickle')
     parser.add_argument('--emu', action='store_true')
-    parser.add_argument('--filt-fast', action='store_true',
-                        help='filt ithe session with average tput faster than\
-                              6 Mpbs')
-    parser.add_argument('--pre-dp', default='ssim_rebuffer')
+    parser.add_argument('--filter-fast', action='store_true',
+        help='remove sessions with average tput higher than 6 Mbps')
+    parser.add_argument('--output-base', default='ssim_rebuffer',
+        help='basename of output files (default: ssim_rebuffer)')
     parser.add_argument('-t', '--task', default='dots')
     args = parser.parse_args()
 
