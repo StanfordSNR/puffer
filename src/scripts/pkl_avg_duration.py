@@ -123,7 +123,7 @@ def plot(expt_id_cache, args):
             pickle.dump(d, fp)
 
     with open(output, 'w') as fp:
-        fp.write('Mean (Min), Median (Sec)\n')
+        fp.write('Total duration (h), Mean duration (min), SEM duration (min)\n')
         print_d(d, 'bbr', fp)
         fp.write('\n')
         print_d(d, 'cubic', fp)
