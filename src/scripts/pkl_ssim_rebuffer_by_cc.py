@@ -245,9 +245,11 @@ def print_d(d, output):
     fp = open(output, 'w')
 
     for abr in d:
-        fp.write(str(list(d[abr].keys())))
+        fp.write(str(list(d[abr].keys())) + '\n')
         break
+
     for cc in ['bbr', 'cubic']:
+        fp.write('\n')
         fp.write(pretty_names[cc] + '\n')
         for abr in abr_order:
             if (abr, cc) not in d:
@@ -257,8 +259,6 @@ def print_d(d, output):
             for k in ds:
                 fp.write(' ' + str(ds[k]) + ',')
             fp.write('\n')
-
-        fp.write('\n')
 
     sys.stderr.write('Print to {}\n'.format(output))
 
@@ -291,7 +291,7 @@ def plot(expt_id_cache, args):
         with open(output_base, 'wb') as fp:
             pickle.dump(d, fp)
 
-    print_d(d, 'ssim_buffer.txt')
+    print_d(d, '{}.txt'.format(args.output_base))
 
     if args.task == 'dots':
         plot_ssim_mean_vs_rebuf_rate(pick_by_cc(d, 'rebuf_mean'),
