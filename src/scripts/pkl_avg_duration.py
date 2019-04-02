@@ -40,6 +40,7 @@ def collect_ave_duration(d, expt_id_cache, args):
 
     for abr in x:
         y[abr] = {'tot_duration': np.sum(x[abr]),
+                  'median_duration': np.median(x[abr]),
                   'mean_duration': np.mean(x[abr]),
                   'sem_duration': np.std(x[abr]) / np.sqrt(len(x[abr])),
                  }
@@ -84,6 +85,7 @@ def print_d(d, cc, fp):
             continue
         fp.write(abr + ': '
                  + str(d[(abr, cc)]['tot_duration'] / 3600) + ','
+                 + str(d[(abr, cc)]['median_duration'] / 60) + ','
                  + str(d[(abr, cc)]['mean_duration'] / 60) + ','
                  + str(d[(abr, cc)]['sem_duration'] / 60) + '\n')
 
@@ -123,7 +125,8 @@ def plot(expt_id_cache, args):
             pickle.dump(d, fp)
 
     with open(output, 'w') as fp:
-        fp.write('Total duration (h), Mean duration (min), SEM duration (min)\n')
+        fp.write('Total duration (h), Median duration (min), '
+                 'Mean duration (min), SEM duration (min)\n')
         print_d(d, 'bbr', fp)
         fp.write('\n')
         print_d(d, 'cubic', fp)
