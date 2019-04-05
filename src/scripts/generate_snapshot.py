@@ -84,6 +84,8 @@ def main():
     except NoSuchElementException:
         driver.quit()
         sys.exit("Error generating snapshot")
+    finally:
+        driver.quit()
 
     # Now, add this link to postgres, and delete old links from the table
     conn = None
