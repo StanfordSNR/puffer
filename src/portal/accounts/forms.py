@@ -19,7 +19,7 @@ class SignUpForm(UserCreationForm):
     error_messages = {
         'password_mismatch': _("The two password fields didn't match."),
         'username_invalid': _(
-            "The username must be at least 5 characters in length and "
+            "The username must be at least 3 characters in length and "
             "must contain only alphanumeric, dash, and underscore characters."),
     }
 
@@ -30,7 +30,7 @@ class SignUpForm(UserCreationForm):
     def clean_username(self):
         username = self.cleaned_data.get("username")
 
-        if not (len(username) >= 5 and re.match('^[\w-]+$', username)):
+        if not (len(username) >= 3 and re.match('^[\w-]+$', username)):
             raise forms.ValidationError(
                 self.error_messages['username_invalid'],
                 code='username_invalid',
