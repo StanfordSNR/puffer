@@ -53,9 +53,15 @@
         <label class="col-form-label" for="id_username">Choose your username</label>
         <input class="form-control" id="id_username" type="text" placeholder="Username"
                name="username" required autofocus>
+
         {% if form.username.errors %}
-          {{ form.username.errors }}
+          <ul class="m-0 errorlist">
+        {% else %}
+          <ul class="m-0">
         {% endif %}
+            <li>minimum length of 3</li>
+            <li>must contain only alphanumeric, dash, and underscore</li>
+          </ul>
       </div>
       </div>
 
@@ -65,8 +71,12 @@
         <input class="form-control" id="id_password1" type="password" placeholder="Password"
                name="password1" required>
         {% if form.password1.errors %}
-          {{ form.password1.errors }}
+          <ul class="m-0 errorlist">
+        {% else %}
+          <ul class="m-0">
         {% endif %}
+            <li>minimum length of 3</li>
+          </ul>
       </div>
       </div>
 
