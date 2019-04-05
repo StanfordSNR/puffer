@@ -29,8 +29,8 @@ NUM_EPOCHS = 500
 CHECKPOINT = 100
 
 CL_MAX_DATA_SIZE = 1000000  # 1 million rows of data
-CL_DISCOUNT = 0.8  # sampling weight discount
-CL_MAX_DAYS = 7  # sample from last 7 days
+CL_DISCOUNT = 0.9  # sampling weight discount
+CL_MAX_DAYS = 14  # sample from last 14 days
 
 TUNING = False
 DEVICE = torch.device('cpu')
@@ -287,8 +287,9 @@ def check_args(args):
         if args.inference:
             sys.exit('Error: cannot perform inference with --cl turned on')
 
+        # reduce number of epochs if training on a previous model
         global NUM_EPOCHS
-        NUM_EPOCHS = 200
+        NUM_EPOCHS = 300
 
 
 def calculate_trans_times(video_sent_results, video_acked_results,
