@@ -850,6 +850,12 @@ function WebSocketClient(session_key, username_in, settings_debug,
     if (startup_delay_ms !== null) {
       that.send_client_info('timer');
     }
+
+    /* periodically update vbuf and abuf in case 'updateend' is not fired */
+    if (av_source) {
+      av_source.vbuf_update();
+      av_source.abuf_update();
+    }
   }
   setInterval(send_client_info_timer, 250);
 
