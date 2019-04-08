@@ -59,7 +59,7 @@ class Model:
             torch.nn.Linear(Model.DIM_H1, Model.DIM_H2),
             torch.nn.ReLU(),
             torch.nn.Linear(Model.DIM_H2, Model.DIM_OUT),
-        ).double().to(device=DEVICE)
+        ).to(device=DEVICE)
         self.loss_fn = torch.nn.CrossEntropyLoss().to(device=DEVICE)
         self.optimizer = torch.optim.Adam(self.model.parameters(),
                                           lr=Model.LEARNING_RATE,
@@ -174,7 +174,7 @@ class Model:
             y_scores = self.model(x)
             y_predicted = torch.max(y_scores, 1)[1].to(device=DEVICE)
 
-            ret = y_predicted.double().numpy()
+            ret = y_predicted.numpy()
             for i in range(len(ret)):
                 bin_id = ret[i]
                 if bin_id == 0:  # the first bin is defined differently
@@ -204,7 +204,7 @@ class Model:
 
     def save_cpp_model(self, model_path, meta_path):
         # save model to model_path
-        example = torch.rand(1, Model.DIM_IN).double()
+        example = torch.rand(1, Model.DIM_IN)
         traced_script_module = torch.jit.trace(self.model, example)
         traced_script_module.save(model_path)
 
