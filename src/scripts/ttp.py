@@ -125,7 +125,7 @@ class Model:
 
     # perform one step of training (forward + backward + optimize)
     def train_step(self, input_data, output_data):
-        x = torch.from_numpy(input_data).to(device=DEVICE)
+        x = torch.from_numpy(input_data).float().to(device=DEVICE)
         y = torch.from_numpy(output_data).to(device=DEVICE)
 
         # forward pass
@@ -142,7 +142,7 @@ class Model:
     # compute loss
     def compute_loss(self, input_data, output_data):
         with torch.no_grad():
-            x = torch.from_numpy(input_data).to(device=DEVICE)
+            x = torch.from_numpy(input_data).float().to(device=DEVICE)
             y = torch.from_numpy(output_data).to(device=DEVICE)
 
             y_scores = self.model(x)
@@ -156,7 +156,7 @@ class Model:
         total = 0
 
         with torch.no_grad():
-            x = torch.from_numpy(input_data).to(device=DEVICE)
+            x = torch.from_numpy(input_data).float().to(device=DEVICE)
             y = torch.from_numpy(output_data).to(device=DEVICE)
 
             y_scores = self.model(x)
