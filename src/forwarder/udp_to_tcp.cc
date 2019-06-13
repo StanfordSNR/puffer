@@ -10,7 +10,7 @@
 using namespace std;
 using namespace PollerShortNames;
 
-static const int MAX_BUFFER_BYTES = 32 * 1000 * 1000;  /* 32 MB */
+static const int MAX_BUFFER_BYTES = 128 * 1000 * 1000;  /* 128 MB */
 
 void print_usage(const string & program_name)
 {
@@ -63,7 +63,7 @@ int main(int argc, char * argv[])
 
   /* read datagrams from UDP socket into the buffer */
   poller.add_action(Poller::Action(udp_socket, Direction::In,
-    [&udp_socket, &buffer, &buffer_size]() {
+    [&udp_socket, &buffer, &buffer_size, &buffer_offset]() {
       string data = udp_socket.read();
 
       if (data.empty()) {
@@ -72,12 +72,23 @@ int main(int argc, char * argv[])
       }
 
       buffer_size += data.size();
-      if (buffer_size >= MAX_BUFFER_BYTES) {
-        cerr << "Buffer size grows too big: " << buffer_size << endl;
-        return ResultType::Exit;
-      }
 
       buffer.emplace_back(move(data));
+
+      /* keep dropping old data until the buffer_size is within limit */
+      while (buffer_size >= MAX_BUFFER_BYTES) {
+        const string & old_data = buffer.front();
+
+        /* update buffer_size with buffer_offset taken into account */
+        auto size_to_drop = old_data.size() - buffer_offset;
+        buffer_size -= size_to_drop;
+
+        /* drop the first item */
+        buffer_offset = 0;
+        buffer.pop_front();
+
+        cerr << "Warning: dropped old data " << size_to_drop << endl;
+      }
 
       return ResultType::Continue;
     }
@@ -104,7 +115,7 @@ int main(int argc, char * argv[])
           buffer_offset = new_offset;
           break;
         } else {
-          /* update buffer_size */
+          /* update buffer_size with buffer_offset taken into account */
           buffer_size -= data.size() - buffer_offset;
 
           /* move onto the next item in the deque */

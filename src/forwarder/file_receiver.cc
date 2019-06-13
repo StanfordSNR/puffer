@@ -126,7 +126,6 @@ int main(int argc, char * argv[])
     }
   ));
 
-
   for (;;) {
     auto ret = poller.poll(-1);
     if (ret.result != Poller::Result::Type::Success) {
