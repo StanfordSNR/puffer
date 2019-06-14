@@ -1,5 +1,6 @@
 import os
 import json
+import random
 from datetime import datetime
 from influxdb import InfluxDBClient
 
@@ -30,10 +31,21 @@ def terms(request):
 
 @login_required(login_url='/accounts/login/')
 def player(request):
+    # generate a random port or use a superuser-specified port
+    port = None
+    if request.user.is_superuser:
+        port = request.GET.get('port', None)
+
+    if port is None:
+        total_servers = settings.TOTAL_SERVERS
+        base_port = settings.WS_BASE_PORT
+        port = str(base_port + random.randint(1, total_servers))
+
     # parameters passed to Javascript stored in JSON
     params = {'session_key': request.session.session_key,
               'username': request.user.username,
-              'debug': settings.DEBUG}
+              'debug': settings.DEBUG,
+              'port': port}
     context = {'params_json': json.dumps(params)}
 
     return render(request, 'puffer/player.html', context)
@@ -67,6 +79,8 @@ def error_reporting(request):
         return HttpResponse(status=405)  # Method Not Allowed
 
 
+# functions below are not currently used
+
 @login_required(login_url='/accounts/login/')
 def monitoring(request):
     snapshot = GrafanaSnapshot.objects.order_by('-created_on').first()
@@ -81,9 +95,6 @@ def monitoring(request):
 
     context = {'snapshot_url': snapshot.url}
     return render(request, 'puffer/monitoring.html', context)
-
-
-# functions below are not currently used
 
 @login_required(login_url='/accounts/login/')
 def profile(request):

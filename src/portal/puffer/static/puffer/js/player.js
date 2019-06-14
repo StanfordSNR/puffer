@@ -410,6 +410,7 @@ function init_player(params_json, csrf_token) {
   const session_key = params.session_key;
   const username = params.username;
   const settings_debug = params.debug;
+  const port = params.port;
 
   /* assert that session_key and username exist */
   if (!session_key || !username) {
@@ -430,8 +431,8 @@ function init_player(params_json, csrf_token) {
   };
 
   load_script('/static/puffer/js/puffer.js').onload = function() {
-    var ws_client = new WebSocketClient(session_key, username,
-                                        settings_debug, csrf_token, sysinfo);
+    var ws_client = new WebSocketClient(
+      session_key, username, settings_debug, port, csrf_token, sysinfo);
 
     channel_bar.on_channel_change = function(new_channel) {
       ws_client.set_channel(new_channel);

@@ -17,7 +17,7 @@ import yaml
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PUFFER_BASE_DIR = os.path.dirname(os.path.dirname(BASE_DIR));
 
-# Modify if needed: path of Puffer's YAML configuration file
+# Default path of Puffer's YAML configuration file
 yaml_config_path = os.path.join(PUFFER_BASE_DIR, 'src', 'settings.yml')
 
 # load YAML configuration
@@ -30,6 +30,13 @@ postgres_config = yaml_config['postgres_connection']
 INFLUXDB = None
 if yaml_config['enable_logging'] and 'influxdb_connection' in yaml_config:
     INFLUXDB = yaml_config['influxdb_connection']
+
+# number of media servers
+WS_BASE_PORT = yaml_config['ws_base_port']
+TOTAL_SERVERS = 0
+for experiment in yaml_config['experiments']:
+    TOTAL_SERVERS += experiment['num_servers']
+assert TOTAL_SERVERS > 0
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/2.0/howto/deployment/checklist/

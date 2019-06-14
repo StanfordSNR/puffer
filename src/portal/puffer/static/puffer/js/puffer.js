@@ -8,6 +8,7 @@ const CONN_TIMEOUT = 30000; /* close the connection after 30-second timeout */
 var debug = false;
 var nonsecure = false;
 var username = '';
+var port = null;
 var csrf_token = '';
 var video = document.getElementById('tv-video');
 
@@ -398,13 +399,14 @@ function AVSource(ws_client, server_init) {
   };
 }
 
-function WebSocketClient(session_key, username_in, settings_debug,
+function WebSocketClient(session_key, username_in, settings_debug, port_in,
                          csrf_token_in, sysinfo) {
   /* if DEBUG = True in settings.py, connect to non-secure WebSocket server */
   debug = settings_debug;
   nonsecure = settings_debug;
 
   username = username_in;
+  port = port_in;
   csrf_token = csrf_token_in;
 
   var that = this;
@@ -657,7 +659,7 @@ function WebSocketClient(session_key, username_in, settings_debug,
       return;
     }
 
-    const ws_host_port = location.hostname + ':9361';
+    const ws_host_port = location.hostname + ':' + port;
     const ws_addr = nonsecure ? 'ws://' + ws_host_port
                               : 'wss://' + ws_host_port;
     ws = new WebSocket(ws_addr);
