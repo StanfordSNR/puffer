@@ -24,7 +24,7 @@ static fs::path src_path;  /* path to puffer/src directory */
 
 void print_usage(const string & program_name)
 {
-  cerr << "Usage: " << program_name << " <YAML configuration>" << endl;
+  cerr << "Usage: " << program_name << " <YAML configuration> [--maintenance]" << endl;
 }
 
 string sha256(const string & input)
@@ -84,23 +84,32 @@ int retrieve_expt_id(const string & json_str)
   return -1;
 }
 
-int main(int argc, char * argv[])
+int run_maintenance_servers()
 {
-  if (argc < 1) {
-    abort();
+  cerr << "Running maintenance servers" << endl;
+  const auto & maintenance_server = src_path / "media-server/maintenance_server";
+
+  ProcessManager proc_manager;
+
+  int server_id = 0;
+  for (const auto & expt : config["experiments"]) {
+    unsigned int num_servers = expt["num_servers"].as<unsigned int>();
+
+    for (unsigned int i = 0; i < num_servers; i++) {
+      server_id++;
+
+      /* run maintenance_server */
+      vector<string> args { maintenance_server, yaml_config,
+                            to_string(server_id) };
+      proc_manager.run_as_child(maintenance_server, args);
+    }
   }
 
-  if (argc != 2) {
-    print_usage(argv[0]);
-    return EXIT_FAILURE;
-  }
+  return proc_manager.wait();
+}
 
-  /* save as global variables */
-  yaml_config = fs::absolute(argv[1]);
-  config = YAML::LoadFile(yaml_config);
-  src_path = fs::canonical(fs::path(
-      roost::readlink("/proc/self/exe")).parent_path().parent_path());
-
+int run_ws_media_servers()
+{
   ProcessManager proc_manager;
 
   const bool enable_logging = config["enable_logging"].as<bool>();
@@ -163,4 +172,36 @@ int main(int argc, char * argv[])
   }
 
   return proc_manager.wait();
+
+}
+
+int main(int argc, char * argv[])
+{
+  if (argc < 1) {
+    abort();
+  }
+
+  if (argc != 2 and argc != 3) {
+    print_usage(argv[0]);
+    return EXIT_FAILURE;
+  }
+
+  /* save as global variables */
+  yaml_config = fs::absolute(argv[1]);
+  config = YAML::LoadFile(yaml_config);
+  src_path = fs::canonical(fs::path(
+      roost::readlink("/proc/self/exe")).parent_path().parent_path());
+
+  /* simply run maintenance_server(s) */
+  if (argc == 3) {
+    if (string(argv[2]) != "--maintenance") {
+      print_usage(argv[0]);
+      return EXIT_FAILURE;
+    }
+
+    return run_maintenance_servers();
+  }
+
+  /* run ws_media_server(s) */
+  return run_ws_media_servers();
 }

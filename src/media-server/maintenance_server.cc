@@ -15,7 +15,7 @@ using WebSocketServer = WebSocketSecureServer;
 
 void print_usage(const string & program_name)
 {
-  cerr << program_name << " <YAML configuration>" << endl;
+  cerr << program_name << " <YAML configuration> <server ID>" << endl;
 }
 
 int main(int argc, char * argv[])
@@ -24,16 +24,17 @@ int main(int argc, char * argv[])
     abort();
   }
 
-  if (argc != 2) {
+  if (argc != 3) {
     print_usage(argv[0]);
     return EXIT_FAILURE;
   }
 
   /* load YAML settings */
   YAML::Node config = YAML::LoadFile(argv[1]);
+  int server_id_int = stoi(argv[2]);
 
   const string ip = "0.0.0.0";
-  const uint16_t port = config["ws_base_port"].as<uint16_t>();
+  const uint16_t port = config["ws_base_port"].as<uint16_t>() + server_id_int;
   WebSocketServer server {{ip, port}, "cubic"};
 
   const bool portal_debug = config["portal_settings"]["debug"].as<bool>();
