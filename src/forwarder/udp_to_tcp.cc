@@ -21,35 +21,19 @@ void print_usage(const string & program_name)
   << endl;
 }
 
-int main(int argc, char * argv[])
+void accept_one_client(TCPSocket & listening_socket, const uint16_t udp_port)
 {
-  if (argc < 1) {
-    abort();
-  }
-
-  if (argc != 3) {
-    print_usage(argv[0]);
-    return EXIT_FAILURE;
-  }
-
-  uint16_t udp_port = narrow_cast<uint16_t>(stoi(argv[1]));
-  uint16_t tcp_port = narrow_cast<uint16_t>(stoi(argv[2]));
-
-  /* create a TCP socket */
-  TCPSocket listening_socket;
-  listening_socket.set_reuseaddr();
-  listening_socket.bind(Address("0", tcp_port));
-  listening_socket.listen();
-  cerr << "Listening on TCP " << listening_socket.local_address().str() << endl;
-
-  /* wait for the first connection blockingly */
-  TCPSocket client = listening_socket.accept();
-  client.set_blocking(false);
+  Poller poller;
 
   /* create a UDP socket */
   UDPSocket udp_socket;
   udp_socket.bind(Address("0", udp_port));
   udp_socket.set_blocking(false);
+
+  /* wait for the first connection blockingly */
+  TCPSocket client = listening_socket.accept();
+  client.set_blocking(false);
+
   cerr << "Start forwarding datagrams from UDP "
        << udp_socket.local_address().str() << " to TCP "
        << client.peer_address().str() << endl;
@@ -58,8 +42,6 @@ int main(int argc, char * argv[])
   deque<string> buffer;
   uint64_t buffer_size = 0;
   size_t buffer_offset = 0;
-
-  Poller poller;
 
   /* read datagrams from UDP socket into the buffer */
   poller.add_action(Poller::Action(udp_socket, Direction::In,
@@ -138,7 +120,7 @@ int main(int argc, char * argv[])
       const string data = client.read();
 
       if (data.empty()) {
-        cerr << "TCP client has closed the connection" << endl;
+        cerr << "Error: TCP client has closed the connection" << endl;
         return ResultType::Exit;
       } else {
         cerr << "Warning: ignoring data received from TCP client" << endl;
@@ -151,8 +133,35 @@ int main(int argc, char * argv[])
   for (;;) {
     auto ret = poller.poll(-1);
     if (ret.result != Poller::Result::Type::Success) {
-      return ret.exit_status;
+      return;
     }
+  }
+}
+
+int main(int argc, char * argv[])
+{
+  if (argc < 1) {
+    abort();
+  }
+
+  if (argc != 3) {
+    print_usage(argv[0]);
+    return EXIT_FAILURE;
+  }
+
+  uint16_t udp_port = narrow_cast<uint16_t>(stoi(argv[1]));
+  uint16_t tcp_port = narrow_cast<uint16_t>(stoi(argv[2]));
+
+  /* create a TCP socket */
+  TCPSocket listening_socket;
+  listening_socket.set_reuseaddr();
+  listening_socket.bind(Address("0", tcp_port));
+  listening_socket.listen();
+  cerr << "Listening on TCP " << listening_socket.local_address().str() << endl;
+
+  for (;;) {
+    accept_one_client(listening_socket, udp_port);
+    cerr << "Error recovery: waiting to accept a new TCP connection" << endl;
   }
 
   return EXIT_SUCCESS;
