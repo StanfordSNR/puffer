@@ -33,7 +33,7 @@ int main(int argc, char * argv[])
   YAML::Node config = YAML::LoadFile(argv[1]);
 
   const string ip = "0.0.0.0";
-  const uint16_t port = config["ws_port"].as<uint16_t>();
+  const uint16_t port = config["ws_base_port"].as<uint16_t>();
   WebSocketServer server {{ip, port}, "cubic"};
 
   const bool portal_debug = config["portal_settings"]["debug"].as<bool>();

@@ -56,7 +56,7 @@ static uint64_t last_minute = 0;  /* in ms; multiple of 60000 */
 void print_usage(const string & program_name)
 {
   cerr <<
-  program_name << " <YAML configuration> [<server ID> <expt ID>]"
+  program_name << " <YAML configuration> <server ID> [<expt ID>]"
   << endl;
 }
 
@@ -309,6 +309,8 @@ void serve_client(WebSocketServer & server, WebSocketClient & client)
 
 void log_active_streams(const uint64_t this_minute)
 {
+  assert(enable_logging);
+
   /* channel name -> count */
   map<string, unsigned int> active_streams_count;
 
@@ -665,45 +667,42 @@ void validate_id(const string & id)
 
 int run_websocket_server(pqxx::nontransaction & db_work)
 {
-  /* default congestion control and ABR algorithm */
-  string cc_name = "cubic";
-  string abr_name = "linear_bba";
-  YAML::Node abr_config;
-
   /* read congestion control and ABR from experimental settings */
-  if (not server_id.empty()) {
-    int cum_servers = 0;
-    int server_id_int = stoi(server_id);
-    YAML::Node fingerprint;
+  int server_id_int = stoi(server_id);
+  int cum_servers = 0;
+  YAML::Node fingerprint;
 
-    for (const auto & node : config["experiments"]) {
-      cum_servers += node["num_servers"].as<unsigned int>();
-      if (server_id_int <= cum_servers) {
-        fingerprint = node["fingerprint"];
-        break;
-      }
-    }
-
-    if (server_id_int > cum_servers) {
-      throw runtime_error("Invalid server ID " + server_id);
-    }
-
-    cc_name = fingerprint["cc"].as<string>();
-    abr_name = fingerprint["abr"].as<string>();
-    if (fingerprint["abr_config"]) {
-      abr_config = fingerprint["abr_config"];
+  for (const auto & node : config["experiments"]) {
+    cum_servers += node["num_servers"].as<unsigned int>();
+    if (server_id_int <= cum_servers) {
+      fingerprint = node["fingerprint"];
+      break;
     }
   }
 
+  if (server_id_int > cum_servers) {
+    throw runtime_error("Valid range for server ID is [1, " +
+                        to_string(cum_servers) + "]");
+  }
+
+  string cc_name = fingerprint["cc"].as<string>();
+  string abr_name = fingerprint["abr"].as<string>();
+  YAML::Node abr_config;
+  if (fingerprint["abr_config"]) {
+    abr_config = fingerprint["abr_config"];
+  }
+
   const string ip = "0.0.0.0";
-  const uint16_t port = config["ws_port"].as<uint16_t>();
+  /* run each server on a different port */
+  const uint16_t port = config["ws_base_port"].as<uint16_t>() + server_id_int;
+
   WebSocketServer server {{ip, port}, cc_name};
 
   const bool portal_debug = config["portal_settings"]["debug"].as<bool>();
   /* workaround using compiler macros (CXXFLAGS='-DNONSECURE') to create a
    * server with non-secure socket; secure socket is used by default */
   #ifdef NONSECURE
-  cerr << "Launching non-secure WebSocket server" << endl;
+  cerr << "Launching non-secure WebSocket server on port " << port << endl;
   if (not portal_debug) {
     cerr << "Error in YAML config: 'debug' must be true in 'portal_settings'" << endl;
     return EXIT_FAILURE;
@@ -711,7 +710,7 @@ int run_websocket_server(pqxx::nontransaction & db_work)
   #else
   server.ssl_context().use_private_key_file(config["ssl_private_key"].as<string>());
   server.ssl_context().use_certificate_file(config["ssl_certificate"].as<string>());
-  cerr << "Launching secure WebSocket server" << endl;
+  cerr << "Launching secure WebSocket server on port " << port << endl;
   if (portal_debug) {
     cerr << "Error in YAML config: 'debug' must be false in 'portal_settings'" << endl;
     return EXIT_FAILURE;
@@ -853,7 +852,7 @@ int main(int argc, char * argv[])
     abort();
   }
 
-  if (argc != 2 and argc != 4) {
+  if (argc != 3 and argc != 4) {
     print_usage(argv[0]);
     return EXIT_FAILURE;
   }
@@ -861,16 +860,22 @@ int main(int argc, char * argv[])
   /* load YAML settings */
   config = YAML::LoadFile(argv[1]);
   enable_logging = config["enable_logging"].as<bool>();
-
-  if (argc == 2 and enable_logging) {
-    cerr << "Must provide server ID and expt ID if enable_logging is true" << endl;
-    return EXIT_FAILURE;
+  if (enable_logging) {
+    cerr << "Logging is enabled" << endl;
+    log_dir = config["log_dir"].as<string>();
+  } else {
+    cerr << "Logging is disabled" << endl;
   }
 
-  if (argc == 4 and enable_logging) {
-    log_dir = config["log_dir"].as<string>();
-    server_id = argv[2];
-    validate_id(server_id);
+  server_id = argv[2];
+  validate_id(server_id);
+
+  if (enable_logging) {
+    if (argc != 4) {
+      cerr << "expt ID must be provided if enable_logging is true" << endl;
+      return EXIT_FAILURE;
+    }
+
     expt_id = argv[3];
     validate_id(expt_id);
   }

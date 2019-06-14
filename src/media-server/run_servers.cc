@@ -104,11 +104,6 @@ int main(int argc, char * argv[])
   ProcessManager proc_manager;
 
   const bool enable_logging = config["enable_logging"].as<bool>();
-  if (enable_logging) {
-    cerr << "Logging is enabled" << endl;
-  } else {
-    cerr << "Logging is disabled" << endl;
-  }
 
   /* will run log reporters only if enable_logging is true */
   auto log_reporter = src_path / "monitoring/log_reporter";
