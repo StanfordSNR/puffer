@@ -84,7 +84,6 @@ int main(int argc, char * argv[])
 
   TCPSocket listening_socket;
   listening_socket.set_reuseaddr();
-  listening_socket.set_reuseport();
   listening_socket.set_blocking(false);
   listening_socket.bind({"0", port});
   listening_socket.listen(128);

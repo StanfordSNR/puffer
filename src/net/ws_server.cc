@@ -166,7 +166,6 @@ void WSServer<SocketType>::init_listener_socket()
   listener_socket_ = TCPSocket();
   listener_socket_.set_blocking(false);
   listener_socket_.set_reuseaddr();
-  listener_socket_.set_reuseport();
   listener_socket_.set_congestion_control(congestion_control_);
   listener_socket_.bind(listener_addr_);
   listener_socket_.listen();
