@@ -960,7 +960,7 @@ private:
                                                                 O_WRONLY | O_CREAT | O_EXCL,
                                                                 S_IRUSR | S_IWUSR ) ) };
 
-      string info_string = /* wallclock timestamp */ to_string( timestamp_ms() ) + " "
+      string info_string = /* wallclock timestamp */ to_string( timestamp_ns() ) + " "
         + /* video timestamp */ to_string( pending_chunk_outer_timestamp_ ) + " "
         + /* due in (ms) */ to_string( wallclock_ms_until_next_chunk_is_due() ) + " "
         + /* filler fields */ to_string( filler_field_count_ );

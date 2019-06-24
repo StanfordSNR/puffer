@@ -93,7 +93,7 @@ void report_ssim(const string & channel_name,
 
         string log_line = "ssim,channel=" + channel_name + ",format="
           + vformat + " timestamp=" + ts + "i,ssim_index=" + line
-          + " " + to_string(timestamp_ms());
+          + " " + to_string(timestamp_ns());
         influxdb_client.post(log_line);
       }
     }
@@ -126,7 +126,7 @@ void report_video_size(const string & channel_name,
 
         string log_line = "video_size,channel=" + channel_name + ",format="
           + vformat + " timestamp=" + ts + "i,size=" + to_string(filesize)
-          + "i " + to_string(timestamp_ms());
+          + "i " + to_string(timestamp_ns());
         influxdb_client.post(log_line);
       }
     }
@@ -167,7 +167,7 @@ void report_backlog(const set<string> & channel_set,
         string log_line = "backlog,channel=" + channel_name
           + " working_cnt=" + to_string(working_cnt)
           + "i,canonical_cnt=" + to_string(canonical_cnt)
-          + "i " + to_string(timestamp_ms());
+          + "i " + to_string(timestamp_ns());
         influxdb_client.post(log_line);
       }
 

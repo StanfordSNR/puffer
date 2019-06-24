@@ -157,7 +157,7 @@ void serve_video_to_client(WebSocketServer & server,
        << ", video " << next_vts << " " << next_vformat << " " << ssim << endl;
 
   if (enable_logging) {
-    string log_line = to_string(timestamp_ms()) + "," + channel->name() + ","
+    string log_line = to_string(timestamp_ns()) + "," + channel->name() + ","
       + expt_id + "," + client.username() + "," + to_string(client.init_id())
       + "," + to_string(next_vts) + "," + next_vformat.to_string() + ","
       + to_string(get<1>(data_mmap)) + "," + to_string(ssim)
@@ -388,8 +388,8 @@ void start_slow_timer(Timerfd & slow_timer, WebSocketServer & server)
 
       if (enable_logging) {
         /* perform some tasks once per minute */
-        const auto curr_time = timestamp_ms();
-        const auto this_minute = curr_time - curr_time % 60000;
+        const auto curr_time_s = timestamp_s();
+        const auto this_minute = (curr_time_s - curr_time_s % 60) * BILLION;
 
         if (last_minute == 0) {
           last_minute = this_minute;
@@ -463,7 +463,7 @@ void handle_client_init(WebSocketServer & server, WebSocketClient & client,
 
   /* record client-init */
   if (enable_logging) {
-    string log_line = to_string(timestamp_ms()) + "," + msg.channel + ",init,"
+    string log_line = to_string(timestamp_ns()) + "," + msg.channel + ",init,"
       + expt_id + "," + client.username() + ","
       + to_string(msg.init_id) + ",0,0" /* buffer cum_rebuf */;
     append_to_log("client_buffer", log_line);
@@ -510,7 +510,7 @@ void handle_client_info(WebSocketClient & client, const ClientInfoMsg & msg)
 
     /* record system information */
     if (enable_logging) {
-      string log_line = to_string(timestamp_ms()) + "," + expt_id + ","
+      string log_line = to_string(timestamp_ns()) + "," + expt_id + ","
         + server_id + "," + client.username() + "," + to_string(msg.init_id)
         + "," + client.address().ip() + "," + client.os() + ","
         + client.browser() + "," + to_string(*msg.screen_width) + ","
@@ -524,7 +524,7 @@ void handle_client_info(WebSocketClient & client, const ClientInfoMsg & msg)
     const auto channel_name = client.channel()->name();
 
     /* record client-info */
-    string log_line = to_string(timestamp_ms()) + "," + channel_name + ","
+    string log_line = to_string(timestamp_ns()) + "," + channel_name + ","
       + msg.event_str + "," + expt_id + ","
       + client.username() + "," + to_string(msg.init_id) + ","
       + double_to_string(msg.video_buffer, 3) + ","
@@ -580,7 +580,7 @@ void handle_client_video_ack(WebSocketClient & client,
 
   /* record client's received video */
   if (enable_logging) {
-    string log_line = to_string(timestamp_ms()) + "," + msg.channel + ","
+    string log_line = to_string(timestamp_ns()) + "," + msg.channel + ","
       + expt_id + "," + client.username() + "," + to_string(msg.init_id) + ","
       + to_string(msg.timestamp) + "," + to_string(msg.ssim) + ","
       + double_to_string(msg.video_buffer, 3) + ","
@@ -750,7 +750,7 @@ int run_websocket_server(pqxx::nontransaction & db_work)
 
               /* record system information */
               if (enable_logging) {
-                string log_line = to_string(timestamp_ms()) + "," + expt_id
+                string log_line = to_string(timestamp_ns()) + "," + expt_id
                   + "," + server_id + "," + client.username() + ","
                   + to_string(msg.init_id) + "," + client.address().ip() + ","
                   + msg.os + "," + msg.browser + ","
