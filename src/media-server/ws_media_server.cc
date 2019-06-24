@@ -158,8 +158,9 @@ void serve_video_to_client(WebSocketServer & server,
 
   if (enable_logging) {
     string log_line = to_string(timestamp_ns()) + "," + channel->name() + ","
-      + expt_id + "," + client.username() + "," + to_string(client.init_id())
-      + "," + to_string(next_vts) + "," + next_vformat.to_string() + ","
+      + server_id + "," + expt_id + "," + client.username() + ","
+      + to_string(client.init_id()) + "," + to_string(next_vts)
+      + "," + next_vformat.to_string() + ","
       + to_string(get<1>(data_mmap)) + "," + to_string(ssim)
       + "," + to_string(tcpi.cwnd) + "," + to_string(tcpi.in_flight) + ","
       + to_string(tcpi.min_rtt) + "," + to_string(tcpi.rtt) + ","
@@ -463,8 +464,8 @@ void handle_client_init(WebSocketServer & server, WebSocketClient & client,
 
   /* record client-init */
   if (enable_logging) {
-    string log_line = to_string(timestamp_ns()) + "," + msg.channel + ",init,"
-      + expt_id + "," + client.username() + ","
+    string log_line = to_string(timestamp_ns()) + "," + msg.channel
+      + "," + server_id + ",init," + expt_id + "," + client.username() + ","
       + to_string(msg.init_id) + ",0,0" /* buffer cum_rebuf */;
     append_to_log("client_buffer", log_line);
   }
@@ -525,7 +526,7 @@ void handle_client_info(WebSocketClient & client, const ClientInfoMsg & msg)
 
     /* record client-info */
     string log_line = to_string(timestamp_ns()) + "," + channel_name + ","
-      + msg.event_str + "," + expt_id + ","
+      + server_id + "," + msg.event_str + "," + expt_id + ","
       + client.username() + "," + to_string(msg.init_id) + ","
       + double_to_string(msg.video_buffer, 3) + ","
       + double_to_string(msg.cum_rebuffer, 3);
@@ -581,9 +582,9 @@ void handle_client_video_ack(WebSocketClient & client,
   /* record client's received video */
   if (enable_logging) {
     string log_line = to_string(timestamp_ns()) + "," + msg.channel + ","
-      + expt_id + "," + client.username() + "," + to_string(msg.init_id) + ","
-      + to_string(msg.timestamp) + "," + to_string(msg.ssim) + ","
-      + double_to_string(msg.video_buffer, 3) + ","
+      + server_id + "," + expt_id + "," + client.username() + ","
+      + to_string(msg.init_id) + "," + to_string(msg.timestamp) + ","
+      + to_string(msg.ssim) + "," + double_to_string(msg.video_buffer, 3) + ","
       + double_to_string(msg.cum_rebuffer, 3);
     append_to_log("video_acked", log_line);
   }
