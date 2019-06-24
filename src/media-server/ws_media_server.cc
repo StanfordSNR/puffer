@@ -331,7 +331,7 @@ void log_active_streams(const uint64_t this_minute)
 
   for (const auto & [channel_name, count] : active_streams_count) {
     string log_line = to_string(this_minute) + "," + channel_name + ","
-      + expt_id + "," + server_id + "," + to_string(count);
+      + server_id + "," + expt_id + "," + to_string(count);
     append_to_log("active_streams", log_line);
   }
 }
@@ -510,8 +510,8 @@ void handle_client_info(WebSocketClient & client, const ClientInfoMsg & msg)
 
     /* record system information */
     if (enable_logging) {
-      string log_line = to_string(timestamp_ns()) + "," + expt_id + ","
-        + server_id + "," + client.username() + "," + to_string(msg.init_id)
+      string log_line = to_string(timestamp_ns()) + "," + server_id + ","
+        + expt_id + "," + client.username() + "," + to_string(msg.init_id)
         + "," + client.address().ip() + "," + client.os() + ","
         + client.browser() + "," + to_string(*msg.screen_width) + ","
         + to_string(*msg.screen_height);
@@ -750,8 +750,8 @@ int run_websocket_server(pqxx::nontransaction & db_work)
 
               /* record system information */
               if (enable_logging) {
-                string log_line = to_string(timestamp_ns()) + "," + expt_id
-                  + "," + server_id + "," + client.username() + ","
+                string log_line = to_string(timestamp_ns()) + "," + server_id
+                  + "," + expt_id + "," + client.username() + ","
                   + to_string(msg.init_id) + "," + client.address().ip() + ","
                   + msg.os + "," + msg.browser + ","
                   + to_string(msg.screen_width) + ","

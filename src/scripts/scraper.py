@@ -50,14 +50,13 @@ RF_CHANNEL_MAP = {
 
 # Send SNR info and more to InfluxDB for monitoring
 def send_to_influx(status, yaml_settings):
-    curr_time = datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')
-
+    curr_ts = datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S.%fZ')
     json_body = []
     for k, v in status.items():
         json_body.append({
+          'time': curr_ts,
           'measurement': 'channel_status',
           'tags': {'channel': v['channel']},
-          'time': curr_time,
           'fields': {'snr': v['snr'],
                      'selected_rate': v['selected_rate']}
         })
@@ -66,7 +65,7 @@ def send_to_influx(status, yaml_settings):
             v['channel'], v['snr'], v['selected_rate']))
 
     client = connect_to_influxdb(yaml_settings)
-    client.write_points(json_body, time_precision='s', database='puffer')
+    client.write_points(json_body, database='puffer')
 
 
 def make_cookie(session_id):

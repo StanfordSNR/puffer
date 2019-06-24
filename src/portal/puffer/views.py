@@ -58,14 +58,14 @@ def error_reporting(request):
         if influx is None:
             return HttpResponse(status=204)  # No Content
 
-        ts = datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S.%fZ')
         error_json = json.loads(request.body.decode())
 
         json_body = [{
+            'time': datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S.%fZ'),
             'measurement': 'client_error',
-            'tags': {'user': error_json['username']},
-            'time': ts,
-            'fields': {'init_id': error_json['init_id'],
+            'tags': {},
+            'fields': {'user': error_json['username'],
+                       'init_id': error_json['init_id'],
                        'error': error_json['error']}
         }]
 
