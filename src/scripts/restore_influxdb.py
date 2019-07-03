@@ -25,24 +25,16 @@ def sanity_check_influxdb(influx_client):
     dst_db_exists = False
     for db in db_list:
         if db['name'] == TMP_DB:
-            sys.stderr.write('Warning: middle ground database "{}" exists\n'
-                             .format(TMP_DB))
-
-            if not args.dry_run:
-                influx_client.drop_database(TMP_DB)
-                sys.stderr.write('Warning: middle ground database "{}" '
-                                 'is dropped\n'.format(TMP_DB))
+            influx_client.drop_database(TMP_DB)
+            sys.stderr.write('Warning: middle ground database "{}" '
+                             'is dropped\n'.format(TMP_DB))
         elif db['name'] == DST_DB:
             dst_db_exists = True
 
     if not dst_db_exists:
-        sys.stderr.write('Warning: destination database "{}" does not exist\n'
+        influx_client.create_database(DST_DB)
+        sys.stderr.write('Warning: destination database "{}" is created\n'
                          .format(DST_DB))
-
-        if not args.dry_run:
-            influx_client.create_database(DST_DB)
-            sys.stderr.write('Warning: destination database "{}" is created\n'
-                             .format(DST_DB))
 
 
 def get_files_to_restore(start_date, end_date, influx_client):
@@ -144,6 +136,7 @@ def restore(f, influx_client):
                 'SELECT * INTO {}..:MEASUREMENT FROM /.*/ GROUP BY *'
                 .format(DST_DB))
             sys.stderr.write('Successfully restored data in {}\n'.format(d))
+            return
         except (KeyboardInterrupt, SystemExit):
             raise
         except Exception as e:
