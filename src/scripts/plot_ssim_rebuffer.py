@@ -11,16 +11,16 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
 from helpers import (
-    connect_to_postgres, connect_to_influxdb, try_parsing_time,
+    connect_to_postgres, connect_to_influxdb,
     ssim_index_to_db, retrieve_expt_config, get_ssim_index, get_abr_cc,
-    create_time_clause, query_measurement)
+    create_time_clause, query_measurement, get_expt_id, get_user)
 
 
 def do_collect_ssim(video_acked_results, expt_id_cache, postgres_cursor):
     # process InfluxDB data
     x = {}
     for pt in video_acked_results['video_acked']:
-        expt_id = int(pt['expt_id'])
+        expt_id = get_expt_id(pt)
         expt_config = retrieve_expt_config(expt_id, expt_id_cache,
                                            postgres_cursor)
 
@@ -58,7 +58,7 @@ def collect_buffer_data(client_buffer_results):
     last_low_buf = {}
 
     for pt in client_buffer_results['client_buffer']:
-        session = (pt['user'], int(pt['init_id']), int(pt['expt_id']))
+        session = (get_user(pt), int(pt['init_id']), get_expt_id(pt))
         if session in excluded_sessions:
             continue
 
@@ -81,7 +81,7 @@ def collect_buffer_data(client_buffer_results):
         if session not in last_low_buf:
             last_low_buf[session] = None
 
-        ts = try_parsing_time(pt['time'])
+        ts = np.datetime64(pt['time'])
         buf = float(pt['buffer'])
         cum_rebuf = float(pt['cum_rebuf'])
 
@@ -112,7 +112,7 @@ def collect_buffer_data(client_buffer_results):
 
         # verify that time is basically successive in the same session
         if last_ts[session] is not None:
-            diff = (ts - last_ts[session]).total_seconds()
+            diff = (ts - last_ts[session]) / np.timedelta64(1, 's')
             if diff > 60:  # ambiguous / suspicious session
                 sys.stderr.write('Ambiguous session: {}\n'.format(session))
                 excluded_sessions[session] = True
@@ -120,7 +120,7 @@ def collect_buffer_data(client_buffer_results):
 
         # identify outliers: exclude the sessions if there is a long rebuffer?
         if last_low_buf[session] is not None:
-            diff = (ts - last_low_buf[session]).total_seconds()
+            diff = (ts - last_low_buf[session]) / np.timedelta64(1, 's')
             if diff > 30:
                 sys.stderr.write('Outlier session: {}\n'.format(session))
                 excluded_sessions[session] = True
@@ -158,7 +158,8 @@ def collect_buffer_data(client_buffer_results):
             # no 'startup' is found in the range
             continue
 
-        sess_play = (ds['max_play_time'] - ds['min_play_time']).total_seconds()
+        sess_play = ((ds['max_play_time'] - ds['min_play_time']) /
+                     np.timedelta64(1, 's'))
         # exclude short sessions
         if sess_play < 5:
             short_session_cnt += 1

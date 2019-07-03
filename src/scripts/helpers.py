@@ -5,7 +5,6 @@ import errno
 import subprocess
 import psycopg2
 import numpy as np
-from datetime import datetime
 from influxdb import InfluxDBClient
 
 
@@ -77,18 +76,6 @@ def connect_to_postgres(yaml_settings):
     sys.stderr.write('Connected to the PostgreSQL at {}:{}\n'
                      .format(postgres['host'], postgres['port']))
     return postgres_client
-
-
-def try_parsing_time(timestamp):
-    time_fmts = ['%Y-%m-%dT%H:%M:%S.%fZ', '%Y-%m-%dT%H:%M:%SZ']
-
-    for fmt in time_fmts:
-        try:
-            return datetime.strptime(timestamp, fmt)
-        except ValueError:
-            pass
-
-    raise ValueError('No valid format found to parse ' + timestamp)
 
 
 def ssim_db_to_index(ssim_db):
@@ -168,3 +155,21 @@ def get_abr_cc(expt_config):
         abr_cc = (abr, expt_config['cc'])
 
     return abr_cc
+
+
+def get_expt_id(pt):
+    if pt['expt_id'] is not None:
+        return int(pt['expt_id'])
+    elif pt['expt_id_1'] is not None:
+        return int(pt['expt_id_1'])
+
+    return None
+
+
+def get_user(pt):
+    if pt['user'] is not None:
+        return pt['user']
+    elif pt['user_1'] is not None:
+        return pt['user_1']
+
+    return None
