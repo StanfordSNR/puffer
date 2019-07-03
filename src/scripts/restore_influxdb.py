@@ -6,7 +6,8 @@ import argparse
 import yaml
 from os import path
 from datetime import datetime, timedelta
-from helpers import call, check_call, connect_to_influxdb
+from subprocess import call, check_call
+from helpers import connect_to_influxdb, create_time_clause
 
 
 backup_hour = 11  # back up at 11 AM (UTC) every day
@@ -15,6 +16,8 @@ SRC_DB = 'puffer'  # source database name to restore
 TMP_DB = 'puffer_tmp'  # used as a middle ground
 DST_DB = None  # to be read from YAML settings
 
+args = None
+
 
 def sanity_check_influxdb(influx_client):
     db_list = influx_client.get_list_database()
@@ -22,20 +25,27 @@ def sanity_check_influxdb(influx_client):
     dst_db_exists = False
     for db in db_list:
         if db['name'] == TMP_DB:
-            influx_client.drop_database(TMP_DB)
-            sys.stderr.write('database "{}" is dropped\n'
+            sys.stderr.write('Warning: middle ground database "{}" exists\n'
                              .format(TMP_DB))
+
+            if not args.dry_run:
+                influx_client.drop_database(TMP_DB)
+                sys.stderr.write('Warning: middle ground database "{}" '
+                                 'is dropped\n'.format(TMP_DB))
         elif db['name'] == DST_DB:
             dst_db_exists = True
 
     if not dst_db_exists:
-        influx_client.create_database(DST_DB)
-        sys.stderr.write('database "{}" is created\n'.format(DST_DB))
+        sys.stderr.write('Warning: destination database "{}" does not exist\n'
+                         .format(DST_DB))
 
-    sys.stderr.write('Destination database: {}\n'.format(DST_DB))
+        if not args.dry_run:
+            influx_client.create_database(DST_DB)
+            sys.stderr.write('Warning: destination database "{}" is created\n'
+                             .format(DST_DB))
 
 
-def get_files_to_restore(start_date, end_date):
+def get_files_to_restore(start_date, end_date, influx_client):
     date_format = '%Y-%m-%dT%H'
     start_date = datetime.strptime(start_date, date_format)
     end_date = datetime.strptime(end_date, date_format)
@@ -43,8 +53,6 @@ def get_files_to_restore(start_date, end_date):
     if end_date <= start_date:
         sys.exit('END_DATE precedes START_DATE')
 
-    # check if all the files to restore exist on Google cloud
-    sys.stderr.write('Checking if files to restore exist on cloud...\n')
     ret = []
 
     s = start_date
@@ -53,12 +61,40 @@ def get_files_to_restore(start_date, end_date):
         if e > end_date:
             break
 
-        f = s.strftime(date_format) + '_' + e.strftime(date_format) + '.tar.gz'
+        s_str = s.strftime(date_format)
+        e_str = e.strftime(date_format)
+        f = s_str + '_' + e_str + '.tar.gz'
 
+        # check if the file to restore exists on cloud
         cmd = 'gsutil -q stat gs://puffer-influxdb-backup/{}'.format(f)
         if call(cmd, shell=True) != 0:
             sys.exit('Error: {} does not exist on cloud'.format(f))
-        ret.append(f)
+
+        # check if the data within the range already exists in InfluxDB
+        time_clause = create_time_clause(s, e)
+        results = influx_client.query(
+            'SELECT count(video_ts) FROM video_acked WHERE ' + time_clause)
+
+        count = None
+        for pt in results['video_acked']:
+            if count is not None:
+                sys.exit('Error: query should only return only record')
+
+            count = pt['count']
+            sys.stderr.write('Warning: {} records found within {} - {}\n'
+                             .format(count, s_str, e_str))
+
+            if args.dry_run:
+                break
+
+            if args.allow_skipping:
+                sys.stderr.write('Warning: allows skipping\n')
+            else:
+                sys.exit('Does not allow skipping')
+
+        if count is None:
+            sys.stderr.write('Will restore {}\n'.format(f))
+            ret.append(f)
 
         s = e
 
@@ -107,7 +143,7 @@ def restore(f, influx_client):
             influx_client.query(
                 'SELECT * INTO {}..:MEASUREMENT FROM /.*/ GROUP BY *'
                 .format(DST_DB))
-            sys.stderr.write('Successfully restored data in {}'.format(d))
+            sys.stderr.write('Successfully restored data in {}\n'.format(d))
         except (KeyboardInterrupt, SystemExit):
             raise
         except Exception as e:
@@ -124,6 +160,11 @@ def main():
                         help='e.g., "2019-04-03" ({} AM in UTC)'.format(backup_hour))
     parser.add_argument('--to', required=True, dest='end_date',
                         help='e.g., "2019-04-05" ({} AM in UTC)'.format(backup_hour))
+    parser.add_argument('--allow-skipping', action='store_true',
+                        help='allow skipping a day if data already exists in InfluxDB')
+    parser.add_argument('--dry-run', action='store_true',
+                        help='only check and print the status of InfluxDB')
+    global args
     args = parser.parse_args()
 
     with open(args.yaml_settings, 'r') as fh:
@@ -139,10 +180,11 @@ def main():
     # parse input dates and get valid files to restore
     start_date = args.start_date + 'T{}'.format(backup_hour)
     end_date = args.end_date + 'T{}'.format(backup_hour)
-    files_to_restore = get_files_to_restore(start_date, end_date)
+    files_to_restore = get_files_to_restore(start_date, end_date, influx_client)
 
-    for f in files_to_restore:
-        restore(f, influx_client)
+    if not args.dry_run:
+        for f in files_to_restore:
+            restore(f, influx_client)
 
 
 if __name__ == '__main__':
