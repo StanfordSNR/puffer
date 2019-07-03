@@ -135,7 +135,7 @@ def restore(f, influx_client):
             influx_client.query(
                 'SELECT * INTO {}..:MEASUREMENT FROM /.*/ GROUP BY *'
                 .format(DST_DB))
-            sys.stderr.write('Successfully restored data in {}\n'.format(d))
+            sys.stderr.write('Successfully restored data in {}\n'.format(f))
             return
         except (KeyboardInterrupt, SystemExit):
             raise

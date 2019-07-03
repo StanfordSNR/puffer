@@ -94,7 +94,8 @@ def retrieve_expt_config(expt_id, expt_id_cache, postgres_cursor):
             'SELECT * FROM puffer_experiment WHERE id={};'.format(expt_id))
         rows = postgres_cursor.fetchall()
         if len(rows) != 1:
-            sys.exit('Error: invalid experiment ID {}'.format(expt_id))
+            sys.stderr.write('Error: invalid experiment ID {}\n'.format(expt_id))
+            return None
 
         expt_id_cache[expt_id] = rows[0][2]
 
