@@ -11,6 +11,8 @@
 *.wav
 *.webm
 *.chk
+*.yml
+*.json
 
 /puffer-*
 

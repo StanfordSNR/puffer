@@ -1,7 +1,6 @@
 /ws_media_server
 /run_servers
 /maintenance_server
-*.yml
 
 # Logs
 logs
