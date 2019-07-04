@@ -33,7 +33,7 @@ def sanity_check_influxdb(influx_client):
 
     if not dst_db_exists:
         influx_client.create_database(DST_DB)
-        sys.stderr.write('Warning: destination database "{}" is created\n'
+        sys.stderr.write('destination database "{}" is created\n'
                          .format(DST_DB))
 
 
@@ -62,31 +62,32 @@ def get_files_to_restore(start_date, end_date, influx_client):
         if call(cmd, shell=True) != 0:
             sys.exit('Error: {} does not exist on cloud'.format(f))
 
-        # check if the data within the range already exists in InfluxDB
-        time_clause = create_time_clause(s, e)
-        results = influx_client.query(
-            'SELECT count(video_ts) FROM video_acked WHERE ' + time_clause)
-
-        count = None
-        for pt in results['video_acked']:
-            if count is not None:
-                sys.exit('Error: query should only return only record')
-
-            count = pt['count']
-            sys.stderr.write('Warning: {} records found within {} - {}\n'
-                             .format(count, s_str, e_str))
-
-            if args.dry_run:
-                break
-
-            if args.allow_skipping:
-                sys.stderr.write('Warning: allows skipping\n')
-            else:
-                sys.exit('Does not allow skipping')
-
-        if count is None:
+        if args.force:
             sys.stderr.write('Will restore {}\n'.format(f))
             ret.append(f)
+        else:
+            # check if the data within the range already exists in InfluxDB
+            time_clause = create_time_clause(s, e)
+            results = influx_client.query(
+                'SELECT count(video_ts) FROM video_acked WHERE ' + time_clause)
+
+            count = None
+            for pt in results['video_acked']:
+                if count is not None:
+                    sys.exit('Error: query should only return only record')
+
+                count = pt['count']
+                sys.stderr.write('Info: {} records found within {} - {}\n'
+                                 .format(count, s_str, e_str))
+
+            if count is None:
+                sys.stderr.write('Will restore {}\n'.format(f))
+                ret.append(f)
+            else:
+                if args.allow_skipping:
+                    sys.stderr.write('Warning: skipping {}\n'.format(f))
+                else:
+                    sys.exit('Error: does not allow skipping {}'.format(f))
 
         s = e
 
@@ -154,7 +155,9 @@ def main():
     parser.add_argument('--to', required=True, dest='end_date',
                         help='e.g., "2019-04-05" ({} AM in UTC)'.format(backup_hour))
     parser.add_argument('--allow-skipping', action='store_true',
-                        help='allow skipping a day if data already exists in InfluxDB')
+                        help='allow skipping a day if data already exist in InfluxDB')
+    parser.add_argument('--force', action='store_true',
+                        help='force restoring data even if data exist')
     parser.add_argument('--dry-run', action='store_true',
                         help='only check and print the status of InfluxDB')
     global args
