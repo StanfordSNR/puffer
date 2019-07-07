@@ -1551,7 +1551,10 @@ public:
     /* check a/v sync */
     if ( y4m_writer.last_offset() and wav_writer.last_offset() ) {
       uint64_t diff = abs( *y4m_writer.last_offset() - *wav_writer.last_offset() );
-      if ( diff > 1080000 /* 40 ms */ ) {
+      if ( diff > 1175513 /* 43.5 ms */ ) {
+        /* this value is the maximum video slop allowed for 1080i30 video (900900 * 9 / 8 = 1013512.5)
+           plus the maximum audio slop allowed for 48Hz A/52 (144000 * 9 / 8 = 162000),
+           to get a worst-case offset */
         cerr << "Warning: a/v sync is off by " << (diff / 27000.0) << " ms\n";
         throw runtime_error( "BUG: a/v sync failure" );
       }
