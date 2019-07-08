@@ -16,7 +16,6 @@ from helpers import connect_to_influxdb
 backup_hour = 11  # back up at 11 AM (UTC) every day
 
 date_format = '%Y-%m-%dT%H'
-time_format = '%Y-%m-%dT%H:%M:%SZ'
 
 SRC_DB = 'puffer'  # source database name to restore
 TMP_DB = 'puffer_converting'  # temporary database
@@ -250,8 +249,8 @@ def convert(s, e, influx_client):
     if not path.isdir(complete):
         os.makedirs(complete)
 
-    cmd = ('influxd backup -portable -database {} -start {} -end {} {}'
-           .format(DST_DB, s.strftime(time_format), e.strftime(time_format), d))
+    cmd = ('influxd backup -portable -database {} {}'
+           .format(DST_DB, d))
     check_call(cmd, shell=True, cwd=complete)
 
     # compress dst_dir
