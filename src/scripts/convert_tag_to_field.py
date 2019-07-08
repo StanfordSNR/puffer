@@ -126,7 +126,7 @@ def convert_measurement(measurement_name, influx_client):
                     measurement_name == 'video_acked'):
                     sys.exit('Should not need to adjust timestamp in {}'
                              .format(measurement_name))
-                series[0] += np.timedelta64(1, 'u')
+                series[0] += np.timedelta64(1, 'us')
 
         dup_check.add(tuple(series))
 
