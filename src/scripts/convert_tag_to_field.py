@@ -9,7 +9,7 @@ import os
 from os import path
 from datetime import datetime, timedelta
 from restore_influxdb import download_untar
-from subprocess import check_call
+from subprocess import call, check_call
 from helpers import connect_to_influxdb
 
 
@@ -173,14 +173,38 @@ def convert_measurement(measurement_name, influx_client):
         influx_client.write_points(json_body, database=DST_DB)
 
 
+def download_from_backup(f):
+    d = f[:f.index('.')]
+    if path.isdir(d):
+        sys.stderr.write('Found {} in the current directory\n'.format(d))
+        return d
+
+    # download
+    cmd = 'gsutil cp gs://puffer-influxdb-backup/{} .'.format(f)
+    check_call(cmd, shell=True)
+
+    # untar
+    cmd = 'tar xf {}'.format(f)
+    check_call(cmd, shell=True)
+
+    # return uncompressed folder name
+    return d
+
+
 def convert(s_str, e_str, influx_client):
-    d = s_str + '_' + e_str
-    f = d + '.tar.gz'
+    f = s_str + '_' + e_str + '.tar.gz'
 
     sys.stderr.write('Converting {}...\n'.format(f))
 
-    # download data from Google cloud
-    download_untar(f)
+    # check if f already exists in puffer-influxdb-analytics
+    cmd = 'gsutil -q stat gs://puffer-influxdb-analytics/{}'.format(f)
+    if call(cmd, shell=True) == 0:
+        sys.stderr.write('{} already exists in gs://puffer-influxdb-analytics/\n'
+                         .format(f))
+        return
+
+    # download f from puffer-influxdb-backup
+    d = download_from_backup(f)
 
     # clean start
     influx_client.drop_database(TMP_DB)
