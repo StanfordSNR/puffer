@@ -127,8 +127,8 @@ def convert_measurement(measurement_name, influx_client):
                     sys.exit('Should not need to adjust timestamp in {}'
                              .format(measurement_name))
 
-                np_time = np.datetime64(series[0], 'us')
-                np_time += np.timedelta64(1, 'us')
+                np_time = np.datetime64(series[0], 'ms')
+                np_time += np.timedelta64(1, 'ms')
                 series[0] = str(np_time)
                 sys.stderr.write('Timestamp is incremented to {}\n'
                                  .format(str(np_time)))
@@ -172,11 +172,13 @@ def convert_measurement(measurement_name, influx_client):
         })
 
         if len(json_body) >= 1000:
-            influx_client.write_points(json_body, database=DST_DB)
+            influx_client.write_points(json_body, database=DST_DB,
+                                       time_precision='ms')
             json_body = []
 
     if json_body:
-        influx_client.write_points(json_body, database=DST_DB)
+        influx_client.write_points(json_body, database=DST_DB,
+                                   time_precision='ms')
 
 
 def download_from_backup(f):
