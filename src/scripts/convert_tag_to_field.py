@@ -127,6 +127,9 @@ def convert_measurement(measurement_name, influx_client):
             if pt_k == 'time':
                 continue
 
+            if pt[pt_k] is None:
+                continue
+
             k = pt_k
             if measurement_name != 'server_info':
                 if k[-2:] == '_1':
