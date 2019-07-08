@@ -97,7 +97,7 @@ def convert_measurement(measurement_name, influx_client):
         fake_server_id = None
         fake_server_id_idx = None
 
-        series = [np.datetime64(pt['time'])]
+        series = [str(pt['time'])]
         for tag_key in tag_keys[measurement_name]:
             if tag_key in pt and pt[tag_key] is not None:
                 series.append(str(pt[tag_key]))
@@ -127,12 +127,17 @@ def convert_measurement(measurement_name, influx_client):
                     print(pt, file=sys.stderr)
                     sys.exit('Should not need to adjust timestamp in {}'
                              .format(measurement_name))
-                series[0] += np.timedelta64(1, 'us')
+
+                np_time = np.datetime64(series[0], 'us')
+                np_time += np.timedelta64(1, 'us')
+                series[0] = str(np_time)
+                sys.stderr.write('Timestamp is incremented to {}\n'
+                                 .format(str(np_time)))
 
         dup_check.add(tuple(series))
 
         # create tags and fields
-        time = str(series[0])
+        time = series[0]
         tags = {}
         fields = {}
 
