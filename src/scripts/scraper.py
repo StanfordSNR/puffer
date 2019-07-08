@@ -65,7 +65,7 @@ def send_to_influx(status, yaml_settings):
             v['channel'], v['snr'], v['selected_rate']))
 
     client = connect_to_influxdb(yaml_settings)
-    client.write_points(json_body, database='puffer')
+    client.write_points(json_body, time_precision='ms')
 
 
 def make_cookie(session_id):
