@@ -173,23 +173,24 @@ def convert_measurement(measurement_name, influx_client):
         influx_client.write_points(json_body, database=DST_DB)
 
 
-def convert(f, influx_client):
-    influx_client.drop_database(TMP_DB)
-    influx_client.drop_database(DST_DB)
-    influx_client.create_database(TMP_DB)
-    influx_client.create_database(DST_DB)
+def convert(s_str, e_str, influx_client):
+    d = s_str + '_' + e_str
+    f = d + '.tar.gz'
 
     sys.stderr.write('Converting {}...\n'.format(f))
 
     # download data from Google cloud
-    d = download_untar(f)
+    download_untar(f)
+
+    # clean start
+    influx_client.drop_database(TMP_DB)
+    influx_client.drop_database(DST_DB)
+    influx_client.create_database(DST_DB)
 
     # restore to a temporary database
     cmd = ('influxd restore -portable -db {} -newdb {} {}'
            .format(SRC_DB, TMP_DB, d))
-    influx_client.drop_database(TMP_DB)
     check_call(cmd, shell=True)
-
     influx_client.switch_database(TMP_DB)
 
     # workaround: sleep for a while to avoid influxdb errors
@@ -202,22 +203,21 @@ def convert(f, influx_client):
         convert_measurement(measurement_name, influx_client)
 
     # back up and upload to Google cloud
-    dst_root = 'complete'
-    if not path.isdir(dst_root):
-        os.makedirs(dst_root)
-    dst_dir = path.join(dst_root, d)
+    complete = 'complete'
+    if not path.isdir(complete):
+        os.makedirs(complete)
 
-    cmd = ('influxd backup -portable -database {} {}'
-           .format(DST_DB, dst_dir))
-    check_call(cmd, shell=True)
+    cmd = ('influxd backup -portable -database {} -start {} -end {} {}'
+           .format(DST_DB, s_str, e_str, d))
+    check_call(cmd, shell=True, cwd=complete)
 
     # compress dst_dir
-    cmd = 'tar czvf {0}.tar.gz {0}'.format(dst_dir)
-    check_call(cmd, shell=True)
+    cmd = 'tar czvf {0}.tar.gz {0}'.format(d)
+    check_call(cmd, shell=True, cwd=complete)
 
     # upload to Google cloud
-    cmd = 'gsutil cp {}.tar.gz gs://puffer-influxdb-analytics'.format(dst_dir)
-    check_call(cmd, shell=True)
+    cmd = 'gsutil cp {}.tar.gz gs://puffer-influxdb-analytics'.format(d)
+    check_call(cmd, shell=True, cwd=complete)
 
 
 def main():
@@ -253,10 +253,9 @@ def main():
 
         s_str = s.strftime(date_format)
         e_str = e.strftime(date_format)
-        f = s_str + '_' + e_str + '.tar.gz'
 
         # convert each day of data
-        convert(f, influx_client)
+        convert(s_str, e_str, influx_client)
 
         s = e
 
