@@ -96,7 +96,7 @@ def convert_measurement(measurement_name, influx_client):
 
         series = [np.datetime64(pt['time'])]
         for tag_key in tag_keys[measurement_name]:
-            if tag_key in pt:
+            if tag_key in pt and pt[tag_key] is not None:
                 series.append(str(pt[tag_key]))
             else:
                 # the only possible missing tag key is 'server_id' in
@@ -114,9 +114,6 @@ def convert_measurement(measurement_name, influx_client):
 
         # adjust fake_server_id or timestamp to make sure series is unique
         while tuple(series) in dup_check:
-            sys.stderr.write('Avoid overwriting {}\n'.format(tuple(series)))
-            print(pt, file=sys.stderr)
-
             if fake_server_id is not None:
                 fake_server_id += 1
                 series[fake_server_id_idx] = str(fake_server_id)
@@ -124,6 +121,7 @@ def convert_measurement(measurement_name, influx_client):
                 if (measurement_name == 'client_buffer' or
                     measurement_name == 'video_sent' or
                     measurement_name == 'video_acked'):
+                    print(pt, file=sys.stderr)
                     sys.exit('Should not need to adjust timestamp in {}'
                              .format(measurement_name))
                 series[0] += np.timedelta64(1, 'us')
@@ -156,6 +154,7 @@ def convert_measurement(measurement_name, influx_client):
                 # convert to correct type
                 fields[k] = field_keys[measurement_name][k](pt[pt_k])
             else:
+                print(pt, file=sys.stderr)
                 sys.exit('{} is not a tag or a field'.format(k))
 
         json_body.append({
