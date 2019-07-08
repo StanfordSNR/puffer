@@ -99,19 +99,34 @@ def convert_measurement(measurement_name, influx_client):
             if tag_key in pt:
                 series.append(str(pt[tag_key]))
             else:
-                if tag_key != 'server_id':
+                # the only possible missing tag key is 'server_id' in
+                # 'client_buffer', 'video_sent' or 'video_acked'
+                if (tag_key != 'server_id' or
+                    (measurement_name != 'client_buffer' and
+                     measurement_name != 'video_sent' and
+                     measurement_name != 'video_acked')):
+                    print(pt, file=sys.stderr)
                     sys.exit('{} does not exist in data point'.format(tag_key))
 
                 fake_server_id = 1
                 series.append(str(fake_server_id))
                 fake_server_id_idx = len(series) - 1
 
+        # adjust fake_server_id or timestamp to make sure series is unique
         while tuple(series) in dup_check:
-            if fake_server_id is None:
-                sys.exit('Should not happen')
+            sys.stderr.write('Avoid overwriting {}\n'.format(tuple(series)))
+            print(pt, file=sys.stderr)
 
-            fake_server_id += 1
-            series[fake_server_id_idx] = str(fake_server_id)
+            if fake_server_id is not None:
+                fake_server_id += 1
+                series[fake_server_id_idx] = str(fake_server_id)
+            else:
+                if (measurement_name == 'client_buffer' or
+                    measurement_name == 'video_sent' or
+                    measurement_name == 'video_acked'):
+                    sys.exit('Should not need to adjust timestamp in {}'
+                             .format(measurement_name))
+                series[0] += np.timedelta64(1, 'u')
 
         dup_check.add(tuple(series))
 
@@ -137,9 +152,11 @@ def convert_measurement(measurement_name, influx_client):
 
             if k in tag_keys[measurement_name]:
                 tags[k] = str(pt[pt_k])
-            else:
+            elif k in field_keys[measurement_name]:
                 # convert to correct type
                 fields[k] = field_keys[measurement_name][k](pt[pt_k])
+            else:
+                sys.exit('{} is not a tag or a field'.format(k))
 
         json_body.append({
             'measurement': measurement_name,
@@ -177,7 +194,7 @@ def convert(f, influx_client):
 
     # workaround: sleep for a while to avoid influxdb errors
     # possible errors: shard is disabled, engine is closed
-    time.sleep(1)
+    time.sleep(3)
 
     measurements = influx_client.get_list_measurements()
     for measurement in measurements:
