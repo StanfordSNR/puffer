@@ -72,7 +72,7 @@ def error_reporting(request):
         client = InfluxDBClient(
             influx['host'], influx['port'], influx['user'],
             os.environ[influx['password']], influx['dbname'])
-        client.write_points(json_body)
+        client.write_points(json_body, time_precision='ms')
 
         return HttpResponse(status=204)  # No Content
     else:

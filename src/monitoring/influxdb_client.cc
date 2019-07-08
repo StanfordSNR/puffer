@@ -15,7 +15,7 @@ InfluxDBClient::InfluxDBClient(Poller & poller,
   influxdb_addr_ = address;
   sock_.connect(influxdb_addr_);
   http_request_line_ = "POST /write?db=" + database + "&u=" + user + "&p="
-                       + password + " HTTP/1.1";
+                       + password + "&precision=ms HTTP/1.1";
 
   poller.add_action(Poller::Action(sock_, Direction::In,
     [this]()->Result {
