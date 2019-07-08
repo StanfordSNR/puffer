@@ -209,21 +209,33 @@ def convert(s, e, influx_client):
     d = download_from_backup(f)
 
     # clean start
-    influx_client.drop_database(TMP_DB)
     influx_client.drop_database(DST_DB)
     influx_client.create_database(DST_DB)
 
     # restore to a temporary database
-    cmd = ('influxd restore -portable -db {} -newdb {} {}'
-           .format(SRC_DB, TMP_DB, d))
-    check_call(cmd, shell=True)
-    influx_client.switch_database(TMP_DB)
+    for retry in range(4):
+        influx_client.drop_database(TMP_DB)
 
-    # workaround: sleep for a while to avoid influxdb errors
-    # possible errors: shard is disabled, engine is closed
-    time.sleep(3)
+        cmd = ('influxd restore -portable -db {} -newdb {} {}'
+               .format(SRC_DB, TMP_DB, d))
+        if call(cmd, shell=True) != 0:
+            continue
 
-    measurements = influx_client.get_list_measurements()
+        influx_client.switch_database(TMP_DB)
+
+        # workaround: sleep for a while to avoid influxdb errors
+        # possible errors: shard is disabled, engine is closed
+        time.sleep(2 ** retry)
+
+        try:
+            measurements = influx_client.get_list_measurements()
+            break
+        except (KeyboardInterrupt, SystemExit):
+            raise
+        except Exception as e:
+            print('Error:', e, file=sys.stderr)
+            sys.stderr.write('Retrying...\n')
+
     for measurement in measurements:
         measurement_name = measurement['name']
         convert_measurement(measurement_name, influx_client)
