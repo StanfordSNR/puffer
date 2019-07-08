@@ -15,6 +15,9 @@ from helpers import connect_to_influxdb
 
 backup_hour = 11  # back up at 11 AM (UTC) every day
 
+date_format = '%Y-%m-%dT%H'
+time_format = '%Y-%m-%dT%H:%M:%SZ'
+
 SRC_DB = 'puffer'  # source database name to restore
 TMP_DB = 'puffer_converting'  # temporary database
 DST_DB = 'puffer'  # database after converting
@@ -190,8 +193,8 @@ def download_from_backup(f):
     return d
 
 
-def convert(s_str, e_str, influx_client):
-    f = s_str + '_' + e_str + '.tar.gz'
+def convert(s, e, influx_client):
+    f = s.strftime(date_format) + '_' + e.strftime(date_format) + '.tar.gz'
 
     sys.stderr.write('Converting {}...\n'.format(f))
 
@@ -231,7 +234,7 @@ def convert(s_str, e_str, influx_client):
         os.makedirs(complete)
 
     cmd = ('influxd backup -portable -database {} -start {} -end {} {}'
-           .format(DST_DB, s_str, e_str, d))
+           .format(DST_DB, s.strftime(time_format), e.strftime(time_format), d))
     check_call(cmd, shell=True, cwd=complete)
 
     # compress dst_dir
@@ -261,7 +264,6 @@ def main():
     start_date = args.start_date + 'T{}'.format(backup_hour)
     end_date = args.end_date + 'T{}'.format(backup_hour)
 
-    date_format = '%Y-%m-%dT%H'
     start_date = datetime.strptime(start_date, date_format)
     end_date = datetime.strptime(end_date, date_format)
 
@@ -274,11 +276,8 @@ def main():
         if e > end_date:
             break
 
-        s_str = s.strftime(date_format)
-        e_str = e.strftime(date_format)
-
         # convert each day of data
-        convert(s_str, e_str, influx_client)
+        convert(s, e, influx_client)
 
         s = e
 
