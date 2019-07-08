@@ -14,8 +14,10 @@ InfluxDBClient::InfluxDBClient(Poller & poller,
 {
   influxdb_addr_ = address;
   sock_.connect(influxdb_addr_);
-  http_request_line_ = "POST /write?db=" + database + "&u=" + user + "&p="
-                       + password + "&precision=ms HTTP/1.1";
+
+  database_ = database;
+  user_ = user;
+  password_ = password;
 
   poller.add_action(Poller::Action(sock_, Direction::In,
     [this]()->Result {
@@ -59,10 +61,13 @@ InfluxDBClient::InfluxDBClient(Poller & poller,
   ));
 }
 
-void InfluxDBClient::post(const string & payload)
+void InfluxDBClient::post(const string & payload,
+                          const std::string & precision)
 {
   HTTPRequest request;
-  request.set_first_line(http_request_line_);
+  request.set_first_line("POST /write?db=" + database_ + "&u=" + user_ + "&p="
+                         + password_ + "&precision=" + precision + " HTTP/1.1");
+
   request.add_header(HTTPHeader{"Host", influxdb_addr_.str()});
   request.add_header(HTTPHeader{"Content-Type",
                                 "application/x-www-form-urlencoded"});
