@@ -57,6 +57,14 @@ def run_ttp(ttp_path, yaml_settings_path):
             'Continual learning: new model {} is available after {:.2f} hours\n'
             .format(new_model_base, (end_time - start_time) / 3600))
 
+        # back up new model
+        tar_file = '{}.tar.gz'.format(new_model_base)
+        check_call('tar czvf {} {}'.format(tar_file, new_model_base),
+                   shell=True, cwd=model_parent_dir)
+        gs_url = 'gs://puffer-model-backup/puffer-ttp/{}'.format(tar_file)
+        check_call('gsutil cp {} {}'.format(tar_file, gs_url),
+                   shell=True, cwd=model_parent_dir)
+
         # update model_dir
         fingerprint['abr_config']['model_dir'] = new_model_dir
 
