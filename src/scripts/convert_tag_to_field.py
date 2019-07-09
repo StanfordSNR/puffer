@@ -88,7 +88,7 @@ def convert_measurement(measurement_name, influx_client):
     sys.stderr.write('Converting measurement {}...\n'.format(measurement_name))
     results = influx_client.query('SELECT * FROM {}'.format(measurement_name))
 
-    json_body = []
+    json_body = []  # timestamp 'ms' only
     dup_check = set()
 
     for pt in results[measurement_name]:
@@ -96,7 +96,7 @@ def convert_measurement(measurement_name, influx_client):
         fake_server_id = None
         fake_server_id_idx = None
 
-        series = [str(pt['time'])]
+        series = [np.datetime64(pt['time'], 'ms')]
         for tag_key in tag_keys[measurement_name]:
             if tag_key in pt and pt[tag_key] is not None:
                 series.append(str(pt[tag_key]))
@@ -114,29 +114,20 @@ def convert_measurement(measurement_name, influx_client):
                 series.append(str(fake_server_id))
                 fake_server_id_idx = len(series) - 1
 
+        timestamp_ns = False
         # adjust fake_server_id or timestamp to make sure series is unique
         while tuple(series) in dup_check:
             if fake_server_id is not None:
                 fake_server_id += 1
                 series[fake_server_id_idx] = str(fake_server_id)
             else:
-                if (measurement_name == 'client_buffer' or
-                    measurement_name == 'video_sent' or
-                    measurement_name == 'video_acked'):
-                    print(pt, file=sys.stderr)
-                    sys.exit('Should not need to adjust timestamp in {}'
-                             .format(measurement_name))
-
-                np_time = np.datetime64(series[0], 'ms')
-                np_time += np.timedelta64(1, 'ms')
-                series[0] = str(np_time)
-                sys.stderr.write('Timestamp is incremented to {}\n'
-                                 .format(str(np_time)))
+                timestamp_ns = True
+                series[0] += np.timedelta64(1, 'ns')
 
         dup_check.add(tuple(series))
 
         # create tags and fields
-        time = series[0]
+        time = str(series[0])
         tags = {}
         fields = {}
 
@@ -164,12 +155,18 @@ def convert_measurement(measurement_name, influx_client):
                 print(pt, file=sys.stderr)
                 sys.exit('{} is not a tag or a field'.format(k))
 
-        json_body.append({
+        this_point = {
             'measurement': measurement_name,
             'time': time,
             'tags': tags,
             'fields': fields,
-        })
+        }
+
+        if timestamp_ns:
+            influx_client.write_points([this_point], database=DST_DB,
+                                        time_precision='n')
+        else:
+            json_body.append(this_point)
 
         if len(json_body) >= 1000:
             influx_client.write_points(json_body, database=DST_DB,
