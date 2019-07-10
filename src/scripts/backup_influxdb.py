@@ -53,7 +53,7 @@ def main():
     check_call(cmd, shell=True)
 
     # upload to Google cloud
-    cmd = 'gsutil cp {}.tar.gz gs://puffer-influxdb-backup'.format(dst_dir)
+    cmd = 'gsutil cp {}.tar.gz gs://puffer-influxdb-analytics'.format(dst_dir)
     check_call(cmd, shell=True)
 
     # remove files
