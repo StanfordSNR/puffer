@@ -55,7 +55,7 @@ def get_files_to_restore(start_date, end_date, influx_client):
         f = s_str + '_' + e_str + '.tar.gz'
 
         # check if the file to restore exists on cloud
-        cmd = 'gsutil -q stat gs://puffer-influxdb-backup/{}'.format(f)
+        cmd = 'gsutil -q stat gs://puffer-influxdb-analytics/{}'.format(f)
         if call(cmd, shell=True) != 0:
             sys.exit('Error: {} does not exist on cloud'.format(f))
 
@@ -98,7 +98,7 @@ def download_untar(f):
         return d
 
     # download
-    cmd = 'gsutil cp gs://puffer-influxdb-backup/{} .'.format(f)
+    cmd = 'gsutil cp gs://puffer-influxdb-analytics/{} .'.format(f)
     check_call(cmd, shell=True)
 
     # untar
@@ -116,7 +116,7 @@ def restore(f, influx_client):
     d = download_untar(f)
 
     # restore to a temporary database (with retries)
-    for retry in range(4):
+    for retry in range(10):
         influx_client.drop_database(TMP_DB)
 
         cmd = ('influxd restore -portable -db {} -newdb {} {}'
