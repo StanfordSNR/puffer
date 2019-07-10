@@ -106,9 +106,11 @@ def convert_measurement(measurement_name, influx_client):
                 if (tag_key != 'server_id' or
                     (measurement_name != 'client_buffer' and
                      measurement_name != 'video_sent' and
-                     measurement_name != 'video_acked')):
+                     measurement_name != 'video_acked' and
+                     measurement_name != 'client_sysinfo')):
                     print(pt, file=sys.stderr)
-                    sys.exit('{} does not exist in data point'.format(tag_key))
+                    sys.exit('{} does not exist in {}'
+                             .format(tag_key, measurement_name))
 
                 fake_server_id = 1
                 series.append(str(fake_server_id))
@@ -216,7 +218,7 @@ def convert(s, e, influx_client):
     influx_client.create_database(DST_DB)
 
     # restore to a temporary database
-    for retry in range(4):
+    for retry in range(10):
         influx_client.drop_database(TMP_DB)
 
         cmd = ('influxd restore -portable -db {} -newdb {} {}'
