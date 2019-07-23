@@ -4,6 +4,7 @@ import sys
 import errno
 import subprocess
 import psycopg2
+from datetime import datetime, timedelta
 import numpy as np
 from influxdb import InfluxDBClient
 
@@ -174,3 +175,19 @@ def get_user(pt):
         return pt['user_1']
 
     return None
+
+
+def datetime_iter(start_time_str, end_time_str):
+    time_format = '%Y-%m-%dT%H:%M:%SZ'
+    start_time_obj = datetime.strptime(start_time_str, time_format)
+    end_time_obj = datetime.strptime(end_time_str, time_format)
+
+    curr_time_obj = start_time_obj
+    while curr_time_obj < end_time_obj:
+        next_time_obj = curr_time_obj + timedelta(days=1)
+
+        curr_time_str = curr_time_obj.strftime(time_format)
+        next_time_str = next_time_obj.strftime(time_format)
+        yield curr_time_str, next_time_str
+
+        curr_time_obj = next_time_obj
