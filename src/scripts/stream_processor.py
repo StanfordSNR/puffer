@@ -1,0 +1,175 @@
+import sys
+import numpy as np
+
+from helpers import get_abr_cc
+
+
+class ListNode:
+    def __init__(self, ts=None, val=None):
+        self.prev = None
+        self.next = None
+        self.ts = ts
+        self.val = val
+
+class ExpiryList:
+    def __init__(self, expiry):
+        self.head = ListNode()
+        self.tail = ListNode()
+        self.expiry = expiry
+
+        self.head.next = self.tail
+        self.tail.prev = self.head
+
+        self.expired = []
+
+    # remove node from list
+    def remove(self, node):
+        node_prev = node.prev
+        node_next = node.next
+        node_prev.next = node_next
+        node_next.prev = node_prev
+
+    # append node to the rear of list
+    def append(self, node):
+        tail_prev = self.tail.prev
+        if tail_prev.ts is not None and tail_prev.ts > node.ts:
+            sys.exit('Error: cannot append a node with a smaller '
+                     'timestamp {}'.format(node.ts))
+
+        tail_prev.next = node
+        self.tail.prev = node
+        node.prev = tail_prev
+        node.next = self.tail
+
+        # keep removing the smallest ts if it is expired
+        n = self.head.next
+        while n != self.tail:
+            if node.ts - n.ts <= self.expiry:
+                break
+
+            self.remove(n)
+            self.expired.append(n.val)
+            n = n.next
+
+    # list traversal
+    def traverse(self):
+        n = self.head.next
+        while n != self.tail:
+            print(n.ts, n.val)
+            n = n.next
+
+class StreamProcessor:
+    def __init__(self, expt):
+        self.expt = expt
+        self.out = {}  # key: abr_cc; value: {'play': X; 'rebuf': X}
+
+        self.smap = {}  # key: session ID; value: {}
+        self.expiry_list = ExpiryList(np.timedelta64(10, 'm'))
+
+    def empty_session(self):
+        s = {}
+        s['node'] = None
+
+        for k in ['min_play_time', 'max_play_time',
+                  'min_cum_rebuf', 'max_cum_rebuf']:
+            s[k] = None
+
+        s['is_rebuffer'] = True
+        s['num_rebuf'] = 0
+
+        return s
+
+    def update_map_list(self, ts, session):
+        if session not in self.smap:
+            self.smap[session] = self.empty_session()
+            node = ListNode(ts, session)
+
+            self.smap[session]['node'] = node
+            self.expiry_list.append(node)
+        else:
+            node = self.smap[session]['node']
+
+            self.expiry_list.remove(node)
+            node.ts = ts
+            self.expiry_list.append(node)
+
+    def process_expired(self):
+        # read and process expired values
+        expired_sessions = self.expiry_list.expired
+
+        for session in expired_sessions:
+            s = self.smap[session]
+
+            invalid = False
+            for k in ['min_play_time', 'max_play_time',
+                      'min_cum_rebuf', 'max_cum_rebuf']:
+                if s[k] is None:
+                    invalid = True
+                    break
+
+            if invalid:
+                del self.smap[session]
+                continue
+
+            expt_id = str(session[-1])
+            expt_config = self.expt[expt_id]
+
+            abr_cc = get_abr_cc(expt_config)
+            if abr_cc not in self.out:
+                self.out[abr_cc] = {}
+                self.out[abr_cc]['total_play'] = 0
+                self.out[abr_cc]['total_rebuf'] = 0
+
+            session_play = ((s['max_play_time'] - s['min_play_time'])
+                            / np.timedelta64(1, 's'))
+            session_rebuf = s['max_cum_rebuf'] - s['min_cum_rebuf']
+
+            self.out[abr_cc]['total_play'] += session_play
+            self.out[abr_cc]['total_rebuf'] += session_rebuf
+
+            del self.smap[session]
+
+        # clean processed expired values
+        self.expiry_list.expired = []
+
+    def process_pt(self, pt, ts, session):
+        s = self.smap[session]  # short variable name
+
+        # process the current data points
+        buf = float(pt['buffer'])
+        cum_rebuf = float(pt['cum_rebuf'])
+
+        if s['min_play_time'] is None and pt['event'] != 'startup':
+            # wait until 'startup' is found
+            return
+
+        if pt['event'] == 'startup':
+            s['min_play_time'] = ts
+            s['min_cum_rebuf'] = cum_rebuf
+            s['is_rebuffer'] = False
+        elif pt['event'] == 'rebuffer':
+            if not s['is_rebuffer']:
+                s['num_rebuf'] += 1
+            s['is_rebuffer'] = True
+        elif pt['event'] == 'play':
+            s['is_rebuffer'] = False
+
+        if not s['is_rebuffer']:
+            if s['max_play_time'] is None or ts > s['max_play_time']:
+                s['max_play_time'] = ts
+
+            if s['max_cum_rebuf'] is None or cum_rebuf > s['max_cum_rebuf']:
+                s['max_cum_rebuf'] = cum_rebuf
+
+    def add_data_point(self, pt):
+        session = (pt['user'], pt['init_id'], pt['expt_id'])
+        ts = np.datetime64(pt['time'])
+
+        # update smap and expiry_list
+        self.update_map_list(ts, session)
+
+        # process expired sessions
+        self.process_expired()
+
+        # process the current data point
+        self.process_pt(pt, ts, session)
