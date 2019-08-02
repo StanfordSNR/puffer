@@ -25,8 +25,8 @@ args = None
 
 
 def do_collect_ssim(influx_client, expt, s_str, e_str, d):
-    print('Processing video_acked data between {} and {}'.format(
-          s_str, e_str))
+    sys.stderr.write('Processing video_acked data between {} and {}\n'
+                     .format(s_str, e_str))
     video_acked_results = query_measurement(influx_client, 'video_acked',
                                             s_str, e_str)
 
@@ -45,7 +45,7 @@ def do_collect_ssim(influx_client, expt, s_str, e_str, d):
 
 
 def collect_ssim(influx_client, expt):
-    d = {}
+    d = {}  # key: abr_cc; value: [sum, count]
 
     for s_str, e_str in datetime_iter(args.start_time, args.end_time):
         do_collect_ssim(influx_client, expt, s_str, e_str, d)
@@ -65,8 +65,8 @@ def collect_ssim(influx_client, expt):
 
 
 def do_collect_rebuffer(influx_client, expt, s_str, e_str, stream_processor):
-    print('Processing client_buffer data between {} and {}'.format(
-          s_str, e_str))
+    sys.stderr.write('Processing client_buffer data between {} and {}\n'
+                     .format(s_str, e_str))
     client_buffer_results = query_measurement(influx_client, 'client_buffer',
                                               s_str, e_str)
 
@@ -79,6 +79,8 @@ def collect_rebuffer(influx_client, expt):
 
     for s_str, e_str in datetime_iter(args.start_time, args.end_time):
         do_collect_rebuffer(influx_client, expt, s_str, e_str, stream_processor)
+
+    stream_processor.done()
 
     return stream_processor.out
 
