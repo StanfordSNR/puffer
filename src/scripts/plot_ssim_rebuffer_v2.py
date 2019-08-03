@@ -27,6 +27,7 @@ args = None
 def do_collect_ssim(influx_client, expt, s_str, e_str, d):
     sys.stderr.write('Processing video_acked data between {} and {}\n'
                      .format(s_str, e_str))
+    sys.stderr.flush()
     video_acked_results = query_measurement(influx_client, 'video_acked',
                                             s_str, e_str)
 
@@ -67,6 +68,7 @@ def collect_ssim(influx_client, expt):
 def do_collect_rebuffer(influx_client, expt, s_str, e_str, stream_processor):
     sys.stderr.write('Processing client_buffer data between {} and {}\n'
                      .format(s_str, e_str))
+    sys.stderr.flush()
     client_buffer_results = query_measurement(influx_client, 'client_buffer',
                                               s_str, e_str)
 
@@ -150,6 +152,9 @@ def main():
 
     if not ssim or not rebuffer:
         sys.exit('Error: no data found in the queried range')
+
+    print(ssim)
+    print(rebuffer)
 
     # plot ssim vs rebuffer
     plot_ssim_rebuffer(ssim, rebuffer)
