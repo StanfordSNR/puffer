@@ -72,7 +72,7 @@ class StreamProcessor:
         self.out = {}  # key: abr_cc; value: {'play': X; 'rebuf': X}
 
         self.smap = {}  # key: session ID; value: {}
-        self.expiry_list = ExpiryList(np.timedelta64(10, 'm'))
+        self.expiry_list = ExpiryList(np.timedelta64(1, 'm'))
 
     def empty_session(self):
         s = {}
