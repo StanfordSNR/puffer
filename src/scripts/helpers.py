@@ -134,11 +134,7 @@ def query_measurement(influx_client, measurement, time_start, time_end):
     if time_clause is not None:
         query += ' WHERE ' + time_clause
 
-    results = influx_client.query(query)
-    if not results:
-        sys.exit('Error: no results returned from query: ' + query)
-
-    return results
+    return influx_client.query(query)
 
 
 def get_abr_cc(expt_config):
