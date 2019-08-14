@@ -14,7 +14,7 @@ import matplotlib.pyplot as plt
 
 from helpers import (
     connect_to_influxdb, datetime_iter, ssim_index_to_db, get_ssim_index,
-    get_abr_cc, query_measurement)
+    get_abr_cc, query_measurement, retrieve_expt_config, connect_to_postgres)
 from stream_processor import StreamProcessor
 
 
@@ -22,9 +22,12 @@ backup_hour = 11  # back up at 11 AM (UTC) every day
 date_format = '%Y-%m-%dT%H:%M:%SZ'
 
 args = None
+expt = {}
+influx_client = None
+postgres_cursor = None
 
 
-def do_collect_ssim(influx_client, expt, s_str, e_str, d):
+def do_collect_ssim(s_str, e_str, d):
     sys.stderr.write('Processing video_acked data between {} and {}\n'
                      .format(s_str, e_str))
     sys.stderr.flush()
@@ -33,7 +36,7 @@ def do_collect_ssim(influx_client, expt, s_str, e_str, d):
 
     for pt in video_acked_results['video_acked']:
         expt_id = str(pt['expt_id'])
-        expt_config = expt[expt_id]
+        expt_config = retrieve_expt_config(expt_id, expt, postgres_cursor)
 
         abr_cc = get_abr_cc(expt_config)
         if abr_cc not in d:
@@ -45,11 +48,11 @@ def do_collect_ssim(influx_client, expt, s_str, e_str, d):
             d[abr_cc][1] += 1
 
 
-def collect_ssim(influx_client, expt):
+def collect_ssim():
     d = {}  # key: abr_cc; value: [sum, count]
 
     for s_str, e_str in datetime_iter(args.start_time, args.end_time):
-        do_collect_ssim(influx_client, expt, s_str, e_str, d)
+        do_collect_ssim(s_str, e_str, d)
 
     # calculate average SSIM in dB
     for abr_cc in d:
@@ -65,7 +68,7 @@ def collect_ssim(influx_client, expt):
     return d
 
 
-def do_collect_rebuffer(influx_client, expt, s_str, e_str, stream_processor):
+def do_collect_rebuffer(s_str, e_str, stream_processor):
     sys.stderr.write('Processing client_buffer data between {} and {}\n'
                      .format(s_str, e_str))
     sys.stderr.flush()
@@ -76,11 +79,11 @@ def do_collect_rebuffer(influx_client, expt, s_str, e_str, stream_processor):
         stream_processor.add_data_point(pt)
 
 
-def collect_rebuffer(influx_client, expt):
-    stream_processor = StreamProcessor(expt)
+def collect_rebuffer():
+    stream_processor = StreamProcessor(expt, postgres_cursor)
 
     for s_str, e_str in datetime_iter(args.start_time, args.end_time):
-        do_collect_rebuffer(influx_client, expt, s_str, e_str, stream_processor)
+        do_collect_rebuffer(s_str, e_str, stream_processor)
 
     stream_processor.done()
 
@@ -128,9 +131,9 @@ def plot_ssim_rebuffer(ssim, rebuffer):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('yaml_settings')
-    parser.add_argument('--from', dest='start_time',
+    parser.add_argument('--from', dest='start_time', required=True,
                         help='datetime in UTC conforming to RFC3339')
-    parser.add_argument('--to', dest='end_time',
+    parser.add_argument('--to', dest='end_time', required=True,
                         help='datetime in UTC conforming to RFC3339')
     parser.add_argument('--expt', help='e.g., expt_cache.json')
     parser.add_argument('-o', '--output', required=True)
@@ -140,15 +143,23 @@ def main():
     with open(args.yaml_settings, 'r') as fh:
         yaml_settings = yaml.safe_load(fh)
 
-    with open(args.expt, 'r') as fh:
-        expt = json.load(fh)
+    if args.expt is not None:
+        with open(args.expt, 'r') as fh:
+            global expt
+            expt = json.load(fh)
+    else:
+        # create a Postgres client and perform queries
+        postgres_client = connect_to_postgres(yaml_settings)
+        global postgres_cursor
+        postgres_cursor = postgres_client.cursor()
 
     # create an InfluxDB client and perform queries
+    global influx_client
     influx_client = connect_to_influxdb(yaml_settings)
 
     # collect ssim and rebuffer
-    ssim = collect_ssim(influx_client, expt)
-    rebuffer = collect_rebuffer(influx_client, expt)
+    ssim = collect_ssim()
+    rebuffer = collect_rebuffer()
 
     if not ssim or not rebuffer:
         sys.exit('Error: no data found in the queried range')
@@ -158,6 +169,9 @@ def main():
 
     # plot ssim vs rebuffer
     plot_ssim_rebuffer(ssim, rebuffer)
+
+    if postgres_cursor:
+        postgres_cursor.close()
 
 
 if __name__ == '__main__':

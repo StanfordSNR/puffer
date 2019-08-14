@@ -91,6 +91,10 @@ def ssim_index_to_db(ssim_index):
 # otherwise, query Postgres and save the returned config in expt_id_cache
 def retrieve_expt_config(expt_id, expt_id_cache, postgres_cursor):
     if expt_id not in expt_id_cache:
+        if not postgres_cursor:
+            sys.exit('Error: postgres_cursor must be provided when expt_id is '
+                     'not found in expt_id_cache')
+
         postgres_cursor.execute(
             'SELECT * FROM puffer_experiment WHERE id={};'.format(expt_id))
         rows = postgres_cursor.fetchall()

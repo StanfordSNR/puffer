@@ -1,7 +1,7 @@
 import sys
 import numpy as np
 
-from helpers import get_abr_cc
+from helpers import get_abr_cc, retrieve_expt_config
 
 
 class ListNode:
@@ -67,8 +67,10 @@ class ExpiryList:
             n = n.next
 
 class StreamProcessor:
-    def __init__(self, expt):
+    def __init__(self, expt={}, postgres_cursor=None):
         self.expt = expt
+        self.postgres_cursor = postgres_cursor
+
         self.out = {}  # key: abr_cc; value: {'play': X; 'rebuf': X}
 
         self.smap = {}  # key: session ID; value: {}
@@ -147,7 +149,8 @@ class StreamProcessor:
                 continue
 
             expt_id = str(session[-1])
-            expt_config = self.expt[expt_id]
+            expt_config = retrieve_expt_config(expt_id, self.expt,
+                                               self.postgres_cursor)
 
             abr_cc = get_abr_cc(expt_config)
             if abr_cc not in self.out:
