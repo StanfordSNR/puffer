@@ -9,21 +9,16 @@ from datetime import datetime, timedelta
 from subprocess import check_call
 
 
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument('yaml_settings')
-    args = parser.parse_args()
+time_str = '%Y-%m-%dT%H:%M:%SZ'
+short_time_str = '%Y-%m-%d'
+args = None
+
+
+def report_ssim_rebuffer(curr_ts, days):
+    start_ts = curr_ts - timedelta(days=days)
 
     curr_dir = path.dirname(path.abspath(__file__))
     plot_src = path.join(curr_dir, 'plot_ssim_rebuffer.py')
-
-    days = 1
-    time_str = '%Y-%m-%dT%H:%M:%SZ'
-    short_time_str = '%Y-%m-%d'
-
-    td = datetime.utcnow()
-    curr_ts = datetime(td.year, td.month, td.day, td.hour, 0)
-    start_ts = curr_ts - timedelta(days=days)
 
     time_range = '{}_{}'.format(start_ts.strftime(short_time_str),
                                 curr_ts.strftime(short_time_str))
@@ -50,8 +45,16 @@ def main():
     os.remove(output_fig)
 
     # post output_fig to Zulip
-    content = ('Performance of the ongoing experimental groups '
-               'over the past day:\n' + gs_url)
+    if days == 1:
+        content = ('Performance of ongoing experiments '
+                   'over the past day:\n' + gs_url)
+    elif days == 7:
+        content = ('Performance of ongoing experiments '
+                   'over the past week:\n' + gs_url)
+    else:
+        content = ('Performance of ongoing experiments '
+                   'over the past {} days: {}\n').format(days, gs_url)
+
     payload = [
         ('type', 'stream'),
         ('to', 'puffer-notification'),
@@ -65,6 +68,22 @@ def main():
         print('Posted to Zulip successfully')
     else:
         print('Failed to post to Zulip')
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('yaml_settings')
+    global args
+    args = parser.parse_args()
+
+    td = datetime.utcnow()
+    curr_ts = datetime(td.year, td.month, td.day, td.hour, 0)
+
+    # report the performance over the past day
+    report_ssim_rebuffer(curr_ts, 1)
+
+    # report the performance over the past week
+    report_ssim_rebuffer(curr_ts, 7)
 
 
 if __name__ == '__main__':
