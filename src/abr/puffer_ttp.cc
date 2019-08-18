@@ -149,21 +149,27 @@ void PufferTTP::reinit_sending_time()
 
       if (is_mle_) {
         is_all_ban = false;
-
         size_t max_k = dis_sending_time_;
         double max_value = 0;
+        double good_prob = 0;
         for (size_t k = 0; k < dis_sending_time_; k++) {
           double tmp = output[j][k].item<double>();
 
+          good_prob += tmp;
           if (max_k == dis_sending_time_ or tmp > max_value) {
             max_k = k;
             max_value = tmp;
           }
         }
 
-        for (size_t k = 0; k < dis_sending_time_; k++) {
+        if (good_prob > max_value) {
+          max_k = dis_sending_time_;
+        }
+
+        for (size_t k = 0; k <= dis_sending_time_; k++) {
           sending_time_prob_[i][j][k] = (k == max_k);
         }
+        continue;
       }
 
       double good_prob = 0;
@@ -172,6 +178,7 @@ void PufferTTP::reinit_sending_time()
         double tmp = output[j][k].item<double>();
 
         if (tmp < st_prob_eps_) {
+          sending_time_prob_[i][j][k] = 0;
           continue;
         }
 
