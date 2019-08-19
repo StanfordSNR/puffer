@@ -20,6 +20,9 @@ def run_ttp(ttp_path, yaml_settings_path):
     with open(yaml_settings_path, 'r') as fh:
         yaml_settings = yaml.safe_load(fh)
 
+    new_model_dir = None
+
+    # only retrain one model for now: bbr, puffer_ttp_cl ("bbr-DATE-i")
     for expt in yaml_settings['experiments']:
         fingerprint = expt['fingerprint']
 
@@ -28,6 +31,8 @@ def run_ttp(ttp_path, yaml_settings_path):
             continue
 
         cc = fingerprint['cc']
+        if cc != 'bbr':
+            continue
 
         # find a name for the new model_dir
         old_model_dir = fingerprint['abr_config']['model_dir']
@@ -65,7 +70,23 @@ def run_ttp(ttp_path, yaml_settings_path):
         check_call('gsutil cp {} {}'.format(tar_file, gs_url),
                    shell=True, cwd=model_parent_dir)
 
-        # update model_dir
+    if new_model_dir is None:
+        sys.stderr.write('Warning: not performing continual learning\n')
+        return
+
+    # update model_dir
+    for expt in yaml_settings['experiments']:
+        fingerprint = expt['fingerprint']
+
+        # share the new model among all abr_name containing 'puffer_ttp_cl'
+        if ('abr_name' not in fingerprint or
+            'puffer_ttp_cl' not in fingerprint['abr_name']):
+            continue
+
+        cc = fingerprint['cc']
+        if cc != 'bbr':
+            continue
+
         fingerprint['abr_config']['model_dir'] = new_model_dir
 
     # write YAML settings with updated model_dir back to disk
