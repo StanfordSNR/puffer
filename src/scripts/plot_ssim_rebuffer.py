@@ -15,7 +15,7 @@ import matplotlib.pyplot as plt
 from helpers import (
     connect_to_influxdb, datetime_iter, ssim_index_to_db, get_ssim_index,
     get_abr_cc, query_measurement, retrieve_expt_config, connect_to_postgres)
-from stream_processor import StreamProcessor
+from stream_processor import BufferStream
 
 
 backup_hour = 11  # back up at 11 AM (UTC) every day
@@ -68,7 +68,7 @@ def collect_ssim():
     return d
 
 
-def do_collect_rebuffer(s_str, e_str, stream_processor):
+def do_collect_rebuffer(s_str, e_str, buffer_stream):
     sys.stderr.write('Processing client_buffer data between {} and {}\n'
                      .format(s_str, e_str))
     sys.stderr.flush()
@@ -76,18 +76,18 @@ def do_collect_rebuffer(s_str, e_str, stream_processor):
                                               s_str, e_str)
 
     for pt in client_buffer_results['client_buffer']:
-        stream_processor.add_data_point(pt)
+        buffer_stream.add_data_point(pt)
 
 
 def collect_rebuffer():
-    stream_processor = StreamProcessor(expt, postgres_cursor)
+    buffer_stream = BufferStream(expt, postgres_cursor)
 
     for s_str, e_str in datetime_iter(args.start_time, args.end_time):
-        do_collect_rebuffer(s_str, e_str, stream_processor)
+        do_collect_rebuffer(s_str, e_str, buffer_stream)
 
-    stream_processor.done()
+    buffer_stream.done()
 
-    return stream_processor.out
+    return buffer_stream.out
 
 
 def plot_ssim_rebuffer(ssim, rebuffer):

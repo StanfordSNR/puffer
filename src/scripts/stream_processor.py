@@ -66,12 +66,13 @@ class ExpiryList:
             print(n.ts, n.val)
             n = n.next
 
-class StreamProcessor:
+class BufferStream:
     def __init__(self, expt={}, postgres_cursor=None):
         self.expt = expt
         self.postgres_cursor = postgres_cursor
 
-        self.out = {}  # key: abr_cc; value: {'play': X; 'rebuf': X}
+        # key: (abr, cc); value: {'total_play': ...; 'total_rebuf': ...}
+        self.out = {}
 
         self.smap = {}  # key: session ID; value: {}
         self.expiry_list = ExpiryList(np.timedelta64(1, 'm'))
