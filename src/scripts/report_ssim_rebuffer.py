@@ -45,15 +45,15 @@ def report_ssim_rebuffer(curr_ts, days):
     os.remove(output_fig)
 
     # post output_fig to Zulip
+    template = 'Performance of ongoing experiments over the past {}:\n' + gs_url
     if days == 1:
-        content = ('Performance of ongoing experiments '
-                   'over the past day:\n' + gs_url)
+        content = template.format('day')
     elif days == 7:
-        content = ('Performance of ongoing experiments '
-                   'over the past week:\n' + gs_url)
+        content = template.format('week')
+    elif days == 14:
+        content = template.format('two weeks')
     else:
-        content = ('Performance of ongoing experiments '
-                   'over the past {} days: {}\n').format(days, gs_url)
+        content = template.format('{} days'.format(days))
 
     payload = [
         ('type', 'stream'),
@@ -84,6 +84,9 @@ def main():
 
     # report the performance over the past week
     report_ssim_rebuffer(curr_ts, 7)
+
+    # report the performance over the past two weeks
+    report_ssim_rebuffer(curr_ts, 14)
 
 
 if __name__ == '__main__':
