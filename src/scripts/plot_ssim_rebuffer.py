@@ -85,7 +85,7 @@ def collect_rebuffer():
     for s_str, e_str in datetime_iter(args.start_time, args.end_time):
         do_collect_rebuffer(s_str, e_str, buffer_stream)
 
-    buffer_stream.done()
+    buffer_stream.done_data_points()
 
     return buffer_stream.out
 

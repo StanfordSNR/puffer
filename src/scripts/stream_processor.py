@@ -1,7 +1,12 @@
 import sys
 import numpy as np
 
-from helpers import get_abr_cc, retrieve_expt_config
+from helpers import (get_abr_cc, retrieve_expt_config, get_ssim_index,
+                     datetime_iter, query_measurement)
+
+
+VIDEO_DURATION = 180180
+MILLION = 1000000
 
 
 class ListNode:
@@ -10,6 +15,7 @@ class ListNode:
         self.next = None
         self.ts = ts
         self.val = val
+
 
 class ExpiryList:
     def __init__(self, expiry):
@@ -65,6 +71,7 @@ class ExpiryList:
         while n != self.tail:
             print(n.ts, n.val)
             n = n.next
+
 
 class BufferStream:
     def __init__(self, expt={}, postgres_cursor=None):
@@ -259,6 +266,184 @@ class BufferStream:
         self.process_pt(pt, ts, session)
 
     # called after the last data point to process the remaining data
-    def done(self):
+    def done_data_points(self):
         self.expiry_list.expire_all()
         self.process_expired()
+
+
+class VideoStream:
+    def __init__(self):
+        self.out = {}  # { session ID: { video ts: {} } }
+
+        self.smap = {}  # key: session ID; value: {}
+        self.expiry_list = ExpiryList(np.timedelta64(1, 'm'))
+
+        self.get_expired_called = False
+
+    def update_map_list(self, ts, session):
+        if session not in self.smap:
+            node = ListNode(ts, session)
+            self.smap[session] = node
+            self.expiry_list.append(node)
+
+            self.out[session] = {}
+        else:
+            node = self.smap[session]
+
+            self.expiry_list.remove(node)
+            node.ts = ts
+            self.expiry_list.append(node)
+
+    def process_video_sent_pt(self, pt, ts, session):
+        video_ts = int(pt['video_ts'])
+
+        # if out[session] is not empty, then last_ts must exist
+        if self.out[session]:
+            last_ts = video_ts - VIDEO_DURATION
+            if last_ts not in self.out[session]:
+                sys.stderr.write('Warning: skipped non-consecutive session {}\n'
+                                 .format(session))
+                return
+
+        self.out[session][video_ts] = {}
+        sv = self.out[session][video_ts]  # short name
+
+        sv['sent_ts'] = ts
+        sv['format'] = pt['format']
+        sv['size'] = float(pt['size'])  # bytes
+        sv['delivery_rate'] = float(pt['delivery_rate'])  # byte/second
+        sv['cwnd'] = float(pt['cwnd'])  # packets
+        sv['in_flight'] = float(pt['in_flight'])  # packets
+        sv['min_rtt'] = float(pt['min_rtt']) / MILLION  # us -> s
+        sv['rtt'] = float(pt['rtt']) / MILLION  # us -> s
+        sv['ssim_index'] = get_ssim_index(pt)  # unitless
+        sv['channel'] = pt['channel']
+
+    def process_video_acked_pt(self, pt, ts, session):
+        if session not in self.out:
+            return
+
+        video_ts = int(pt['video_ts'])
+        if video_ts not in self.out[session]:
+            return
+
+        sv = self.out[session][video_ts]  # short name
+        sv['trans_time'] = (ts - sv['sent_ts']) / np.timedelta64(1, 's')
+
+    def add_data_point(self, pt, measurement):
+        if measurement != 'video_sent' and measurement != 'video_acked':
+            sys.exit('VideoStream: measurement {} is not supported'
+                     .format(measurement))
+
+        session = (pt['user'], pt['init_id'], pt['expt_id'])
+        ts = np.datetime64(pt['time'])
+
+        # update smap and expiry_list
+        self.update_map_list(ts, session)
+
+        # process the current data point
+        if measurement == 'video_sent':
+            self.process_video_sent_pt(pt, ts, session)
+        elif measurement == 'video_acked':
+            self.process_video_acked_pt(pt, ts, session)
+
+    # must call done_expired after get_expired
+    def get_expired_sessions(self):
+        if self.get_expired_called:
+            sys.exit('Must call done_expired_sessions '
+                     'after get_expired_sessions')
+        self.get_expired_called = True
+
+        # clean up video_ts without trans_time
+        ret = []
+        for session in self.expiry_list.expired:
+            video_ts_to_remove = []
+            for video_ts in self.out[session]:
+                sv = self.out[session][video_ts]  # short name
+
+                if 'trans_time' not in sv or sv['trans_time'] <= 0:
+                    video_ts_to_remove.append(video_ts)
+                    continue
+
+            for video_ts in video_ts_to_remove:
+                del self.out[session][video_ts]
+
+            if self.out[session]:
+                ret.append(session)
+
+        # caller can use out[session] for session in ret
+        return ret
+
+    # must call get_expired before done_expired
+    def clean_expired_sessions(self):
+        if not self.get_expired_called:
+            sys.exit('Must call get_expired_sessions '
+                     'before done_expired_sessions')
+        self.get_expired_called = False
+
+        for session in self.expiry_list.expired:
+            del self.smap[session]
+            del self.out[session]
+        self.expiry_list.expired = []
+
+    # called after the last data point to process the remaining data
+    def done_data_points(self):
+        self.expiry_list.expire_all()
+
+
+class VideoStreamCallback:
+    def __init__(self, callback):
+        self.video_stream = VideoStream()
+        self.callback = callback
+
+    def process_expired_sessions(self):
+        sessions = self.video_stream.get_expired_sessions()
+
+        # call the callback function with each session
+        for session in sessions:
+            self.callback(self.video_stream.out[session])
+
+        self.video_stream.clean_expired_sessions()
+
+    def do_process(self, influx_client, s_str, e_str):
+        gen = {}
+        gen['video_sent'] = query_measurement(influx_client, 'video_sent',
+                                              s_str, e_str)['video_sent']
+        gen['video_acked'] = query_measurement(influx_client, 'video_acked',
+                                               s_str, e_str)['video_acked']
+
+        it = {}
+        for measurement in ['video_sent', 'video_acked']:
+            it[measurement] = next(gen[measurement], None)
+
+        while True:
+            next_ts = None
+            next_measurement = None
+
+            for measurement in ['video_sent', 'video_acked']:
+                item = it[measurement]
+                if not item:
+                    continue
+
+                ts = np.datetime64(item['time'])
+                if next_ts is None or ts < next_ts:
+                    next_ts = ts
+                    next_measurement = measurement
+
+            if next_measurement is None:
+                break
+
+            self.video_stream.add_data_point(it[next_measurement],
+                                             next_measurement)
+            it[next_measurement] = next(gen[next_measurement], None)
+
+            self.process_expired_sessions()
+
+    def process(self, influx_client, start_time, end_time):
+        for s_str, e_str in datetime_iter(start_time, end_time):
+            sys.stderr.write('Processing video_sent and video_acked data '
+                             'between {} and {}\n'.format(s_str, e_str))
+            self.do_process(influx_client, s_str, e_str)
+
+        self.video_stream.done_data_points()
+        self.process_expired_sessions()
