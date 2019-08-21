@@ -297,14 +297,6 @@ class VideoStream:
     def process_video_sent_pt(self, pt, ts, session):
         video_ts = int(pt['video_ts'])
 
-        # if out[session] is not empty, then last_ts must exist
-        if self.out[session]:
-            last_ts = video_ts - VIDEO_DURATION
-            if last_ts not in self.out[session]:
-                sys.stderr.write('Warning: skipped non-consecutive session {}\n'
-                                 .format(session))
-                return
-
         self.out[session][video_ts] = {}
         sv = self.out[session][video_ts]  # short name
 
