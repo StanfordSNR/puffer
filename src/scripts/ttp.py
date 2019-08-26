@@ -664,7 +664,7 @@ def train(i, args, model, input_data, output_data):
 
 def train_or_eval_model(i, args, raw_in_data, raw_out_data):
     # reduce number of threads as we're running FUTURE_CHUNKS parallel processes
-    num_threads = int(torch.get_num_threads() / Model.FUTURE_CHUNKS)
+    num_threads = max(1, int(torch.get_num_threads() / Model.FUTURE_CHUNKS))
     torch.set_num_threads(num_threads)
 
     # create or load a model
