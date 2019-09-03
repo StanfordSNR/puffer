@@ -263,6 +263,7 @@ void run_windowcleaner(ProcessManager & proc_manager,
 
 void run_decoder(ProcessManager & proc_manager,
                  const fs::path & output_path,
+                 const string & channel_name,
                  const YAML::Node & config)
 {
   /* prepare directories */
@@ -276,11 +277,12 @@ void run_decoder(ProcessManager & proc_manager,
 
   string decoder = src_path / "atsc/decoder";
   vector<string> decoder_args = split(config["decoder_args"].as<string>(), " ");
+  string decoder_log = src_path / "atsc" / (channel_name + "_decoder.log");
 
   vector<string> args { decoder, video_raw, audio_raw, "--tmp", tmp_raw };
   args.insert(args.begin() + 1, decoder_args.begin(), decoder_args.end());
 
-  proc_manager.run_as_child(decoder, args);
+  proc_manager.run_as_child(decoder, args, {}, {}, decoder_log);
 }
 
 void run_pipeline(ProcessManager & proc_manager,
@@ -343,7 +345,7 @@ void run_pipeline(ProcessManager & proc_manager,
 
   /* run decoder */
   if (not no_decoder) {
-    run_decoder(proc_manager, output_path, channel_config);
+    run_decoder(proc_manager, output_path, channel_name, channel_config);
   }
 }
 

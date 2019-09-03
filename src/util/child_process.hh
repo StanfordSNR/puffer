@@ -74,7 +74,8 @@ public:
   pid_t run_as_child(const std::string & program,
                      const std::vector<std::string> & prog_args,
                      const callback_t & callback = {},
-                     const callback_t & error_callback = {});
+                     const callback_t & error_callback = {},
+                     const std::string & log_path = "");
 
   /* return when all the child processes exit */
   int wait();

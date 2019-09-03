@@ -1,6 +1,5 @@
 /* -*-mode:c++; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4 -*- */
 
-#include <sys/types.h>
 #include <sys/wait.h>
 #include <cassert>
 #include <cstdlib>
@@ -9,6 +8,7 @@
 #include <cstring>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <fcntl.h>
 #include <unistd.h>
 
 #include "child_process.hh"
@@ -211,11 +211,23 @@ ProcessManager::ProcessManager()
 pid_t ProcessManager::run_as_child(const string & program,
                                    const vector<string> & prog_args,
                                    const callback_t & callback,
-                                   const callback_t & error_callback)
+                                   const callback_t & error_callback,
+                                   const std::string & log_path)
 {
   auto child = ChildProcess(program,
-    [&program, &prog_args]() {
+    [&program, &prog_args, &log_path]() {
       /* references won't be dangling as they will be used immediately */
+      if (not log_path.empty()) {
+        /* redirect stdout and stderr to log_path */
+        FileDescriptor fd(CheckSystemCall("open (" + log_path + ")",
+            open(log_path.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644)));
+
+        CheckSystemCall("dup2", dup2(fd.fd_num(), STDOUT_FILENO));
+        CheckSystemCall("dup2", dup2(fd.fd_num(), STDERR_FILENO));
+
+        fd.close();
+      }
+
       return ezexec(program, prog_args);
     }
   );
