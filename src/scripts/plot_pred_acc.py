@@ -23,9 +23,9 @@ expt = {}
 influx_client = None
 ttp_model = Model()
 linear_model = Linear_Model()
-result = {'ttp': {'bin': 0, 'l1': 0},
-        'linear': {'bin': 0, 'l1': 0},
-        'harmonic': {'bin': 0, 'l1': 0}}
+result = {'ttp': {'bin': 0, 'l1': 0, 'cut':0, 'l2':0},
+        'linear': {'bin': 0, 'l1': 0, 'cut':0, 'l2':0},
+        'harmonic': {'bin': 0, 'l1': 0, 'cut':0, 'l2':0}}
 tot = 0
 
 
@@ -82,11 +82,31 @@ def distr_l1_pred(distr):
 
     return ret
 
+def distr_l2_pred(distr):
+    ret = []
+    for dis in distr:
+        cnt = 0
+        for i in range(len(dis)):
+            if i == 0:
+                cnt += dis[i] * 0.5 * Model.BIN_SIZE
+            else:
+                cnt += dis[i] * i * Model.BIN_SIZE
+
+        ret.append(cnt)
+
+    return ret
+
 def bin_acc(y, _y):
-    return  discretize_output(y) == discretize_output(_y)
+    return  discretize_output(y) != discretize_output(_y)
 
 def l1_loss(y, _y):
     return np.abs(y - _y)
+
+def cut_acc(y, _y):
+    return np.abs(y - _y) > Model.BIN_SIZE * 0.5
+
+def l2_loss(y, _y):
+    return (y - _y) * (y - _y)
 
 def harmonic_pred(chunks):
     prev_trans = 0
@@ -126,27 +146,35 @@ def process_session(s):
         # ttp
         bin_ttp_out = distr_bin_pred(ttp_distr)
         l1_ttp_out = distr_l1_pred(ttp_distr)
+        l2_ttp_out = distr_l2_pred(ttp_distr)
 
         result['ttp']['bin'] += bin_acc(bin_ttp_out[0], raw_out[0])
         result['ttp']['l1'] += l1_loss(l1_ttp_out[0], raw_out[0])
+        result['ttp']['cut'] += cut_acc(bin_ttp_out[0], raw_out[0])
+        result['ttp']['l2'] += l2_loss(l2_ttp_out[0], raw_out[0])
 
         # linear
         bin_linear_out = distr_bin_pred(linear_distr)
         l1_linear_out = distr_l1_pred(linear_distr)
+        l2_linear_out = distr_l2_pred(linear_distr)
 
         result['linear']['bin'] += bin_acc(bin_linear_out[0], raw_out[0])
         result['linear']['l1'] += l1_loss(l1_linear_out[0], raw_out[0])
+        result['linear']['cut'] += cut_acc(bin_linear_out[0], raw_out[0])
+        result['linear']['l2'] += l2_loss(l2_linear_out[0], raw_out[0])
 
         # harmonic
         harm_out = harmonic_pred(chunks)
 
         result['harmonic']['bin'] += bin_acc(harm_out[0], raw_out[0])
         result['harmonic']['l1'] += l1_loss(harm_out[0], raw_out[0])
+        result['harmonic']['cut'] += cut_acc(harm_out[0], raw_out[0])
+        result['harmonic']['l2'] += l2_loss(harm_out[0], raw_out[0])
 
         if tot % 1000 == 0:
             print('For tot:', tot)
             for pred in ['ttp', 'linear', 'harmonic']:
-                for term in ['bin', 'l1']:
+                for term in ['bin', 'l1', 'cut', 'l2']:
                     print(pred + ' ' + term + ': {:.5f}'.format(
                           result[pred][term] / tot))
 
@@ -184,7 +212,7 @@ def main():
     video_stream.process(influx_client, args.start_time, args.end_time)
 
     with open(args.output, 'w') as fh:
-        for term in ['bin', 'l1']:
+        for term in ['bin', 'l1', 'cut', 'l2']:
             fh.write(term + ':')
             for pred in ['linear', 'ttp', 'harmonic']:
                 fh.write(pred + ': {:.5f}, '.format(
