@@ -55,11 +55,7 @@ class Model:
     def __init__(self, model_path=None):
         # define model, loss function, and optimizer
         self.model = torch.nn.Sequential(
-            torch.nn.Linear(Model.DIM_IN, Model.DIM_H1),
-            torch.nn.ReLU(),
-            torch.nn.Linear(Model.DIM_H1, Model.DIM_H2),
-            torch.nn.ReLU(),
-            torch.nn.Linear(Model.DIM_H2, Model.DIM_OUT),
+            torch.nn.Linear(Model.DIM_IN, Model.DIM_OUT),
         ).double().to(device=DEVICE)
         self.loss_fn = torch.nn.CrossEntropyLoss().to(device=DEVICE)
         self.optimizer = torch.optim.Adam(self.model.parameters(),
@@ -284,10 +280,6 @@ def check_args(args):
 
     # continual learning
     if args.cl:
-        if not args.load_model or not args.save_model:
-            sys.exit('Error: pass --load-model and --save-model to perform '
-                     'continual learning')
-
         if args.time_start or args.time_end:
             sys.exit('Error: --cl conflicts with --from and --to; it has its '
                      'own strategy to sample data from specific durations')
@@ -297,7 +289,7 @@ def check_args(args):
 
         # reduce number of epochs if training on a previous model
         global NUM_EPOCHS
-        NUM_EPOCHS = 300
+        NUM_EPOCHS = 50
 
 
 def calculate_trans_times(video_sent_results, video_acked_results,
@@ -513,7 +505,7 @@ def prepare_cl_data(args):
     ret = [{'in':[], 'out':[]} for _ in range(Model.FUTURE_CHUNKS)]
 
     time_str = '%Y-%m-%dT%H:%M:%SZ'
-    td = datetime.utcnow()
+    td = datetime(2019, 8, 15, 11)
     today = datetime(td.year, td.month, td.day, td.hour, 0)
 
     # sample data from the past week
