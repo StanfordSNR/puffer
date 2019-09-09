@@ -13,10 +13,9 @@ import matplotlib.pyplot as plt
 
 from helpers import connect_to_influxdb
 from stream_processor import VideoStreamCallback
-from ttp import Model
+from ttp import Model, PKT_BYTES
 from ttp2 import Model as Linear_Model
 
-PKT_BYTES = 1500
 VIDEO_DURATION = 180180
 
 args = None
@@ -24,8 +23,17 @@ expt = {}
 influx_client = None
 ttp_model = Model()
 linear_model = Linear_Model()
-result = {'ttp': 0, 'linear': 0, 'harmonic': 0}
+result = {'ttp': {'bin': 0, 'l1': 0},
+        'linear': {'bin': 0, 'l1': 0},
+        'harmonic': {'bin': 0, 'l1': 0}}
 tot = 0
+
+
+def discretize_output(raw_out):
+    z = np.array(raw_out)
+
+    z = np.floor((z + 0.5 * Model.BIN_SIZE) / Model.BIN_SIZE).astype(int)
+    return np.clip(z, 0, Model.BIN_MAX)
 
 
 def prepare_intput_output(chunks):
@@ -44,7 +52,41 @@ def model_pred(model, raw_in):
     input_data = model.normalize_input(raw_in, update_obs=False)
     model.set_model_eval()
 
-    return model.predict(input_data)
+    return model.predict_distr(input_data)
+
+def distr_bin_pred(distr):
+    max_bin = np.argmax(distr, axis=1)
+    ret = []
+    for bin_id in max_bin:
+        if bin_id == 0:  # the first bin is defined differently
+            ret.append(0.25 * Model.BIN_SIZE)
+        else:
+            ret.append(bin_id * Model.BIN_SIZE)
+
+    return ret
+
+def distr_l1_pred(distr):
+    ret = []
+    for dis in distr:
+        cnt = 0
+        for i in range(len(dis)):
+            cnt += dis[i]
+            if cnt > 0.5:
+                break
+
+        if i == 0:
+            ret.append(0.5 * Model.BIN_SIZE / cnt * 0.5)
+        else:
+            tmp = 0.5 - cnt + 0.5 * dis[i]
+            ret.append((i + tmp / dis[i]) * Model.BIN_SIZE)
+
+    return ret
+
+def bin_acc(y, _y):
+    return  discretize_output(y) == discretize_output(_y)
+
+def l1_loss(y, _y):
+    return np.abs(y - _y)
 
 def harmonic_pred(chunks):
     prev_trans = 0
@@ -78,33 +120,35 @@ def process_session(s):
 
         tot += 1
         (raw_in, raw_out) = prepare_intput_output(chunks)
-        output = ttp_model.discretize_output(raw_out)
-        # ttp
-        raw_ttp_out = model_pred(ttp_model, raw_in)
-        ttp_out = ttp_model.discretize_output(raw_ttp_out)
+        ttp_distr = model_pred(ttp_model, raw_in)
+        linear_distr = model_pred(linear_model, raw_in)
 
-        if ttp_out[0] == output[0]:
-            result['ttp'] += 1
+        # ttp
+        bin_ttp_out = distr_bin_pred(ttp_distr)
+        l1_ttp_out = distr_l1_pred(ttp_distr)
+
+        result['ttp']['bin'] += bin_acc(bin_ttp_out[0], raw_out[0])
+        result['ttp']['l1'] += l1_loss(l1_ttp_out[0], raw_out[0])
 
         # linear
-        raw_linear_out = model_pred(linear_model, raw_in)
-        linear_out = ttp_model.discretize_output(raw_linear_out)
+        bin_linear_out = distr_bin_pred(linear_distr)
+        l1_linear_out = distr_l1_pred(linear_distr)
 
-        if linear_out[0] == output[0]:
-            result['linear'] += 1
+        result['linear']['bin'] += bin_acc(bin_linear_out[0], raw_out[0])
+        result['linear']['l1'] += l1_loss(l1_linear_out[0], raw_out[0])
 
         # harmonic
-        raw_harm_out = harmonic_pred(chunks)
-        harm_out = ttp_model.discretize_output(raw_harm_out)
+        harm_out = harmonic_pred(chunks)
 
-        if harm_out[0] == output[0]:
-            result['harmonic'] += 1
+        result['harmonic']['bin'] += bin_acc(harm_out[0], raw_out[0])
+        result['harmonic']['l1'] += l1_loss(harm_out[0], raw_out[0])
 
         if tot % 1000 == 0:
-            print("For tot:", tot)
-            print("ttp pred acc: %5f" % (result['ttp'] / tot))
-            print("linear pred acc: %5f" % (result['linear'] / tot))
-            print("harmonic pred acc: %5f" % (result['harmonic'] / tot))
+            print('For tot:', tot)
+            for pred in ['ttp', 'linear', 'harmonic']:
+                for term in ['bin', 'l1']:
+                    print(pred + ' ' + term + ': {:.5f}'.format(
+                          result[pred][term] / tot))
 
 def main():
     parser = argparse.ArgumentParser()
@@ -140,9 +184,12 @@ def main():
     video_stream.process(influx_client, args.start_time, args.end_time)
 
     with open(args.output, 'w') as fh:
-        fh.write("Pred Acc: ttp: {:.5f}, linear: {:.5f}, harmonic: {:.5f}"
-                .format(result['ttp'] / tot, result['linear'] / tot,
-                 result['harmonic'] / tot))
+        for term in ['bin', 'l1']:
+            fh.write(term + ':')
+            for pred in ['linear', 'ttp', 'harmonic']:
+                fh.write(pred + ': {:.5f}, '.format(
+                      result[pred][term] / tot))
+            fh.write('\n')
 
 if __name__ == '__main__':
     main()
