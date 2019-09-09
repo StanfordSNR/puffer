@@ -24,6 +24,7 @@ influx_client = None
 ttp_model = Model()
 linear_model = Linear_Model()
 result = {'ttp': {'bin': 0, 'l1': 0, 'cut':0, 'l2':0},
+        'ttp_mle': {'bin': 0, 'l1': 0, 'cut':0, 'l2':0},
         'linear': {'bin': 0, 'l1': 0, 'cut':0, 'l2':0},
         'harmonic': {'bin': 0, 'l1': 0, 'cut':0, 'l2':0}}
 tot = 0
@@ -153,6 +154,12 @@ def process_session(s):
         result['ttp']['cut'] += cut_acc(bin_ttp_out[0], raw_out[0])
         result['ttp']['l2'] += l2_loss(l2_ttp_out[0], raw_out[0])
 
+        # ttp_mle
+        result['ttp_mle']['bin'] += bin_acc(bin_ttp_out[0], raw_out[0])
+        result['ttp_mle']['l1'] += l1_loss(bin_ttp_out[0], raw_out[0])
+        result['ttp_mle']['cut'] += cut_acc(bin_ttp_out[0], raw_out[0])
+        result['ttp_mle']['l2'] += l2_loss(bin_ttp_out[0], raw_out[0])
+
         # linear
         bin_linear_out = distr_bin_pred(linear_distr)
         l1_linear_out = distr_l1_pred(linear_distr)
@@ -173,7 +180,7 @@ def process_session(s):
 
         if tot % 1000 == 0:
             print('For tot:', tot)
-            for pred in ['ttp', 'linear', 'harmonic']:
+            for pred in ['ttp', 'ttp_mle', 'linear', 'harmonic']:
                 for term in ['bin', 'l1', 'cut', 'l2']:
                     print(pred + ' ' + term + ': {:.5f}'.format(
                           result[pred][term] / tot))
@@ -214,7 +221,7 @@ def main():
     with open(args.output, 'w') as fh:
         for term in ['bin', 'l1', 'cut', 'l2']:
             fh.write(term + ':')
-            for pred in ['linear', 'ttp', 'harmonic']:
+            for pred in ['ttp', 'ttp_mle', 'linear', 'harmonic']:
                 fh.write(pred + ': {:.5f}, '.format(
                       result[pred][term] / tot))
             fh.write('\n')
