@@ -15,9 +15,9 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
 from helpers import (
-    connect_to_influxdb, connect_to_postgres, try_parsing_time,
+    connect_to_influxdb, connect_to_postgres,
     make_sure_path_exists, retrieve_expt_config, create_time_clause,
-    get_ssim_index)
+    get_expt_id, get_user)
 
 
 VIDEO_DURATION = 180180
@@ -317,8 +317,8 @@ def calculate_trans_times(video_sent_results, video_acked_results,
     last_video_ts = {}
 
     for pt in video_sent_results['video_sent']:
-        expt_id = int(pt['expt_id'])
-        session = (pt['user'], int(pt['init_id']),
+        expt_id = get_expt_id(pt)
+        session = (get_user(pt), int(pt['init_id']),
                    pt['channel'], expt_id)
 
         # filter data points by congestion control
@@ -342,19 +342,18 @@ def calculate_trans_times(video_sent_results, video_acked_results,
         d[session][video_ts] = {}
         dsv = d[session][video_ts]  # short name
 
-        dsv['sent_ts'] = try_parsing_time(pt['time'])
-        dsv['size'] = float(pt['size'])  # bytes -> packets
+        dsv['sent_ts'] = np.datetime64(pt['time'])
+        dsv['size'] = float(pt['size']) / PKT_BYTES  # bytes -> packets
         # byte/second -> packet/second
-        dsv['delivery_rate'] = float(pt['delivery_rate'])
+        dsv['delivery_rate'] = float(pt['delivery_rate']) / PKT_BYTES
         dsv['cwnd'] = float(pt['cwnd'])
         dsv['in_flight'] = float(pt['in_flight'])
         dsv['min_rtt'] = float(pt['min_rtt']) / MILLION  # us -> s
         dsv['rtt'] = float(pt['rtt']) / MILLION  # us -> s
-        dsv['ssim_index'] = get_ssim_index(pt)  # unitless
 
     for pt in video_acked_results['video_acked']:
-        expt_id = int(pt['expt_id'])
-        session = (pt['user'], int(pt['init_id']),
+        expt_id = get_expt_id(pt)
+        session = (get_user(pt), int(pt['init_id']),
                    pt['channel'], expt_id)
 
         # filter data points by congestion control
@@ -374,9 +373,9 @@ def calculate_trans_times(video_sent_results, video_acked_results,
 
         # calculate transmission time
         sent_ts = dsv['sent_ts']
-        acked_ts = try_parsing_time(pt['time'])
+        acked_ts = np.datetime64(pt['time'])
         dsv['acked_ts'] = acked_ts
-        dsv['trans_time'] = (acked_ts - sent_ts).total_seconds()
+        dsv['trans_time'] = (acked_ts - sent_ts) / np.timedelta64(1, 's')
 
     return d
 
