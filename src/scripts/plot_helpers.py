@@ -72,7 +72,7 @@ def distr_l2_pred(distr):
         cnt = 0
         for i in range(len(dis)):
             if i == 0:
-                cnt += dis[i] * 0.5 * Model.BIN_SIZE
+                cnt += dis[i] * 0.25 * Model.BIN_SIZE
             else:
                 cnt += dis[i] * i * Model.BIN_SIZE
 
