@@ -116,7 +116,7 @@ def restore(f, influx_client):
     d = download_untar(f)
 
     # restore to a temporary database (with retries)
-    for retry in range(10):
+    for retry in range(5):
         influx_client.drop_database(TMP_DB)
 
         cmd = ('influxd restore -portable -db {} -newdb {} {}'
@@ -128,7 +128,7 @@ def restore(f, influx_client):
 
         # workaround: sleep for a while to avoid influxdb errors
         # possible errors: shard is disabled, engine is closed
-        time.sleep(2 ** retry)
+        time.sleep(5 * (retry + 1))
 
         try:
             # sideload the data into the destination database (with retries)
