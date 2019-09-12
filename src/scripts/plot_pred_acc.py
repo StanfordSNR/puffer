@@ -25,10 +25,14 @@ expt = {}
 influx_client = None
 ttp_model = Model()
 linear_model = Linear_Model()
-result = {'ttp': {'bin': 0, 'l1': 0, 'cut':0, 'l2':0},
-        'ttp_mle': {'bin': 0, 'l1': 0, 'cut':0, 'l2':0},
-        'linear': {'bin': 0, 'l1': 0, 'cut':0, 'l2':0},
-        'harmonic': {'bin': 0, 'l1': 0, 'cut':0, 'l2':0}}
+terms = ['bin', 'l1', 'l2']
+predictors = ['ttp', 'ttp_mle', 'ttp_ave', 'ttp_mid', 'linear', 'harmonic']
+result = {'ttp': {'bin': 0, 'l1': 0, 'l2':0},
+        'ttp_mle': {'bin': 0, 'l1': 0, 'l2':0},
+        'ttp_ave': {'bin': 0, 'l1': 0, 'l2':0},
+        'ttp_mid': {'bin': 0, 'l1': 0, 'l2':0},
+        'linear': {'bin': 0, 'l1': 0, 'l2':0},
+        'harmonic': {'bin': 0, 'l1': 0, 'l2':0}}
 tot = 0
 
 
@@ -38,6 +42,8 @@ def process_session(s):
     global ttp_model
     global linear_model
     global expt
+    global terms
+    global predictors
 
     past_chunks = ttp_model.PAST_CHUNKS
 
@@ -65,14 +71,22 @@ def process_session(s):
 
         result['ttp']['bin'] += bin_acc(bin_ttp_out[0], raw_out[0])
         result['ttp']['l1'] += l1_loss(l1_ttp_out[0], raw_out[0])
-        result['ttp']['cut'] += cut_acc(bin_ttp_out[0], raw_out[0])
         result['ttp']['l2'] += l2_loss(l2_ttp_out[0], raw_out[0])
 
         # ttp_mle
         result['ttp_mle']['bin'] += bin_acc(bin_ttp_out[0], raw_out[0])
         result['ttp_mle']['l1'] += l1_loss(bin_ttp_out[0], raw_out[0])
-        result['ttp_mle']['cut'] += cut_acc(bin_ttp_out[0], raw_out[0])
         result['ttp_mle']['l2'] += l2_loss(bin_ttp_out[0], raw_out[0])
+
+        # ttp_ave
+        result['ttp_ave']['bin'] += bin_acc(l2_ttp_out[0], raw_out[0])
+        result['ttp_ave']['l1'] += l1_loss(l2_ttp_out[0], raw_out[0])
+        result['ttp_ave']['l2'] += l2_loss(l2_ttp_out[0], raw_out[0])
+
+        # ttp_mid
+        result['ttp_mid']['bin'] += bin_acc(l1_ttp_out[0], raw_out[0])
+        result['ttp_mid']['l1'] += l1_loss(l1_ttp_out[0], raw_out[0])
+        result['ttp_mid']['l2'] += l2_loss(l1_ttp_out[0], raw_out[0])
 
         # linear
         bin_linear_out = distr_bin_pred(linear_distr)
@@ -81,7 +95,6 @@ def process_session(s):
 
         result['linear']['bin'] += bin_acc(bin_linear_out[0], raw_out[0])
         result['linear']['l1'] += l1_loss(l1_linear_out[0], raw_out[0])
-        result['linear']['cut'] += cut_acc(bin_linear_out[0], raw_out[0])
         result['linear']['l2'] += l2_loss(l2_linear_out[0], raw_out[0])
 
         # harmonic
@@ -89,15 +102,13 @@ def process_session(s):
 
         result['harmonic']['bin'] += bin_acc(harm_out[0], raw_out[0])
         result['harmonic']['l1'] += l1_loss(harm_out[0], raw_out[0])
-        result['harmonic']['cut'] += cut_acc(harm_out[0], raw_out[0])
         result['harmonic']['l2'] += l2_loss(harm_out[0], raw_out[0])
 
         if tot % 1000 == 0:
             print('For tot:', tot)
-            for pred in ['ttp', 'ttp_mle', 'linear', 'harmonic']:
-                for term in ['bin', 'l1', 'cut', 'l2']:
-                    print(pred + ' ' + term + ': {:.5f}'.format(
-                          result[pred][term] / tot))
+            for pred in predictors:
+                print(pred + ': ' + ', '.join([term + ':{:.5f}'.format(
+                          result[pred][term] / tot) for term in terms]))
 
 def main():
     parser = argparse.ArgumentParser()
@@ -133,11 +144,9 @@ def main():
     video_stream.process(influx_client, args.start_time, args.end_time)
 
     with open(args.output, 'w') as fh:
-        for term in ['bin', 'l1', 'cut', 'l2']:
-            fh.write(term + ':')
-            for pred in ['ttp', 'ttp_mle', 'linear', 'harmonic']:
-                fh.write(pred + ': {:.5f}, '.format(
-                      result[pred][term] / tot))
+        for pred in predictors:
+            fh.write(pred + ': ' + ', '.join([term + ':{:.5f}'.format(
+                          result[pred][term] / tot) for term in terms]))
             fh.write('\n')
 
 if __name__ == '__main__':
