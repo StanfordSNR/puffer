@@ -30,8 +30,8 @@ NUM_EPOCHS = 500
 CHECKPOINT = 10
 
 CL_MAX_DATA_SIZE = 1000000  # 1 million rows of data
-CL_DISCOUNT = 0.8  # sampling weight discount
-CL_MAX_DAYS = 7  # sample from last 7 days
+CL_DISCOUNT = 0.9  # sampling weight discount
+CL_MAX_DAYS = 14  # sample from last 14 days
 
 TUNING = False
 DEVICE = torch.device('cpu')
@@ -44,7 +44,7 @@ expt_id_cache = {}
 expt = {}
 
 class Model:
-    FUTURE_CHUNKS = 1
+    FUTURE_CHUNKS = 5
     BIN_SIZE = 0.5  # seconds
     BIN_MAX = 20
     DIM_OUT = BIN_MAX + 1
