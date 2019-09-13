@@ -4,6 +4,7 @@ import os
 import sys
 import argparse
 import yaml
+import copy
 import json
 import numpy as np
 
@@ -19,6 +20,8 @@ from plot_helpers import *
 
 
 VIDEO_DURATION = 180180
+MID_SIZE = 766929
+PAST_CHUNKS = 8
 
 args = None
 expt = {}
@@ -26,13 +29,9 @@ influx_client = None
 ttp_model = Model()
 linear_model = Linear_Model()
 terms = ['bin', 'l1', 'l2']
-predictors = ['ttp', 'ttp_mle', 'ttp_ave', 'ttp_mid', 'linear', 'harmonic']
-result = {'ttp': {'bin': 0, 'l1': 0, 'l2':0},
-        'ttp_mle': {'bin': 0, 'l1': 0, 'l2':0},
-        'ttp_ave': {'bin': 0, 'l1': 0, 'l2':0},
-        'ttp_mid': {'bin': 0, 'l1': 0, 'l2':0},
-        'linear': {'bin': 0, 'l1': 0, 'l2':0},
-        'harmonic': {'bin': 0, 'l1': 0, 'l2':0}}
+predictors = ['ttp', 'ttp_mle', 'ttp_tp', 'linear', 'harmonic']
+result = {predictor: {term: 0 for term in terms} for predictor in predictors}
+
 tot = 0
 
 
@@ -44,25 +43,34 @@ def process_session(session, s):
     global expt
     global terms
     global predictors
-
-    past_chunks = ttp_model.PAST_CHUNKS
+    global PAST_CHUNKS
 
     for curr_ts in s:
         chunks = []
 
-        for i in reversed(range(past_chunks + 1)):
+        for i in reversed(range(PAST_CHUNKS + 1)):
             ts = curr_ts - i * VIDEO_DURATION
             if ts not in s:
                 break
             chunks.append(s[ts])
 
-        if len(chunks) != past_chunks + 1:
+        if len(chunks) != PAST_CHUNKS + 1:
             continue
+
+        curr_chunk_size = chunks[0]['size']
 
         tot += 1
         (raw_in, raw_out) = prepare_intput_output(chunks)
+        unit_raw_in = copy.deepcopy(raw_in)
+        unit_raw_in[0][-1] = MID_SIZE / PKT_BYTES
+
         ttp_distr = model_pred(ttp_model, raw_in)
+
         linear_distr = model_pred(linear_model, raw_in)
+
+        ttp_tp_distr = model_pred(ttp_model, unit_raw_in)
+        bin_ttp_tp_out = distr_bin_pred(ttp_tp_distr)
+        bin_ttp_tp_out[0] *= curr_chunk_size / MID_SIZE
 
         # ttp
         bin_ttp_out = distr_bin_pred(ttp_distr)
@@ -78,15 +86,10 @@ def process_session(session, s):
         result['ttp_mle']['l1'] += l1_loss(bin_ttp_out[0], raw_out[0])
         result['ttp_mle']['l2'] += l2_loss(bin_ttp_out[0], raw_out[0])
 
-        # ttp_ave
-        result['ttp_ave']['bin'] += bin_acc(l2_ttp_out[0], raw_out[0])
-        result['ttp_ave']['l1'] += l1_loss(l2_ttp_out[0], raw_out[0])
-        result['ttp_ave']['l2'] += l2_loss(l2_ttp_out[0], raw_out[0])
-
-        # ttp_mid
-        result['ttp_mid']['bin'] += bin_acc(l1_ttp_out[0], raw_out[0])
-        result['ttp_mid']['l1'] += l1_loss(l1_ttp_out[0], raw_out[0])
-        result['ttp_mid']['l2'] += l2_loss(l1_ttp_out[0], raw_out[0])
+        # ttp_tp
+        result['ttp_tp']['bin'] += bin_acc(bin_ttp_tp_out[0], raw_out[0])
+        result['ttp_tp']['l1'] += l1_loss(bin_ttp_tp_out[0], raw_out[0])
+        result['ttp_tp']['l2'] += l2_loss(bin_ttp_tp_out[0], raw_out[0])
 
         # linear
         bin_linear_out = distr_bin_pred(linear_distr)
