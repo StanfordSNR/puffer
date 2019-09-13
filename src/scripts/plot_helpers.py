@@ -12,6 +12,8 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plti
 from ttp import Model, PKT_BYTES
 
+TCP_INFO = ['delivery_rate', 'cwnd', 'in_flight', 'min_rtt', 'rtt']
+
 
 def discretize_output(raw_out):
     z = np.array(raw_out)
@@ -20,23 +22,34 @@ def discretize_output(raw_out):
     return np.clip(z, 0, Model.BIN_MAX)
 
 
-def prepare_intput_output(chunks):
+def prepare_tcp_info(chunk, tcp_info):
+    row = []
+    for term in tcp_info:
+        if term == 'delivery_rate':
+            row += [chunk[term] / PKT_BYTES]
+        else:
+            row += [chunk[term]]
+
+    return row
+
+
+def prepare_intput_output(chunks, tcp_info=TCP_INFO):
     row = []
     for chunk in chunks[1:]:
-        row = [chunk['delivery_rate'] / PKT_BYTES, chunk['cwnd'],
-               chunk['in_flight'], chunk['min_rtt'], chunk['rtt'],
-               chunk['size'] / PKT_BYTES, chunk['trans_time']] + row
-    row += [chunks[0]['delivery_rate'] / PKT_BYTES, chunks[0]['cwnd'],
-            chunks[0]['in_flight'], chunks[0]['min_rtt'],
-            chunks[0]['rtt'], chunks[0]['size'] / PKT_BYTES]
+        row = prepare_tcp_info(chunk, tcp_info) +\
+              [chunk['size'] / PKT_BYTES, chunk['trans_time']] + row
+    row += prepare_tcp_info(chunks[0], tcp_info) +\
+           [chunks[0]['size'] / PKT_BYTES]
 
     return ([row], [chunks[0]['trans_time']])
+
 
 def model_pred(model, raw_in):
     input_data = model.normalize_input(raw_in, update_obs=False)
     model.set_model_eval()
 
     return model.predict_distr(input_data)
+
 
 def distr_bin_pred(distr):
     max_bin = np.argmax(distr, axis=1)
@@ -48,6 +61,7 @@ def distr_bin_pred(distr):
             ret.append(bin_id * Model.BIN_SIZE)
 
     return ret
+
 
 def distr_l1_pred(distr):
     ret = []
@@ -66,6 +80,7 @@ def distr_l1_pred(distr):
 
     return ret
 
+
 def distr_l2_pred(distr):
     ret = []
     for dis in distr:
@@ -80,17 +95,22 @@ def distr_l2_pred(distr):
 
     return ret
 
+
 def bin_acc(y, _y):
     return  discretize_output(y) != discretize_output(_y)
+
 
 def l1_loss(y, _y):
     return np.abs(y - _y)
 
+
 def cut_acc(y, _y):
     return np.abs(y - _y) > Model.BIN_SIZE * 0.5
 
+
 def l2_loss(y, _y):
     return (y - _y) * (y - _y)
+
 
 def harmonic_pred(chunks):
     prev_trans = 0

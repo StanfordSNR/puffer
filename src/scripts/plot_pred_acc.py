@@ -16,20 +16,32 @@ from helpers import connect_to_influxdb
 from stream_processor import VideoStream
 from ttp import Model, PKT_BYTES
 from ttp2 import Model as Linear_Model
+from ttp_ab import Model as Abl_Model
 from plot_helpers import *
 
 
 VIDEO_DURATION = 180180
 MID_SIZE = 766929
 PAST_CHUNKS = 8
+TCP_INFO = ['delivery_rate', 'cwnd', 'in_flight', 'min_rtt', 'rtt']
+ABL_COMMON_PATH = '/home/ubuntu/models/puffer_abl/'
 
 args = None
 expt = {}
 influx_client = None
 ttp_model = Model()
 linear_model = Linear_Model()
+
+abl_names = ['ttp_nh']
+abl_settings = {'ttp_nh': (0, TCP_INFO)}
+abl_paths = {'ttp_nh': ABL_COMMON_PATH + 'abl_dcimr_0/py-0-checkpoint-90.pt'}
+abl_models = {name: Abl_Model(past_chunks=abl_settings[name][0],
+                              tcp_info=abl_settings[name][1])\
+                    for name in abl_names}
+
 terms = ['bin', 'l1', 'l2']
-predictors = ['ttp', 'ttp_mle', 'ttp_tp', 'linear', 'tcp_info', 'harmonic']
+predictors = ['ttp', 'ttp_mle', 'ttp_tp', 'linear', 'tcp_info', 'harmonic']\
+             + abl_names
 result = {predictor: {term: 0 for term in terms} for predictor in predictors}
 
 tot = 0
@@ -107,6 +119,23 @@ def process_session(session, s):
         result['linear']['l1'] += l1_loss(l1_linear_out[0], raw_out[0])
         result['linear']['l2'] += l2_loss(l2_linear_out[0], raw_out[0])
 
+        # abl_models
+        for name, abl_model in abl_models.items():
+            past_chunks = abl_settings[name][0]
+            tcp_info = abl_settings[name][1]
+            abl_raw_in, _ = prepare_intput_output(chunks[:past_chunks+1],
+                                                  tcp_info=tcp_info)
+            abl_distr = model_pred(abl_model, abl_raw_in)
+
+            bin_abl_out = distr_bin_pred(abl_distr)
+            l1_abl_out = distr_l1_pred(abl_distr)
+            l2_abl_out = distr_l2_pred(abl_distr)
+
+            result[name]['bin'] += bin_acc(bin_abl_out[0], raw_out[0])
+            result[name]['l1'] += l1_loss(l1_abl_out[0], raw_out[0])
+            result[name]['l2'] += l2_loss(l2_abl_out[0], raw_out[0])
+
+
         # harmonic
         harm_out = harmonic_pred(chunks)
 
@@ -149,6 +178,10 @@ def main():
 
     global linear_model
     linear_model.load("/home/ubuntu/models/puffer_ttp/linear/py-0.pt")
+
+    global abl_models
+    for name, model in abl_models.items():
+        model.load(abl_paths[name])
 
     video_stream = VideoStream(process_session)
     video_stream.process(influx_client, args.start_time, args.end_time)
