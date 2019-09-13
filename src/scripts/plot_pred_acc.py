@@ -29,7 +29,7 @@ influx_client = None
 ttp_model = Model()
 linear_model = Linear_Model()
 terms = ['bin', 'l1', 'l2']
-predictors = ['ttp', 'ttp_mle', 'ttp_tp', 'linear', 'harmonic']
+predictors = ['ttp', 'ttp_mle', 'ttp_tp', 'linear', 'tcp_info', 'harmonic']
 result = {predictor: {term: 0 for term in terms} for predictor in predictors}
 
 tot = 0
@@ -72,6 +72,8 @@ def process_session(session, s):
         bin_ttp_tp_out = distr_bin_pred(ttp_tp_distr)
         bin_ttp_tp_out[0] *= curr_chunk_size / MID_SIZE
 
+        tcp_info_out = curr_chunk_size / chunks[0]['delivery_rate']
+
         # ttp
         bin_ttp_out = distr_bin_pred(ttp_distr)
         l1_ttp_out = distr_l1_pred(ttp_distr)
@@ -90,6 +92,11 @@ def process_session(session, s):
         result['ttp_tp']['bin'] += bin_acc(bin_ttp_tp_out[0], raw_out[0])
         result['ttp_tp']['l1'] += l1_loss(bin_ttp_tp_out[0], raw_out[0])
         result['ttp_tp']['l2'] += l2_loss(bin_ttp_tp_out[0], raw_out[0])
+
+        # tcp_info
+        result['tcp_info']['bin'] += bin_acc(tcp_info_out, raw_out[0])
+        result['tcp_info']['l1'] += l1_loss(tcp_info_out, raw_out[0])
+        result['tcp_info']['l2'] += l2_loss(tcp_info_out, raw_out[0])
 
         # linear
         bin_linear_out = distr_bin_pred(linear_distr)
