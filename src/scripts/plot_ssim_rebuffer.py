@@ -26,19 +26,20 @@ expt = {}
 influx_client = None
 postgres_cursor = None
 
+g_rebuffer = {}
+
 
 def do_collect_ssim(s_str, e_str, d):
     sys.stderr.write('Processing video_acked data between {} and {}\n'
                      .format(s_str, e_str))
-    sys.stderr.flush()
-    video_acked_results = query_measurement(influx_client, 'video_acked',
-                                            s_str, e_str)
+    video_acked_results = query_measurement(
+        influx_client, 'video_acked', s_str, e_str)['video_acked']
 
-    for pt in video_acked_results['video_acked']:
+    for pt in video_acked_results:
         expt_id = str(pt['expt_id'])
         expt_config = retrieve_expt_config(expt_id, expt, postgres_cursor)
-
         abr_cc = get_abr_cc(expt_config)
+
         if abr_cc not in d:
             d[abr_cc] = [0.0, 0]  # sum, count
 
@@ -68,26 +69,26 @@ def collect_ssim():
     return d
 
 
-def do_collect_rebuffer(s_str, e_str, buffer_stream):
-    sys.stderr.write('Processing client_buffer data between {} and {}\n'
-                     .format(s_str, e_str))
-    sys.stderr.flush()
-    client_buffer_results = query_measurement(influx_client, 'client_buffer',
-                                              s_str, e_str)
+def collect_rebuffer_session(session, s):
+    expt_id = str(session[-1])
+    expt_config = retrieve_expt_config(expt_id, expt, postgres_cursor)
+    abr_cc = get_abr_cc(expt_config)
 
-    for pt in client_buffer_results['client_buffer']:
-        buffer_stream.add_data_point(pt)
+    global g_rebuffer
+    if abr_cc not in g_rebuffer:
+        g_rebuffer[abr_cc] = {}
+        g_rebuffer[abr_cc]['total_play'] = 0
+        g_rebuffer[abr_cc]['total_rebuf'] = 0
+
+    g_rebuffer[abr_cc]['total_play'] += s['play_time']
+    g_rebuffer[abr_cc]['total_rebuf'] += s['cum_rebuf']
 
 
 def collect_rebuffer():
-    buffer_stream = BufferStream(expt, postgres_cursor)
+    buffer_stream = BufferStream(collect_rebuffer_session)
+    buffer_stream.process(influx_client, args.start_time, args.end_time)
 
-    for s_str, e_str in datetime_iter(args.start_time, args.end_time):
-        do_collect_rebuffer(s_str, e_str, buffer_stream)
-
-    buffer_stream.done_data_points()
-
-    return buffer_stream.out
+    return g_rebuffer
 
 
 def plot_ssim_rebuffer(ssim, rebuffer):
@@ -99,10 +100,12 @@ def plot_ssim_rebuffer(ssim, rebuffer):
     ax.grid()
 
     for abr_cc in ssim:
-        abr_cc_str = '{}+{}'.format(*abr_cc)
         if abr_cc not in rebuffer:
-            sys.exit('Error: {} does not exist in rebuffer'
-                     .format(abr_cc))
+            sys.stderr.write('Warning: {} does not exist in rebuffer\n'
+                             .format(abr_cc))
+            continue
+
+        abr_cc_str = '{}+{}'.format(*abr_cc)
 
         total_rebuf = rebuffer[abr_cc]['total_rebuf']
         total_play = rebuffer[abr_cc]['total_play']
