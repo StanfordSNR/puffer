@@ -74,8 +74,9 @@ class ExpiryList:
 
 
 class BufferStream:
-    def __init__(self, callback):
+    def __init__(self, callback, no_outliers=True):
         self.callback = callback
+        self.no_outliers = no_outliers  # don't return outlier sessions
 
         self.session_node = {}  # { session ID: ListNode }
         self.expiry_list = ExpiryList(np.timedelta64(1, 'm'))
@@ -115,39 +116,12 @@ class BufferStream:
             node.ts = ts
             self.expiry_list.append(node)
 
-    def valid_expired_session(self, session):
-        s = self.session_info[session]  # short name
-        if not s['valid']:
-            return False
-
-        for k in ['min_play_time', 'max_play_time',
-                  'min_cum_rebuf', 'max_cum_rebuf']:
-            if s[k] is None:  # no 'startup' is found in the session
-                sys.stderr.write('No startup found in session: {}\n'
-                                 .format(session))
-                s['valid'] = False
-                return False
-
-        session_play = ((s['max_play_time'] - s['min_play_time'])
-                        / np.timedelta64(1, 's'))
-        if session_play < 5:  # session is too short
-            sys.stderr.write('Session is too short: {}, {}s\n'
-                             .format(session, session_play))
-            s['valid'] = False
-            return False
-
-        session_rebuf = s['max_cum_rebuf'] - s['min_cum_rebuf']
-        if session_rebuf > 300:
-            sys.stderr.write('Warning: session with long rebuffering '
-                             '(rebuffer > 5min): {}\n'.format(session))
-
-        return True
-
     def valid_active_session(self, pt, ts, session, buf, cum_rebuf):
         s = self.session_info[session]  # short name
         if not s['valid']:
             return False
 
+        # basic validity checks below
         # verify that time is basically successive in the same session
         if s['last_ts'] is not None:
             diff = (ts - s['last_ts']) / np.timedelta64(1, 's')
@@ -156,21 +130,54 @@ class BufferStream:
                 s['valid'] = False
                 return False
 
-        # identify outliers: exclude the sessions if there is a long rebuffer?
-        if s['last_low_buf'] is not None:
-            diff = (ts - s['last_low_buf']) / np.timedelta64(1, 's')
-            if diff > 30:
-                sys.stderr.write('Outlier session: {}\n'.format(session))
+        # outlier checks below
+        if self.no_outliers:
+            # exclude sessions with long rebuffer durations
+            if s['last_low_buf'] is not None:
+                diff = (ts - s['last_low_buf']) / np.timedelta64(1, 's')
+                if diff > 30:
+                    sys.stderr.write('Outlier session: {}\n'.format(session))
+                    s['valid'] = False
+                    return False
+
+            # exclude sessions with stalls caused by slow video decoding
+            if s['last_buf'] is not None and s['last_cum_rebuf'] is not None:
+                if (buf > 5 and s['last_buf'] > 5 and
+                    cum_rebuf > s['last_cum_rebuf'] + 0.25):
+                    sys.stderr.write('Decoding stalls: {}\n'.format(session))
+                    s['valid'] = False
+                    return False
+
+        return True
+
+    def valid_expired_session(self, session):
+        s = self.session_info[session]  # short name
+        if not s['valid']:
+            return False
+
+        # basic validity checks below
+        for k in ['min_play_time', 'max_play_time',
+                  'min_cum_rebuf', 'max_cum_rebuf']:
+            if s[k] is None:  # no 'startup' is found in the session
+                sys.stderr.write('No startup found in session: {}\n'
+                                 .format(session))
                 s['valid'] = False
                 return False
 
-        # identify stalls caused by slow video decoding
-        if s['last_buf'] is not None and s['last_cum_rebuf'] is not None:
-            if (buf > 5 and s['last_buf'] > 5 and
-                cum_rebuf > s['last_cum_rebuf'] + 0.25):
-                sys.stderr.write('Decoding stalls: {}\n'.format(session))
+        # outlier checks below
+        if self.no_outliers:
+            session_play = ((s['max_play_time'] - s['min_play_time'])
+                            / np.timedelta64(1, 's'))
+            if session_play < 5:  # session is too short
+                sys.stderr.write('Session is too short: {}, {}s\n'
+                                 .format(session, session_play))
                 s['valid'] = False
                 return False
+
+            session_rebuf = s['max_cum_rebuf'] - s['min_cum_rebuf']
+            if session_rebuf > 300:
+                sys.stderr.write('Warning: session with long rebuffering '
+                                 '(rebuffer > 5min): {}\n'.format(session))
 
         return True
 
@@ -240,6 +247,7 @@ class BufferStream:
                                 / np.timedelta64(1, 's'))
             out['cum_rebuf'] = s['max_cum_rebuf'] - s['min_cum_rebuf']
             out['num_rebuf'] = s['num_rebuf']
+            out['startup_delay'] = s['min_cum_rebuf']
 
             self.callback(session, out)
 
