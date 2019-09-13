@@ -247,6 +247,7 @@ class BufferStream:
                                 / np.timedelta64(1, 's'))
             out['cum_rebuf'] = s['max_cum_rebuf'] - s['min_cum_rebuf']
             out['num_rebuf'] = s['num_rebuf']
+            out['startup_delay'] = s['min_cum_rebuf']
 
             self.callback(session, out)
 
