@@ -74,20 +74,18 @@ class ExpiryList:
 
 
 class BufferStream:
-    def __init__(self, expt={}, postgres_cursor=None):
-        self.expt = expt
-        self.postgres_cursor = postgres_cursor
+    def __init__(self, callback):
+        self.callback = callback
 
-        # key: (abr, cc); value: {'total_play': ...; 'total_rebuf': ...}
-        self.out = {}
-
-        self.smap = {}  # key: session ID; value: {}
+        self.session_node = {}  # { session ID: ListNode }
         self.expiry_list = ExpiryList(np.timedelta64(1, 'm'))
+
+        # private session information
+        self.session_info = {}  # { session ID: { 'FIELD': value } }
 
     def empty_session(self):
         s = {}
         s['valid'] = True
-        s['node'] = None
 
         for k in ['min_play_time', 'max_play_time',
                   'min_cum_rebuf', 'max_cum_rebuf']:
@@ -104,21 +102,21 @@ class BufferStream:
         return s
 
     def update_map_list(self, ts, session):
-        if session not in self.smap:
-            self.smap[session] = self.empty_session()
+        if session not in self.session_node:
             node = ListNode(ts, session)
-
-            self.smap[session]['node'] = node
+            self.session_node[session] = node
             self.expiry_list.append(node)
+
+            self.session_info[session] = self.empty_session()
         else:
-            node = self.smap[session]['node']
+            node = self.session_node[session]
 
             self.expiry_list.remove(node)
             node.ts = ts
             self.expiry_list.append(node)
 
     def valid_expired_session(self, session):
-        s = self.smap[session]
+        s = self.session_info[session]  # short name
         if not s['valid']:
             return False
 
@@ -145,41 +143,8 @@ class BufferStream:
 
         return True
 
-    def process_expired(self):
-        # read and process expired values
-        expired_sessions = self.expiry_list.expired
-
-        for session in expired_sessions:
-            s = self.smap[session]
-
-            if not self.valid_expired_session(session):
-                del self.smap[session]
-                continue
-
-            expt_id = str(session[-1])
-            expt_config = retrieve_expt_config(expt_id, self.expt,
-                                               self.postgres_cursor)
-
-            abr_cc = get_abr_cc(expt_config)
-            if abr_cc not in self.out:
-                self.out[abr_cc] = {}
-                self.out[abr_cc]['total_play'] = 0
-                self.out[abr_cc]['total_rebuf'] = 0
-
-            session_play = ((s['max_play_time'] - s['min_play_time'])
-                            / np.timedelta64(1, 's'))
-            session_rebuf = s['max_cum_rebuf'] - s['min_cum_rebuf']
-
-            self.out[abr_cc]['total_play'] += session_play
-            self.out[abr_cc]['total_rebuf'] += session_rebuf
-
-            del self.smap[session]
-
-        # clean processed expired values
-        self.expiry_list.expired = []
-
     def valid_active_session(self, pt, ts, session, buf, cum_rebuf):
-        s = self.smap[session]  # short variable name
+        s = self.session_info[session]  # short name
         if not s['valid']:
             return False
 
@@ -210,7 +175,7 @@ class BufferStream:
         return True
 
     def process_pt(self, pt, ts, session):
-        s = self.smap[session]  # short variable name
+        s = self.session_info[session]  # short name
 
         # process the current data points
         buf = float(pt['buffer'])
@@ -256,19 +221,50 @@ class BufferStream:
         session = (pt['user'], pt['init_id'], pt['expt_id'])
         ts = np.datetime64(pt['time'])
 
-        # update smap and expiry_list
+        # update session_node and expiry_list
         self.update_map_list(ts, session)
-
-        # process expired sessions
-        self.process_expired()
 
         # process the current data point
         self.process_pt(pt, ts, session)
 
-    # called after the last data point to process the remaining data
-    def done_data_points(self):
+    def process_expired_sessions(self):
+        # call the callback function with each session
+        for session in self.expiry_list.expired:
+            if not self.valid_expired_session(session):
+                continue
+
+            # construct out
+            s = self.session_info[session]  # short name
+            out = {}
+            out['play_time'] = ((s['max_play_time'] - s['min_play_time'])
+                                / np.timedelta64(1, 's'))
+            out['cum_rebuf'] = s['max_cum_rebuf'] - s['min_cum_rebuf']
+            out['num_rebuf'] = s['num_rebuf']
+
+            self.callback(session, out)
+
+        # clean up sessions
+        for session in self.expiry_list.expired:
+            del self.session_node[session]
+            del self.session_info[session]
+        self.expiry_list.expired = []
+
+    def do_process(self, influx_client, s_str, e_str):
+        client_buffer_results = query_measurement(
+            influx_client, 'client_buffer', s_str, e_str)['client_buffer']
+
+        for pt in client_buffer_results:
+            self.add_data_point(pt)
+            self.process_expired_sessions()
+
+    def process(self, influx_client, start_time, end_time):
+        for s_str, e_str in datetime_iter(start_time, end_time):
+            sys.stderr.write('Processing client_buffer data '
+                             'between {} and {}\n'.format(s_str, e_str))
+            self.do_process(influx_client, s_str, e_str)
+
         self.expiry_list.expire_all()
-        self.process_expired()
+        self.process_expired_sessions()
 
 
 class VideoStream:
@@ -369,10 +365,10 @@ class VideoStream:
     def do_process(self, influx_client, s_str, e_str):
         # process the data point with smaller ts from two lists of results
         gen = {}
-        gen['video_sent'] = query_measurement(influx_client, 'video_sent',
-                                              s_str, e_str)['video_sent']
-        gen['video_acked'] = query_measurement(influx_client, 'video_acked',
-                                               s_str, e_str)['video_acked']
+        gen['video_sent'] = query_measurement(
+            influx_client, 'video_sent', s_str, e_str)['video_sent']
+        gen['video_acked'] = query_measurement(
+            influx_client, 'video_acked', s_str, e_str)['video_acked']
 
         # maintain iterators for the two lists
         it = {}
