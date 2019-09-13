@@ -120,3 +120,47 @@ def harmonic_pred(chunks):
     ave_trans = prev_trans / (len(chunks) - 1)
 
     return [chunks[0]['size'] * ave_trans]
+
+
+pretty_name = {
+    'bbr': 'BBR',
+    'cubic': 'Cubic',
+    'puffer_ttp_cl': 'Fugu',
+    'puffer_ttp_20190402': 'Non-continual Fugu',
+    'puffer_ttp_emu': 'Emulation-trained Fugu',
+    'linear_bba': 'Buffer-based',
+    'mpc': 'MPC',
+    'robust_mpc': 'RobustMPC',
+    'pensieve': 'Pensieve',
+}
+
+
+pretty_color = {
+    'puffer_ttp_cl': 'C3',
+    'puffer_ttp_20190402': 'C1',
+    'puffer_ttp_emu': 'C6',
+    'linear_bba': 'C2',
+    'mpc': 'C0',
+    'robust_mpc': 'C5',
+    'pensieve': 'C4',
+}
+
+
+pretty_linestyle = {
+    'puffer_ttp_cl': '-',  # solid
+    'puffer_ttp_20190402': '--',  # dashed
+    'linear_bba': ':',  # dotted
+    'mpc': (0, (5, 1)),  # densely dashed
+    'robust_mpc': (0, (3, 1, 1, 1)),  # densely dashdotted
+    'pensieve': '-.',  # dashdot
+}
+
+
+abr_order = [
+    'puffer_ttp_cl',
+    'puffer_ttp_20190402',
+    'linear_bba',
+    'mpc',
+    'robust_mpc',
+    'pensieve',
+]
