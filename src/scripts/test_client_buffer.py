@@ -12,7 +12,7 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
 from helpers import connect_to_influxdb
-from stream_processor import VideoStream
+from stream_processor import BufferStream
 
 
 VIDEO_DURATION = 180180
@@ -23,20 +23,7 @@ influx_client = None
 
 
 def process_session(session, s):
-    print(session)
-
-    for curr_ts in s:
-        chunks = []
-
-        for i in reversed(range(6)):
-            ts = curr_ts - i * VIDEO_DURATION
-            if ts not in s:
-                break
-
-            chunks.append((s[ts]['size'], s[ts]['trans_time']))
-
-        if len(chunks) != 6:
-            continue
+    print(session, s)
 
 
 def main():
@@ -61,8 +48,8 @@ def main():
     global influx_client
     influx_client = connect_to_influxdb(yaml_settings)
 
-    video_stream = VideoStream(process_session)
-    video_stream.process(influx_client, args.start_time, args.end_time)
+    buffer_stream = BufferStream(process_session)
+    buffer_stream.process(influx_client, args.start_time, args.end_time)
 
 
 if __name__ == '__main__':
