@@ -12,7 +12,7 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
 from helpers import connect_to_influxdb
-from stream_processor import VideoStreamCallback
+from stream_processor import VideoStream
 from ttp import Model, PKT_BYTES
 from ttp2 import Model as Linear_Model
 from plot_helpers import *
@@ -36,7 +36,7 @@ result = {'ttp': {'bin': 0, 'l1': 0, 'l2':0},
 tot = 0
 
 
-def process_session(s):
+def process_session(session, s):
     global tot
     global result
     global ttp_model
@@ -140,7 +140,7 @@ def main():
     global linear_model
     linear_model.load("/home/ubuntu/models/puffer_ttp/linear/py-0.pt")
 
-    video_stream = VideoStreamCallback(process_session)
+    video_stream = VideoStream(process_session)
     video_stream.process(influx_client, args.start_time, args.end_time)
 
     with open(args.output, 'w') as fh:
