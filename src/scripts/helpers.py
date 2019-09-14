@@ -195,3 +195,15 @@ def datetime_iter(start_time_str, end_time_str):
         yield curr_time_str, next_time_str
 
         curr_time_obj = next_time_obj
+
+
+def datetime_iter_list(time_list):
+    for time_pair in time_list:
+        yield from datetime_iter(time_pair[0], time_pair[1])
+
+
+def time_pair(arg):
+    ret = arg.split(',')
+    if len(ret) != 2:
+        sys.exit('Invalid time_pair {}'.format(arg))
+    return ret
