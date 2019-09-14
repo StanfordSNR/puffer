@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 from matplotlib import ticker
 
 from helpers import (
-    connect_to_influxdb, retrieve_expt_config, get_abr_cc)
+    connect_to_influxdb, retrieve_expt_config, get_abr_cc, time_pair)
 from stream_processor import BufferStream
 from plot_helpers import abr_order, pretty_name, pretty_color, pretty_linestyle
 
@@ -38,7 +38,7 @@ def process_session(session, s):
 
 def collect_session_duration():
     buffer_stream = BufferStream(process_session, no_outliers=False)
-    buffer_stream.process(influx_client, args.start_time, args.end_time)
+    buffer_stream.process(influx_client, args.t)
 
     plot_data = {}
 
@@ -61,6 +61,7 @@ def plot_session_duration(plot_data):
         abr_cc = abr + ',bbr'
         if abr_cc not in plot_data:
             sys.stderr.write('Warning: {} does not exist\n'.format(abr_cc))
+            continue
 
         ax.plot(plot_data[abr_cc][0], plot_data[abr_cc][1],
                 label=pretty_name[abr], color=pretty_color[abr],
@@ -83,10 +84,7 @@ def plot_session_duration(plot_data):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('yaml_settings', nargs='?')
-    parser.add_argument('--from', dest='start_time',
-                        help='datetime in UTC conforming to RFC3339')
-    parser.add_argument('--to', dest='end_time',
-                        help='datetime in UTC conforming to RFC3339')
+    parser.add_argument('-t', action='append', type=time_pair)
     parser.add_argument('--expt', default='expt_cache.json',
                         help='e.g., expt_cache.json')
     parser.add_argument('-o', '--output', help='output figure', required=True)
