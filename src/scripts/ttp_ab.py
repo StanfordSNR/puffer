@@ -27,7 +27,7 @@ MILLION = 1000000
 # training related
 BATCH_SIZE = 32
 NUM_EPOCHS = 500
-CHECKPOINT = 10
+CHECKPOINT = 100
 
 CL_MAX_DATA_SIZE = 1000000  # 1 million rows of data
 CL_DISCOUNT = 0.9  # sampling weight discount
@@ -198,9 +198,9 @@ class Model:
     def predict_distr(self, input_data):
         with torch.no_grad():
             x = torch.from_numpy(input_data).to(device=DEVICE)
+            y = self.model(x)
 
-            y_scores = self.model(x)
-            return torch.softmax(y_scores, dim=1)
+            return torch.nn.functional.softmax(y, dim=1).double().numpy()
 
     def load(self, model_path):
         checkpoint = torch.load(model_path)
@@ -294,10 +294,6 @@ def check_args(args):
 
     # continual learning
     if args.cl:
-        if not args.load_model or not args.save_model:
-            sys.exit('Error: pass --load-model and --save-model to perform '
-                     'continual learning')
-
         if args.time_start or args.time_end:
             sys.exit('Error: --cl conflicts with --from and --to; it has its '
                      'own strategy to sample data from specific durations')
@@ -306,7 +302,7 @@ def check_args(args):
             sys.exit('Error: cannot perform inference with --cl turned on')
 
         global NUM_EPOCHS
-        NUM_EPOCHS = 100
+        NUM_EPOCHS = 500
 
 
 def calculate_trans_times(video_sent_results, video_acked_results,
@@ -412,14 +408,7 @@ def prepare_raw_data(yaml_settings_path, time_start, time_end, cc):
 
 
 def prepare_tcp_info(ds, ts, model):
-    row = []
-    for term in model.tcp_info:
-        if term == 'delivery_rate':
-            row += [ds[ts][term] / PKT_BYTES]
-        else:
-            row += [ds[ts][term]]
-
-    return row
+    return [ds[ts][term] for term in model.tcp_info]
 
 def append_past_chunks(ds, next_ts, row, model):
     i = 1
@@ -429,7 +418,7 @@ def append_past_chunks(ds, next_ts, row, model):
         ts = next_ts - i * VIDEO_DURATION
         if ts in ds and 'trans_time' in ds[ts]:
             past_chunks = prepare_tcp_info(ds, ts, model) \
-                + [ds[ts]['size'] / PKT_BYTES, ds[ts]['trans_time']] \
+                + [ds[ts]['size'], ds[ts]['trans_time']] \
                 + past_chunks
         else:
             nts = ts + VIDEO_DURATION  # padding with the nearest ts
@@ -438,7 +427,7 @@ def append_past_chunks(ds, next_ts, row, model):
             if nts == next_ts:
                 padding += [0, 0]  # next_ts is the first chunk to send
             else:
-                padding += [ds[nts]['size'] / PKT_BYTES, ds[nts]['trans_time']]
+                padding += [ds[nts]['size'], ds[nts]['trans_time']]
 
             break
 
@@ -452,29 +441,6 @@ def append_past_chunks(ds, next_ts, row, model):
     row += past_chunks
 
 
-def prepare_input_pre(ds, next_ts, model):
-    # construct a single row of input data
-    row = []
-
-    # append past chunks with padding
-    append_past_chunks(ds, next_ts, row, model)
-
-    # append the TCP info of the next chunk
-    row += prepare_tcp_info(ds, next_ts, model)
-
-    return row
-
-
-def prepare_input(ds, ts, row, curr_size=None):
-    row_i = row.copy()
-    if curr_size != None:
-        row_i += [curr_size / PKT_BYTES]
-    else:
-        row_i += [ds[ts]['size'] / PKT_BYTES]
-
-    return row_i
-
-
 # return FUTURE_CHUNKS pairs of (raw_in, raw_out)
 def prepare_input_output(d, model):
     ret = [{'in':[], 'out':[]} for _ in range(Model.FUTURE_CHUNKS)]
@@ -486,13 +452,22 @@ def prepare_input_output(d, model):
             if 'trans_time' not in ds[next_ts]:
                 continue
 
-            row = prepare_input_pre(ds, next_ts, model)
+            # construct a single row of input data
+            row = []
+
+            # append past chunks with padding
+            append_past_chunks(ds, next_ts, row, model)
+
+            # append the TCP info of the next chunk
+            row += prepare_tcp_info(ds, next_ts, model)
 
             # generate FUTURE_CHUNKS rows
             for i in range(Model.FUTURE_CHUNKS):
+                row_i = row.copy()
+
                 ts = next_ts + i * VIDEO_DURATION
                 if ts in ds and 'trans_time' in ds[ts]:
-                    row_i = prepare_input(ds, ts, row)
+                    row_i += [ds[ts]['size']]
 
                     assert(len(row_i) == model.dim_in)
                     ret[i]['in'].append(row_i)
@@ -501,27 +476,10 @@ def prepare_input_output(d, model):
     return ret
 
 
-def prepare_ttp_input(sess, ts, model, curr_size=None):
-    in_raw = prepare_input(sess, ts,
-        prepare_input_pre(sess, ts, model) , curr_size)
-
-    assert(len(in_raw) == model.dim_in)
-    input_data = model.normalize_input([in_raw], update_obs=False)
-
-    return input_data
-
-
-def ttp_pred_distr(sess, ts, model, curr_size=None):
-    input_data = prepare_ttp_input(sess, ts, model, curr_size)
-    model.set_model_eval()
-    scores = np.array(model.predict_distr(input_data)).reshape(-1)
-    return scores
-
-
-def cl_sample(args, time_start, time_end, max_size, ret):
+def cl_sample(args, time_start, time_end, max_size, ret, model):
     raw_data = prepare_raw_data(args.yaml_settings,
                                 time_start, time_end, args.cc)
-    raw_in_out = prepare_input_output(raw_data)
+    raw_in_out = prepare_input_output(raw_data, model)
 
     ret_sample_size = None
     for i in range(Model.FUTURE_CHUNKS):
@@ -539,7 +497,7 @@ def cl_sample(args, time_start, time_end, max_size, ret):
     return ret_sample_size
 
 
-def prepare_cl_data(args):
+def prepare_cl_data(args, model):
     # calculate sampling weights and max data size to sample
     total_weights = 0
     for day in range(CL_MAX_DAYS):
@@ -554,7 +512,7 @@ def prepare_cl_data(args):
     ret = [{'in':[], 'out':[]} for _ in range(Model.FUTURE_CHUNKS)]
 
     time_str = '%Y-%m-%dT%H:%M:%SZ'
-    td = datetime.utcnow()
+    td = datetime(2019, 8, 15, 11)
     today = datetime(td.year, td.month, td.day, td.hour, 0)
 
     # sample data from the past week
@@ -567,7 +525,8 @@ def prepare_cl_data(args):
 
         # sample data between 'day+1' and 'day' days ago, and save into 'ret'
         max_size = max_data_size[day]
-        sample_size = cl_sample(args, start_ts_str, end_ts_str, max_size, ret)
+        sample_size = cl_sample(args, start_ts_str, end_ts_str, max_size, ret,
+                                model)
 
         sys.stderr.write('Sampled {} data vs required {} data in day -{}\n'
                          .format(sample_size, max_size, day + 1))
@@ -787,7 +746,7 @@ def main():
         raw_in_out = prepare_input_output(raw_data, Model())
     else:
         # continual learning
-        raw_in_out = prepare_cl_data(args)
+        raw_in_out = prepare_cl_data(args, Model())
 
     # train or test FUTURE_CHUNKS models
     proc_list = []
