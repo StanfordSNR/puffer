@@ -265,7 +265,7 @@ class BufferStream:
             self.add_data_point(pt)
             self.process_expired_sessions()
 
-    def process(self, influx_client, time_list):
+    def process_time_list(self, influx_client, time_list):
         for s_str, e_str in datetime_iter_list(time_list):
             sys.stderr.write('Processing client_buffer data '
                              'between {} and {}\n'.format(s_str, e_str))
@@ -273,6 +273,9 @@ class BufferStream:
 
         self.expiry_list.expire_all()
         self.process_expired_sessions()
+
+    def process(self, influx_client, s_str, e_str):
+        self.process_time_list(influx_client, [[s_str, e_str]])
 
 
 class VideoStream:
@@ -405,7 +408,7 @@ class VideoStream:
 
             self.process_expired_sessions()
 
-    def process(self, influx_client, time_list):
+    def process_time_list(self, influx_client, time_list):
         for s_str, e_str in datetime_iter_list(time_list):
             sys.stderr.write('Processing video_sent and video_acked data '
                              'between {} and {}\n'.format(s_str, e_str))
@@ -413,3 +416,6 @@ class VideoStream:
 
         self.expiry_list.expire_all()
         self.process_expired_sessions()
+
+    def process(self, influx_client, s_str, e_str):
+        self.process_time_list(influx_client, [[s_str, e_str]])
