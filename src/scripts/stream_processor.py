@@ -74,9 +74,8 @@ class ExpiryList:
 
 
 class BufferStream:
-    def __init__(self, callback, no_outliers=True):
+    def __init__(self, callback):
         self.callback = callback
-        self.no_outliers = no_outliers  # don't return outlier sessions
 
         self.session_node = {}  # { session ID: ListNode }
         self.expiry_list = ExpiryList(np.timedelta64(1, 'm'))
@@ -86,7 +85,8 @@ class BufferStream:
 
     def empty_session(self):
         s = {}
-        s['valid'] = True
+        s['valid'] = True  # whether this session is valid and ever used
+        s['sane'] = True  # whether this session looks reasonable to use
 
         for k in ['min_play_time', 'max_play_time',
                   'min_cum_rebuf', 'max_cum_rebuf']:
@@ -116,70 +116,58 @@ class BufferStream:
             node.ts = ts
             self.expiry_list.append(node)
 
-    def valid_active_session(self, pt, ts, session, buf, cum_rebuf):
+    def check_active_session(self, pt, ts, session, buf, cum_rebuf):
         s = self.session_info[session]  # short name
-        if not s['valid']:
-            return False
 
-        # basic validity checks below
+        # validity checks
+        # skip if already invalid
+        if not s['valid']:
+            return
+
         # verify that time is basically successive in the same session
         if s['last_ts'] is not None:
             diff = (ts - s['last_ts']) / np.timedelta64(1, 's')
-            if diff > 60:  # ambiguous / suspicious session
-                sys.stderr.write('Ambiguous session: {}\n'.format(session))
+            if diff > 60:  # nonconsecutive session
+                sys.stderr.write('Nonconsecutive: {}\n'.format(session))
                 s['valid'] = False
-                return False
+                return
 
-        # outlier checks below
-        if self.no_outliers:
-            # exclude sessions with long rebuffer durations
-            if s['last_low_buf'] is not None:
-                diff = (ts - s['last_low_buf']) / np.timedelta64(1, 's')
-                if diff > 30:
-                    sys.stderr.write('Outlier session: {}\n'.format(session))
-                    s['valid'] = False
-                    return False
+        # outlier checks
+        # skip if already insane
+        if not s['sane']:
+            return
 
-            # exclude sessions with stalls caused by slow video decoding
-            if s['last_buf'] is not None and s['last_cum_rebuf'] is not None:
-                if (buf > 5 and s['last_buf'] > 5 and
-                    cum_rebuf > s['last_cum_rebuf'] + 0.25):
-                    sys.stderr.write('Decoding stalls: {}\n'.format(session))
-                    s['valid'] = False
-                    return False
+        # detect sessions with long rebuffer durations
+        if s['last_low_buf'] is not None:
+            diff = (ts - s['last_low_buf']) / np.timedelta64(1, 's')
+            if diff > 30:
+                sys.stderr.write('Long rebuffer: {}\n'.format(session))
+                s['sane'] = False
+                return
 
-        return True
+        # detect sessions with stalls caused by slow video decoding
+        if s['last_buf'] is not None and s['last_cum_rebuf'] is not None:
+            if (buf > 5 and s['last_buf'] > 5 and
+                cum_rebuf > s['last_cum_rebuf'] + 0.25):
+                sys.stderr.write('Decoding stalls: {}\n'.format(session))
+                s['sane'] = False
+                return
 
-    def valid_expired_session(self, session):
+    def check_expired_session(self, session):
         s = self.session_info[session]  # short name
+
+        # skip the check if already invalid
         if not s['valid']:
-            return False
+            return
 
         # basic validity checks below
         for k in ['min_play_time', 'max_play_time',
                   'min_cum_rebuf', 'max_cum_rebuf']:
             if s[k] is None:  # no 'startup' is found in the session
-                sys.stderr.write('No startup found in session: {}\n'
+                sys.stderr.write('No startup: {}\n'
                                  .format(session))
                 s['valid'] = False
-                return False
-
-        # outlier checks below
-        if self.no_outliers:
-            session_play = ((s['max_play_time'] - s['min_play_time'])
-                            / np.timedelta64(1, 's'))
-            if session_play < 5:  # session is too short
-                sys.stderr.write('Session is too short: {}, {}s\n'
-                                 .format(session, session_play))
-                s['valid'] = False
-                return False
-
-            session_rebuf = s['max_cum_rebuf'] - s['min_cum_rebuf']
-            if session_rebuf > 300:
-                sys.stderr.write('Warning: session with long rebuffering '
-                                 '(rebuffer > 5min): {}\n'.format(session))
-
-        return True
+                return
 
     def process_pt(self, pt, ts, session):
         s = self.session_info[session]  # short name
@@ -189,7 +177,8 @@ class BufferStream:
         cum_rebuf = float(pt['cum_rebuf'])
 
         # verify if the currently active session is still valid
-        if not self.valid_active_session(pt, ts, session, buf, cum_rebuf):
+        self.check_active_session(pt, ts, session, buf, cum_rebuf)
+        if not s['valid']:
             return
 
         if s['min_play_time'] is None and pt['event'] != 'startup':
@@ -237,17 +226,20 @@ class BufferStream:
     def process_expired_sessions(self):
         # call the callback function with each session
         for session in self.expiry_list.expired:
-            if not self.valid_expired_session(session):
+            s = self.session_info[session]  # short name
+
+            self.check_expired_session(session)
+            if not s['valid']:
                 continue
 
             # construct out
-            s = self.session_info[session]  # short name
             out = {}
             out['play_time'] = ((s['max_play_time'] - s['min_play_time'])
                                 / np.timedelta64(1, 's'))
             out['cum_rebuf'] = s['max_cum_rebuf'] - s['min_cum_rebuf']
             out['num_rebuf'] = s['num_rebuf']
             out['startup_delay'] = s['min_cum_rebuf']
+            out['sane'] = s['sane']
 
             self.callback(session, out)
 
