@@ -86,7 +86,6 @@ class BufferStream:
     def empty_session(self):
         s = {}
         s['valid'] = True  # whether this session is valid and ever used
-        s['sane'] = True  # whether this session looks reasonable to use
 
         for k in ['min_play_time', 'max_play_time',
                   'min_cum_rebuf', 'max_cum_rebuf']:
@@ -116,13 +115,10 @@ class BufferStream:
             node.ts = ts
             self.expiry_list.append(node)
 
-    def check_active_session(self, pt, ts, session, buf, cum_rebuf):
+    def valid_active_session(self, pt, ts, session, buf, cum_rebuf):
         s = self.session_info[session]  # short name
-
-        # validity checks
-        # skip if already invalid
         if not s['valid']:
-            return
+            return False
 
         # verify that time is basically successive in the same session
         if s['last_ts'] is not None:
@@ -130,35 +126,30 @@ class BufferStream:
             if diff > 60:  # nonconsecutive session
                 sys.stderr.write('Nonconsecutive: {}\n'.format(session))
                 s['valid'] = False
-                return
-
-        # outlier checks
-        # skip if already insane
-        if not s['sane']:
-            return
+                return False
 
         # detect sessions with long rebuffer durations
         if s['last_low_buf'] is not None:
             diff = (ts - s['last_low_buf']) / np.timedelta64(1, 's')
             if diff > 30:
                 sys.stderr.write('Long rebuffer: {}\n'.format(session))
-                s['sane'] = False
-                return
+                s['valid'] = False
+                return False
 
         # detect sessions with stalls caused by slow video decoding
         if s['last_buf'] is not None and s['last_cum_rebuf'] is not None:
             if (buf > 5 and s['last_buf'] > 5 and
                 cum_rebuf > s['last_cum_rebuf'] + 0.25):
                 sys.stderr.write('Decoding stalls: {}\n'.format(session))
-                s['sane'] = False
-                return
+                s['valid'] = False
+                return False
 
-    def check_expired_session(self, session):
+        return True
+
+    def valid_expired_session(self, session):
         s = self.session_info[session]  # short name
-
-        # skip the check if already invalid
         if not s['valid']:
-            return
+            return False
 
         # basic validity checks below
         for k in ['min_play_time', 'max_play_time',
@@ -167,7 +158,9 @@ class BufferStream:
                 sys.stderr.write('No startup: {}\n'
                                  .format(session))
                 s['valid'] = False
-                return
+                return False
+
+        return True
 
     def process_pt(self, pt, ts, session):
         s = self.session_info[session]  # short name
@@ -177,8 +170,7 @@ class BufferStream:
         cum_rebuf = float(pt['cum_rebuf'])
 
         # verify if the currently active session is still valid
-        self.check_active_session(pt, ts, session, buf, cum_rebuf)
-        if not s['valid']:
+        if not self.valid_active_session(pt, ts, session, buf, cum_rebuf):
             return
 
         if s['min_play_time'] is None and pt['event'] != 'startup':
@@ -226,11 +218,10 @@ class BufferStream:
     def process_expired_sessions(self):
         # call the callback function with each session
         for session in self.expiry_list.expired:
-            s = self.session_info[session]  # short name
-
-            self.check_expired_session(session)
-            if not s['valid']:
+            if not self.valid_expired_session(session):
                 continue
+
+            s = self.session_info[session]  # short name
 
             # construct out
             out = {}
@@ -239,7 +230,6 @@ class BufferStream:
             out['cum_rebuf'] = s['max_cum_rebuf'] - s['min_cum_rebuf']
             out['num_rebuf'] = s['num_rebuf']
             out['startup_delay'] = s['min_cum_rebuf']
-            out['sane'] = s['sane']
 
             self.callback(session, out)
 
