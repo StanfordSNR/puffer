@@ -69,7 +69,11 @@ def collect_ssim():
     return d
 
 
-def collect_rebuffer_session(session, s):
+def process_rebuffer_session(session, s):
+    # exclude too short sessions
+    if s['play_time'] < 5:
+        return
+
     expt_id = str(session[-1])
     expt_config = retrieve_expt_config(expt_id, expt, postgres_cursor)
     abr_cc = get_abr_cc(expt_config)
@@ -85,7 +89,7 @@ def collect_rebuffer_session(session, s):
 
 
 def collect_rebuffer():
-    buffer_stream = BufferStream(collect_rebuffer_session)
+    buffer_stream = BufferStream(process_rebuffer_session)
     buffer_stream.process(influx_client, args.start_time, args.end_time)
 
     return g_rebuffer
@@ -138,7 +142,8 @@ def main():
                         help='datetime in UTC conforming to RFC3339')
     parser.add_argument('--to', dest='end_time', required=True,
                         help='datetime in UTC conforming to RFC3339')
-    parser.add_argument('--expt', help='e.g., expt_cache.json')
+    parser.add_argument('--expt', default='expt_cache.json',
+                        help='expt_cache.json by default')
     parser.add_argument('-o', '--output', required=True)
     global args
     args = parser.parse_args()
