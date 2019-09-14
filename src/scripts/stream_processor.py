@@ -2,7 +2,7 @@ import sys
 import numpy as np
 
 from helpers import (get_abr_cc, retrieve_expt_config, get_ssim_index,
-                     datetime_iter, query_measurement)
+                     datetime_iter_list, query_measurement)
 
 
 VIDEO_DURATION = 180180
@@ -265,8 +265,8 @@ class BufferStream:
             self.add_data_point(pt)
             self.process_expired_sessions()
 
-    def process(self, influx_client, start_time, end_time):
-        for s_str, e_str in datetime_iter(start_time, end_time):
+    def process(self, influx_client, time_list):
+        for s_str, e_str in datetime_iter_list(time_list):
             sys.stderr.write('Processing client_buffer data '
                              'between {} and {}\n'.format(s_str, e_str))
             self.do_process(influx_client, s_str, e_str)
@@ -405,8 +405,8 @@ class VideoStream:
 
             self.process_expired_sessions()
 
-    def process(self, influx_client, start_time, end_time):
-        for s_str, e_str in datetime_iter(start_time, end_time):
+    def process(self, influx_client, time_list):
+        for s_str, e_str in datetime_iter_list(time_list):
             sys.stderr.write('Processing video_sent and video_acked data '
                              'between {} and {}\n'.format(s_str, e_str))
             self.do_process(influx_client, s_str, e_str)
