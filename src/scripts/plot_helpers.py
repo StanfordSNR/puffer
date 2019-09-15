@@ -158,7 +158,6 @@ pretty_linestyle = {
 
 abr_order = [
     'puffer_ttp_cl',
-    'puffer_ttp_20190402',
     'linear_bba',
     'mpc',
     'robust_mpc',

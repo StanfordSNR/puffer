@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
 
+import os
+from os import path
 import sys
 import argparse
 import yaml
 import json
 import numpy as np
+from scipy import stats
 
 import matplotlib
 matplotlib.use('Agg')
@@ -18,38 +21,56 @@ from plot_helpers import abr_order, pretty_name, pretty_color, pretty_linestyle
 
 
 args = None
-influx_client = None
 expt = {}
-
-g_duration = {}  # { abr_cc: [] }
-
-
-def process_session(session, s):
-    expt_id = str(session[-1])
-    expt_config = retrieve_expt_config(expt_id, expt, None)
-    abr_cc = get_abr_cc(expt_config)
-
-    global g_duration
-    if abr_cc not in g_duration:
-        g_duration[abr_cc] = []
-
-    g_duration[abr_cc].append(s['play_time'])
 
 
 def collect_session_duration():
-    buffer_stream = BufferStream(process_session, no_outliers=False)
-    buffer_stream.process(influx_client, args.t)
+    # read session durations from data files
+    duration = {}
 
+    for data_fname in os.listdir(args.i):
+        sys.stderr.write('Reading {}\n'.format(data_fname))
+        data_path = path.join(args.i, data_fname)
+        data_fh = open(data_path)
+
+        for line in data_fh:
+            (user, init_id, expt_id,
+             play_time, cum_rebuf, startup_delay, num_rebuf) = line.split(',')
+
+            play_time = float(play_time)
+            if play_time < 1:
+                continue
+
+            expt_config = retrieve_expt_config(expt_id, expt, None)
+            abr_cc = get_abr_cc(expt_config)
+
+            abr, cc = abr_cc
+            if abr not in abr_order or cc != 'bbr':
+                continue
+
+            if abr_cc not in duration:
+                duration[abr_cc] = []
+
+            duration[abr_cc].append(play_time)
+
+        data_fh.close()
+
+    # convert duration to data for plotting (CDF)
     plot_data = {}
 
-    for abr_cc in g_duration:
-        counts, bin_edges = np.histogram(g_duration[abr_cc], bins=100,)
+    for abr_cc in duration:
+        # output stats
+        mean_seconds = np.mean(duration[abr_cc])
+        sem_seconds = stats.sem(duration[abr_cc])
+        print('{}, {:.3f}, {:.3f}'.format(abr_cc, mean_seconds, sem_seconds))
+
+        counts, bin_edges = np.histogram(duration[abr_cc], bins=100)
 
         x = bin_edges
-        y = np.cumsum(counts) / len(g_duration[abr_cc])
+        y = np.cumsum(counts) / len(duration[abr_cc])
         y = np.insert(y, 0, 0)  # prepend 0
 
-        plot_data[','.join(abr_cc)] = [list(x), list(y)]
+        plot_data[abr_cc] = [x, y]
 
     return plot_data
 
@@ -58,7 +79,7 @@ def plot_session_duration(plot_data):
     fig, ax = plt.subplots()
 
     for abr in abr_order:
-        abr_cc = abr + ',bbr'
+        abr_cc = (abr, 'bbr')
         if abr_cc not in plot_data:
             sys.stderr.write('Warning: {} does not exist\n'.format(abr_cc))
             continue
@@ -67,7 +88,7 @@ def plot_session_duration(plot_data):
                 label=pretty_name[abr], color=pretty_color[abr],
                 linestyle=pretty_linestyle[abr])
 
-    ax.set_xlim(1)
+    ax.set_xlim(left=1)
     ax.set_xscale('log')
     ax.xaxis.set_major_formatter(ticker.FormatStrFormatter('%d'))
 
@@ -83,36 +104,18 @@ def plot_session_duration(plot_data):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('yaml_settings', nargs='?')
-    parser.add_argument('-t', action='append', type=time_pair)
+    parser.add_argument('-i', help='folder of input data')
     parser.add_argument('--expt', default='expt_cache.json',
-                        help='e.g., expt_cache.json')
+                        help='expt_cache.json by default')
     parser.add_argument('-o', '--output', help='output figure', required=True)
-    parser.add_argument('--data-out', help='JSON file to output data for plot')
-    parser.add_argument('--data-in', help='JSON file of input data for plot')
     global args
     args = parser.parse_args()
-
-    if args.data_in:
-        with open(args.data_in) as fh:
-            plot_data = json.load(fh)
-        plot_session_duration(plot_data)
-        return
-
-    with open(args.yaml_settings) as fh:
-        yaml_settings = yaml.safe_load(fh)
-
-    # create an InfluxDB client and perform queries
-    global influx_client
-    influx_client = connect_to_influxdb(yaml_settings)
 
     with open(args.expt) as fh:
         global expt
         expt = json.load(fh)
 
     plot_data = collect_session_duration()
-    with open(args.data_out, 'w') as fh:
-        json.dump(plot_data, fh)
     plot_session_duration(plot_data)
 
 
