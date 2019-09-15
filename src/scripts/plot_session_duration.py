@@ -29,6 +29,9 @@ def collect_session_duration():
     duration = {}
 
     for data_fname in os.listdir(args.i):
+        if path.splitext(data_fname)[1] != '.csv':
+            continue
+
         sys.stderr.write('Reading {}\n'.format(data_fname))
         data_path = path.join(args.i, data_fname)
         data_fh = open(data_path)

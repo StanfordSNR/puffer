@@ -67,7 +67,7 @@ def worker(s_str, e_str):
     # create an InfluxDB client and perform queries
     influx_client = connect_to_influxdb(yaml_settings)
 
-    data_path = path.join(args.out_dir, '{}_{}.txt'.format(s_str, e_str))
+    data_path = path.join(args.out_dir, '{}_{}.csv'.format(s_str, e_str))
     sys.stderr.write('Saving video data to {}\n'.format(data_path))
 
     data_fh = open(data_path, 'w')
@@ -83,7 +83,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('yaml_settings')
     parser.add_argument('-t', action='append', type=time_pair, required=True)
-    parser.add_argument('-o', '--out-dir', help='output directory of data',
+    parser.add_argument('-o', help='output directory of data',
                         required=True)
     global args
     args = parser.parse_args()
@@ -95,8 +95,7 @@ def main():
     procs = []
 
     for s_str, e_str in datetime_iter_list(args.t):
-        worker(s_str, e_str)
-        # procs.append(pool.apply_async(worker, (s_str, e_str,)))
+        procs.append(pool.apply_async(worker, (s_str, e_str,)))
 
     for proc in procs:
         proc.wait()
