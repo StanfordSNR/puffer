@@ -14,9 +14,7 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from matplotlib import ticker
 
-from helpers import (
-    connect_to_influxdb, retrieve_expt_config, get_abr_cc, time_pair)
-from stream_processor import BufferStream
+from helpers import retrieve_expt_config, get_abr_cc
 from plot_helpers import abr_order, pretty_name, pretty_color, pretty_linestyle
 
 
