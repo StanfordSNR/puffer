@@ -34,7 +34,7 @@ def worker(s_str, e_str):
     influx_client = connect_to_influxdb(yaml_settings)
 
     data_path = path.join(args.out_dir, '{}_{}.txt'.format(s_str, e_str))
-    sys.stderr.write('Saving client_buffer data to {}\n'.format(data_path))
+    sys.stderr.write('Saving client data to {}\n'.format(data_path))
 
     data_fh = open(data_path, 'w')
 
