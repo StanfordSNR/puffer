@@ -85,7 +85,8 @@ class BufferStream:
 
     def empty_session(self):
         s = {}
-        s['valid'] = True  # whether this session is valid and ever used
+        s['valid'] = True  # whether this session is valid
+        s['trunc'] = False  # whether this session has been truncated
 
         for k in ['min_play_time', 'max_play_time',
                   'min_cum_rebuf', 'max_cum_rebuf']:
@@ -123,23 +124,28 @@ class BufferStream:
         # verify that time is basically successive in the same session
         if s['last_ts'] is not None:
             diff = (ts - s['last_ts']) / np.timedelta64(1, 's')
-            if diff > 60:  # nonconsecutive session
+            if diff > 8:  # nonconsecutive session
                 sys.stderr.write('Nonconsecutive: {}\n'.format(session))
+                # stop processing more data points of this session
                 s['valid'] = False
+                # truncate the session and use as a valid expired session
+                s['trunc'] = True
                 return False
 
         # detect sessions with long rebuffer durations
         if s['last_low_buf'] is not None:
             diff = (ts - s['last_low_buf']) / np.timedelta64(1, 's')
-            if diff > 30:
+            if diff > 20:
                 sys.stderr.write('Long rebuffer: {}\n'.format(session))
                 s['valid'] = False
+                # truncate the session and use as a valid expired session
+                s['trunc'] = True
                 return False
 
         # detect sessions with stalls caused by slow video decoding
         if s['last_buf'] is not None and s['last_cum_rebuf'] is not None:
             if (buf > 5 and s['last_buf'] > 5 and
-                cum_rebuf > s['last_cum_rebuf'] + 0.25):
+                cum_rebuf > s['last_cum_rebuf'] + 0.15):
                 sys.stderr.write('Decoding stalls: {}\n'.format(session))
                 s['valid'] = False
                 return False
@@ -148,7 +154,9 @@ class BufferStream:
 
     def valid_expired_session(self, session):
         s = self.session_info[session]  # short name
-        if not s['valid']:
+
+        # consider an expired session as valid if truncated
+        if not s['valid'] and not s['trunc']:
             return False
 
         # basic validity checks below
@@ -199,7 +207,7 @@ class BufferStream:
         s['last_ts'] = ts
         s['last_buf'] = buf
         s['last_cum_rebuf'] = cum_rebuf
-        if buf > 0.1:
+        if buf > 0.3:
             s['last_low_buf'] = None
         else:
             if s['last_low_buf'] is None:
