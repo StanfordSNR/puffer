@@ -142,8 +142,7 @@ def main():
                         help='datetime in UTC conforming to RFC3339')
     parser.add_argument('--to', dest='end_time', required=True,
                         help='datetime in UTC conforming to RFC3339')
-    parser.add_argument('--expt', default='expt_cache.json',
-                        help='expt_cache.json by default')
+    parser.add_argument('--expt', help='e.g., expt_cache.json')
     parser.add_argument('-o', '--output', required=True)
     global args
     args = parser.parse_args()
