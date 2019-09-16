@@ -22,10 +22,10 @@ args = None
 expt = {}
 
 
-def collect_session_duration():
-    # read session durations from data files
-    duration = {}
+def get_session_duration():
+    duration = {}  # { abr_cc: [ durations ] }
 
+    # read session durations from data files
     for data_fname in os.listdir(args.i):
         if path.splitext(data_fname)[1] != '.csv':
             continue
@@ -34,13 +34,15 @@ def collect_session_duration():
         data_path = path.join(args.i, data_fname)
         data_fh = open(data_path)
 
+        root = {}  # { session: root_session }
+        mega = {}  # { root_session: total play_time }
+
         for line in data_fh:
             (user, init_id, expt_id,
              play_time, cum_rebuf, startup_delay, num_rebuf) = line.split(',')
 
             play_time = float(play_time)
-            if play_time < 1:
-                continue
+            session = (user, int(init_id), int(expt_id))
 
             expt_config = retrieve_expt_config(expt_id, expt, None)
             abr_cc = get_abr_cc(expt_config)
@@ -49,15 +51,51 @@ def collect_session_duration():
             if abr not in abr_order or cc != 'bbr':
                 continue
 
-            if abr_cc not in duration:
-                duration[abr_cc] = []
+            if not args.mega:
+                if abr_cc not in duration:
+                    duration[abr_cc] = []
 
-            duration[abr_cc].append(play_time)
+                if play_time >= 1:  # exclude sessions with duration < 1s
+                    duration[abr_cc].append(play_time)
+                continue
+
+            # if args.mega, then find root
+            session_prev = (user, int(init_id) - 1, int(expt_id))
+            if session_prev in root:
+                root[session] = root[session_prev]
+            else:
+                assert(session not in root)
+                root[session] = session
+
+            if root[session] not in mega:
+                mega[root[session]] = 0
+            mega[root[session]] += play_time
 
         data_fh.close()
 
+        if args.mega:
+            for session in mega:
+                expt_config = retrieve_expt_config(str(session[-1]), expt, None)
+                abr_cc = get_abr_cc(expt_config)
+
+                if abr_cc not in duration:
+                    duration[abr_cc] = []
+                if mega[session] >= 1:  # exclude sessions with duration < 1s
+                    duration[abr_cc].append(mega[session])
+
+    return duration
+
+
+def get_plot_data(duration):
     # convert duration to data for plotting (CDF)
     plot_data = {}
+
+    # find max duration
+    max_duration = 0
+    for abr_cc in duration:
+        md = np.max(duration[abr_cc])
+        if md > max_duration:
+            max_duration = md
 
     for abr_cc in duration:
         # output stats
@@ -65,7 +103,9 @@ def collect_session_duration():
         sem_seconds = stats.sem(duration[abr_cc])
         print('{}, {:.3f}, {:.3f}'.format(abr_cc, mean_seconds, sem_seconds))
 
-        counts, bin_edges = np.histogram(duration[abr_cc], bins=100)
+        # log-scale histogram
+        counts, bin_edges = np.histogram(
+            duration[abr_cc], np.logspace(0, np.log10(max_duration), 100))
 
         x = bin_edges
         y = np.cumsum(counts) / len(duration[abr_cc])
@@ -106,9 +146,9 @@ def plot_session_duration(plot_data):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('-i', help='folder of input data')
-    parser.add_argument('--expt', default='expt_cache.json',
-                        help='expt_cache.json by default')
+    parser.add_argument('--expt', help='e.g., expt_cache.json')
     parser.add_argument('-o', '--output', help='output figure', required=True)
+    parser.add_argument('--mega', action='store_true')
     global args
     args = parser.parse_args()
 
@@ -116,7 +156,8 @@ def main():
         global expt
         expt = json.load(fh)
 
-    plot_data = collect_session_duration()
+    duration = get_session_duration()
+    plot_data = get_plot_data(duration)
     plot_session_duration(plot_data)
 
 
