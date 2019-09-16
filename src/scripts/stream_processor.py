@@ -286,8 +286,8 @@ class VideoStream:
         video_ts = int(pt['video_ts'])
 
         if video_ts in self.out[session]:
-            sys.exit('VideoStream: video_ts {} already exists in session {}'
-                     .format(video_ts, session))
+            sys.stderr.write('Warning: VideoStream: video_ts {} already exists'
+                             ' in session {}\n'.format(video_ts, session))
 
         self.out[session][video_ts] = {}
         sv = self.out[session][video_ts]  # short name
