@@ -54,11 +54,6 @@ def get_files_to_restore(start_date, end_date, influx_client):
         e_str = e.strftime(date_format)
         f = s_str + '_' + e_str + '.tar.gz'
 
-        # check if the file to restore exists on cloud
-        cmd = 'gsutil -q stat gs://puffer-influxdb-analytics/{}'.format(f)
-        if call(cmd, shell=True) != 0:
-            sys.exit('Error: {} does not exist on cloud'.format(f))
-
         if args.force:
             sys.stderr.write('Will restore {}\n'.format(f))
             ret.append(f)
@@ -115,33 +110,24 @@ def restore(f, influx_client):
     # download data from Google cloud
     d = download_untar(f)
 
-    # restore to a temporary database (with retries)
-    for retry in range(5):
-        influx_client.drop_database(TMP_DB)
+    # restore to a temporary database
+    influx_client.drop_database(TMP_DB)
 
-        cmd = ('influxd restore -portable -db {} -newdb {} {}'
-               .format(SRC_DB, TMP_DB, d))
-        if call(cmd, shell=True) != 0:
-            continue
+    cmd = ('influxd restore -portable -db {} -newdb {} {}'
+           .format(SRC_DB, TMP_DB, d))
+    check_call(cmd, shell=True)
 
-        influx_client.switch_database(TMP_DB)
+    influx_client.switch_database(TMP_DB)
 
-        # workaround: sleep for a while to avoid influxdb errors
-        # possible errors: shard is disabled, engine is closed
-        time.sleep(5 * (retry + 1))
+    # workaround: sleep for a while to avoid influxdb errors
+    # possible errors: shard is disabled, engine is closed
+    time.sleep(10)
 
-        try:
-            # sideload the data into the destination database (with retries)
-            influx_client.query(
-                'SELECT * INTO {}..:MEASUREMENT FROM /.*/ GROUP BY *'
-                .format(DST_DB))
-            sys.stderr.write('Successfully restored data in {}\n'.format(f))
-            return
-        except (KeyboardInterrupt, SystemExit):
-            raise
-        except Exception as e:
-            print('Error:', e, file=sys.stderr)
-            sys.stderr.write('Retrying...\n')
+    # sideload the data into the destination database
+    influx_client.query(
+        'SELECT * INTO {}..:MEASUREMENT FROM /.*/ GROUP BY *'
+        .format(DST_DB))
+    sys.stderr.write('Successfully restored data in {}\n'.format(f))
 
 
 def main():
@@ -175,9 +161,27 @@ def main():
     end_date = args.end_date + 'T{}'.format(backup_hour)
     files_to_restore = get_files_to_restore(start_date, end_date, influx_client)
 
-    if not args.dry_run:
-        for f in files_to_restore:
-            restore(f, influx_client)
+    if args.dry_run:
+        return
+
+    for f in files_to_restore:
+        retry = 0
+        while True:
+            retry += 1
+            if retry > 5:
+                sys.exit('All the retry attempts have failed')
+
+            try:
+                restore(f, influx_client)
+                break
+            except (KeyboardInterrupt, SystemExit):
+                raise
+            except Exception as e:
+                print('Error:', e, file=sys.stderr)
+                sys.stderr.write('Retrying...\n')
+
+            time.sleep(10 * retry)
+            influx_client = connect_to_influxdb(yaml_settings)
 
 
 if __name__ == '__main__':
