@@ -25,6 +25,7 @@ MID_SIZE = 766929
 PAST_CHUNKS = 8
 TCP_INFO = ['delivery_rate', 'cwnd', 'in_flight', 'min_rtt', 'rtt']
 ABL_COMMON_PATH = '/home/ubuntu/models/puffer_abl/'
+PRINT_EVERY = 10000
 
 args = None
 expt = {}
@@ -32,9 +33,15 @@ influx_client = None
 ttp_model = Model()
 linear_model = Linear_Model()
 
-abl_names = ['ttp_nh']
-abl_settings = {'ttp_nh': (0, TCP_INFO)}
-abl_paths = {'ttp_nh': ABL_COMMON_PATH + 'abl_dcimr_0/py-0-checkpoint-90.pt'}
+abl_names = ['ttp_nh', 'ttp_nhd', 'ttp_nhci', 'ttp_nhmr']
+abl_settings = {'ttp_nh': (0, TCP_INFO),
+                'ttp_nhd': (0, ['cwnd', 'in_flight', 'min_rtt', 'rtt']),
+                'ttp_nhci': (0, ['delivery_rate', 'min_rtt', 'rtt']),
+                'ttp_nhmr': (0, ['delivery_rate', 'cwnd', 'in_flight'])}
+abl_paths = {'ttp_nh': ABL_COMMON_PATH + 'abl_dcimr_0/py-0.pt',
+             'ttp_nhd': ABL_COMMON_PATH + 'abl_cimr_0/py-0.pt',
+             'ttp_nhci': ABL_COMMON_PATH + 'abl_dmr_0/py-0.pt',
+             'ttp_nhmr': ABL_COMMON_PATH + 'abl_dci_0/py-0.pt'}
 abl_models = {name: Abl_Model(past_chunks=abl_settings[name][0],
                               tcp_info=abl_settings[name][1])\
                     for name in abl_names}
@@ -84,7 +91,11 @@ def process_session(session, s):
         bin_ttp_tp_out = distr_bin_pred(ttp_tp_distr)
         bin_ttp_tp_out[0] *= curr_chunk_size / MID_SIZE
 
-        tcp_info_out = curr_chunk_size / chunks[0]['delivery_rate']
+        if chunks[0]['delivery_rate'] < 1e-5:
+            tcp_info_out = 60
+        else:
+            tcp_info_out = min(60,
+                curr_chunk_size / chunks[0]['delivery_rate'])
 
         # ttp
         bin_ttp_out = distr_bin_pred(ttp_distr)
@@ -137,13 +148,13 @@ def process_session(session, s):
 
 
         # harmonic
-        harm_out = harmonic_pred(chunks)
+        harm_out = harmonic_pred(chunks[:6])
 
         result['harmonic']['bin'] += bin_acc(harm_out[0], raw_out[0])
         result['harmonic']['l1'] += l1_loss(harm_out[0], raw_out[0])
         result['harmonic']['l2'] += l2_loss(harm_out[0], raw_out[0])
 
-        if tot % 1000 == 0:
+        if tot % PRINT_EVERY == 0:
             print('For tot:', tot)
             for pred in predictors:
                 print(pred + ': ' + ', '.join([term + ':{:.5f}'.format(
