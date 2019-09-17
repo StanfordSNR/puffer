@@ -53,7 +53,8 @@ def main():
         # output merged sessions
         output_path = path.join(args.o, data_fname)
         with open(output_path, 'w') as fh:
-            for session in common_sessions:
+            # sort sessions by init_id
+            for session in sorted(common_sessions, key=lambda s: int(s[1])):
                 l = list(session) + video_data[session] + buffer_data[session]
                 fh.write(','.join(l) + '\n')
 
