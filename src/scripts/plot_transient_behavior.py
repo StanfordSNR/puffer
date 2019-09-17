@@ -64,11 +64,17 @@ def get_data():
                 continue
 
             # if args.mega, then find root
-            session_prev = (user, int(init_id) - 1, int(expt_id))
-            if session_prev in root:  # channel change
-                root[session] = root[session_prev]
-            else:  # cold start
-                assert(session not in root)
+            assert(session not in root)
+            is_channel_change = False
+            for i in range(1, 11):
+                # some init_ids might be missing
+                session_prev = (user, int(init_id) - i, int(expt_id))
+                if session_prev in root:  # channel change
+                    is_channel_change = True
+                    root[session] = root[session_prev]
+                    break
+
+            if not is_channel_change:  # cold start
                 root[session] = session
                 data[abr_cc][0].append(first_ssim_index)
                 data[abr_cc][1].append(startup_delay)
