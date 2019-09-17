@@ -266,7 +266,7 @@ class VideoStream:
 
         self.out = {}  # { session ID: { video ts: { 'FIELD': value } } }
         self.session_node = {}  # { session ID: ListNode }
-        self.expiry_list = ExpiryList(np.timedelta64(1, 'm'))
+        self.expiry_list = ExpiryList(np.timedelta64(5, 'm'))
 
     def update_map_list(self, ts, session):
         if session not in self.session_node:
