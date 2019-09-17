@@ -13,7 +13,7 @@ def run_offline_media_servers():
 def start_maimahi_clients(num_clients):
     plist = []
     try:
-        trace_dir = "/home/ubuntu/fcc_test_traces" #Note: Used in original emulation results in first submission
+        trace_dir = "/home/ubuntu/fcc_mahimahi_traces"
         #trace_dir = "/home/ubuntu/exact_train_traces_mm_fixed_fcc"
         # To test nowrway traces use: /home/ubuntu/norway_traces"
         files = os.listdir(trace_dir)
@@ -58,7 +58,7 @@ def start_maimahi_clients(num_clients):
 def main():
     subprocess.check_call('sudo sysctl -w net.ipv4.ip_forward=1', shell=True)
     #run_offline_media_servers()
-    start_maimahi_clients(10)
+    start_maimahi_clients(5)
 
 
 if __name__ == '__main__':
