@@ -39,10 +39,6 @@ def get_data():
              avg_ssim_index, avg_ssim_db_diff, avg_delivery_rate, avg_tput,
              play_time, cum_rebuf, startup_delay, num_rebuf) = line.split(',')
 
-            # ignore short sessions
-            if float(play_time) < 4:
-                continue
-
             session = (user, int(init_id), int(expt_id))
             first_ssim_index = float(first_ssim_index)
             startup_delay = float(startup_delay)
@@ -56,10 +52,6 @@ def get_data():
 
             if abr_cc not in data:
                 data[abr_cc] = [[], []]
-
-            if args.slow:
-                if float(avg_delivery_rate) > 750000:
-                    continue
 
             if args.channel_change:
                 data[abr_cc][0].append(first_ssim_index)
@@ -132,7 +124,6 @@ def main():
     parser.add_argument('--data', help='folder of data')
     parser.add_argument('--expt', help='e.g., expt_cache.json')
     parser.add_argument('-o', help='output figure', required=True)
-    parser.add_argument('--slow', action='store_true')
     parser.add_argument('--channel-change', action='store_true')
     global args
     args = parser.parse_args()
