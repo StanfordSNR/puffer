@@ -1,0 +1,11 @@
+# model, bin error, l1 loss, l2 loss
+ttp, 0.14689, 0.12868, 0.13171
+ttp_mle, 0.14689, 0.14945, 0.15929
+ttp_throughput, 0.29248, 0.18544, 0.20070
+linear_regressor, 0.22912, 0.15928, 0.20583
+tcp_delivery_rate, 0.33516, 1.21550, 38.66905
+harmonic_mean, 0.23442, 0.18501, 1.85736
+ttp_no_history, 0.18362, 0.15713, 0.19437
+ttp_no_history_delivery_rate, 0.18631, 0.15776, 0.19824
+ttp_no_history_cwnd_inflight, 0.25766, 0.21264, 0.28102
+ttp_no_history_rtt_minrtt, 0.24629, 0.18443, 0.22877
