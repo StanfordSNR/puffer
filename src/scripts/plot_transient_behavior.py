@@ -41,7 +41,7 @@ def get_data():
              play_time, cum_rebuf, startup_delay, num_rebuf) = line.split(',')
 
             session = (user, int(init_id), int(expt_id))
-            first_ssim_db = ssim_index_to_db(float(first_ssim_index))
+            first_ssim_index = float(first_ssim_index)
             startup_delay = float(startup_delay)
 
             expt_config = retrieve_expt_config(expt_id, expt, None)
@@ -59,7 +59,7 @@ def get_data():
                     continue
 
             if not args.mega:
-                data[abr_cc][0].append(first_ssim_db)
+                data[abr_cc][0].append(first_ssim_index)
                 data[abr_cc][1].append(startup_delay)
                 continue
 
@@ -70,7 +70,7 @@ def get_data():
             else:  # cold start
                 assert(session not in root)
                 root[session] = session
-                data[abr_cc][0].append(first_ssim_db)
+                data[abr_cc][0].append(first_ssim_index)
                 data[abr_cc][1].append(startup_delay)
 
         data_fh.close()
@@ -79,11 +79,14 @@ def get_data():
         for i in range(2):
             a = data[abr_cc][i]
             mean_a = np.mean(a)
-
             ci_a = st.t.interval(0.95, len(a) - 1, loc=mean_a, scale=st.sem(a))
-            err_a = (ci_a[1] - ci_a[0]) / 2
 
-            data[abr_cc][i] = (mean_a, err_a)
+            if i == 0:  # ssim
+                data[abr_cc][i] = (ssim_index_to_db(mean_a),
+                                   ssim_index_to_db(ci_a[0]),
+                                   ssim_index_to_db(ci_a[1]))
+            else:  # delay
+                data[abr_cc][i] = (mean_a, ci_a[0], ci_a[1])
 
     return data
 
@@ -93,10 +96,12 @@ def plot(data):
 
     for abr_cc in data:
         abr, cc = abr_cc
-        x, xerr = data[abr_cc][1]
-        y, yerr = data[abr_cc][0]
+        x, x_minus, x_plus = data[abr_cc][1]
+        y, y_minus, y_plus = data[abr_cc][0]
 
-        ax.errorbar(x, y, xerr=xerr, yerr=yerr,
+        ax.errorbar(x, y,
+                    xerr=[[x_plus-x], [x-x_minus]],
+                    yerr=[[y_plus-y], [y-y_minus]],
                     fmt='-o', markersize=3, capsize=3,
                     color=pretty_color[abr])
         ax.annotate(pretty_name[abr], (x, y))
