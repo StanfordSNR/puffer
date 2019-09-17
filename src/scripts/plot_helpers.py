@@ -125,12 +125,12 @@ def harmonic_pred(chunks):
 pretty_name = {
     'bbr': 'BBR',
     'cubic': 'Cubic',
-    'puffer_ttp_cl': 'Fugu',
-    'puffer_ttp_20190402': 'Non-continual Fugu',
-    'puffer_ttp_emu': 'Emulation-trained Fugu',
-    'linear_bba': 'Buffer-based',
-    'mpc': 'MPC',
-    'robust_mpc': 'RobustMPC',
+    'puffer_ttp_cl': 'Tetra',
+    'puffer_ttp_20190402': 'Non-continual Tetra',
+    'puffer_ttp_emu': 'Emulation-trained Tetra',
+    'linear_bba': 'BBA',
+    'mpc': 'MPC-HM',
+    'robust_mpc': 'RobustMPC-HM',
     'pensieve': 'Pensieve',
 }
 
