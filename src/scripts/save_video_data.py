@@ -17,13 +17,9 @@ args = None
 
 
 def save_session(session, s, data_fh):
-    chunk_cnt = 0
-    ssim_index_sum = 0.0
-    ssim_db_sum = 0.0
-    ssim_index_diff_sum = 0.0
-    ssim_db_diff_sum = 0.0
-
-    prev_ssim_index = None
+    ssim_index_ctr = [0.0, 0]  # sum, count
+    ssim_db_diff_ctr = [0.0, 0]  # sum, count
+    first_ssim_index = None
     prev_ssim_db = None
 
     ts = min(s.keys())
@@ -32,31 +28,33 @@ def save_session(session, s, data_fh):
         ssim_index = s[ts]['ssim_index']
         if ssim_index == 1:
             ts += VIDEO_DURATION
+            prev_ssim_db = None
             continue
         ssim_db = ssim_index_to_db(ssim_index)
 
-        chunk_cnt += 1
-        ssim_index_sum += ssim_index
-        ssim_db_sum += ssim_db
-        if chunk_cnt > 1:
-            ssim_index_diff_sum += abs(ssim_index - prev_ssim_index)
-            ssim_db_diff_sum += abs(ssim_db - prev_ssim_db)
+        if first_ssim_index is None:
+            first_ssim_index = ssim_index
 
-        prev_ssim_index = ssim_index
+        ssim_index_ctr[0] += ssim_index
+        ssim_index_ctr[1] += 1
+
+        if prev_ssim_db is not None:
+            ssim_db_diff_ctr[0] += abs(ssim_db - prev_ssim_db)
+            ssim_db_diff_ctr[1] += 1
         prev_ssim_db = ssim_db
 
         ts += VIDEO_DURATION
 
-    # user, init_id, expt_id, chunk_cnt,
-    # ssim_index_sum, ssim_db_sum, ssim_index_diff_sum, ssim_db_diff_sum
-    line = list(session)
-    line.append(chunk_cnt)
-    line.append(ssim_index_sum)
-    line.append(ssim_db_sum)
-    line.append(ssim_index_diff_sum)
-    line.append(ssim_db_diff_sum)
+    mean_ssim_index = ssim_index_ctr[0] / ssim_index_ctr[1]
+    mean_ssim_db_diff = ssim_db_diff_ctr[0] / ssim_db_diff_ctr[1]
 
-    data_fh.write('{},{:d},{:d},{:d},{:.6f},{:.6f},{:.6f},{:.6f}\n'
+    # user, init_id, expt_id, mean_ssim_index, mean_ssim_db_diff, first_ssim_index
+    line = list(session)
+    line.append(mean_ssim_index)
+    line.append(mean_ssim_db_diff)
+    line.append(first_ssim_index)
+
+    data_fh.write('{},{:d},{:d},{:.6f},{:.6f},{:.6f}\n'
                   .format(*line))
 
 
