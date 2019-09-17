@@ -17,9 +17,9 @@ args = None
 
 
 def save_session(session, s, data_fh):
+    first_ssim_index = None
     ssim_index_ctr = [0.0, 0]  # sum, count
     ssim_db_diff_ctr = [0.0, 0]  # sum, count
-    first_ssim_index = None
     prev_ssim_db = None
 
     ts = min(s.keys())
@@ -45,14 +45,19 @@ def save_session(session, s, data_fh):
 
         ts += VIDEO_DURATION
 
+    if (first_ssim_index is None
+        or ssim_index_ctr[1] == 0
+        or ssim_db_diff_ctr[1] == 0):
+        return
+
     mean_ssim_index = ssim_index_ctr[0] / ssim_index_ctr[1]
     mean_ssim_db_diff = ssim_db_diff_ctr[0] / ssim_db_diff_ctr[1]
 
-    # user, init_id, expt_id, mean_ssim_index, mean_ssim_db_diff, first_ssim_index
+    # user, init_id, expt_id, first_ssim_index, mean_ssim_index, mean_ssim_db_diff
     line = list(session)
+    line.append(first_ssim_index)
     line.append(mean_ssim_index)
     line.append(mean_ssim_db_diff)
-    line.append(first_ssim_index)
 
     data_fh.write('{},{:d},{:d},{:.6f},{:.6f},{:.6f}\n'
                   .format(*line))
