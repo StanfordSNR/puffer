@@ -1,0 +1,135 @@
+#!/usr/bin/env python3
+
+import os
+from os import path
+import sys
+import argparse
+import yaml
+import json
+import numpy as np
+import scipy.stats as st
+
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+from matplotlib import ticker
+
+from helpers import retrieve_expt_config, get_abr_cc, ssim_index_to_db
+from plot_helpers import abr_order, pretty_name, pretty_color, pretty_linestyle
+
+
+args = None
+expt = {}
+
+
+def get_data():
+    data = {}  # { abr_cc: [[], []] }
+
+    for data_fname in os.listdir(args.data):
+        if path.splitext(data_fname)[1] != '.csv':
+            continue
+
+        sys.stderr.write('Reading {}\n'.format(data_fname))
+        data_path = path.join(args.data, data_fname)
+        data_fh = open(data_path)
+
+        root = {}  # { session: root_session }
+
+        for line in data_fh:
+            (user, init_id, expt_id, first_ssim_index,
+             avg_ssim_index, avg_ssim_db_diff, avg_delivery_rate, avg_tput,
+             play_time, cum_rebuf, startup_delay, num_rebuf) = line.split(',')
+
+            session = (user, int(init_id), int(expt_id))
+            first_ssim_db = ssim_index_to_db(float(first_ssim_index))
+            startup_delay = float(startup_delay)
+
+            expt_config = retrieve_expt_config(expt_id, expt, None)
+            abr_cc = get_abr_cc(expt_config)
+
+            abr, cc = abr_cc
+            if abr not in abr_order or cc != 'bbr':
+                continue
+
+            if abr_cc not in data:
+                data[abr_cc] = [[], []]
+
+            if args.slow:
+                if float(avg_delivery_rate) > 750000:
+                    continue
+
+            if not args.mega:
+                data[abr_cc][0].append(first_ssim_db)
+                data[abr_cc][1].append(startup_delay)
+                continue
+
+            # if args.mega, then find root
+            session_prev = (user, int(init_id) - 1, int(expt_id))
+            if session_prev in root:  # channel change
+                root[session] = root[session_prev]
+            else:  # cold start
+                assert(session not in root)
+                root[session] = session
+                data[abr_cc][0].append(first_ssim_db)
+                data[abr_cc][1].append(startup_delay)
+
+        data_fh.close()
+
+    for abr_cc in data:
+        for i in range(2):
+            a = data[abr_cc][i]
+            mean_a = np.mean(a)
+
+            ci_a = st.t.interval(0.95, len(a) - 1, loc=mean_a, scale=st.sem(a))
+            err_a = (ci_a[1] - ci_a[0]) / 2
+
+            data[abr_cc][i] = (mean_a, err_a)
+
+    return data
+
+
+def plot(data):
+    fig, ax = plt.subplots()
+
+    for abr_cc in data:
+        abr, cc = abr_cc
+        x, xerr = data[abr_cc][1]
+        y, yerr = data[abr_cc][0]
+
+        ax.errorbar(x, y, xerr=xerr, yerr=yerr,
+                    fmt='-o', markersize=3, capsize=3,
+                    color=pretty_color[abr])
+        ax.annotate(pretty_name[abr], (x, y))
+
+    ax.invert_xaxis()
+
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+
+    ax.set_xlabel('Startup delay (s)')
+    ax.set_ylabel('First chunk SSIM (dB)')
+
+    fig.savefig(args.o)
+    sys.stderr.write('Saved plot to {}\n'.format(args.o))
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--data', help='folder of data')
+    parser.add_argument('--expt', help='e.g., expt_cache.json')
+    parser.add_argument('-o', help='output figure', required=True)
+    parser.add_argument('--mega', action='store_true')
+    parser.add_argument('--slow', action='store_true')
+    global args
+    args = parser.parse_args()
+
+    with open(args.expt) as fh:
+        global expt
+        expt = json.load(fh)
+
+    data = get_data()
+    plot(data)
+
+
+if __name__ == '__main__':
+    main()
