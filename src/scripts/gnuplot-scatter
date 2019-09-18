@@ -1,0 +1,54 @@
+#!/usr/bin/perl -w
+
+use strict;
+
+print <<'END';
+set xlabel "Time spent stalled (%)"
+set xlabel  offset character 0, 0.75, 0 font "" textcolor lt -1 norotate
+set xrange [ 1.5:0.0 ] reverse writeback
+set ylabel "Average SSIM (dB)"
+set ylabel  offset character 3, 0, 0 font "" textcolor lt -1 rotate
+set yrange [ 12.5:15 ] noreverse writeback
+set border 3 front lt black linewidth 1.000 dashtype solid
+set xtics border out scale 0.5,0.5 offset 0,0.5 nomirror norotate  autojustify
+set ytics border out scale 0.5,0.5 offset 0.25,0 nomirror norotate  autojustify
+set xtics 0.25
+set ytics 0.5
+set font "Times,10"
+unset key
+set noclip
+END
+
+my $n = 0;
+
+my %colors = (Tetra => 0xd62728,
+              q{MPC-HM} => 0x1f77b4,
+              q{RobustMPC-HM} => 0x8c564b,
+              BBA => 0x2ca02c,
+              Pensieve => 0x9467bd);
+
+my @data;
+
+while (<>) {
+  chomp;
+  next if m{^#};
+  $n++;
+  s{%}{}g;
+  s{;}{}g;
+  s{,}{}g;
+  my ($name, $x_mean, $y_mean) = (split)[0,1,2];
+  if ($name eq q{Puffer}) {
+      $name = q{Tetra};
+  }
+
+  push @data, qq{$x_mean $y_mean $colors{$name} "$name"};
+}
+
+print qq{set terminal "svg" font "Times,20"\n};
+print qq{plot '-' using 1:2:3 lc rgb var lw 1.75 pt 7 ps 0.75, '-' using 1:2:4 with labels offset 0,-.5\n};
+
+print join qq{\n}, @data;
+print qq{\ne\n};
+print join qq{\n}, @data;
+print qq{\ne\n};
+
