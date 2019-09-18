@@ -212,19 +212,20 @@ def time_pair(arg):
 
 
 def parse_line(line):
-    '''
-    (user, init_id, expt_id, first_ssim_index,
-     avg_ssim_index, avg_ssim_db_diff, avg_delivery_rate, avg_tput,
-     play_time, cum_rebuf, startup_delay, num_rebuf) = line.split(',')
-    '''
+    # user, init_id, expt_id, first_ssim_index, min_rtt,
+    # primary_cnt, avg_ssim_index, avg_ssim_db,
+    # avg_delivery_rate, avg_throughput, avg_rtt,
+    # diff_cnt, avg_ssim_db_diff,
+    # play_time, cum_rebuf, startup_delay, num_rebuf
+    type_list = [str, int, int, float, float,
+                 int, float, float, float, float, float,
+                 int, float, float, float, float, int]
 
     x = line.strip().split(',')
-    if len(x) != 12:
+    if len(x) != len(type_list):
         sys.exit('Invalid line {}'.format(line.strip()))
 
-    x[2] = int(x[2])
-    for i in range(3, 11):
-        x[i] = float(x[i])
-    x[11] = int(x[11])
+    for i in range(len(x)):
+        x[i] = type_list[i](x[i])
 
     return x

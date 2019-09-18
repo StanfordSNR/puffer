@@ -14,7 +14,8 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from matplotlib import ticker
 
-from helpers import retrieve_expt_config, get_abr_cc, ssim_index_to_db
+from helpers import (
+    retrieve_expt_config, get_abr_cc, ssim_index_to_db, parse_line)
 from plot_helpers import abr_order, pretty_name, pretty_color, pretty_linestyle
 
 
@@ -35,13 +36,13 @@ def get_data():
         root = {}  # { session: root_session }
 
         for line in data_fh:
-            (user, init_id, expt_id, first_ssim_index,
-             avg_ssim_index, avg_ssim_db_diff, avg_delivery_rate, avg_tput,
-             play_time, cum_rebuf, startup_delay, num_rebuf) = line.split(',')
+            (user, init_id, expt_id, first_ssim_index, min_rtt,
+             primary_cnt, avg_ssim_index, avg_ssim_db,
+             avg_delivery_rate, avg_throughput, avg_rtt,
+             diff_cnt, avg_ssim_db_diff,
+             play_time, cum_rebuf, startup_delay, num_rebuf) = parse_line(line)
 
-            session = (user, int(init_id), int(expt_id))
-            first_ssim_index = float(first_ssim_index)
-            startup_delay = float(startup_delay)
+            session = (user, init_id, expt_id)
 
             expt_config = retrieve_expt_config(expt_id, expt, None)
             abr_cc = get_abr_cc(expt_config)
@@ -63,7 +64,7 @@ def get_data():
             is_channel_change = False
             for i in range(1, 11):
                 # some init_ids might be missing
-                session_prev = (user, int(init_id) - i, int(expt_id))
+                session_prev = (user, init_id - i, expt_id)
                 if session_prev in root:  # channel change
                     is_channel_change = True
                     root[session] = root[session_prev]

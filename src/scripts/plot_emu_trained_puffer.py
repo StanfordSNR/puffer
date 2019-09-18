@@ -32,8 +32,10 @@ def get_data():
         data_fh = open(data_path)
 
         for line in data_fh:
-            (user, init_id, expt_id, first_ssim_index,
-             avg_ssim_index, avg_ssim_db_diff, avg_delivery_rate, avg_tput,
+            (user, init_id, expt_id, first_ssim_index, min_rtt,
+             primary_cnt, avg_ssim_index, avg_ssim_db,
+             avg_delivery_rate, avg_throughput, avg_rtt,
+             diff_cnt, avg_ssim_db_diff,
              play_time, cum_rebuf, startup_delay, num_rebuf) = parse_line(line)
 
             if play_time < 4:

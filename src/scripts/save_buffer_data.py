@@ -18,10 +18,7 @@ args = None
 def save_session(session, s, data_fh):
     # user, init_id, expt_id, play_time, cum_rebuf, startup_delay, num_rebuf
     line = list(session)
-    line.append(s['play_time'])
-    line.append(s['cum_rebuf'])
-    line.append(s['startup_delay'])
-    line.append(s['num_rebuf'])
+    line += [s['play_time'], s['cum_rebuf'], s['startup_delay'], s['num_rebuf']]
 
     data_fh.write('{},{:d},{:d},{:.3f},{:.3f},{:.3f},{:d}\n'.format(*line))
 
