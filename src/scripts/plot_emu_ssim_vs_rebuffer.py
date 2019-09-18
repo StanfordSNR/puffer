@@ -10,33 +10,33 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
 from helpers import (
-    connect_to_influxdb, ssim_index_to_db, get_ssim_index)
+    connect_to_influxdb, ssim_index_to_db, get_ssim_index,
+    pretty_colors, pretty_names)
 from collect_data import video_data_by_session, buffer_data_by_session
+
+
+args = None
 
 
 def plot_ssim_rebuffer(ssim, rebuffer):
     fig, ax = plt.subplots()
     ax.set_xlabel('Time spent stalled (%)')
     ax.set_ylabel('Average SSIM (dB)')
-    ax.grid()
+
+    ax.spines['right'].set_visible(False)
+    ax.spines['top'].set_visible(False)
 
     for abr_cc in ssim:
-        abr_cc_str = '{}+{}'.format(*abr_cc)
-        if abr_cc not in rebuffer:
-            sys.exit('Error: {} does not exist in both ssim and rebuffer'
-                     .format(abr_cc))
+        abr, cc = abr_cc
 
         total_rebuf = rebuffer[abr_cc]['total_rebuf']
         total_play = rebuffer[abr_cc]['total_play']
         rebuf_rate = total_rebuf / total_play
 
-        abr_cc_str += '\n({:.1f}m/{:.1f}h)'.format(total_rebuf / 60,
-                                                   total_play / 3600)
-
         x = rebuf_rate * 100  # %
         y = ssim[abr_cc]
-        ax.scatter(x, y)
-        ax.annotate(abr_cc_str, (x, y))
+        ax.scatter(x, y, color=pretty_colors[abr], clip_on=False)
+        ax.annotate(pretty_names[abr], (x, y))
 
     # clamp x-axis to [0, 100]
     xmin, xmax = ax.get_xlim()
@@ -45,9 +45,8 @@ def plot_ssim_rebuffer(ssim, rebuffer):
     ax.set_xlim(xmin, xmax)
     ax.invert_xaxis()
 
-    output = 'emu_ssim_vs_rebuffer.png'
-    fig.savefig(output, dpi=150, bbox_inches='tight')
-    sys.stderr.write('Saved plot to {}\n'.format(output))
+    fig.savefig(args.o, bbox_inches='tight')
+    sys.stderr.write('Saved plot to {}\n'.format(args.o))
 
 
 def collect_ssim(influx_client):
@@ -104,6 +103,8 @@ def collect_rebuffer(influx_client):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('yaml_settings')
+    parser.add_argument('-o', required=True)
+    global args
     args = parser.parse_args()
 
     with open(args.yaml_settings, 'r') as fh:
@@ -113,8 +114,10 @@ def main():
     influx_client = connect_to_influxdb(yaml_settings)
 
     ssim = collect_ssim(influx_client)
-
     rebuffer = collect_rebuffer(influx_client)
+
+    print(ssim)
+    print(rebuffer)
 
     plot_ssim_rebuffer(ssim, rebuffer)
 

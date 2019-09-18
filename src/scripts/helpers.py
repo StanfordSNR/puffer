@@ -200,29 +200,39 @@ abr_order = ['puffer_ttp_cl', 'puffer_ttp_static', 'puffer_ttp_emu',
 pretty_names = {
     'bbr': 'BBR',
     'cubic': 'Cubic',
-    'puffer_ttp_cl': 'Fugu',
-    'puffer_ttp_static': 'Non-continual Fugu',
-    'puffer_ttp_init': 'Non-continual Fugu',
-    'puffer_ttp': 'Fugu',
-    'puffer_ttp_emu': 'Emulation-trained Fugu',
-    'linear_bba': 'Buffer-based',
-    'mpc': 'MPC',
-    'robust_mpc': 'RobustMPC',
+    'puffer_ttp_cl': 'Tetra',
+    'puffer_ttp_static': 'Non-continual Tetra',
+    'puffer_ttp_init': 'Non-continual Tetra',
+    'puffer_ttp': 'Tetra',
+    'puffer_ttp_emu': 'Emulation-trained Tetra',
+    'linear_bba': 'BBA',
+    'mpc': 'MPC-HM',
+    'robust_mpc': 'RobustMPC-HM',
     'pensieve': 'Pensieve',
 }
 
-
 pretty_colors = {
-  'puffer_ttp_cl': '#d62728',
-  'puffer_ttp': '#d62778',
-  'puffer_ttp_static': '#ff7f0e',
-  'puffer_ttp_init': '#ff7f0e',
-  'puffer_ttp_emu': '#e377c2',
-  'linear_bba': '#2ca02c',
-  'mpc': '#1f77b4',
-  'robust_mpc': '#8c564b',
-  'pensieve': '#17becf',
+    'puffer_ttp': 'C3',
+    'puffer_ttp_cl': 'C3',
+    'puffer_ttp_20190402': 'C1',
+    'puffer_ttp_emu': 'C6',
+    'linear_bba': 'C2',
+    'mpc': 'C0',
+    'robust_mpc': 'C5',
+    'pensieve': 'C4',
 }
+
+# pretty_colors = {
+#   'puffer_ttp_cl': '#d62728',
+#   'puffer_ttp': '#d62778',
+#   'puffer_ttp_static': '#ff7f0e',
+#   'puffer_ttp_init': '#ff7f0e',
+#   'puffer_ttp_emu': '#e377c2',
+#   'linear_bba': '#2ca02c',
+#   'mpc': '#1f77b4',
+#   'robust_mpc': '#8c564b',
+#   'pensieve': '#17becf',
+# }
 
 pretty_styles = {
     'puffer_ttp_cl': (0, ()),
