@@ -236,8 +236,13 @@ class BufferStream:
             out['play_time'] = ((s['max_play_time'] - s['min_play_time'])
                                 / np.timedelta64(1, 's'))
             out['cum_rebuf'] = s['max_cum_rebuf'] - s['min_cum_rebuf']
-            out['num_rebuf'] = s['num_rebuf']
             out['startup_delay'] = s['min_cum_rebuf']
+            out['num_rebuf'] = s['num_rebuf']
+
+            # sanity check before returning 'out'
+            if (out['play_time'] < 0 or out['cum_rebuf'] < 0 or
+                out['startup_delay'] < 0 or out['num_rebuf'] < 0):
+                continue
 
             self.callback(session, out)
 

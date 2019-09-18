@@ -26,8 +26,17 @@ def main():
         with open(video_data_path) as fh:
             for line in fh:
                 split_line = line.strip().split(',')
-                session = tuple(split_line[:3])
 
+                # sanity check
+                (user, init_id, expt_id, first_ssim_index,
+                 avg_ssim_index, avg_ssim_db_diff,
+                 avg_delivery_rate, avg_tput) = split_line
+
+                if float(first_ssim_index) >= 1:
+                    sys.stderr.write('Invalid session: {}'.format(line))
+                    continue
+
+                session = tuple(split_line[:3])
                 if session not in video_data:
                     video_data[session] = split_line[3:]
                 else:
@@ -40,8 +49,17 @@ def main():
         with open(buffer_data_path) as fh:
             for line in fh:
                 split_line = line.strip().split(',')
-                session = tuple(split_line[:3])
 
+                # sanity check
+                (user, init_id, expt_id, play_time, cum_rebuf,
+                 startup_delay, num_rebuf) = split_line
+
+                if (float(play_time) < 0 or float(cum_rebuf) < 0 or
+                    float(startup_delay) < 0 or int(num_rebuf) < 0):
+                    sys.stderr.write('Invalid session: {}'.format(line))
+                    continue
+
+                session = tuple(split_line[:3])
                 if session not in buffer_data:
                     buffer_data[session] = split_line[3:]
                 else:
