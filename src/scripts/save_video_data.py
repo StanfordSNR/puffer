@@ -83,7 +83,7 @@ def save_session(session, s, data_fh):
     line += [first_ssim_index, min_rtt,
              primary_cnt, avg_ssim_index, avg_ssim_db,
              avg_delivery_rate, avg_throughput, avg_rtt,
-             diff_cnt, avg_ssim_db_diff)
+             diff_cnt, avg_ssim_db_diff]
 
     data_fh.write('{},{:d},{:d},{:.6f},{:.6f},'
                   '{:d},{:.6f},{:.6f},{:.6f},{:.6f},{:.6f},'
