@@ -90,6 +90,8 @@ def ssim_index_to_db(ssim_index):
 # retrieve the config of expt_id: find in expt_id_cache if exists;
 # otherwise, query Postgres and save the returned config in expt_id_cache
 def retrieve_expt_config(expt_id, expt_id_cache, postgres_cursor):
+    expt_id = str(expt_id)
+
     if expt_id not in expt_id_cache:
         if not postgres_cursor:
             sys.exit('Error: postgres_cursor must be provided when expt_id is '
@@ -207,3 +209,22 @@ def time_pair(arg):
     if len(ret) != 2:
         sys.exit('Invalid time_pair {}'.format(arg))
     return ret
+
+
+def parse_line(line):
+    '''
+    (user, init_id, expt_id, first_ssim_index,
+     avg_ssim_index, avg_ssim_db_diff, avg_delivery_rate, avg_tput,
+     play_time, cum_rebuf, startup_delay, num_rebuf) = line.split(',')
+    '''
+
+    x = line.strip().split(',')
+    if len(x) != 12:
+        sys.exit('Invalid line {}'.format(line.strip()))
+
+    x[2] = int(x[2])
+    for i in range(3, 11):
+        x[i] = float(x[i])
+    x[11] = int(x[11])
+
+    return x
