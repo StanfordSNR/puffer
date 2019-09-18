@@ -27,15 +27,6 @@ def main():
             for line in fh:
                 split_line = line.strip().split(',')
 
-                # sanity check
-                (user, init_id, expt_id, first_ssim_index,
-                 avg_ssim_index, avg_ssim_db_diff,
-                 avg_delivery_rate, avg_tput) = split_line
-
-                if float(first_ssim_index) >= 1:
-                    sys.stderr.write('Invalid session: {}'.format(line))
-                    continue
-
                 session = tuple(split_line[:3])
                 if session not in video_data:
                     video_data[session] = split_line[3:]

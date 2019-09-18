@@ -18,11 +18,18 @@ args = None
 
 def save_session(session, s, data_fh):
     first_ssim_index = None
-    ssim_index_ctr = [0.0, 0]  # sum, count
-    ssim_db_diff_ctr = [0.0, 0]  # sum, count
+    min_rtt = None
+
+    primary_cnt = 0
+    ssim_index_sum = 0.0
+    ssim_db_sum = 0.0
+    delivery_rate_sum = 0.0
+    throughput_sum = 0.0
+    rtt_sum = 0.0
+
+    diff_cnt = 0
+    ssim_db_diff_sum = 0.0
     prev_ssim_db = None
-    delivery_rate_ctr = [0.0, 0]  # sum, count
-    tput_ctr = [0.0, 0]  # sum, count
 
     ts = min(s.keys())
     while ts in s:
@@ -37,45 +44,50 @@ def save_session(session, s, data_fh):
         if first_ssim_index is None:
             first_ssim_index = ssim_index
 
-        ssim_index_ctr[0] += ssim_index
-        ssim_index_ctr[1] += 1
+        if min_rtt is None or s[ts]['min_rtt'] < min_rtt:
+            min_rtt = s[ts]['min_rtt']
+
+        primary_cnt += 1
+        ssim_index_sum += ssim_index
+        ssim_db_sum += ssim_db
+        delivery_rate_sum += s[ts]['delivery_rate']
+        throughput_sum += s[ts]['size'] / s[ts]['trans_time']
+        rtt_sum += s[ts]['rtt']
 
         if prev_ssim_db is not None:
-            ssim_db_diff_ctr[0] += abs(ssim_db - prev_ssim_db)
-            ssim_db_diff_ctr[1] += 1
+            ssim_db_diff_sum += abs(ssim_db - prev_ssim_db)
+            diff_cnt += 1
         prev_ssim_db = ssim_db
-
-        delivery_rate_ctr[0] += s[ts]['delivery_rate']
-        delivery_rate_ctr[1] += 1
-
-        tput_ctr[0] += s[ts]['size'] / s[ts]['trans_time']
-        tput_ctr[1] += 1
 
         ts += VIDEO_DURATION
 
-    if (first_ssim_index is None
-        or ssim_index_ctr[1] == 0
-        or ssim_db_diff_ctr[1] == 0
-        or delivery_rate_ctr[1] == 0
-        or tput_ctr[1] == 0):
+    if primary_cnt == 0 or first_ssim_index is None or min_rtt is None:
         return
 
-    avg_ssim_index = ssim_index_ctr[0] / ssim_index_ctr[1]
-    avg_ssim_db_diff = ssim_db_diff_ctr[0] / ssim_db_diff_ctr[1]
-    avg_delivery_rate = delivery_rate_ctr[0] / delivery_rate_ctr[1]
-    avg_tput = tput_ctr[0] / tput_ctr[1]
+    avg_ssim_index = ssim_index_sum / primary_cnt
+    avg_ssim_db = ssim_db_sum / primary_cnt
+    avg_delivery_rate = delivery_rate_sum / primary_cnt
+    avg_throughput = throughput_sum / primary_cnt
+    avg_rtt = rtt_sum / primary_cnt
 
-    # user, init_id, expt_id, first_ssim_index,
-    # avg_ssim_index, avg_ssim_db_diff, avg_delivery_rate, avg_tput
+    if diff_cnt == 0:
+        avg_ssim_db_diff = 0
+    else:
+        avg_ssim_db_diff = ssim_db_diff_sum / diff_cnt
+
+    # user, init_id, expt_id, first_ssim_index, min_rtt,
+    # primary_cnt, avg_ssim_index, avg_ssim_db,
+    # avg_delivery_rate, avg_throughput, avg_rtt,
+    # diff_cnt, avg_ssim_db_diff
     line = list(session)
-    line.append(first_ssim_index)
-    line.append(avg_ssim_index)
-    line.append(avg_ssim_db_diff)
-    line.append(avg_delivery_rate)
-    line.append(avg_tput)
+    line += [first_ssim_index, min_rtt,
+             primary_cnt, avg_ssim_index, avg_ssim_db,
+             avg_delivery_rate, avg_throughput, avg_rtt,
+             diff_cnt, avg_ssim_db_diff)
 
-    data_fh.write('{},{:d},{:d},{:.6f},{:.6f},{:.6f},{:.3f},{:.3f}\n'
-                  .format(*line))
+    data_fh.write('{},{:d},{:d},{:.6f},{:.6f},'
+                  '{:d},{:.6f},{:.6f},{:.6f},{:.6f},{:.6f},'
+                  '{:d},{:.6f}\n'.format(*line))
 
 
 def worker(s_str, e_str):
