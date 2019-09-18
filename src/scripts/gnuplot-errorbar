@@ -1,0 +1,55 @@
+#!/usr/bin/perl -w
+
+use strict;
+
+print <<'END';
+set xlabel "Startup delay (s)"
+set xlabel  offset character 0, 0.75, 0 font "" textcolor lt -1 norotate
+set xrange [ 0.56:0.47 ] reverse writeback
+set ylabel "Average first-chunk SSIM (dB)"
+set ylabel  offset character 3, 0, 0 font "" textcolor lt -1 rotate
+set yrange [ 9.89:10.33 ] noreverse writeback
+set border 3 front lt black linewidth 1.000 dashtype solid
+set xtics border out scale 0.5,0.5 offset 0,0.5 nomirror norotate  autojustify
+set ytics border out scale 0.5,0.5 offset 0.25,0 nomirror norotate  autojustify
+set xtics 0.02
+set ytics 0.1
+set font "Times,10"
+unset key
+set noclip
+END
+
+my $n = 0;
+
+my %colors = (Tetra => 0xd62728,
+              q{MPC-HM} => 0x1f77b4,
+              q{RobustMPC-HM} => 0x8c564b,
+              BBA => 0x2ca02c,
+              Pensieve => 0x9467bd);
+
+my @data;
+
+while (<>) {
+  chomp;
+  next if m{^#};
+  $n++;
+  s{%}{}g;
+  s{;}{}g;
+  s{,}{}g;
+  my ($name, $x_low, $x_high, $x_mean, $y_low, $y_high, $y_mean) = (split)[0,1,2,3,4,5,6];
+  if ($name eq q{Puffer}) {
+      $name = q{Tetra};
+  }
+
+  push @data, qq{$x_mean $y_mean $x_low $x_high $y_low $y_high $colors{$name} "$name"};
+}
+
+print qq{set terminal "svg" font "Times,20"\n};
+print qq{set errorbars 0.5\n};
+print qq{plot '-' using 1:2:3:4:5:6:7 with xyerrorbars lc rgb var lw 1.75 pt 7 ps 0.33, '-' using 1:2:8 with labels offset 0,-.5\n};
+
+print join qq{\n}, @data;
+print qq{\ne\n};
+print join qq{\n}, @data;
+print qq{\ne\n};
+
