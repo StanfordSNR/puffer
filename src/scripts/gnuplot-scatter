@@ -45,7 +45,7 @@ while (<>) {
 }
 
 print qq{set terminal "svg" font "Times,20"\n};
-print qq{plot '-' using 1:2:3 lc rgb var lw 1.75 pt 7 ps 0.75, '-' using 1:2:4 with labels offset 0,-.5\n};
+print qq{plot '-' using 1:2:3 lc rgb var lw 1.75 pt 7 ps 1.0, '-' using 1:2:4 with labels offset 0,-.5\n};
 
 print join qq{\n}, @data;
 print qq{\ne\n};
