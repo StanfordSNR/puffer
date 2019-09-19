@@ -7,6 +7,10 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
+import matplotlib.pyplot as plt
+plt.rcParams['font.family'] = 'Times New Roman'
+plt.rcParams['font.size'] = 14
+
 
 args = None
 
@@ -57,8 +61,8 @@ def plot_bar_graph(data):
         'ttp': 'TTP (Probabilistic)',
         'ttp_mle': 'TTP (Point Estimate)',
         'ttp_throughput': 'Throughput Predictor',
-        'linear_regressor': 'Linear Regression',
-        'harmonic_mean': 'Harmonic Mean',
+        'linear_regressor': 'Linear Regression (no DNN)',
+        'harmonic_mean': 'Harmonic Mean (HM)',
         'tcp_delivery_rate': 'TCP Delivery Rate',
         'ttp_no_history': 'No History',
         'ttp_no_history_delivery_rate': 'No History + No Delivery Rate',
@@ -77,10 +81,10 @@ def plot_bar_graph(data):
         ax.barh(cnt, data[model]['l2_loss'], color=model_color[model])
         if model != 'tcp_delivery_rate':
             ax.text(data[model]['l2_loss'] * 1.1,
-                    cnt + 0.15, model_label[model])
+                    cnt + 0.2, model_label[model])
         else:
-            ax.text(data[model]['l2_loss'] * 0.21,
-                    cnt + 1, model_label[model])
+            ax.text(data[model]['l2_loss'] * 0.155,
+                    cnt + 1.1, model_label[model])
 
     ax.set_xscale('log', basex=2)
     ax.xaxis.set_tick_params(which='both', top=True, labeltop=True)
@@ -95,7 +99,7 @@ def plot_bar_graph(data):
     ax.tick_params(which='both', direction='in')
     ax.spines['right'].set_visible(False)
 
-    ax.set_xlabel('Mean Squared Error of Chunk Transmission Time')
+    ax.set_xlabel('Mean squared error of predicting chunk transmission time')
 
     fig.savefig(args.o, bbox_inches='tight')
     sys.stderr.write('Saved plot to {}\n'.format(args.o))
