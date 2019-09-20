@@ -99,7 +99,7 @@ def plot_bar_graph(data):
     ax.tick_params(which='both', direction='in')
     ax.spines['right'].set_visible(False)
 
-    ax.set_xlabel('Mean squared error of predicting chunk transmission time')
+    ax.set_xlabel('Mean squared error of transmission time prediction')
 
     fig.savefig(args.o, bbox_inches='tight')
     sys.stderr.write('Saved plot to {}\n'.format(args.o))
