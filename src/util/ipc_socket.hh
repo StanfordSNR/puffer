@@ -18,6 +18,12 @@ public:
 
   void listen( const int backlog = 200 );
   FileDescriptor accept( void );
+
+  void set_reuseaddr( void );
+
+protected:
+  template <typename option_type>
+  void setsockopt( const int level, const int option, const option_type & option_value );
 };
 
 #endif /* IPC_SOCKET_HH */

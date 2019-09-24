@@ -19,6 +19,7 @@ Pensieve::Pensieve(const WebSocketClient & client,
               (to_string(pid()) + "_" + to_string(client.connection_id()));
 
   IPCSocket sock;
+  sock.set_reuseaddr();
   sock.bind(ipc_file_);
   sock.listen();
 

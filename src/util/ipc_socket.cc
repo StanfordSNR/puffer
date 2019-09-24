@@ -48,3 +48,17 @@ FileDescriptor IPCSocket::accept()
 {
   return { CheckSystemCall( "accept", ::accept( fd_num(), nullptr, nullptr ) ) };
 }
+
+/* set socket option */
+template <typename option_type>
+void IPCSocket::setsockopt( const int level, const int option, const option_type & option_value )
+{
+  CheckSystemCall( "setsockopt", ::setsockopt( fd_num(), level, option,
+                                               &option_value, sizeof( option_value ) ) );
+}
+
+/* allow local address to be reused sooner, at the cost of some robustness */
+void IPCSocket::set_reuseaddr( void )
+{
+  setsockopt( SOL_SOCKET, SO_REUSEADDR, int( true ) );
+}
