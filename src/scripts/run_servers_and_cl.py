@@ -139,6 +139,9 @@ def main():
             if run_servers_proc:
                 os.killpg(os.getpgid(run_servers_proc.pid), signal.SIGTERM)
 
+            # restart Gunicorn
+            check_call('sudo systemctl restart gunicorn', shell=True)
+
             run_servers_proc = Popen([run_servers_path, yaml_settings_path],
                                      preexec_fn=os.setsid, stderr=logfile)
             sys.stderr.write('Killed and restarted run_servers with updated '
