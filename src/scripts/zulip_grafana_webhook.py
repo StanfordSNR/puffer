@@ -30,6 +30,10 @@ def webhook():
     else:
         title_icon = ' :warning:'
 
+    subject = 'Alert'
+    if 'Decoder' in title:
+        subject = 'Decoder'
+
     metrics = ''.join(['* ' + x['metric'] + ': ' + str(x['value']) + '\n'
                       for x in hook_data['evalMatches']])
     if 'message' in hook_data:
@@ -43,7 +47,7 @@ def webhook():
     data = [
         ('type', 'stream'),
         ('to', 'puffer-alert'),
-        ('subject', 'Alert'),
+        ('subject', subject),
         ('content', title + title_icon + '\n' + message + metrics + '\n' + details)
     ]
 
