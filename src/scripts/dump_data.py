@@ -14,7 +14,7 @@ from helpers import datetime_iter, connect_to_influxdb, query_measurement
 backup_hour = 11  # back up at 11 AM (UTC) every day
 
 args = None
-influx_client = None
+yaml_settings = None
 
 session_map = {}  # { stream_key: session_id }
 
@@ -41,6 +41,9 @@ def find_session_id(stream_key):
 
 
 def dump_video_sent(s_str, e_str):
+    # connect to InfluxDB
+    influx_client = connect_to_influxdb(yaml_settings)
+
     csv_fname = 'video_sent_{}.csv'.format(s_str[:-7])
     csv_fh = open(csv_fname, 'w')
 
@@ -62,6 +65,9 @@ def dump_video_sent(s_str, e_str):
 
 
 def dump_video_acked(s_str, e_str):
+    # connect to InfluxDB
+    influx_client = connect_to_influxdb(yaml_settings)
+
     csv_fname = 'video_acked_{}.csv'.format(s_str[:-7])
     csv_fh = open(csv_fname, 'w')
 
@@ -82,6 +88,9 @@ def dump_video_acked(s_str, e_str):
 
 
 def dump_client_buffer(s_str, e_str):
+    # connect to InfluxDB
+    influx_client = connect_to_influxdb(yaml_settings)
+
     csv_fname = 'client_buffer_{}.csv'.format(s_str[:-7])
     csv_fh = open(csv_fname, 'w')
 
@@ -102,6 +111,9 @@ def dump_client_buffer(s_str, e_str):
 
 
 def dump_client_sysinfo(s_str, e_str):
+    # connect to InfluxDB
+    influx_client = connect_to_influxdb(yaml_settings)
+
     csv_fname = 'client_sysinfo_{}.csv'.format(s_str[:-7])
     csv_fh = open(csv_fname, 'w')
 
@@ -135,11 +147,8 @@ def main():
     args = parser.parse_args()
 
     with open(args.yaml_settings, 'r') as fh:
+        global yaml_settings
         yaml_settings = yaml.safe_load(fh)
-
-    # connect to InfluxDB
-    global influx_client
-    influx_client = connect_to_influxdb(yaml_settings)
 
     # parse input dates
     start_time_str = args.start_date + 'T{}:00:00Z'.format(backup_hour)
