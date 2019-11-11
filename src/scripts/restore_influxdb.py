@@ -93,8 +93,9 @@ def download_untar(f):
         return d
 
     # download
-    cmd = 'gsutil cp gs://puffer-influxdb-analytics/{} .'.format(f)
-    check_call(cmd, shell=True)
+    if not path.isfile(f):
+        cmd = 'gsutil cp gs://puffer-influxdb-analytics/{} .'.format(f)
+        check_call(cmd, shell=True)
 
     # untar
     cmd = 'tar xf {}'.format(f)
