@@ -5,6 +5,9 @@ import yaml
 import struct
 import numpy as np
 
+import pyasn
+import telnetlib
+
 import hashlib
 import base64
 
@@ -17,6 +20,7 @@ args = None
 yaml_settings = None
 
 session_map = {}  # { stream_key: session_id }
+ip_asn_cache = {}  # { ip: ASN }
 
 
 def gen_session_id(stream_key):
@@ -38,6 +42,35 @@ def find_session_id(stream_key):
 
     session_map[stream_key] = gen_session_id(stream_key)
     return session_map[stream_key]
+
+
+def find_asn(ip):
+    global ip_asn_cache
+
+    asn = asndb.lookup(ip)[0]
+    if asn is not None:
+        return asn
+
+    if ip in ip_asn_cache:
+        return ip_asn_cache[ip]
+
+    # query RADb and parse the reply for ASN
+    tn = telnetlib.Telnet('whois.radb.net', 43)
+    tn.write(ip.encode('ascii') + b'\n')
+
+    reply = tn.read_all().decode().split('\n')
+    for entry in reply:
+        items = entry.split(':')
+        if items[0] == 'origin':
+            asn = items[1].strip()
+            if asn[0:2] == 'AS':
+                asn = asn[2:]
+            asn = int(asn)
+            ip_asn_cache[ip] = asn  # add to cache
+            break
+
+    tn.close()
+    return asn
 
 
 def dump_video_sent(s_str, e_str):
@@ -143,12 +176,16 @@ def main():
                         help='e.g., "2019-04-03" ({} AM in UTC)'.format(backup_hour))
     parser.add_argument('--to', required=True, dest='end_date',
                         help='e.g., "2019-04-05" ({} AM in UTC)'.format(backup_hour))
+    parser.add_argument('--asn-db', required=True)
     global args
     args = parser.parse_args()
 
     with open(args.yaml_settings, 'r') as fh:
         global yaml_settings
         yaml_settings = yaml.safe_load(fh)
+
+    global asndb
+    asndb = pyasn.pyasn(args.asn_db)
 
     # parse input dates
     start_time_str = args.start_date + 'T{}:00:00Z'.format(backup_hour)
