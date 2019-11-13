@@ -52,17 +52,24 @@ RF_CHANNEL_MAP = {
 def send_to_influx(status, yaml_settings):
     curr_ts = datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S.%fZ')
     json_body = []
+
     for k, v in status.items():
+        if 'channel' not in v or not v['channel']:
+            continue
+
+        snr = v['snr'] if 'snr' in v else 0.0
+        selected_rate = v['selected_rate'] if 'selected_rate' in v else 0.0
+
         json_body.append({
           'time': curr_ts,
           'measurement': 'channel_status',
           'tags': {'channel': v['channel']},
-          'fields': {'snr': v['snr'],
-                     'selected_rate': v['selected_rate']}
+          'fields': {'snr': snr,
+                     'selected_rate': selected_rate}
         })
 
         sys.stderr.write('channel {}, SNR {}, bitrate {}\n'.format(
-            v['channel'], v['snr'], v['selected_rate']))
+            v['channel'], snr, selected_rate))
 
     client = connect_to_influxdb(yaml_settings)
     client.write_points(json_body, time_precision='ms')
