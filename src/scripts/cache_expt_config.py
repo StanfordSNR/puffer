@@ -11,14 +11,14 @@ from helpers import connect_to_postgres
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('yaml_settings')
-    parser.add_argument('-o', metavar='OUTPUT',
-                        help='output path (default: expt_cache.json)')
+    parser.add_argument('-o', metavar='OUTPUT', default='expt.json',
+                        help='output path')
     args = parser.parse_args()
 
     with open(args.yaml_settings, 'r') as fh:
         yaml_settings = yaml.safe_load(fh)
 
-    output_path = args.o if args.o else 'expt_cache.json'
+    output_path = args.o
 
     # create a Postgres client and perform queries
     postgres_client = connect_to_postgres(yaml_settings)

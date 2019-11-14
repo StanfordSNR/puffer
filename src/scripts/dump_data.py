@@ -16,11 +16,12 @@ from helpers import datetime_iter, connect_to_influxdb, query_measurement
 
 backup_hour = 11  # back up at 11 AM (UTC) every day
 
-args = None
 yaml_settings = None
-
 session_map = {}  # { stream_key: session_id }
+
+asndb = None
 ip_asn_cache = {}  # { ip: ASN }
+asn_users = {}  # { asn: set of users }
 
 
 def gen_session_id(stream_key):
@@ -158,12 +159,54 @@ def dump_client_sysinfo(s_str, e_str):
         stream_key = (pt['user'], int(pt['init_id']), int(pt['expt_id']))
         session_id = find_session_id(stream_key)
 
-        ip = pt['ip'].split('.')
-        anon_ip = '{}.{}.0.0'.format(ip[0], ip[1])
+        csv_fh.write(','.join(map(str, [
+            epoch_ts, session_id, pt['expt_id'], '',
+            pt['os'], pt['browser'], pt['screen_width'], pt['screen_height']
+        ])) + '\n')
+
+    csv_fh.close()
+
+
+def build_asn_users(s_str, e_str):
+    global asn_users
+
+    # connect to InfluxDB
+    influx_client = connect_to_influxdb(yaml_settings)
+
+    client_sysinfo_results = query_measurement(
+        influx_client, 'client_sysinfo', s_str, e_str)['client_sysinfo']
+
+    for pt in client_sysinfo_results:
+        user = pt['user']
+        asn = find_asn(pt['ip'])
+
+        if asn not in asn_users:
+            asn_users[asn] = set()
+        asn_users[asn].add(user)
+
+
+def dump_client_sysinfo_asn(s_str, e_str):
+    # connect to InfluxDB
+    influx_client = connect_to_influxdb(yaml_settings)
+
+    csv_fname = 'client_sysinfo_asn_{}.csv'.format(s_str[:-7])
+    csv_fh = open(csv_fname, 'w')
+
+    client_sysinfo_results = query_measurement(
+        influx_client, 'client_sysinfo', s_str, e_str)['client_sysinfo']
+
+    for pt in client_sysinfo_results:
+        epoch_ts = np.datetime64(pt['time']).astype('datetime64[ms]').astype('int')
+        stream_key = (pt['user'], int(pt['init_id']), int(pt['expt_id']))
+        session_id = find_session_id(stream_key)
+
+        asn = find_asn(pt['ip'])
+        if len(asn_users[asn]) < 3:
+            asn = 'anon'
 
         csv_fh.write(','.join(map(str, [
-            epoch_ts, session_id, pt['expt_id'],
-            anon_ip, pt['os'], pt['browser'], pt['screen_width'], pt['screen_height']
+            epoch_ts, session_id, pt['expt_id'], asn,
+            pt['os'], pt['browser'], pt['screen_width'], pt['screen_height']
         ])) + '\n')
 
     csv_fh.close()
@@ -176,26 +219,34 @@ def main():
                         help='e.g., "2019-04-03" ({} AM in UTC)'.format(backup_hour))
     parser.add_argument('--to', required=True, dest='end_date',
                         help='e.g., "2019-04-05" ({} AM in UTC)'.format(backup_hour))
-    parser.add_argument('--asn-db', required=True)
-    global args
+    parser.add_argument('--asn-db',
+                        help='IP-to-ASN database and dump client_sysinfo only')
     args = parser.parse_args()
 
     with open(args.yaml_settings, 'r') as fh:
         global yaml_settings
         yaml_settings = yaml.safe_load(fh)
 
-    global asndb
-    asndb = pyasn.pyasn(args.asn_db)
-
     # parse input dates
     start_time_str = args.start_date + 'T{}:00:00Z'.format(backup_hour)
     end_time_str = args.end_date + 'T{}:00:00Z'.format(backup_hour)
 
+    if args.asn_db:
+        global asndb
+        asndb = pyasn.pyasn(args.asn_db)
+
+        # build asn_users for anonymization
+        for s_str, e_str in datetime_iter(start_time_str, end_time_str):
+            build_asn_users(s_str, e_str)
+
     for s_str, e_str in datetime_iter(start_time_str, end_time_str):
-        dump_video_sent(s_str, e_str)
-        dump_video_acked(s_str, e_str)
-        dump_client_buffer(s_str, e_str)
-        dump_client_sysinfo(s_str, e_str)
+        if args.asn_db:
+            dump_client_sysinfo_asn(s_str, e_str)
+        else:
+            dump_video_sent(s_str, e_str)
+            dump_video_acked(s_str, e_str)
+            dump_client_buffer(s_str, e_str)
+            dump_client_sysinfo(s_str, e_str)
 
 
 if __name__ == '__main__':
