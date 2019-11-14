@@ -23,6 +23,9 @@ asndb = None
 ip_asn_cache = {}  # { ip: ASN }
 asn_users = {}  # { asn: set of users }
 
+total_client_sysinfo = 0
+hidden_client_sysinfo = 0
+
 
 def gen_session_id(stream_key):
     m = hashlib.sha256()
@@ -186,6 +189,9 @@ def build_asn_users(s_str, e_str):
 
 
 def dump_client_sysinfo_asn(s_str, e_str):
+    global total_client_sysinfo
+    global hidden_client_sysinfo
+
     # connect to InfluxDB
     influx_client = connect_to_influxdb(yaml_settings)
 
@@ -200,8 +206,10 @@ def dump_client_sysinfo_asn(s_str, e_str):
         stream_key = (pt['user'], int(pt['init_id']), int(pt['expt_id']))
         session_id = find_session_id(stream_key)
 
+        total_client_sysinfo += 1
         asn = find_asn(pt['ip'])
         if len(asn_users[asn]) < 3:
+            hidden_client_sysinfo += 1
             asn = 'anon'
 
         csv_fh.write(','.join(map(str, [
@@ -247,6 +255,23 @@ def main():
             dump_video_acked(s_str, e_str)
             dump_client_buffer(s_str, e_str)
             dump_client_sysinfo(s_str, e_str)
+
+    # print stats
+    if args.asn_db:
+        numuser_asns = {}
+        for asn in asn_users:
+            numuser = len(asn_users[asn])
+            if numuser not in numuser_asns:
+                numuser_asns[numuser] = 0
+
+            numuser_asns[numuser] += 1
+
+        print('1 user', numuser_asns[1])
+        print('2 users', numuser_asns[2])
+        print('Total ASNs', len(asn_users))
+
+        print('Total client_sysinfo', total_client_sysinfo)
+        print('client_sysinfo with hidden ASN', hidden_client_sysinfo)
 
 
 if __name__ == '__main__':
