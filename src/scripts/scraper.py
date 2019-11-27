@@ -41,7 +41,7 @@ RF_CHANNEL_MAP = {
     12: 'nbc',
     29: 'cbs',
     30: 'pbs',
-    34: 'univision',
+    38: 'mnt',
     41: 'ion',
     44: 'fox',
     45: 'cw'
