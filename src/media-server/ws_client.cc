@@ -63,8 +63,18 @@ void WebSocketClient::reset_channel()
 
 bool WebSocketClient::is_channel_initialized() const
 {
-  return (channel_.lock() and next_vts_ and next_ats_ and
+  return (channel_.lock() and init_id_ and first_init_id_ and
+          next_vts_ and next_ats_ and
           client_next_vts_ and client_next_ats_);
+}
+
+void WebSocketClient::set_init_id(const unsigned int init_id)
+{
+  init_id_ = init_id;
+
+  if (not first_init_id_) {
+    first_init_id_ = init_id;
+  }
 }
 
 void WebSocketClient::set_screen_size(const uint16_t screen_width,

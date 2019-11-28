@@ -44,7 +44,9 @@ public:
 
   std::shared_ptr<Channel> channel() const { return channel_.lock(); }
 
-  unsigned int init_id() const { return init_id_; }
+  std::optional<unsigned int> init_id() const { return init_id_; }
+  std::optional<unsigned int> first_init_id() const { return first_init_id_; }
+
   bool is_authenticated() const { return authenticated_; }
   std::string session_key() const { return session_key_; }
   std::string username() const { return username_; }
@@ -84,7 +86,8 @@ public:
   std::optional<TCPInfo> tcp_info() const { return tcp_info_; }
 
   /* mutators */
-  void set_init_id(const unsigned int init_id) { init_id_ = init_id; }
+  void set_init_id(const unsigned int init_id);
+
   void set_authenticated(const bool authenticated) { authenticated_ = authenticated; }
   void set_session_key(const std::string & session_key) { session_key_ = session_key; }
   void set_username(const std::string & username) { username_ = username; }
@@ -140,7 +143,8 @@ private:
   uint64_t last_msg_recv_ts_;
 
   /* set to the init_id in the most recently received client-init */
-  unsigned int init_id_ {0};
+  std::optional<unsigned int> init_id_ {};
+  std::optional<unsigned int> first_init_id_ {};
 
   bool authenticated_ {false};
   std::string session_key_ {};

@@ -136,7 +136,7 @@ void serve_video_to_client(WebSocketServer & server,
 
   /* divide the next segment into WebSocket frames and send */
   while (not next_vsegment.done()) {
-    ServerVideoMsg video_msg(client.init_id(),
+    ServerVideoMsg video_msg(client.init_id().value(),
                              channel->name(),
                              next_vformat.to_string(),
                              next_vts,
@@ -161,8 +161,10 @@ void serve_video_to_client(WebSocketServer & server,
   if (enable_logging) {
     string log_line = to_string(timestamp_ms()) + "," + channel->name() + ","
       + server_id + "," + expt_id + "," + client.username() + ","
-      + to_string(client.init_id()) + "," + to_string(next_vts)
-      + "," + next_vformat.to_string() + ","
+      + to_string(client.first_init_id().value()) + ","
+      + to_string(client.init_id().value()) + ","
+      + to_string(next_vts) + ","
+      + next_vformat.to_string() + ","
       + to_string(get<1>(data_mmap)) + "," + to_string(ssim)
       + "," + to_string(tcpi.cwnd) + "," + to_string(tcpi.in_flight) + ","
       + to_string(tcpi.min_rtt) + "," + to_string(tcpi.rtt) + ","
@@ -195,7 +197,7 @@ void serve_audio_to_client(WebSocketServer & server,
 
   /* divide the next segment into WebSocket frames and send */
   while (not next_asegment.done()) {
-    ServerAudioMsg audio_msg(client.init_id(),
+    ServerAudioMsg audio_msg(client.init_id().value(),
                              channel->name(),
                              next_aformat.to_string(),
                              next_ats,
@@ -219,18 +221,13 @@ void serve_audio_to_client(WebSocketServer & server,
 void send_server_init(WebSocketServer & server, WebSocketClient & client,
                       const bool can_resume)
 {
-  /* client should already have valid next_vts and next_ats */
-  if (not client.next_vts() or not client.next_ats()) {
-    return;
-  }
-
   const auto channel = client.channel();
 
-  ServerInitMsg init(client.init_id(), channel->name(),
+  ServerInitMsg init(client.init_id().value(), channel->name(),
                      channel->vcodec(), channel->acodec(),
                      channel->timescale(),
                      channel->vduration(), channel->aduration(),
-                     *client.next_vts(), *client.next_ats(),
+                     client.next_vts().value(), client.next_ats().value(),
                      can_resume);
   WSFrame frame {true, WSFrame::OpCode::Binary, init.to_string()};
 
@@ -243,7 +240,7 @@ void send_server_init(WebSocketServer & server, WebSocketClient & client,
 void send_server_error(WebSocketServer & server, WebSocketClient & client,
                        const ServerErrorMsg::Type error_type)
 {
-  ServerErrorMsg err_msg(client.init_id(), error_type);
+  ServerErrorMsg err_msg(client.init_id().value(), error_type);
   WSFrame frame {true, WSFrame::OpCode::Binary, err_msg.to_string()};
 
   server.queue_frame(client.connection_id(), frame);
@@ -257,7 +254,6 @@ void serve_client(WebSocketServer & server, WebSocketClient & client)
   if (not client.is_channel_initialized()) {
     return;
   }
-  /* it is now valid to directly use client.next_vts() and client.next_ats() */
 
   const auto channel = client.channel();
 
@@ -269,8 +265,8 @@ void serve_client(WebSocketServer & server, WebSocketClient & client)
     return;
   }
 
-  uint64_t next_vts = *client.next_vts();
-  uint64_t next_ats = *client.next_ats();
+  uint64_t next_vts = client.next_vts().value();
+  uint64_t next_ats = client.next_ats().value();
 
   if (channel->live()) {
     /* reinit client if clean frontiers of live streaming have caught up */
@@ -296,13 +292,13 @@ void serve_client(WebSocketServer & server, WebSocketClient & client)
   }
 
   if (client.audio_playback_buf() <= WebSocketClient::MAX_BUFFER_S and
-      *client.audio_in_flight() == 0 and channel->aready_to_serve(next_ats)
+      client.audio_in_flight().value() == 0 and channel->aready_to_serve(next_ats)
       and next_ats <= next_vts) {
     serve_audio_to_client(server, client);
   }
 
   if (client.video_playback_buf() <= WebSocketClient::MAX_BUFFER_S and
-      *client.video_in_flight() == 0 and channel->vready_to_serve(next_vts)) {
+      client.video_in_flight().value() == 0 and channel->vready_to_serve(next_vts)) {
     serve_video_to_client(server, client);
   }
 }
@@ -465,8 +461,20 @@ void handle_client_init(WebSocketServer & server, WebSocketClient & client,
   if (enable_logging) {
     string log_line = to_string(timestamp_ms()) + "," + msg.channel
       + "," + server_id + ",init," + expt_id + "," + client.username() + ","
+      + to_string(client.first_init_id().value()) + ","
       + to_string(msg.init_id) + ",0,0" /* buffer cum_rebuf */;
     append_to_log("client_buffer", log_line);
+
+    /* record system information */
+    log_line = to_string(timestamp_ms()) + "," + server_id + ","
+      + expt_id + "," + client.username() + ","
+      + to_string(client.first_init_id().value()) + ","
+      + to_string(msg.init_id) + ","
+      + client.address().ip() + ","
+      + client.os() + "," + client.browser() + ","
+      + to_string(client.screen_width()) + ","
+      + to_string(client.screen_height());
+    append_to_log("client_sysinfo", log_line);
   }
 
   /* check if the streaming can be resumed */
@@ -489,7 +497,7 @@ void handle_client_info(WebSocketClient & client, const ClientInfoMsg & msg)
     return;
   }
 
-  if (msg.init_id != client.init_id()) {
+  if (msg.init_id != client.init_id().value()) {
     cerr << client.signature() << ": warning: ignored messages with "
          << "invalid init_id (but should not have received)" << endl;
     return;
@@ -511,9 +519,12 @@ void handle_client_info(WebSocketClient & client, const ClientInfoMsg & msg)
     /* record system information */
     if (enable_logging) {
       string log_line = to_string(timestamp_ms()) + "," + server_id + ","
-        + expt_id + "," + client.username() + "," + to_string(msg.init_id)
-        + "," + client.address().ip() + "," + client.os() + ","
-        + client.browser() + "," + to_string(*msg.screen_width) + ","
+        + expt_id + "," + client.username() + ","
+        + to_string(client.first_init_id().value()) + ","
+        + to_string(msg.init_id) + ","
+        + client.address().ip() + ","
+        + client.os() + "," + client.browser() + ","
+        + to_string(*msg.screen_width) + ","
         + to_string(*msg.screen_height);
       append_to_log("client_sysinfo", log_line);
     }
@@ -526,7 +537,9 @@ void handle_client_info(WebSocketClient & client, const ClientInfoMsg & msg)
     /* record client-info */
     string log_line = to_string(timestamp_ms()) + "," + channel_name + ","
       + server_id + "," + msg.event_str + "," + expt_id + ","
-      + client.username() + "," + to_string(msg.init_id) + ","
+      + client.username() + ","
+      + to_string(client.first_init_id().value()) + ","
+      + to_string(msg.init_id) + ","
       + double_to_string(msg.video_buffer, 3) + ","
       + double_to_string(msg.cum_rebuffer, 3);
     append_to_log("client_buffer", log_line);
@@ -541,7 +554,7 @@ void handle_client_video_ack(WebSocketClient & client,
   }
   auto channel = client.channel();
 
-  if (msg.init_id != client.init_id()) {
+  if (msg.init_id != client.init_id().value()) {
     cerr << client.signature() << ": warning: ignored messages with "
          << "invalid init_id (but should not have received)" << endl;
     return;
@@ -582,7 +595,9 @@ void handle_client_video_ack(WebSocketClient & client,
   if (enable_logging) {
     string log_line = to_string(timestamp_ms()) + "," + msg.channel + ","
       + server_id + "," + expt_id + "," + client.username() + ","
-      + to_string(msg.init_id) + "," + to_string(msg.timestamp) + ","
+      + to_string(client.first_init_id().value()) + ","
+      + to_string(msg.init_id) + ","
+      + to_string(msg.timestamp) + ","
       + to_string(msg.ssim) + "," + double_to_string(msg.video_buffer, 3) + ","
       + double_to_string(msg.cum_rebuffer, 3);
     append_to_log("video_acked", log_line);
@@ -596,7 +611,7 @@ void handle_client_audio_ack(WebSocketClient & client,
     return;
   }
 
-  if (msg.init_id != client.init_id()) {
+  if (msg.init_id != client.init_id().value()) {
     cerr << client.signature() << ": warning: ignored messages with "
          << "invalid init_id (but should not have received)" << endl;
     return;
@@ -747,17 +762,6 @@ int run_websocket_server(pqxx::nontransaction & db_work)
               client.set_os(msg.os);
               client.set_browser(msg.browser);
               client.set_screen_size(msg.screen_width, msg.screen_height);
-
-              /* record system information */
-              if (enable_logging) {
-                string log_line = to_string(timestamp_ms()) + "," + server_id
-                  + "," + expt_id + "," + client.username() + ","
-                  + to_string(msg.init_id) + "," + client.address().ip() + ","
-                  + msg.os + "," + msg.browser + ","
-                  + to_string(msg.screen_width) + ","
-                  + to_string(msg.screen_height);
-                append_to_log("client_sysinfo", log_line);
-              }
 
               cerr << connection_id << ": authentication succeeded" << endl;
               cerr << client.signature() << ": " << client.browser() << " on "
