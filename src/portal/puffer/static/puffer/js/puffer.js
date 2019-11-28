@@ -414,7 +414,7 @@ function WebSocketClient(session_key, username_in, settings_debug, port_in,
   var ws = null;
   var av_source = null;
 
-  /* init as a random uint16 and increment every time a client-init is sent */
+  /* init as a random uint32 and increment every time a client-init is sent */
   var init_id = Math.floor(Math.random() * 4294967296);
 
   /* record the screen sizes reported to the server as they might change */
@@ -589,6 +589,12 @@ function WebSocketClient(session_key, username_in, settings_debug, port_in,
       report_error(init_id, 'server-error: ' + metadata.errorType);
 
       if (metadata.errorType === 'maintenance') {
+        set_fatal_error(metadata.errorMessage);
+        ws.close();
+        return;
+      }
+
+      if (metadata.errorType === 'limit') {
         set_fatal_error(metadata.errorMessage);
         ws.close();
         return;

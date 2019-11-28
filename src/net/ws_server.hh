@@ -77,7 +77,6 @@ private:
 
   std::set<uint64_t> closed_connections_ {};
 
-  bool active_ {};
   std::string congestion_control_ {};
 
   void init_listener_socket();

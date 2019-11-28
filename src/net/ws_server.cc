@@ -16,7 +16,6 @@ using namespace PollerShortNames;
 using namespace CryptoPP;
 
 static string WS_MAGIC_STRING = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
-static unsigned int MAX_CONNECTION_NUM = 10;
 
 bool is_valid_handshake_request(const HTTPRequest & request)
 {
@@ -171,7 +170,6 @@ void WSServer<SocketType>::init_listener_socket()
   listener_socket_.bind(listener_addr_);
   listener_socket_.listen();
 
-  active_ = true;
   poller_.add_action(Poller::Action(listener_socket_, Direction::In,
     [this]()->ResultType
     {
@@ -344,12 +342,6 @@ void WSServer<SocketType>::init_listener_socket()
                   conn.interested_in_sending());
         }
       ));
-
-      if (connections_.size() >= MAX_CONNECTION_NUM) {
-        listener_socket_.close();
-        active_ = false;
-        return ResultType::CancelAll;
-      }
 
       return ResultType::Continue;
     }
@@ -532,10 +524,6 @@ Poller::Result WSServer<SocketType>::loop_once()
   }
 
   closed_connections_.clear();
-
-  if (not active_ and connections_.size() < MAX_CONNECTION_NUM) {
-    init_listener_socket();
-  }
 
   return result;
 }

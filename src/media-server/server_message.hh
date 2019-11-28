@@ -68,7 +68,8 @@ public:
   enum class Type {
     Maintenance, /* server is under maintenance */
     Reinit,      /* channel needs to be reinitialized */
-    Unavailable  /* channel is not available */
+    Unavailable, /* channel is not available */
+    Limit        /* limit on number of concurrent viewers */
   };
 
   ServerErrorMsg(const unsigned int init_id, const Type error_type);

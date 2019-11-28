@@ -99,6 +99,10 @@ ServerErrorMsg::ServerErrorMsg(const unsigned int init_id,
     error_type_str = "unavailable";
     error_message = "Sorry, the channel is not currently available. "
       "Please try another channel or refresh the page.";
+  } else if (error_type == Type::Limit) {
+    error_type_str = "limit";
+    error_message = "Sorry, this server has reached the limit "
+      "of concurrent viewers (see FAQ). Please refresh or try again later.";
   }
 
   msg_ = {

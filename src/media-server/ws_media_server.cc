@@ -44,6 +44,8 @@ static map<uint64_t, WebSocketClient> clients;  /* key: connection ID */
 static const size_t MAX_WS_FRAME_B = 100 * 1024;  /* 10 KB */
 static const unsigned int MAX_IDLE_MS = 60000; /* clean idle connections */
 
+static const unsigned int MAX_CONNECTION_NUM = 10; /* max connections */
+
 /* for logging */
 static bool enable_logging = false;
 static fs::path log_dir;  /* base directory for logging */
@@ -243,9 +245,6 @@ void send_server_error(WebSocketServer & server, WebSocketClient & client,
 {
   ServerErrorMsg err_msg(client.init_id(), error_type);
   WSFrame frame {true, WSFrame::OpCode::Binary, err_msg.to_string()};
-
-  /* drop previously queued frames before sending server-error */
-  server.clear_buffer(client.connection_id());
 
   server.queue_frame(client.connection_id(), frame);
 
@@ -811,6 +810,16 @@ int run_websocket_server(pqxx::nontransaction & db_work)
     {
       try {
         cerr << connection_id << ": connection opened" << endl;
+
+        /* check if number of connections already exceeds the limit */
+        if (clients.size() >= MAX_CONNECTION_NUM) {
+          cerr << connection_id << ": rejected over-limit connection" << endl;
+
+          WebSocketClient tmp_client(connection_id, abr_name, abr_config);
+          send_server_error(server, tmp_client, ServerErrorMsg::Type::Limit);
+          server.close_connection(connection_id);
+          return;
+        }
 
         /* create a new WebSocketClient */
         clients.emplace(
