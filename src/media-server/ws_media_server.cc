@@ -240,7 +240,7 @@ void send_server_init(WebSocketServer & server, WebSocketClient & client,
 void send_server_error(WebSocketServer & server, WebSocketClient & client,
                        const ServerErrorMsg::Type error_type)
 {
-  ServerErrorMsg err_msg(client.init_id().value(), error_type);
+  ServerErrorMsg err_msg(client.init_id() ? *client.init_id() : 0, error_type);
   WSFrame frame {true, WSFrame::OpCode::Binary, err_msg.to_string()};
 
   server.queue_frame(client.connection_id(), frame);
