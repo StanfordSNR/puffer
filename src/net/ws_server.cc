@@ -292,7 +292,9 @@ void WSServer<SocketType>::init_listener_socket()
               }
             }
           } else {
-            assert(false);  /* will not happen */
+            cerr << "Invalid conn.state = " << (int) conn.state << endl;
+            force_close_connection(conn_id);
+            return ResultType::CancelAll;
           }
 
           return ResultType::Continue;
