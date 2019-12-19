@@ -41,8 +41,6 @@ RF_CHANNEL_MAP = {
     12: 'nbc',
     29: 'cbs',
     30: 'pbs',
-    38: 'mnt',
-    41: 'ion',
     44: 'fox',
     45: 'cw'
 }
@@ -127,9 +125,10 @@ def parse_input_status(html, status):
 
     for x in matches:
         input = int(x[0])
-        if input in status:
+        channel = int(x[2].split()[0])
+        if input in status and channel in RF_CHANNEL_MAP:
             status[input]['snr'] = float(x[1])
-            status[input]['channel'] = RF_CHANNEL_MAP[int(x[2].split()[0])]
+            status[input]['channel'] = RF_CHANNEL_MAP[channel]
 
 
 def parse_output_status(html, status):
