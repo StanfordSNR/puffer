@@ -44,7 +44,7 @@ def do_collect_ssim(s_str, e_str, d):
             d[abr_cc] = [0.0, 0]  # sum, count
 
         ssim_index = get_ssim_index(pt)
-        if ssim_index is not None:
+        if ssim_index is not None and ssim_index != 1:
             d[abr_cc][0] += ssim_index
             d[abr_cc][1] += 1
 
