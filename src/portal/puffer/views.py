@@ -50,6 +50,7 @@ def player(request):
 
     return render(request, 'puffer/player.html', context)
 
+
 @login_required(login_url='/accounts/login/')
 def error_reporting(request):
     if request.method == 'POST':
@@ -95,6 +96,7 @@ def monitoring(request):
 
     context = {'snapshot_url': snapshot.url}
     return render(request, 'puffer/monitoring.html', context)
+
 
 @login_required(login_url='/accounts/login/')
 def profile(request):

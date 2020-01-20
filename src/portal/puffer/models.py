@@ -35,6 +35,7 @@ class Participate(models.Model):
     def __str__(self):
         return self.email
 
+# classes above are not currrently used
 
 def user_logged_in_handler(sender, request, user, **kwargs):
     curr_session_key = request.session.session_key
