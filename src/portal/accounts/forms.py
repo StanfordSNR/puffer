@@ -32,4 +32,9 @@ class SignUpForm(UserCreationForm):
                 "The username must be between 3 and 30 characters long."
             )
 
+        if User.objects.filter(username=username).exists():
+            raise forms.ValidationError(
+                "The username is already in use."
+            )
+
         return username
