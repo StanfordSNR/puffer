@@ -29,15 +29,6 @@
     </ul>
     {% endif %}
 
-    {% if form.errors %}
-    <div class="alert alert-danger text-center" role="alert">
-       Please fix errors in the form.
-       <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-         <span aria-hidden="true">&times;</span>
-       </button>
-    </div>
-    {% endif %}
-
     <div class="text-center">
       <a href="{% url 'index' %}">
         <img class="mt-3 mb-4" src="{% static 'puffer/dist/images/logo-full.svg' %}"
@@ -53,15 +44,10 @@
         <label class="col-form-label" for="id_username">Choose your username</label>
         <input class="form-control" id="id_username" type="text" placeholder="Username"
                name="username" required autofocus>
-
-        {% if form.username.errors %}
-          <ul class="m-0 errorlist">
-        {% else %}
-          <ul class="m-0">
-        {% endif %}
-            <li>minimum length of 3</li>
-            <li>must contain only alphanumeric, dash, and underscore</li>
-          </ul>
+        <ul class="m-0">
+          <li>minimum length of 3</li>
+          <li>must contain only alphanumeric, dash, and underscore</li>
+        </ul>
       </div>
       </div>
 
@@ -70,13 +56,9 @@
         <label class="col-form-label" for="id_password1">Create a password</label>
         <input class="form-control" id="id_password1" type="password" placeholder="Password"
                name="password1" required>
-        {% if form.password1.errors %}
-          <ul class="m-0 errorlist">
-        {% else %}
-          <ul class="m-0">
-        {% endif %}
-            <li>minimum length of 3</li>
-          </ul>
+        <ul class="m-0">
+          <li>minimum length of 3</li>
+        </ul>
       </div>
       </div>
 
@@ -85,9 +67,6 @@
         <label class="col-form-label" for="id_password2">Confirm your password</label>
         <input class="form-control" id="id_password2" type="password" placeholder="Password"
                name="password2" required>
-        {% if form.password2.errors %}
-          {{ form.password2.errors }}
-        {% endif %}
       </div>
       </div>
 

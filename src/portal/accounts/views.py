@@ -22,6 +22,10 @@ def signup(request):
             messages.success(request,
                 'Your account has been created successfully! Please log in.')
             return redirect('login')
+        else:
+            for field_name in form.errors:
+                for field_error in form.errors[field_name]:
+                    messages.error(request, field_error)
     else:
         form = SignUpForm()
 
