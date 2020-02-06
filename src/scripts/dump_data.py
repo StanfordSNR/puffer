@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import os
 import argparse
 import yaml
 import struct
@@ -8,7 +9,6 @@ import numpy as np
 import pyasn
 import telnetlib
 
-import hashlib
 import base64
 
 from helpers import datetime_iter, connect_to_influxdb, query_measurement
@@ -28,11 +28,7 @@ hidden_client_sysinfo = 0
 
 
 def gen_session_id(stream_key):
-    m = hashlib.sha256()
-    m.update(stream_key[0].encode('utf-8'))
-    m.update(struct.pack('>I', stream_key[1]))
-    m.update(struct.pack('>I', stream_key[2]))
-    return base64.b64encode(m.digest()).decode('ascii')
+    return base64.b64encode(os.urandom(32)).decode('ascii')
 
 
 def find_session_id(stream_key):
@@ -228,7 +224,7 @@ def main():
     parser.add_argument('--to', required=True, dest='end_date',
                         help='e.g., "2019-04-05" ({} AM in UTC)'.format(backup_hour))
     parser.add_argument('--asn-db',
-                        help='IP-to-ASN database and dump client_sysinfo only')
+                        help='IP-to-ASN database and also dump client_sysinfo')
     args = parser.parse_args()
 
     with open(args.yaml_settings, 'r') as fh:
@@ -248,13 +244,13 @@ def main():
             build_asn_users(s_str, e_str)
 
     for s_str, e_str in datetime_iter(start_time_str, end_time_str):
+        dump_video_sent(s_str, e_str)
+        dump_video_acked(s_str, e_str)
+        dump_client_buffer(s_str, e_str)
+        dump_client_sysinfo(s_str, e_str)
+
         if args.asn_db:
             dump_client_sysinfo_asn(s_str, e_str)
-        else:
-            dump_video_sent(s_str, e_str)
-            dump_video_acked(s_str, e_str)
-            dump_client_buffer(s_str, e_str)
-            dump_client_sysinfo(s_str, e_str)
 
     # print stats
     if args.asn_db:
