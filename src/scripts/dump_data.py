@@ -31,15 +31,22 @@ def gen_session_id(stream_key):
     return base64.b64encode(os.urandom(32)).decode('ascii')
 
 
-def find_session_id(stream_key):
+def find_session_id(stream_key, search):
     global session_map
 
-    for i in range(11):
-        prev_stream_key = (stream_key[0], int(stream_key[1] - i), int(stream_key[2]))
-        if prev_stream_key in session_map:
-            session_map[stream_key] = session_map[prev_stream_key]
-            return session_map[stream_key]
+    # exact match: this stream has a known session key
+    if stream_key in session_map:
+        return session_map[stream_key]
 
+    # close match: this stream actually belongs to an existing session
+    if search:
+        for i in range(1, 11):
+            prev_stream_key = (stream_key[0], int(stream_key[1] - i), int(stream_key[2]))
+            if prev_stream_key in session_map:
+                session_map[stream_key] = session_map[prev_stream_key]
+                return session_map[stream_key]
+
+    # no match: this stream starts a new session
     session_map[stream_key] = gen_session_id(stream_key)
     return session_map[stream_key]
 
@@ -85,8 +92,13 @@ def dump_video_sent(s_str, e_str):
 
     for pt in video_sent_results:
         epoch_ts = np.datetime64(pt['time']).astype('datetime64[ms]').astype('int')
-        stream_key = (pt['user'], int(pt['init_id']), int(pt['expt_id']))
-        session_id = find_session_id(stream_key)
+
+        if 'first_init_id' in pt:
+            stream_key = (pt['user'], int(pt['first_init_id']), int(pt['expt_id']))
+            session_id = find_session_id(stream_key, False)
+        else:
+            stream_key = (pt['user'], int(pt['init_id']), int(pt['expt_id']))
+            session_id = find_session_id(stream_key, True)
 
         csv_fh.write(','.join(map(str, [
             epoch_ts, session_id, pt['expt_id'], pt['channel'], pt['video_ts'],
@@ -109,8 +121,13 @@ def dump_video_acked(s_str, e_str):
 
     for pt in video_acked_results:
         epoch_ts = np.datetime64(pt['time']).astype('datetime64[ms]').astype('int')
-        stream_key = (pt['user'], int(pt['init_id']), int(pt['expt_id']))
-        session_id = find_session_id(stream_key)
+
+        if 'first_init_id' in pt:
+            stream_key = (pt['user'], int(pt['first_init_id']), int(pt['expt_id']))
+            session_id = find_session_id(stream_key, False)
+        else:
+            stream_key = (pt['user'], int(pt['init_id']), int(pt['expt_id']))
+            session_id = find_session_id(stream_key, True)
 
         csv_fh.write(','.join(map(str, [
             epoch_ts, session_id, pt['expt_id'], pt['channel'], pt['video_ts']
@@ -132,8 +149,13 @@ def dump_client_buffer(s_str, e_str):
 
     for pt in client_buffer_results:
         epoch_ts = np.datetime64(pt['time']).astype('datetime64[ms]').astype('int')
-        stream_key = (pt['user'], int(pt['init_id']), int(pt['expt_id']))
-        session_id = find_session_id(stream_key)
+
+        if 'first_init_id' in pt:
+            stream_key = (pt['user'], int(pt['first_init_id']), int(pt['expt_id']))
+            session_id = find_session_id(stream_key, False)
+        else:
+            stream_key = (pt['user'], int(pt['init_id']), int(pt['expt_id']))
+            session_id = find_session_id(stream_key, True)
 
         csv_fh.write(','.join(map(str, [
             epoch_ts, session_id, pt['expt_id'], pt['channel'],
@@ -155,8 +177,13 @@ def dump_client_sysinfo(s_str, e_str):
 
     for pt in client_sysinfo_results:
         epoch_ts = np.datetime64(pt['time']).astype('datetime64[ms]').astype('int')
-        stream_key = (pt['user'], int(pt['init_id']), int(pt['expt_id']))
-        session_id = find_session_id(stream_key)
+
+        if 'first_init_id' in pt:
+            stream_key = (pt['user'], int(pt['first_init_id']), int(pt['expt_id']))
+            session_id = find_session_id(stream_key, False)
+        else:
+            stream_key = (pt['user'], int(pt['init_id']), int(pt['expt_id']))
+            session_id = find_session_id(stream_key, True)
 
         csv_fh.write(','.join(map(str, [
             epoch_ts, session_id, pt['expt_id'], pt['ip'],
@@ -199,8 +226,13 @@ def dump_client_sysinfo_asn(s_str, e_str):
 
     for pt in client_sysinfo_results:
         epoch_ts = np.datetime64(pt['time']).astype('datetime64[ms]').astype('int')
-        stream_key = (pt['user'], int(pt['init_id']), int(pt['expt_id']))
-        session_id = find_session_id(stream_key)
+
+        if 'first_init_id' in pt:
+            stream_key = (pt['user'], int(pt['first_init_id']), int(pt['expt_id']))
+            session_id = find_session_id(stream_key, False)
+        else:
+            stream_key = (pt['user'], int(pt['init_id']), int(pt['expt_id']))
+            session_id = find_session_id(stream_key, True)
 
         total_client_sysinfo += 1
         asn = find_asn(pt['ip'])
