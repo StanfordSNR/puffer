@@ -34,7 +34,7 @@ def gen_session_id(stream_key):
 def find_session_id(stream_key):
     global session_map
 
-    for i in range(1, 11):
+    for i in range(11):
         prev_stream_key = (stream_key[0], int(stream_key[1] - i), int(stream_key[2]))
         if prev_stream_key in session_map:
             session_map[stream_key] = session_map[prev_stream_key]
@@ -159,7 +159,7 @@ def dump_client_sysinfo(s_str, e_str):
         session_id = find_session_id(stream_key)
 
         csv_fh.write(','.join(map(str, [
-            epoch_ts, session_id, pt['expt_id'], '',
+            epoch_ts, session_id, pt['expt_id'], pt['ip'],
             pt['os'], pt['browser'], pt['screen_width'], pt['screen_height']
         ])) + '\n')
 
