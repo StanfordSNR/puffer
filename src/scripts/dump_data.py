@@ -93,7 +93,7 @@ def dump_video_sent(s_str, e_str):
     for pt in video_sent_results:
         epoch_ts = np.datetime64(pt['time']).astype('datetime64[ms]').astype('int')
 
-        if 'first_init_id' in pt:
+        if 'first_init_id' in pt and pt['first_init_id']:
             stream_key = (pt['user'], int(pt['first_init_id']), int(pt['expt_id']))
             session_id = find_session_id(stream_key, False)
         else:
@@ -122,7 +122,7 @@ def dump_video_acked(s_str, e_str):
     for pt in video_acked_results:
         epoch_ts = np.datetime64(pt['time']).astype('datetime64[ms]').astype('int')
 
-        if 'first_init_id' in pt:
+        if 'first_init_id' in pt and pt['first_init_id']:
             stream_key = (pt['user'], int(pt['first_init_id']), int(pt['expt_id']))
             session_id = find_session_id(stream_key, False)
         else:
@@ -150,7 +150,7 @@ def dump_client_buffer(s_str, e_str):
     for pt in client_buffer_results:
         epoch_ts = np.datetime64(pt['time']).astype('datetime64[ms]').astype('int')
 
-        if 'first_init_id' in pt:
+        if 'first_init_id' in pt and pt['first_init_id']:
             stream_key = (pt['user'], int(pt['first_init_id']), int(pt['expt_id']))
             session_id = find_session_id(stream_key, False)
         else:
@@ -178,7 +178,7 @@ def dump_client_sysinfo(s_str, e_str):
     for pt in client_sysinfo_results:
         epoch_ts = np.datetime64(pt['time']).astype('datetime64[ms]').astype('int')
 
-        if 'first_init_id' in pt:
+        if 'first_init_id' in pt and pt['first_init_id']:
             stream_key = (pt['user'], int(pt['first_init_id']), int(pt['expt_id']))
             session_id = find_session_id(stream_key, False)
         else:
@@ -227,7 +227,7 @@ def dump_client_sysinfo_asn(s_str, e_str):
     for pt in client_sysinfo_results:
         epoch_ts = np.datetime64(pt['time']).astype('datetime64[ms]').astype('int')
 
-        if 'first_init_id' in pt:
+        if 'first_init_id' in pt and pt['first_init_id']:
             stream_key = (pt['user'], int(pt['first_init_id']), int(pt['expt_id']))
             session_id = find_session_id(stream_key, False)
         else:
