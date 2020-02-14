@@ -28,11 +28,15 @@
 
   <!-- Jumbotron -->
   <div class="jumbotron">
-    <div class="container text-center">
-      <div class="row justify-content-center">
-        <div class="col-md-7">
+    <div class="container">
+
+      <div class="row justify-content-md-center">
         <img class="mb-4" src="{% static 'puffer/dist/images/logo-full.svg' %}"
              alt="Puffer" height="160px">
+      </div>
+
+      <div class="row justify-content-md-center">
+        <div class="col-md-8 text-justify">
 
         <p>Stream live TV in your browser. There's no charge. You can watch U.S. TV stations affiliated with the NBC, CBS,
         ABC, PBS, Fox, and CW networks.</p>
@@ -43,15 +47,18 @@
 
         <p>Puffer is a research project in the computer-science
 department at Stanford University. Please see our <a href="{% url 'faq' %}">FAQ</a> for more information.</p>
+        </div>
+      </div>
 
+      <div class="row justify-content-md-center">
         {% if user.is_authenticated %}
         <a role="button" class="btn btn-primary btn-lg" href="{% url 'player' %}">Watch TV</a>
         {% else %}
         <a role="button" class="btn btn-primary" href="{% url 'signup' %}">Sign up</a>
         <a role="button" class="btn btn-outline-primary" href="{% url 'player' %}">Log in</a>
         {% endif %}
-        </div>
       </div>
+
     </div>
   </div>
 
