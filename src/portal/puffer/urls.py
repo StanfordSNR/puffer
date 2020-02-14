@@ -11,5 +11,6 @@ urlpatterns = [
     path('player/', views.player, name='player'),
     path('faq/', views.faq, name='faq'),
     path('terms/', views.terms, name='terms'),
+    path('data/', views.data, name='data'),
     path('error_reporting/', views.error_reporting, name='error_reporting'),
 ]

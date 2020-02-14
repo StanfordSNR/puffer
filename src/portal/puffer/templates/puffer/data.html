@@ -1,0 +1,78 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <!-- Global site tag (gtag.js) - Google Analytics -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=UA-117951942-2"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'UA-117951942-2');
+    gtag('config', 'AW-771906819');
+  </script>
+  <link rel="stylesheet" href="{% static 'puffer/dist/css/bootstrap.min.css' %}">
+  <link rel="stylesheet" href="{% static 'puffer/css/common.css' %}">
+  <title>Puffer</title>
+  <link rel="icon" href="{% static 'puffer/dist/images/favicon.ico' %}">
+</head>
+
+<body>
+  <!-- Navigation -->
+  {% include "puffer/navigation.html" %}
+
+  <!-- Open Data Section -->
+  <div class="container py-4">
+    <div class="text-center pb-1">
+      <h4>Puffer Data</h4>
+    </div>
+    <br>
+    <div class="row justify-content-md-center">
+      <div class="col-md-10 text-justify">
+        <p>
+        Along with our <a href="https://sophon.stanford.edu/static/puffer/documents/puffer-paper.pdf">research paper</a>, we are publishing an archive of anonymized data collected on Puffer for
+        the research community to investigate. The data format is described in Appendix B
+        of the paper. We will be happy to provide clarification and more details regarding
+        the data in our <a href="https://groups.google.com/forum/#!forum/puffer-stanford">Google group</a>;
+        please don't hesitate to post a question.
+        </p>
+
+        <p>
+        We encourage you to download a small sample of <a href="https://storage.googleapis.com/puffer-stanford-data/puffer-fake-sample.tar.gz">fake data</a> first to determine if the huge
+        amount of full data is actually what you need. We would also appreciate it if you could
+        download the full data only once.
+        </p>
+
+        <table class="table table-sm">
+
+          <thead>
+            <tr>
+              <th scope="col">Filename</th>
+              <th scope="col">SHA256</th>
+            </tr>
+          </thead>
+
+          <tbody class="monospace">
+            {% for filename, sha256 in files.items %}
+            <tr>
+              <td><a href="https://storage.googleapis.com/puffer-stanford-data/{{filename}}">{{filename}}</a></td>
+              <td>{{sha256}}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script src="{% static 'puffer/dist/js/jquery-3.3.1.slim.min.js' %}"></script>
+  <script src="{% static 'puffer/dist/js/bootstrap.min.js' %}"></script>
+</body>
+
+</html>

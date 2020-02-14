@@ -29,6 +29,26 @@ def terms(request):
     return render(request, 'puffer/terms.html')
 
 
+def data(request):
+    files = {}
+    files['puffer-fake-sample.tar.gz'] = '8b0c8aabb38bd59ed511e938fec129fd8e02ecf015d10c02b254d6804648b9d1'
+    files['puffer-201901.tar.gz'] = 'db9264328d21639dda8693222d72f01132e94c37b243fdb8847012b00c1f13fc'
+    files['puffer-201902.tar.gz'] = 'b0227d6db8a31caba3e1a637b815907cd9fc42b3fce9710d0d77c48ce466f124'
+    files['puffer-201903.tar.gz'] = '977dd66d46dbfb6677bd7dbdfc8d5b9cefe945342987e5c3ae02b8da50a7015c'
+    files['puffer-201904.tar.gz'] = '95681786f0cc6cf2298963f1e0924a805f1273f6be19a250dd144190261061fe'
+    files['puffer-201905.tar.gz'] = '61f700a0c8d85d3a45974aa25031366ec36aa843b1dbb8291580c7fe73ecce23'
+    files['puffer-201906.tar.gz'] = 'de048f1a1562791a5c894aff6142b82f9135baed0c43ed33aa372e326a673a08'
+    files['puffer-201907.tar.gz'] = '7a32204a159b2f361e5a496659bc134742560c3bf1fd78322c92e150e8779c33'
+    files['puffer-201908.tar.gz'] = 'cc4bb355f592e387262a7febb970bd42c87b80b658d4b11dd015924963d3b235'
+    files['puffer-201909.tar.gz'] = 'a8d11f49cc1367c15d63eb1b08d4ad7dc0fc2c9d5239215f39f319d9a8cfee4e'
+    files['puffer-201910.tar.gz'] = 'd5b5c8c5c165f2e009a5293dde3b011eab5b1952b562d3a43249925d708a7e0c'
+    files['puffer-201911.tar.gz'] = '4b6a950a57c6ffcd69607903d00913bd6a2dffe9cfbd5323ba109c5a260fe38a'
+    files['puffer-201912.tar.gz'] = 'a0fcd9f1010eb43451fcaefc9aaf0ea3a87c25659d330f9131a2bc288596079a'
+    files['puffer-202001.tar.gz'] = '5453a8f1b53d2426c10a9e13f35bb75091396a29eb69f5a65d8427f3ffffa7b4'
+
+    return render(request, 'puffer/data.html', {'files': files})
+
+
 @login_required(login_url='/accounts/login/')
 def player(request):
     # generate a random port or use a superuser-specified port
