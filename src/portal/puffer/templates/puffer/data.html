@@ -53,14 +53,16 @@
           <thead>
             <tr>
               <th scope="col">Filename</th>
+              <th scope="col" class="text-right">Size</th>
               <th scope="col">SHA256</th>
             </tr>
           </thead>
 
           <tbody class="monospace">
-            {% for filename, sha256 in files.items %}
+            {% for filename, filesize, sha256 in files %}
             <tr>
               <td><a href="https://storage.googleapis.com/puffer-stanford-data/{{filename}}">{{filename}}</a></td>
+              <td class="text-right">{{filesize}}</td>
               <td>{{sha256}}</td>
             </tr>
             {% endfor %}
