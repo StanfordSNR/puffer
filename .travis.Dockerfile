@@ -15,7 +15,7 @@ RUN update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-7 99
 
 # install the latest version of libpqxx
 RUN git clone https://github.com/jtv/libpqxx.git
-RUN cd libpqxx && git checkout 6.2.5 && ./configure --enable-documentation=no && make -j3 install
+RUN cd libpqxx && git checkout 7.0.0 && ./configure --enable-documentation=no && make -j3 install
 
 RUN useradd --create-home --shell /bin/bash user
 COPY . /home/user/puffer/

@@ -65,14 +65,14 @@ int retrieve_expt_id(const string & json_str)
     pqxx::work db_work(db_conn);
 
     /* try to fetch an existing row */
-    pqxx::result r = db_work.prepared("select_id")(hash).exec();
+    pqxx::result r = db_work.exec_prepared("select_id", hash);
     if (r.size() == 1 and r[0].size() == 1) {
       /* the same hash already exists */
       return r[0][0].as<int>();
     }
 
     /* insert if no record exists and return the ID of inserted row */
-    r = db_work.prepared("insert_json")(hash)(json_str).exec();
+    r = db_work.exec_prepared("insert_json", hash, json_str);
     db_work.commit();
     if (r.size() == 1 and r[0].size() == 1) {
       return r[0][0].as<int>();

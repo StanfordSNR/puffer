@@ -652,7 +652,7 @@ void create_channels(Inotify & inotify)
 bool auth_client(const string & session_key, pqxx::nontransaction & db_work)
 {
   try {
-    pqxx::result r = db_work.prepared("auth")(session_key).exec();
+    pqxx::result r = db_work.exec_prepared("auth", session_key);
 
     if (r.size() == 1 and r[0].size() == 1) {
       /* returned record is valid containing only true or false */
@@ -714,6 +714,7 @@ int run_websocket_server(pqxx::nontransaction & db_work)
   WebSocketServer server {{ip, port}, cc_name};
 
   const bool portal_debug = config["portal_settings"]["debug"].as<bool>();
+
   /* workaround using compiler macros (CXXFLAGS='-DNONSECURE') to create a
    * server with non-secure socket; secure socket is used by default */
   #ifdef NONSECURE
@@ -902,7 +903,7 @@ int main(int argc, char * argv[])
   /* connect to the database for user authentication */
   string db_conn_str = postgres_connection_string(config["postgres_connection"]);
   pqxx::connection db_conn(db_conn_str);
-  cerr << "Connected to database: " << db_conn.hostname() << endl;
+  cerr << "Connected to PostgreSQL at " << db_conn.hostname() << endl;
 
   /* prepare a statement to check if the session_key in client-init is valid */
   db_conn.prepare("auth", "SELECT EXISTS(SELECT 1 FROM django_session WHERE "
