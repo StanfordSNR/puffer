@@ -29,46 +29,175 @@
   <!-- Open Data Section -->
   <div class="container py-4">
     <div class="text-center pb-1">
-      <h4>Puffer Data</h4>
+      <h4>Data Archive</h4>
     </div>
     <br>
     <div class="row justify-content-md-center">
       <div class="col-md-10 text-justify">
         <p>
-        Along with our <a href="https://sophon.stanford.edu/static/puffer/documents/puffer-paper.pdf">research paper</a>, we are publishing an archive of anonymized data collected on Puffer for
-        the research community to investigate. The data format is described in Appendix B
-        of the paper. We will be happy to provide clarification and more details regarding
-        the data in our <a href="https://groups.google.com/forum/#!forum/puffer-stanford">Google Group</a>;
-        please don't hesitate to post a question.
+        Along with our
+        <a href="{% static 'puffer/documents/puffer-paper.pdf' %}">research paper</a>,
+        we are publishing an archive of anonymized data collected on Puffer for
+        the research community to investigate. This page contains data between
+        Jan. 2019 and Jan. 2020; new data, along with the results of ongoing experiments on Puffer,
+        will be posted in the <a href="{% url 'results' %}">experiment results</a> page.
+        </p>
+
+        <br><h5>Data Description</h5><hr>
+        <p>
+        Please download a small sample of
+        <a href="https://storage.googleapis.com/puffer-stanford-data/puffer-fake-sample.tar.gz">fake data</a>
+        first to determine if the Puffer data is indeed what you need. If anything is not
+        clear in the below data description, please don't hesitate to post a question in our
+        <a href="https://groups.google.com/forum/#!forum/puffer-stanford">Google Group</a>.
         </p>
 
         <p>
-        We encourage you to download a small sample of <a href="https://storage.googleapis.com/puffer-stanford-data/puffer-fake-sample.tar.gz">fake data</a> first to determine if the huge
-        amount of full data is actually what you need. We would also appreciate it if you could
-        download the full data only once. Below is the list of URLs to download each month of
-        Puffer data; the JSON file is for looking up experimental setting.
-        New data and results will be posted weekly; please stand by!
+        At a high level, the Puffer data contains a single JSON file
+        that encodes the experimental settings,
+        and each day of data is stored as time series in four CSV files:
+        <span class="monospace">video_sent_X.csv</span>,
+        <span class="monospace">video_acked_X.csv</span>,
+        <span class="monospace">client_buffer_X.csv</span>,
+        where <span class="monospace">X</span>
+        represents the start of the day. For example, "2019-11-04T11"
+        means the file contains data collected between 2019-11-04T11:00:00Z and
+        2019-11-05T11:00:00Z (time zone is UTC by default).
         </p>
 
-        <table class="table table-sm">
-          <thead>
-            <tr>
-              <th scope="col">Filename</th>
-              <th scope="col" class="text-right">Size</th>
-              <th scope="col">SHA256</th>
-            </tr>
-          </thead>
+        <ul>
+          <li>
+            <b><span class="monospace">expt_DAY.json</span></b> contains the settings of all
+            the past experiments in one place, dumped on a <span class="monospace">DAY</span>.
+            The key is <span class="monospace">expt_id</span>,
+            a unique ID to identify an experiment. The value contains experiment configuration
+            such as congestion control, ABR algorithm and the associated parameters.
+            Note that the field <span class="monospace">abr_name</span> is simply a meaningful
+            name for a specific combination of <span class="monospace">abr</span>
+            <span class="monospace">abr_config</span>.
+          </li>
 
-          <tbody class="monospace">
-            {% for filename, filesize, sha256 in files %}
-            <tr>
-              <td><a href="https://storage.googleapis.com/puffer-stanford-data/{{filename}}">{{filename}}</a></td>
-              <td class="text-right">{{filesize}}</td>
-              <td>{{sha256}}</td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
+          <li>
+            <b><span class="monospace">video_sent_X.csv:</span></b> each line represents a data
+            point collected every time when a Puffer server sends a video chunk to a client.
+            It contains the fields below in order:
+            <ul>
+              <li><span class="monospace">time:</span> timestamp (milliseconds since Unix epoch)
+                  when the chunk is sent</li>
+              <li><span class="monospace">session_id:</span> unique ID for the video session</li>
+              <li><span class="monospace">expt_id</span></li>
+              <li><span class="monospace">channel:</span> TV channel name</li>
+              <li><span class="monospace">video_ts:</span> unique presentation timestamp
+              of the chunk. Every chunk in each channel is always 2.002 seconds long, i.e.,
+              180180 at 90 kHz. Therefore, a continuous playback of a channel would require
+              <span class="monospace">video_ts</span> to increment by 180180 in each chunk.</li>
+              <li><span class="monospace">format:</span> encoding settings of the chunk,
+              represented as "WxH-CRF", namely the resolution and constant rate factor (CRF)</li>
+              <li><span class="monospace">size:</span> chunk size in bytes</li>
+              <li><span class="monospace">ssim_index:</span> SSIM of the chunk (relative to a
+              canonical version of the chunk). Note that it is unitless and not in dB.</li>
+              <li><span class="monospace">cwnd:</span> congestion window size in packets
+              (<span class="monospace">tcpi_snd_cwnd</span>)</li>
+              <li><span class="monospace">in_flight</span>: number of unacknowledged packets
+              in flight
+              (<span class="monospace">tcpi_unacked - tcpi_sacked - tcpi_lost + tcpi_retrans</span>)
+              </li>
+              <li><span class="monospace">min_rtt:</span> minimum RTT in microseconds
+              (<span class="monospace">tcpi_min_rtt</span>)</li>
+              <li><span class="monospace">rtt:</span> smoothed RTT estimate in microseconds
+              (<span class="monospace">tcpi_rtt</span>)</li>
+              <li><span class="monospace">delivery_rate:</span> TCP's estimation of delivery rate
+              in byte/second (<span class="monospace">tcpi_delivery_rate</span>)</li>
+            </ul>
+          </li>
+
+          <li>
+            <b><span class="monospace">video_acked_X.csv:</span></b> each line represents a data
+            point collected every time when a Puffer server receives a video chunk acknowledgement
+            from a client. It contains fields below in order:
+            <ul>
+              <li><span class="monospace">time:</span> timestamp (milliseconds since Unix epoch)
+                when the chunk is acknowledged</li>
+              <li><span class="monospace">session_id</span></li>
+              <li><span class="monospace">expt_id</span></li>
+              <li><span class="monospace">channel</span></li>
+              <li><span class="monospace">video_ts:</span> presentation timestamp of the chunk,
+                which can be used to find the matching chunk in
+                <span class="monospace">video_sent_X.csv</span>.
+                It is usually monotonously increasing but will be reset to 0 from time to time
+                (e.g., when Puffer's encoding pipeline is restarted). Although it is not guaranteed
+                to be a universally unique ID, duplicate matches within each day of data are
+                extremely rare in practice.</li>
+            </ul>
+          </li>
+
+          <li>
+            <b><span class="monospace">client_buffer_X.csv:</span></b> each line represents a data
+            point reported by the client, when certain events occur and on a regular interval.
+            It contains fields below in order:
+            <ul>
+              <li><span class="monospace">time:</span> timestamp (milliseconds since Unix epoch)
+                when the client message is received</li>
+              <li><span class="monospace">session_id</span></li>
+              <li><span class="monospace">expt_id</span></li>
+              <li><span class="monospace">channel</span></li>
+              <li>
+                <span class="monospace">event</span>: type of event reported by the client:
+                <ul>
+                  <li><span class="monospace">init:</span>
+                      when the client switches to a new channel</li>
+                  <li><span class="monospace">startup:</span> when the client starts playing the
+                      channel</li>
+                  <li><span class="monospace">rebuffer:</span> when the client rebuffers</li>
+                  <li><span class="monospace">play:</span> when the client resumes playing
+                      from rebuffering</li>
+                  <li><span class="monospace">timer:</span> periodic event reported by
+                      the client, designed to fire every 250 ms. However, the interval is not
+                      reliable and can often be longer, especially when the client's browser tab
+                      becomes inactive.</li>
+                </ul>
+              </li>
+              <li><span class="monospace">buffer:</span> playback buffer size in seconds</li>
+              <li><span class="monospace">cum_rebuf:</span> total time in seconds that
+                  the client has spent rebuffering when playing the current channel</li>
+            </ul>
+          </li>
+        </ul>
+
+        <br><h5>Data Download</h5><hr>
+        <p>Once again, please download a small sample of
+          <a href="https://storage.googleapis.com/puffer-stanford-data/puffer-fake-sample.tar.gz">fake data</a>
+          first to determine if the Puffer data is indeed what you need. We would also appreciate it
+          if you could download the full data only once. Click
+          <a data-toggle="collapse" href="#collapse-data-list" aria-expanded="false"
+             aria-controls="collapseExample">
+            here
+          </a>
+          to see the list of URLs to download each month of Puffer data.
+        </p>
+        <div class="collapse" id="collapse-data-list">
+          <div class="card card-body">
+            <table class="table table-sm">
+              <thead>
+                <tr>
+                  <th scope="col">Filename</th>
+                  <th scope="col" class="text-right">Size</th>
+                  <th scope="col">SHA256</th>
+                </tr>
+              </thead>
+
+              <tbody class="monospace">
+                {% for filename, filesize, sha256 in files %}
+                <tr>
+                  <td><a href="https://storage.googleapis.com/puffer-stanford-data/{{filename}}">{{filename}}</a></td>
+                  <td class="text-right">{{filesize}}</td>
+                  <td>{{sha256}}</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
     </div>
   </div>
