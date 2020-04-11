@@ -19,13 +19,17 @@
           <a class="nav-link" href="{% url 'faq' %}">About Puffer</a>
         </li>
         <li class="nav-item">
-          <a class="nav-link" href="{% static 'puffer/documents/puffer-paper.pdf' %}">Research Paper</a>
-        </li>
-        <li class="nav-item">
           <a class="nav-link" href="https://github.com/StanfordSNR/puffer">Source Code</a>
         </li>
-        <li class="nav-item">
-          <a class="nav-link" href="{% url 'data' %}">Open Data</a>
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle" href="#" id="dropdownMenuLink"
+             data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Research Study</a>
+          <div class="dropdown-menu" aria-labelledby="dropdownMenuLink">
+            <a class="dropdown-item" href="{% static 'puffer/documents/puffer-paper.pdf' %}">Research Paper</a>
+            <a class="dropdown-item" href="https://youtu.be/63aECX2MZvY">Conference Talk</a>
+            <a class="dropdown-item" href="{% url 'results' %}">Experiment Results</a>
+            <a class="dropdown-item" href="{% url 'data' %}">Data Archive</a>
+          </div>
         </li>
       </ul>
     </div>

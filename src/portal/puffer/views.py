@@ -50,6 +50,10 @@ def data(request):
     return render(request, 'puffer/data.html', {'files': files})
 
 
+def results(request):
+    return render(request, 'puffer/results.html')
+
+
 @login_required(login_url='/accounts/login/')
 def player(request):
     # generate a random port or use a superuser-specified port
