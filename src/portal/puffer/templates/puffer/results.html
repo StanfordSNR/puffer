@@ -18,6 +18,7 @@
   </script>
   <link rel="stylesheet" href="{% static 'puffer/dist/css/bootstrap.min.css' %}">
   <link rel="stylesheet" href="{% static 'puffer/css/common.css' %}">
+  <link rel="stylesheet" href="{% static 'puffer/dist/css/bootstrap-datepicker.standalone.min.css' %}">
   <title>Puffer</title>
   <link rel="icon" href="{% static 'puffer/dist/images/favicon.ico' %}">
 </head>
@@ -31,10 +32,30 @@
     <div class="text-center pb-1">
       <h4>Experiment Results</h4>
     </div>
+
+    <div class="row">
+      <div class="col-md-3">
+        <form class="form-search-results" method="post" action="{% url 'results' %}">
+          {% csrf_token %}
+
+          <div id="calendar"></div>
+          <button type="submit" class="btn btn-primary">Search</button>
+        </form>
+      </div>
+
+      <div class="col-md-9">
+        TODO: display graphs and URLs to data
+      </div>
+    </div>
   </div>
 
   <script src="{% static 'puffer/dist/js/jquery-3.3.1.slim.min.js' %}"></script>
   <script src="{% static 'puffer/dist/js/bootstrap.bundle.min.js' %}"></script>
+  <script src="{% static 'puffer/dist/js/bootstrap-datepicker.min.js' %}"></script>
+  <script type="text/javascript">
+    $('#calendar').datepicker({
+    });
+  </script>
 </body>
 
 </html>
