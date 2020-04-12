@@ -31,7 +31,6 @@ def terms(request):
 
 def data(request):
     files = []
-    files += [('puffer-fake-sample.tar.gz', '14K', '8b0c8aabb38bd59ed511e938fec129fd8e02ecf015d10c02b254d6804648b9d1')]
     files += [('expt_2020-02-17.json', '225K', '462e8466445f8967ba74cc213aa6c55d4f83b33862e19096abfdb2d754a56cb8')]
     files += [('puffer-201901.tar.gz', '1.9G', 'db9264328d21639dda8693222d72f01132e94c37b243fdb8847012b00c1f13fc')]
     files += [('puffer-201902.tar.gz', '1.5G', 'b0227d6db8a31caba3e1a637b815907cd9fc42b3fce9710d0d77c48ce466f124')]

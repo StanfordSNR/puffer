@@ -45,35 +45,55 @@
 
         <br><h5>Data Description</h5><hr>
         <p>
-        Please download a small sample of
+        Please download a small set of
         <a href="https://storage.googleapis.com/puffer-stanford-data/puffer-fake-sample.tar.gz">fake data</a>
-        first to determine if the Puffer data is indeed what you need. If anything is not
+        first to determine if the full Puffer data is indeed what you need. If anything is not
         clear in the below data description, please don't hesitate to post a question in our
         <a href="https://groups.google.com/forum/#!forum/puffer-stanford">Google Group</a>.
         </p>
 
         <p>
-        At a high level, the Puffer data contains a single JSON file
-        that encodes the experimental settings,
-        and each day of data is stored as time series in four CSV files:
+        At a high level, each day's Puffer data comprises different "measurements" &mdash;
+        each measurement contains a different set of time-series data collected on Puffer servers,
+        and is dumped as a CSV file. The CSV files that are essential for analysis include
         <span class="monospace">video_sent_X.csv</span>,
-        <span class="monospace">video_acked_X.csv</span>,
+        <span class="monospace">video_acked_X.csv</span>, and
         <span class="monospace">client_buffer_X.csv</span>,
         where <span class="monospace">X</span>
-        represents the start of the day. For example, "2019-11-04T11"
-        means the file contains data collected between 2019-11-04T11:00:00Z and
-        2019-11-05T11:00:00Z (time zone is UTC by default).
+        represents the start of the day when the data was collected.
+        For example, "2019-11-04T11" means the data was collected between
+        2019-11-04T11:00:00Z and 2019-11-05T11:00:00Z (UTC is the default time zone).
         </p>
 
+        <p>
+        A special field in many CSV files is <span class="monospace">expt_id</span>,
+        a unique ID to identify an experiment. It can be used as a key to retrieve the
+        corresponding experiment settings (e.g., ABR, congestion control)
+        in a JSON file <span class="monospace">expt_Y.json</span>, which includes the
+        settings of all the experiments conducted before day <span class="monospace">Y</span>.
+        If an <span class="monospace">expt_id</span> were missing in the JSON file, it would
+        suggest an out-of-date JSON file. Please reach out to ask for an updated dump of the
+        JSON file.
+        </p>
+
+        <p>
+        Additionally, there are two terms that we will use in the description: "stream" and
+        "session". When a Puffer client watches TV for the first time or reloads the
+        player page, it starts a new "session". When it switches channels, it enters into a
+        different "stream" but still remains in the same "session", which uses the same
+        TCP connection. Please let us know if there is any inconsistent usage of the terms
+        in the code.
+        </p>
+
+        <p>
+        Finally, the data format of each type of file:
         <ul>
           <li>
-            <b><span class="monospace">expt_DAY.json</span></b> contains the settings of all
-            the past experiments in one place, dumped on a <span class="monospace">DAY</span>.
-            The key is <span class="monospace">expt_id</span>,
-            a unique ID to identify an experiment. The value contains experiment configuration
-            such as congestion control, ABR algorithm and the associated parameters.
+            <b><span class="monospace">expt_Y.json</span></b>: The value of each key
+            <span class="monospace">expt_id</span> contains the corresponding experiment
+            configuration such as congestion control, ABR algorithm and the associated parameters.
             Note that the field <span class="monospace">abr_name</span> is simply a meaningful
-            name for a specific combination of <span class="monospace">abr</span>
+            name for a specific combination of <span class="monospace">abr</span> and
             <span class="monospace">abr_config</span>.
           </li>
 
@@ -86,16 +106,19 @@
                   when the chunk is sent</li>
               <li><span class="monospace">session_id:</span> unique ID for the video session</li>
               <li><span class="monospace">expt_id</span></li>
-              <li><span class="monospace">channel:</span> TV channel name</li>
-              <li><span class="monospace">video_ts:</span> unique presentation timestamp
-              of the chunk. Every chunk in each channel is always 2.002 seconds long, i.e.,
-              180180 at 90 kHz. Therefore, a continuous playback of a channel would require
+              <li><span class="monospace">channel:</span> TV channel name. Recall that
+              a different channel suggests a different stream given the same
+              <span class="monospace">session_id</span>.</li>
+              <li><span class="monospace">video_ts:</span> presentation timestamp
+              of the chunk. Each video chunk is always 2.002 seconds long, i.e.,
+              180180 at 90 kHz. Therefore, a continuous playback in a stream would require
               <span class="monospace">video_ts</span> to increment by 180180 in each chunk.</li>
               <li><span class="monospace">format:</span> encoding settings of the chunk,
-              represented as "WxH-CRF", namely the resolution and constant rate factor (CRF)</li>
+              represented as "WxH-CRF", namely the width, height, and constant rate factor (CRF)
+              of the video</li>
               <li><span class="monospace">size:</span> chunk size in bytes</li>
               <li><span class="monospace">ssim_index:</span> SSIM of the chunk (relative to a
-              canonical version of the chunk). Note that it is unitless and not in dB.</li>
+              canonical version of the chunk). Note that it is unitless (instead of in dB).</li>
               <li><span class="monospace">cwnd:</span> congestion window size in packets
               (<span class="monospace">tcpi_snd_cwnd</span>)</li>
               <li><span class="monospace">in_flight</span>: number of unacknowledged packets
@@ -114,70 +137,77 @@
           <li>
             <b><span class="monospace">video_acked_X.csv:</span></b> each line represents a data
             point collected every time when a Puffer server receives a video chunk acknowledgement
-            from a client. It contains fields below in order:
+            from a client. Note that this is not when a chunk is received by the client.
+            It contains the fields below in order:
             <ul>
-              <li><span class="monospace">time:</span> timestamp (milliseconds since Unix epoch)
-                when the chunk is acknowledged</li>
+              <li><span class="monospace">time:</span> timestamp
+                (milliseconds since Unix epoch) when the server receives a chunk acknowledgement
+                from the client</li>
               <li><span class="monospace">session_id</span></li>
               <li><span class="monospace">expt_id</span></li>
               <li><span class="monospace">channel</span></li>
               <li><span class="monospace">video_ts:</span> presentation timestamp of the chunk,
                 which can be used to find the matching chunk in
                 <span class="monospace">video_sent_X.csv</span>.
-                It is usually monotonously increasing but will be reset to 0 from time to time
-                (e.g., when Puffer's encoding pipeline is restarted). Although it is not guaranteed
-                to be a universally unique ID, duplicate matches within each day of data are
-                extremely rare in practice.</li>
+                The presentation timestamp of a channel is usually monotonously increasing but
+                will be reset to 0 from time to time
+                (e.g., when Puffer's encoding pipeline is restarted). Therefore, it is not
+                guaranteed to be universally unique, but duplicate matches within a short period
+                of time are extremely rare in practice.</li>
             </ul>
           </li>
 
           <li>
             <b><span class="monospace">client_buffer_X.csv:</span></b> each line represents a data
-            point reported by the client, when certain events occur and on a regular interval.
-            It contains fields below in order:
+            point containing a message reported by the client, when certain events occur and on a
+            regular interval. It contains the fields below in order:
             <ul>
               <li><span class="monospace">time:</span> timestamp (milliseconds since Unix epoch)
-                when the client message is received</li>
+                when the server receives the client message</li>
               <li><span class="monospace">session_id</span></li>
               <li><span class="monospace">expt_id</span></li>
               <li><span class="monospace">channel</span></li>
               <li>
-                <span class="monospace">event</span>: type of event reported by the client:
+                <span class="monospace">event</span>: type of event reported by the client includes
                 <ul>
                   <li><span class="monospace">init:</span>
                       when the client switches to a new channel</li>
-                  <li><span class="monospace">startup:</span> when the client starts playing the
-                      channel</li>
+                  <li><span class="monospace">startup:</span> when the client starts playing a
+                      channel. The difference between <span class="monospace">init</span>
+                      and <span class="monospace">startup</span> is referred to as the
+                      "startup delay" of that stream.</li>
                   <li><span class="monospace">rebuffer:</span> when the client rebuffers</li>
                   <li><span class="monospace">play:</span> when the client resumes playing
-                      from rebuffering</li>
+                      from rebuffering (this is a legacy name and would better be called
+                      <span class="monospace">resume</span>)</li>
                   <li><span class="monospace">timer:</span> periodic event reported by
-                      the client, designed to fire every 250 ms. However, the interval is not
-                      reliable and can often be longer, especially when the client's browser tab
-                      becomes inactive.</li>
+                      the client, designed to fire every 250 ms. In practice, however, the
+                      interval is not reliable and can often be inevitably longer, e.g.,
+                      when the client's browser tab becomes inactive.</li>
                 </ul>
               </li>
               <li><span class="monospace">buffer:</span> playback buffer size in seconds</li>
               <li><span class="monospace">cum_rebuf:</span> total time in seconds that
-                  the client has spent rebuffering when playing the current channel</li>
+                  the client has spent rebuffering in the current stream</li>
             </ul>
           </li>
         </ul>
+        </p>
 
         <br><h5>Data Download</h5><hr>
-        <p>Once again, please download a small sample of
+        <p>Once again, please download the small
           <a href="https://storage.googleapis.com/puffer-stanford-data/puffer-fake-sample.tar.gz">fake data</a>
-          first to determine if the Puffer data is indeed what you need. We would also appreciate it
-          if you could download the full data only once. Click
+          first to determine if the full data is indeed what you need, and we would be grateful
+          if you could download the data from our server only once. Click
           <a data-toggle="collapse" href="#collapse-data-list" aria-expanded="false"
              aria-controls="collapseExample">
             here
           </a>
-          to see the list of URLs to download each month of Puffer data.
+          to see the URLs to download the full data archive.
         </p>
         <div class="collapse" id="collapse-data-list">
-          <div class="card card-body">
-            <table class="table table-sm">
+          <div class="card card-body border-0 table-responsive">
+            <table class="table table-sm table-striped w-auto">
               <thead>
                 <tr>
                   <th scope="col">Filename</th>
