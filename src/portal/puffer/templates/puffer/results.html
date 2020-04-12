@@ -32,19 +32,19 @@
     <div class="text-center pb-1">
       <h4>Experiment Results</h4>
     </div>
+    <br>
 
     <div class="row">
       <div class="col-md-3">
-        <form class="form-search-results" method="post" action="{% url 'results' %}">
-          {% csrf_token %}
-
-          <div id="calendar"></div>
-          <button type="submit" class="btn btn-primary">Search</button>
-        </form>
+        <div id="calendar"></div>
       </div>
 
-      <div class="col-md-9">
-        TODO: display graphs and URLs to data
+      <div class="col-md-9 pt-2">
+        <ul>
+          <li>Selected date (UTC): <span class="selected-date"></span></li>
+          <li><span class="monospace">video_sent</span> measurement: <a id="video_sent_csv"></a></li>
+          <li>Performance of the ongoing experiments today: <img id="perf-today"></li>
+        </ul>
       </div>
     </div>
   </div>
@@ -52,10 +52,7 @@
   <script src="{% static 'puffer/dist/js/jquery-3.3.1.slim.min.js' %}"></script>
   <script src="{% static 'puffer/dist/js/bootstrap.bundle.min.js' %}"></script>
   <script src="{% static 'puffer/dist/js/bootstrap-datepicker.min.js' %}"></script>
-  <script type="text/javascript">
-    $('#calendar').datepicker({
-    });
-  </script>
+  <script src="{% static 'puffer/js/results.js' %}"></script>
 </body>
 
 </html>
