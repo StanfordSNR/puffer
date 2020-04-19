@@ -202,7 +202,7 @@ int main(int argc, char * argv[])
   const auto & influx = config["influxdb_connection"];
   InfluxDBClient influxdb_client(
       poller,
-      {influx["host"].as<string>(), influx["port"].as<uint16_t>()},
+      {influx["host"].as<string>(), to_string(influx["port"].as<uint16_t>())},
       influx["dbname"].as<string>(),
       influx["user"].as<string>(),
       safe_getenv(influx["password"].as<string>()));

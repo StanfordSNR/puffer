@@ -90,7 +90,7 @@ int tail_loop(const YAML::Node & config, const string & log_path,
   const auto & influx = config["influxdb_connection"];
   InfluxDBClient influxdb_client(
       poller,
-      {influx["host"].as<string>(), influx["port"].as<uint16_t>()},
+      {influx["host"].as<string>(), to_string(influx["port"].as<uint16_t>())},
       influx["dbname"].as<string>(),
       influx["user"].as<string>(),
       safe_getenv(influx["password"].as<string>()));
