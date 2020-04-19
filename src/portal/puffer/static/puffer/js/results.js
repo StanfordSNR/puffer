@@ -1,7 +1,7 @@
 'use strict';
 
-const gs_storage_prefix = 'https://storage.googleapis.com/puffer-stanford-public/data-release-test/';
-const gs_console_prefix = 'https://console.cloud.google.com/storage/browser/puffer-stanford-public/data-release-test/';
+const gs_storage_prefix = 'https://storage.googleapis.com/puffer-stanford-public/data-release/';
+const gs_console_prefix = 'https://console.cloud.google.com/storage/browser/puffer-stanford-public/data-release/';
 
 // Internal date of datepicker represents the start day of the backup
 // (e.g. date = 2020-04-11 UTC => 2020-04-11T11_2020-04-12T11)
@@ -31,14 +31,15 @@ function change_date() {
     
     // SVGs (display all available -- day should always be available, others may not)
     var alt_text = "Not available";
-    var svg_filename = "day_plot_" + influx_backup_date + ".svg";
-    $('#day_plot').attr('src', date_dir + svg_filename).attr('alt', alt_text);
-    svg_filename = "week_plot_" + influx_backup_date + ".svg";
-    $('#week_plot').attr('src', date_dir + svg_filename).attr('alt', alt_text);
-    svg_filename = "two_weeks_plot_" + influx_backup_date + ".svg";
-    $('#two_weeks_plot').attr('src', date_dir + svg_filename).attr('alt', alt_text);
-    svg_filename = "month_plot_" + influx_backup_date + ".svg";
-    $('#month_plot').attr('src', date_dir + svg_filename).attr('alt', alt_text);
+    var time_periods = ["day", "week", "two_weeks", "month"];
+    var speeds = ["all", "slow"];
+    for (var period = 0; period < time_periods.length; period++) {
+        for (var speed = 0; speed < speeds.length; speed++) {
+            var plot_prefix = time_periods[period] + "_" + speeds[speed] + "_plot";
+            var svg_filename = plot_prefix + "_" + influx_backup_date + ".svg";
+            $('#' + plot_prefix).attr('src', date_dir + svg_filename).attr('alt', alt_text);
+        }
+    }
 
     // Bucket
     // Can't link to a directory via storage prefix
