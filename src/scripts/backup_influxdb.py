@@ -60,6 +60,9 @@ def main():
     cmd = 'rm -rf {0} {0}.tar.gz'.format(dst_dir)
     check_call(cmd, shell=True)
 
+    # read from YAML the path to Emily's program and run it
+    check_call(yaml_settings['data_release_script'], shell=True)
+
 
 if __name__ == '__main__':
     main()
