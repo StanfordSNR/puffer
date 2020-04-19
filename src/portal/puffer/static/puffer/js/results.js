@@ -6,7 +6,6 @@ const gs_console_prefix = 'https://console.cloud.google.com/storage/browser/puff
 // Internal date of datepicker represents the start day of the backup
 // (e.g. date = 2020-04-11 UTC => 2020-04-11T11_2020-04-12T11)
 function change_date() {
-  // TODO: check if date is <= yesterday
   var first_day = $('#calendar').datepicker('getUTCDate');
   var second_day = new Date(first_day);
   second_day.setDate(first_day.getDate() + 1);
@@ -50,7 +49,9 @@ function change_date() {
 $(function() {
   // initialize bootstrap datepicker
   $('#calendar').datepicker({
-    'format': 'yyyy-mm-dd',
+    format: 'yyyy-mm-dd',
+    startDate: '2019-01-01',
+    endDate: '-1d',
   });
 
   $('#calendar').on('changeDate', change_date);
