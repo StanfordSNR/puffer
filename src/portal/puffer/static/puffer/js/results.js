@@ -6,9 +6,9 @@ const gs_console_prefix = 'https://console.cloud.google.com/storage/browser/puff
 // Internal date of datepicker represents the start day of the backup
 // (e.g. date = 2020-04-11 UTC => 2020-04-11T11_2020-04-12T11)
 function change_date() {
-  var first_day = $('#calendar').datepicker('getDate');
+  var first_day = $('#calendar').datepicker('getUTCDate');
   var second_day = new Date(first_day);
-  second_day.setDate(first_day.getDate() + 1);
+  second_day.setDate(second_day.getDate() + 1);
 
   // format date as e.g. 2020-04-11T11_2020-04-12T11 (UTC)
   var influx_backup_date = first_day.toISOString().substring(0,10) + 'T11_' +
@@ -45,22 +45,27 @@ function change_date() {
   $('#bucket').attr('href', date_dir).text('Storage bucket');
 }
 
+// main function
 $(function() {
+  /* Initially display the most recent backup that is ~guaranteed to exist
+   * (e.g. if it's currently 08-08 UTC, the 08-07_08-08 backup may not have finished yet,
+   * but the 08-06_08-07 backup should have, since it started at 08-07 11AM UTC). */
+  var local_date = new Date();
+  var init_date = new Date(Date.UTC(local_date.getUTCFullYear(),
+                                    local_date.getUTCMonth(),
+                                    local_date.getUTCDate()));
+  // works even if date is beginning of month/year
+  init_date.setDate(init_date.getDate() - 2);
+
   // initialize bootstrap datepicker
   $('#calendar').datepicker({
     format: 'yyyy-mm-dd',
     startDate: '2019-01-01',
-    endDate: '-2d',
+    endDate: init_date.toISOString().substring(0,10),
+    weekStart: 1,
   });
 
   $('#calendar').on('changeDate', change_date);
 
-  /* Initially display the most recent backup that is ~guaranteed to exist
-   * (e.g. if it's currently 08-08 UTC, the 08-07_08-08 backup may not have finished yet,
-   * but the 08-06_08-07 backup should have, since it started at 08-07 11AM UTC). */
-  var init_date = new Date();
-  // works even if date is beginning of month/year
-  init_date.setDate(init_date.getDate() - 2);
-
-  $('#calendar').datepicker('setDate', init_date);
+  $('#calendar').datepicker('setUTCDate', init_date);
 });
