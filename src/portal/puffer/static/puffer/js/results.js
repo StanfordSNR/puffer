@@ -51,7 +51,7 @@ $(function() {
   $('#calendar').datepicker({
     format: 'yyyy-mm-dd',
     startDate: '2019-01-01',
-    endDate: '-1d',
+    endDate: '-2d',
   });
 
   $('#calendar').on('changeDate', change_date);
