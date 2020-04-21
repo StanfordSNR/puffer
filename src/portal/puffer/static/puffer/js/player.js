@@ -1,5 +1,10 @@
 'use strict';
 
+const LEFT_ARROW = 37;
+const UP_ARROW = 38;
+const RIGHT_ARROW = 39;
+const DOWN_ARROW = 40;
+
 function load_script(script_path) {
   /* Create and append a new script */
   var new_script = document.createElement('script');
@@ -134,8 +139,6 @@ function ControlBar() {
 
   const LOWERCASE_F = 70;
   const UPPERCASE_F = 102;
-  const LEFT_ARROW = 37;
-  const RIGHT_ARROW = 39;
 
   this.onkeydown = function(e) {
     if (e.keyCode === LOWERCASE_F || e.keyCode === UPPERCASE_F) {
@@ -222,8 +225,6 @@ function ChannelBar() {
     })(i);
   }
 
-  const UP_ARROW = 38;
-  const DOWN_ARROW = 40;
   this.onkeydown = function(e) {
     if (e.keyCode === DOWN_ARROW) {
       change_channel(active_idx + 1);
@@ -426,6 +427,12 @@ function init_player(params_json, csrf_token) {
 
   document.onkeydown = function(e) {
     e = e || window.event;
+
+    /* prevent the default behaviors of arrow keys */
+    if (e.keyCode == UP_ARROW || e.keyCode == DOWN_ARROW ||
+        e.keyCode == LEFT_ARROW || e.keyCode == RIGHT_ARROW)
+      e.preventDefault();
+
     control_bar.onkeydown(e);
     channel_bar.onkeydown(e);
   };
