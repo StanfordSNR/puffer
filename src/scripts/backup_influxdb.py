@@ -1,15 +1,46 @@
 #!/usr/bin/env python3
 
+import os
 import sys
 import time
 import math
 import yaml
+import requests
 import argparse
 from datetime import datetime, timedelta
 from helpers import check_call
 
 
 backup_hour = 11  # back up at 11 AM (UTC) every day
+
+ZULIP_URL = os.environ['ZULIP_URL']
+ZULIP_BOT_EMAIL = os.environ['ZULIP_BOT_EMAIL']
+ZULIP_BOT_TOKEN = os.environ['ZULIP_BOT_TOKEN']
+
+
+def post_to_zulip(retcode, dst_dir):
+    if retcode != 0:
+        content = ('**Data Release Error** :warning: '
+                   '[{}](https://puffer.stanford.edu/results/)')
+        payload = [
+            ('type', 'stream'),
+            ('to', 'puffer-alert'),
+            ('subject', 'Alert'),
+            ('content', content.format(dst_dir)),
+        ]
+    else:
+        content = ('**Data Release Success** :check_mark: '
+                   '[{}](https://puffer.stanford.edu/results/)')
+        payload = [
+            ('type', 'stream'),
+            ('to', 'puffer-notification'),
+            ('subject', 'Daily Report'),
+            ('content', content.format(dst_dir)),
+        ]
+
+    requests.post(
+        ZULIP_URL, data=payload,
+        auth=(ZULIP_BOT_EMAIL, ZULIP_BOT_TOKEN))
 
 
 def main():
@@ -61,7 +92,8 @@ def main():
     check_call(cmd, shell=True)
 
     # read from YAML the path to Emily's program and run it
-    check_call(yaml_settings['data_release_script'], shell=True)
+    retcode = call(yaml_settings['data_release_script'], shell=True)
+    post_to_zulip(retcode, dst_dir)
 
 
 if __name__ == '__main__':
