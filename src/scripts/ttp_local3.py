@@ -1,5 +1,14 @@
 #!/usr/bin/env python3
-# python ttp_local.py --use-csv --file-path ~/Documents/puffer-201903 --start-date 20190301 --end-date 20190301 --save-model ./save_model/
+# Demo Commands: 
+# 1) Test a trained model and output the accuracy, mse, etc 
+# python ttp_local3.py --load-model model-20200101-20200115-10000/py-0.pt --test-data  /mnt/disks/mnt_dir/training_data/2020-01-17-1
+# 2) Train a model from scratch, and save the model as test.pt
+# python ttp_local3.py --is-training --static-training  --fresh-data  /mnt/disks/mnt_dir/training_data/2020-01-17-1 --fresh-size 10000 --epoch-num 500 --save-model test.pt
+# 3) Train a model based on one existing model (continual training). 
+# Load the model from test.pt, continually train the model with the data 2020-01-17-1.in and 2020-01-17-1.out, 
+# then after training it for 500 epochs, save it as test-2.pt
+# python ttp_local3.py --is-training  --fresh-data  /mnt/disks/mnt_dir/training_data/2020-01-17-1 --fresh-size 10000 --epoch-num 500 --save-model test-2.pt --load-model test.pt
+
 import json
 import argparse
 import yaml
@@ -16,10 +25,6 @@ import gc
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
-from helpers import (
-    connect_to_influxdb, connect_to_postgres,
-    make_sure_path_exists, retrieve_expt_config, create_time_clause,
-    get_expt_id, get_user)
 from plot_helpers import (
     distr_bin_pred, distr_l1_pred, distr_l2_pred, l1_loss, l2_loss, bin_acc)
 
@@ -54,8 +59,6 @@ CL_MAX_DAYS = 14  # sample from last 14 days
 TUNING = False
 DEVICE = torch.device('cpu')
 
-# cache of Postgres data: experiment 'id' -> json 'data' of the experiment
-expt_id_cache = {}
 
 
 class Model:
@@ -295,10 +298,10 @@ def train(i, args, model, input_data, output_data):
 
     # number of batches
     num_batches = int(np.ceil(num_training / BATCH_SIZE))
-    sys.stderr.write('[{}] total epochs: {}\n'.format(i, args.iter_num))
+    sys.stderr.write('[{}] total epochs: {}\n'.format(i, args.epoch_num ))
 
     # loop over the entire dataset multiple times
-    for epoch_id in range(1, 1 + args.iter_num):
+    for epoch_id in range(1, 1 + args.epoch_num):
         # permutate data in each epoch
         perm_indices = np.random.permutation(num_training)
         running_loss = 0
@@ -338,13 +341,13 @@ def train(i, args, model, input_data, output_data):
                              .format(i, epoch_id, running_loss))
 
         # save checkpoints or the final model
-        if epoch_id % CHECKPOINT == 0 or epoch_id == args.iter_num:
-            if epoch_id == args.iter_num:
+        if epoch_id % CHECKPOINT == 0 or epoch_id == args.epoch_num:
+            if epoch_id == args.epoch_num:
                 suffix = ''
             else:
                 suffix = '-checkpoint-{}'.format(epoch_id)
 
-            model_path = args.save_model
+            model_path = args.save_model+suffix
             model.save(model_path)
             sys.stderr.write('[{}] Saved model for Python to {}\n'
                              .format(i, model_path))
@@ -388,6 +391,9 @@ def test_model(proc_id, args, raw_in_data, raw_out_data):
     print("result= ", accuracy)
     if args.add_suffix is not None:
         args.test_data += args.add_suffix
+    # We classify the test data into two parts. 
+    # Positive ones are correctly predicted by the model
+    # Negative ones are not correctly predicted by the model
     pos_in = open(args.test_data+"-pos.in", "w")
     pos_out = open(args.test_data+"-pos.out", "w")
     neg_in = open(args.test_data+"-neg.in", "w")
@@ -446,45 +452,52 @@ def main():
                         help='static training (or continual learning)')
     parser.add_argument('--compute-mse', dest='compute_mse', action='store_true', 
                         help='whether compute the mean square error')
-    parser.add_argument('--use-debug', dest='use_debug', action='store_true', 
-                        help='in debug mode')    
+    # While training the model, the training data may come from two sources
+    # For example, suppose we are training a model on 20200120, we may use the data 
+    # sampled from 20200120, besides, we may also use the data collected before 20200120, 
+    # so we specify two sources to study the impact on performance with different portions 
+    # of fresh/old data
+    parser.add_argument('--fresh-data', dest='fresh_data',
+                        help='file path of the training data')    
+    parser.add_argument('--fresh-size', dest='fresh_size', type=int,
+                        help='sample size of fresh data') 
     parser.add_argument('--old-data', dest='old_data', 
-                        help='old data') 
-
-    parser.add_argument('--training-data', dest='training_data',
-                        help='file path of the training data')      
-    parser.add_argument('--iteration-number', dest='iter_num', type=int,
-                        help='number of training iterations')                 
-    parser.add_argument('--test-data', dest='test_data',
-                        help='file path of test-data')    
-    parser.add_argument('--sample-size', dest='sample_size', type=int,
-                        help='sample size of data')  
+                        help='file path of old data')     
     parser.add_argument('--old-size', dest='old_size', type=int,
-                        help='sample size of old data')    
+                        help='sample size of old data')  
+    parser.add_argument('--epoch-number', dest='epoch_num', type=int,
+                        help='number of training epochs (i.e. how many times does each training sample have been put into the model)')                   
+    parser.add_argument('--test-data', dest='test_data',
+                        help='file path of test-data')  
     parser.add_argument('--additional-suffix', dest='add_suffix',
                         help='additional-suffix')    
-    
-
+    parser.add_argument('--test-size', dest='test_size', type=int,
+                        help='sample size of test data')  
     parser.add_argument('--load-model', dest='load_model',
-        help='the model to load')
+        help='the path of the model to load (while in testing mode)')
     parser.add_argument('--save-model',dest='save_model',
-        help='folder to save {:d} models to'.format(Model.FUTURE_CHUNKS))
+        help='the path to save the model (after we have finished training)')
     
     args = parser.parse_args()
 
     if args.is_training:
-        #train
-        ret_in, ret_out = read_data(args.training_data, args.sample_size)
-        print("check 111len ", len(ret_in)) 
+        # train
+        ret_in, ret_out = read_data(args.fresh_data, args.fresh_size)
         if args.old_data is not None:
             old_in, old_out = read_data(args.old_data, args.old_size)
             ret_in.extend(old_in)
             ret_out.extend(old_out)
-
+        # shuffle the training data
+        perm_indices = np.random.permutation(len(ret_in))
+        ret_in = ret_in[perm_indices]
+        ret_out = ret_out[perm_indices]
+        # For the train/test, it can be parallelized with multiprocessing 
+        # (The first parameter in train_or_eval_model/test_model is the proc-no). 
+        # However, for convenience, I only use single process, and train/test one model at a time.
         train_or_eval_model(0, args, ret_in, ret_out)
     else:
-        #test
-        ret_in, ret_out = read_data(args.test_data, args.sample_size)
+        # test
+        ret_in, ret_out = read_data(args.test_data, args.test_size)
         test_model(0, args, ret_in, ret_out)
 
 
