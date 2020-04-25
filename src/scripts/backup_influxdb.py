@@ -8,7 +8,7 @@ import yaml
 import requests
 import argparse
 from datetime import datetime, timedelta
-from helpers import check_call
+from helpers import check_call, call
 
 
 backup_hour = 11  # back up at 11 AM (UTC) every day
