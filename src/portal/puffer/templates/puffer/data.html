@@ -38,15 +38,15 @@
         Along with our
         <a href="{% static 'puffer/documents/puffer-paper.pdf' %}">research paper</a>,
         we are publishing an archive of anonymized data collected on Puffer for
-        the research community to investigate. This page contains data between
-        Jan. 2019 and Jan. 2020; new data, along with the results of ongoing experiments on Puffer,
-        will be posted in the <a href="{% url 'results' %}">experiment results</a> page.
+        the research community to investigate. This page contains data collected between
+        Jan. 2019 and Jan. 2020, but it will be <b>deprecated</b> once we completely
+        finish the <a href="{% url 'results' %}">experiment results</a> page. Please stand by!
         </p>
 
         <br><h5>Data Description</h5><hr>
         <p>
         Please download a small set of
-        <a href="https://storage.googleapis.com/puffer-stanford-data/puffer-fake-sample.tar.gz">fake data</a>
+        <a href="https://storage.googleapis.com/puffer-deprecated-data-release/puffer-fake-sample.tar.gz">fake data</a>
         first to determine if the full Puffer data is indeed what you need. If anything is not
         clear in the below data description, please don't hesitate to post a question in our
         <a href="https://groups.google.com/forum/#!forum/puffer-stanford">Google Group</a>.
@@ -196,7 +196,7 @@
 
         <br><h5>Data Download</h5><hr>
         <p>Once again, please download the small
-          <a href="https://storage.googleapis.com/puffer-stanford-data/puffer-fake-sample.tar.gz">fake data</a>
+          <a href="https://storage.googleapis.com/puffer-deprecated-data-release/puffer-fake-sample.tar.gz">fake data</a>
           first to determine if the full data is indeed what you need, and we would be grateful
           if you could download the data from our server only once. Click
           <a data-toggle="collapse" href="#collapse-data-list" aria-expanded="false"
@@ -219,7 +219,7 @@
               <tbody class="monospace">
                 {% for filename, filesize, sha256 in files %}
                 <tr>
-                  <td><a href="https://storage.googleapis.com/puffer-stanford-data/{{filename}}">{{filename}}</a></td>
+                  <td><a href="https://storage.googleapis.com/puffer-deprecated-data-release/{{filename}}">{{filename}}</a></td>
                   <td class="text-right">{{filesize}}</td>
                   <td>{{sha256}}</td>
                 </tr>
