@@ -66,7 +66,7 @@ def run_ttp(ttp_path, yaml_settings_path):
         tar_file = '{}.tar.gz'.format(new_model_base)
         check_call('tar czvf {} {}'.format(tar_file, new_model_base),
                    shell=True, cwd=model_parent_dir)
-        gs_url = 'gs://puffer-model-backup/puffer-ttp/{}'.format(tar_file)
+        gs_url = 'gs://puffer-models/puffer-ttp/{}'.format(tar_file)
         check_call('gsutil cp {} {}'.format(tar_file, gs_url),
                    shell=True, cwd=model_parent_dir)
 
