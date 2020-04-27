@@ -1,7 +1,7 @@
 'use strict';
 
-const gs_storage_prefix = 'https://storage.googleapis.com/puffer-stanford-public/data-release/';
-const gs_console_prefix = 'https://console.cloud.google.com/storage/browser/puffer-stanford-public/data-release/';
+const gs_storage_prefix = 'https://storage.googleapis.com/puffer-data-release/';
+const gs_console_prefix = 'https://console.cloud.google.com/storage/browser/puffer-data-release/';
 
 // Internal date of datepicker represents the start day of the backup
 // (e.g. date = 2020-04-11 UTC => 2020-04-11T11_2020-04-12T11)
@@ -27,9 +27,9 @@ function change_date() {
   csv_filename = 'video_acked_' + influx_backup_date + '.csv';
   $('#video_acked_csv').attr('href', date_dir + csv_filename).text(csv_filename);
 
-  // SVGs (display all available -- day should always be available, others may not)
+  // SVGs (display all available -- day and duration should always be available, others may not)
   var alt_text = 'Not available';
-  var time_periods = ['day', 'week', 'two_weeks', 'month'];
+  var time_periods = ['day', 'week', 'two_weeks', 'month', 'duration'];
   var speeds = ['all', 'slow'];
   for (var period = 0; period < time_periods.length; period++) {
     for (var speed = 0; speed < speeds.length; speed++) {
@@ -43,6 +43,15 @@ function change_date() {
   // Can't link to a directory via storage prefix
   date_dir = gs_console_prefix + influx_backup_date + '/';
   $('#bucket').attr('href', date_dir).text('Storage bucket');
+
+  // Model
+  var first_day_ISO = first_day.toISOString();
+  // Format selected day as YYYYMMDD
+  var model_date = first_day_ISO.substring(0,4) + first_day_ISO.substring(5,7) +
+                   first_day_ISO.substring(8,10);
+  var model_path = 'https://storage.googleapis.com/puffer-models/puffer-ttp/bbr-' +
+                        model_date + '-1.tar.gz';
+  $('#model').attr('href', model_path).text(model_date + '-1.tar.gz');
 }
 
 // main function
@@ -60,7 +69,7 @@ $(function() {
   // initialize bootstrap datepicker
   $('#calendar').datepicker({
     format: 'yyyy-mm-dd',
-    startDate: '2019-01-01',
+    startDate: '2019-01-26',
     endDate: init_date.toISOString().substring(0,10),
     weekStart: 1,
   });
