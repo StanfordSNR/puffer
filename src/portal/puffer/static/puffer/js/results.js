@@ -13,7 +13,12 @@ function change_date() {
   // format date as e.g. 2020-04-11T11_2020-04-12T11 (UTC)
   var influx_backup_date = first_day.toISOString().substring(0,10) + 'T11_' +
                            second_day.toISOString().substring(0,10) + 'T11';
-  $('.selected-date').text(influx_backup_date);
+  $('#selected-date').text(influx_backup_date);
+
+  var permalink = location.protocol + '//'+ location.hostname +
+                  (location.port ? ':' + location.port : '') + '/results/' +
+                  first_day.toISOString().substring(0,10) + '/';
+  $('#permalink').attr('href', permalink);
 
   var date_dir = gs_storage_prefix + influx_backup_date + '/';
 
@@ -84,5 +89,12 @@ $(function() {
     var date_in = input_date.split('-');
     var date_in_utc = new Date(Date.UTC(date_in[0], date_in[1] - 1, date_in[2]));
     $('#calendar').datepicker('setUTCDate', date_in_utc);
+
+    // destroy the datepicker (workaround to disable it)
+    $('#calendar').datepicker('destroy');
+    var results_link = location.protocol + '//'+ location.hostname +
+                       (location.port ? ':' + location.port : '') + '/results/';
+    $('#permalink').attr('href', results_link);
+    $('#permalink').text('select another date');
   }
 });

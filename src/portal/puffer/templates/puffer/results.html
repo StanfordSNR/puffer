@@ -35,13 +35,14 @@
     <br>
 
     <div class="row">
-      <div class="col-md-3" style="min-width: 220px">
+      <div style="min-width: 220px">
         <div id="calendar"></div>
       </div>
 
-      <div class="col-md-9 pt-2">
+      <div class="col pt-2">
         <ul>
-          <li>Selected date (UTC): <span class="selected-date"></span></li>
+          <li>Selected date (UTC): <span id="selected-date"></span>
+              (<a id="permalink">share a permalink</a>)</li>
           <li>Full results: <a id="bucket"></a></li>
           <li>Retrained model: <a id="model"></a></li>
           <li><span class="monospace">video_sent</span> measurement: <a id="video_sent_csv"></a></li>
