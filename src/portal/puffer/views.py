@@ -49,8 +49,9 @@ def data(request):
     return render(request, 'puffer/data.html', {'files': files})
 
 
-def results(request):
-    return render(request, 'puffer/results.html')
+def results(request, input_date=''):
+    context = {'input_date': input_date}
+    return render(request, 'puffer/results.html', context)
 
 
 @login_required(login_url='/accounts/login/')

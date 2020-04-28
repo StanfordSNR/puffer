@@ -60,21 +60,29 @@ $(function() {
    * (e.g. if it's currently 08-08 UTC, the 08-07_08-08 backup may not have finished yet,
    * but the 08-06_08-07 backup should have, since it started at 08-07 11AM UTC). */
   var local_date = new Date();
-  var init_date = new Date(Date.UTC(local_date.getUTCFullYear(),
-                                    local_date.getUTCMonth(),
-                                    local_date.getUTCDate()));
+  var utc_date = new Date(Date.UTC(local_date.getUTCFullYear(),
+                                   local_date.getUTCMonth(),
+                                   local_date.getUTCDate()));
   // works even if date is beginning of month/year
-  init_date.setDate(init_date.getDate() - 2);
+  utc_date.setDate(utc_date.getDate() - 2);
 
   // initialize bootstrap datepicker
   $('#calendar').datepicker({
     format: 'yyyy-mm-dd',
     startDate: '2019-01-26',
-    endDate: init_date.toISOString().substring(0,10),
+    endDate: utc_date.toISOString().substring(0,10),
     weekStart: 1,
   });
 
   $('#calendar').on('changeDate', change_date);
 
-  $('#calendar').datepicker('setUTCDate', init_date);
+  if (input_date == '') {
+    // if no date is passed as a URL parameter
+    $('#calendar').datepicker('setUTCDate', utc_date);
+  } else {
+    // display the results on the input date
+    var date_in = input_date.split('-');
+    var date_in_utc = new Date(Date.UTC(date_in[0], date_in[1] - 1, date_in[2]));
+    $('#calendar').datepicker('setUTCDate', date_in_utc);
+  }
 });
