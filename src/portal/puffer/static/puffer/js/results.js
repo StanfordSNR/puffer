@@ -23,14 +23,13 @@ function change_date() {
   var date_dir = gs_storage_prefix + influx_backup_date + '/';
 
   // CSVs
-  var csv_filename = 'video_sent_' + influx_backup_date + '.csv';
-  $('#video_sent_csv').attr('href', date_dir + csv_filename).text(csv_filename);
-
-  csv_filename = 'client_buffer_' + influx_backup_date + '.csv';
-  $('#client_buffer_csv').attr('href', date_dir + csv_filename).text(csv_filename);
-
-  csv_filename = 'video_acked_' + influx_backup_date + '.csv';
-  $('#video_acked_csv').attr('href', date_dir + csv_filename).text(csv_filename);
+  const measurements = ['video_sent', 'video_acked', 'client_buffer',
+                        'video_size', 'ssim'];
+  for (var i = 0; i < measurements.length; i++) {
+    var mi = measurements[i];
+    var csv_filename = mi + '_' + influx_backup_date + '.csv';
+    $('#' + mi).attr('href', date_dir + csv_filename).text(csv_filename);
+  }
 
   // SVGs (display all available -- day and duration should always be available, others may not)
   var alt_text = 'Not available';
