@@ -35,7 +35,7 @@
     <br>
 
     <div class="row">
-      <div style="min-width: 220px">
+      <div class="col-auto text-center" style="width: 250px">
         <div id="calendar"></div>
       </div>
 
@@ -45,19 +45,32 @@
               (<a id="permalink">share a permalink</a>)</li>
           <li>Full results: <a id="bucket"></a></li>
           <li>Retrained model: <a id="model"></a></li>
-          <li><span class="monospace">video_sent</span> measurement: <a id="video_sent_csv"></a></li>
-          <li><span class="monospace">video_acked</span> measurement: <a id="video_acked_csv"></a></li>
-          <li><span class="monospace">client_buffer</span> measurement: <a id="client_buffer_csv"></a></li>
-          <li>Current experiment, past day, all streams: <img id="day_all_plot"></li>
-          <li>Current experiment, past day, slow streams only: <img id="day_slow_plot"></li>
-          <li>Current experiment, past week, all streams: <img id="week_all_plot"></li>
-          <li>Current experiment, past week, slow streams only: <img id="week_slow_plot"></li>
-          <li>Current experiment, past two weeks, all streams: <img id="two_weeks_all_plot"></li>
-          <li>Current experiment, past two weeks, slow streams only: <img id="two_weeks_slow_plot"></li>
-          <li>Current experiment, past month, all streams: <img id="month_all_plot"></li>
-          <li>Current experiment, past month, slow streams only: <img id="month_slow_plot"></li>
-          <li>Current experiment, duration, all streams: <img id="duration_all_plot"></li>
-          <li>Current experiment, duration, slow streams only: <img id="duration_slow_plot"></li>
+          <li><span class="monospace">video_sent</span> measurement:
+              <a id="video_sent_csv"></a></li>
+          <li><span class="monospace">video_acked</span> measurement:
+              <a id="video_acked_csv"></a></li>
+          <li><span class="monospace">client_buffer</span> measurement:
+              <a id="client_buffer_csv"></a></li>
+          <li>Current experiment, past day, all streams:<br>
+              <img class="img-fluid perf-img" id="day_all_plot"></li>
+          <li>Current experiment, past day, slow streams only:<br>
+              <img class="img-fluid perf-img" id="day_slow_plot"></li>
+          <li>Current experiment, past week, all streams:<br>
+              <img class="img-fluid perf-img" id="week_all_plot"></li>
+          <li>Current experiment, past week, slow streams only:<br>
+              <img class="img-fluid perf-img" id="week_slow_plot"></li>
+          <li>Current experiment, past two weeks, all streams:<br>
+              <img class="img-fluid perf-img" id="two_weeks_all_plot"></li>
+          <li>Current experiment, past two weeks, slow streams only:<br>
+              <img class="img-fluid perf-img" id="two_weeks_slow_plot"></li>
+          <li>Current experiment, past month, all streams:<br>
+              <img class="img-fluid perf-img" id="month_all_plot"></li>
+          <li>Current experiment, past month, slow streams only:<br>
+              <img class="img-fluid perf-img" id="month_slow_plot"></li>
+          <li>Current experiment, duration, all streams:<br>
+              <img class="img-fluid perf-img" id="duration_all_plot"></li>
+          <li>Current experiment, duration, slow streams only:<br>
+              <img class="img-fluid perf-img" id="duration_slow_plot"></li>
         </ul>
       </div>
     </div>

@@ -62,3 +62,7 @@
 .monospace {
   font-family: monospace;
 }
+
+.perf-img {
+  max-width: 500px;
+}

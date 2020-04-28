@@ -55,7 +55,7 @@ function change_date() {
   var model_date = first_day_ISO.substring(0,4) + first_day_ISO.substring(5,7) +
                    first_day_ISO.substring(8,10);
   var model_path = 'https://storage.googleapis.com/puffer-models/puffer-ttp/bbr-' +
-                        model_date + '-1.tar.gz';
+                   model_date + '-1.tar.gz';
   $('#model').attr('href', model_path).text(model_date + '-1.tar.gz');
 }
 
