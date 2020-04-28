@@ -3,10 +3,9 @@
 import json
 import argparse
 import yaml
-import torch
 import datetime
 import sys
-from os
+import os
 from datetime import datetime, timedelta
 import numpy as np
 from multiprocessing import Process, Array, Pool
@@ -20,6 +19,7 @@ FUTURE_CHUNKS = 5
 def extract_model_file(cc, date_item, dir_name):
 
     tar_file_name =cc+"-"+date_item.strftime('%Y%m%d')+"-1.tar.gz"
+    decompressed_folder_name = cc+"-"+date_item.strftime('%Y%m%d')+"-1"
     path_name = "gs://puffer-models/puffer-ttp/"
     cmd = "gsutil cp "+path_name+tar_file_name+" ./"
     subprocess.call(cmd, shell=True)
@@ -27,9 +27,11 @@ def extract_model_file(cc, date_item, dir_name):
     subprocess.call(cmd, shell=True)
     for i in range(FUTURE_CHUNKS):
         model_name = "py-"+str(i)+".pt"
-        new_model_name = date_item.strftime('%Y%m%d')+"-"+model_name
-        cmd = "cp "+model_name+" "+dir_name+"/"+new_model_name
+        new_model_name = cc+"-"+date_item.strftime('%Y%m%d')+"-"+model_name
+        cmd = "cp "+decompressed_folder_name+"/"+model_name+" "+dir_name+"/"+new_model_name
         subprocess.call(cmd, shell=True)
+    cmd = "rm -rf "+tar_file_name+" "+decompressed_folder_name
+    subprocess.call(cmd, shell=True)
     print("FIN: "+tar_file_name)
 
 
@@ -47,7 +49,7 @@ def main():
     start_dt = datetime.strptime(args.start_date,"%Y%m%d")
     end_dt = datetime.strptime(args.end_date,"%Y%m%d")
     day_num = (end_dt - start_dt).days+1
-    dir_name = args.cc+"_models"
+    dir_name = args.cc+"-models"
     if os.path.exists(dir_name) is False:
         os.mkdir(dir_name)
 
