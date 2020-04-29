@@ -34,10 +34,10 @@ VIDEO_ACKED_FILE_PREFIX = 'video_acked_'
 CLIENT_BUFFER_FILE_PREFIX = 'client_buffer_'
 FILE_SUFFIX = 'T11.csv'
 FILE_CHUNK_SIZE = 10000
-VIDEO_SENT_KEYS=['timestamp', 'session_id',	
+VIDEO_SENT_KEYS=['timestamp', 'session_id',	'index',
 'experiment_id', 'channel_name', 'chunk_presentation_timestamp', 'resolution',
 'chunk_size', 'ssim_index',	'cwnd', 'in_flight', 'min_rtt','rtt','delivery_rate']
-VIDEO_ACKED_KEYS=['timestamp', 'session_id',	
+VIDEO_ACKED_KEYS=['timestamp', 'session_id', 'index',	
 'experiment_id', 'channel_name', 'chunk_presentation_timestamp']
 CLIENT_BUFFER_KEYS=['timestamp', 'session_id',	
 'experiment_id', 'channel_name', 'event', 'playback_buffer', 'cumulative_rebuffer']
@@ -71,11 +71,14 @@ def read_csv_to_rows(args, data_file):
             rows.append(row)
         row_cnt += chunk.shape[0]
         print(data_file +' row_cnt=', row_cnt)
-        if row_cnt >= 20000:
-            break
+        # if row_cnt >= 20000:
+        #     break
     return rows
 # Process the pair of sent_rows and acked_rows to generate training data. 
 def process_raw_csv_data(video_sent_rows, video_acked_rows, cc):
+    #skip the header
+    video_sent_rows = video_sent_rows[1:]
+    video_acked_rows = video_acked_rows[1:]
     # calculate chunk transmission times
     print("process_raw_csv_data ", len(video_sent_rows), " ", len(video_acked_rows))
     d = {}
@@ -129,8 +132,8 @@ def process_raw_csv_data(video_sent_rows, video_acked_rows, cc):
             continue
         dsv = d[session][video_ts]  # short name
         # Calculate transmission time, and convert it from milliseconds to seconds
-        sent_ts = dsv['sent_ts']
-        acked_ts = pt['timestamp']
+        sent_ts = int(dsv['sent_ts'])
+        acked_ts = int(pt['timestamp'])
         dsv['acked_ts'] = acked_ts
         dsv['trans_time'] = (acked_ts - sent_ts) / 1000 # milliseconds to seconds
         cnt += 1
@@ -299,3 +302,10 @@ def main():
 
 if __name__ == '__main__':
     main()
+
+
+# python batch_model_test.py --start-date 20190126 --end-date 20190430
+# python batch_model_test.py --start-date 20190501 --end-date 20190731
+# python batch_model_test.py --start-date 20190801 --end-date 20191030
+# python batch_model_test.py --start-date 20191101 --end-date 20200131
+# python batch_model_test.py --start-date 20200201 --end-date 20200430
