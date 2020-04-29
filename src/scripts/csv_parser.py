@@ -34,10 +34,10 @@ VIDEO_ACKED_FILE_PREFIX = 'video_acked_'
 CLIENT_BUFFER_FILE_PREFIX = 'client_buffer_'
 FILE_SUFFIX = 'T11.csv'
 FILE_CHUNK_SIZE = 10000
-VIDEO_SENT_KEYS=['timestamp', 'session_id',	'index',
+VIDEO_SENT_KEYS=['timestamp', 'session_id',
 'experiment_id', 'channel_name', 'chunk_presentation_timestamp', 'resolution',
 'chunk_size', 'ssim_index',	'cwnd', 'in_flight', 'min_rtt','rtt','delivery_rate']
-VIDEO_ACKED_KEYS=['timestamp', 'session_id', 'index',	
+VIDEO_ACKED_KEYS=['timestamp', 'session_id',
 'experiment_id', 'channel_name', 'chunk_presentation_timestamp']
 CLIENT_BUFFER_KEYS=['timestamp', 'session_id',	
 'experiment_id', 'channel_name', 'event', 'playback_buffer', 'cumulative_rebuffer']
@@ -71,7 +71,7 @@ def read_csv_to_rows(args, data_file):
             rows.append(row)
         row_cnt += chunk.shape[0]
         print(data_file +' row_cnt=', row_cnt)
-        # if row_cnt >= 20000:
+        # if row_cnt >= 50000:
         #     break
     return rows
 # Process the pair of sent_rows and acked_rows to generate training data. 
@@ -190,6 +190,7 @@ def read_and_write_csv_proc(proc_id, args, date_item):
 
 def row_to_dict(row, key_list):
     pt = {}
+    #print(key_list)
     for i in range(len(key_list)):
         pt[key_list[i]] = row[i]
     return pt     
