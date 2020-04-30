@@ -60,6 +60,16 @@ def model_test_on_one_day(date_item, models):
     cmd = "gsutil cp "+gs_video_acked_file_path+" ./"
     subprocess.call(cmd, shell=True)
     raw_in_out = parse_file(video_sent_file, video_acked_file)
+    if len(raw_in_out[0]['in'])== 0 or  len(raw_in_out[0]['out'])== 0:
+        cmd = "rm -f "+ video_sent_file+" "+video_acked_file
+        subprocess.call(cmd, shell=True)
+        pool.close()
+        pool.join()
+        return 1
+    else:
+        for j in range(FUTURE_CHUNKS):
+            print(j," ",len(raw_in_out[j]['in']), " ", len(raw_in_out[j]['out']))
+
     result_proc = {}
     results = {}
     for j in range(FUTURE_CHUNKS):
@@ -91,6 +101,11 @@ def model_test_on_one_day_no_pool(date_item, models):
     cmd = "gsutil cp "+gs_video_acked_file_path+" ./"
     subprocess.call(cmd, shell=True)
     raw_in_out = parse_file(video_sent_file, video_acked_file)
+    if len(raw_in_out[0]['in'])== 0 or  len(raw_in_out[0]['out'])== 0:
+        cmd = "rm -f "+ video_sent_file+" "+video_acked_file
+        subprocess.call(cmd, shell=True)
+        return 1
+        
     results = {}
     for j in range(FUTURE_CHUNKS):
         for pt_file in models[j]: 
@@ -100,6 +115,7 @@ def model_test_on_one_day_no_pool(date_item, models):
         f.write(json.dumps(results))
     cmd = "rm -f "+ video_sent_file+" "+video_acked_file
     subprocess.call(cmd, shell=True)
+    return 1
 
 
 def main():
