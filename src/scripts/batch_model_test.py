@@ -115,6 +115,7 @@ def model_test_on_one_day_no_pool(date_item, models):
         f.write(json.dumps(results))
     cmd = "rm -f "+ video_sent_file+" "+video_acked_file
     subprocess.call(cmd, shell=True)
+    del raw_in_out
     return 1
 
 
@@ -143,15 +144,19 @@ def main():
     #     # print("pt file ", pt_file)
     #     model_test_on_one_day(date_item, models)
     #     print(date_item, " FIN")
-
-    pool = Pool(processes= 4)
+    num_process = 4
+    pool = Pool(processes= num_process)
     result_procs = []
     for i in range(day_num):
         date_item = start_dt + timedelta(days=i)
         print(date_item, " Start")
         result_procs.append(pool.apply_async(model_test_on_one_day_no_pool, args=(date_item, models,)))
+        if i % 4 == 0:
+            for result in result_procs:
+                result.get()
+            result_procs =[]
     for result in result_procs:
-        result.get()
+        result.get()    
     pool.close()
     pool.join()
 
