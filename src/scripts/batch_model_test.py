@@ -158,7 +158,7 @@ def main():
         date_item = start_dt + timedelta(days=i)
         print(date_item, " Start")
         result_procs.append(pool.apply_async(model_test_on_one_day_no_pool, args=(date_item, models,)))
-        if i % 4 == 0:
+        if (i+1) % 4 == 0:
             for result in result_procs:
                 result.get()
             result_procs =[]
