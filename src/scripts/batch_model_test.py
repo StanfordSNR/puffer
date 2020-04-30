@@ -33,6 +33,10 @@ def model_test(pt_file, raw_in_data, raw_out_data, date_str=None):
     output_data = np.array(output_data)
     accuracy, _ = model.compute_accuracy(input_data, output_data)
     print("Model Test: ", date_str," ", pt_file, " ", str(accuracy))
+    del model
+    del input_data
+    del output_data
+    gc.collect()
     return accuracy
 
 def parse_file(video_sent_file, video_acked_file):
@@ -42,7 +46,9 @@ def parse_file(video_sent_file, video_acked_file):
         len(video_acked_rows),  " complete reading rows, will process the raw csv ")
     raw_data = process_raw_csv_data(video_sent_rows, video_acked_rows, None)
     raw_in_out = prepare_input_output(raw_data)
-
+    del video_sent_rows
+    del video_acked_file
+    gc.collect()
     return raw_in_out
 def model_test_on_one_day(date_item, models):
     pool = Pool(processes= FUTURE_CHUNKS*2)
@@ -116,6 +122,7 @@ def model_test_on_one_day_no_pool(date_item, models):
     cmd = "rm -f "+ video_sent_file+" "+video_acked_file
     subprocess.call(cmd, shell=True)
     del raw_in_out
+    gc.collect()
     return 1
 
 
