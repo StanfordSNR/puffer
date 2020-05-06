@@ -29,7 +29,7 @@
   <!-- Open Data Section -->
   <div class="container py-4">
     <div class="text-center pb-1">
-      <h4>Data Archive</h4>
+      <h4>Data Description</h4>
     </div>
     <br>
     <div class="row justify-content-md-center">
@@ -37,17 +37,22 @@
         <p>
         Along with our
         <a href="{% static 'puffer/documents/puffer-paper.pdf' %}">research paper</a>,
-        we are publishing an archive of anonymized data collected on Puffer for
-        the research community to investigate. This page contains data collected between
-        Jan. 2019 and Jan. 2020, but it will be <b>deprecated</b> once we completely
-        finish the <a href="{% url 'results' %}">experiment results</a> page. Please stand by!
+        we are publishing anonymized data collected on Puffer for the research community to investigate.
+        As our experiments are ongoing, new data is collected each day.
+        This data is posted daily to the <a href="{% url 'results' %}">Experiment Results</a> page,
+        which also contains <b>all</b> data collected since the experiment began in January 2019.
+        On this page, we provide a brief description.
+        Please see the README in the
+        <a href="https://github.com/StanfordSNR/puffer-statistics">puffer-statistics</a>
+        repo for more details on the data analysis.
         </p>
 
-        <br><h5>Data Description</h5><hr>
+        <br><h5>Raw Data</h5><hr>
         <p>
-        Please download a small set of
-        <a href="https://storage.googleapis.com/puffer-deprecated-data-release/puffer-fake-sample.tar.gz">fake data</a>
-        first to determine if the full Puffer data is indeed what you need. If anything is not
+        A single day of data is several GB, so please download a small set of
+        <a href="https://storage.cloud.google.com/puffer-data-release/puffer-fake-sample.tar.gz">fake data</a>
+        first to determine if the full Puffer data is indeed what you need. We would also be grateful
+        if you could download the data from our server only once. If anything is not
         clear in the below data description, please don't hesitate to post a question in our
         <a href="https://groups.google.com/forum/#!forum/puffer-stanford">Google Group</a>.
         </p>
@@ -55,56 +60,74 @@
         <p>
         At a high level, each day's Puffer data comprises different "measurements" &mdash;
         each measurement contains a different set of time-series data collected on Puffer servers,
-        and is dumped as a CSV file. The CSV files that are essential for analysis include
+        and is dumped as a CSV file.
+        The CSV files that are essential for analysis include
         <span class="monospace">video_sent_X.csv</span>,
         <span class="monospace">video_acked_X.csv</span>, and
         <span class="monospace">client_buffer_X.csv</span>,
         where <span class="monospace">X</span>
-        represents the start of the day when the data was collected.
-        For example, "2019-11-04T11" means the data was collected between
+        represents the day when the data was collected.
+        For example, "2019-11-04T11_2019-11-05T11" means the data was collected between
         2019-11-04T11:00:00Z and 2019-11-05T11:00:00Z (UTC is the default time zone).
+        In addition to these three CSVs, we also release
+        <span class="monospace">ssim_X.csv</span> and
+        <span class="monospace">video_size_X.csv</span>.
         </p>
 
         <p>
-        A special field in many CSV files is <span class="monospace">expt_id</span>,
-        a unique ID to identify an experiment. It can be used as a key to retrieve the
-        corresponding experiment settings (e.g., ABR, congestion control)
-        in a JSON file <span class="monospace">expt_Y.json</span>, which includes the
-        settings of all the experiments conducted before day <span class="monospace">Y</span>.
-        If an <span class="monospace">expt_id</span> were missing in the JSON file, it would
-        suggest an out-of-date JSON file. Please reach out to ask for an updated dump of the
-        JSON file.
+        A special field in many CSV files is <span class="monospace">expt_id</span>.
+        This is a unique ID identifying information associated with a "scheme", or pair of ABR and
+        congestion control algorithms such as <span class="monospace">Fugu/BBR</span>.
+        The <span class="monospace">expt_id</span> can be used as a key to retrieve the
+        associated settings (e.g. algorithms and git commit)
+        in the <span class="monospace">logs/expt_settings</span> file.
+        Each day has its own <span class="monospace">logs/expt_settings</span>, containing the
+        settings of all schemes run on Puffer between January 2019 and that day.
+        If an <span class="monospace">expt_id</span> were missing in the file, it would
+        suggest an out-of-date file. The <span class="monospace">csv_to_stream_stats</span>
+        program in the
+        <a href="https://github.com/StanfordSNR/puffer-statistics">puffer-statistics</a>
+        repo provides a function to parse this file.
+        Note that the
+        <a href="{% static 'puffer/documents/puffer-paper.pdf' %}">research paper</a>
+        also uses the term "experiment" to refer to a <b>group</b> of schemes, e.g. the "primary experiment",
+        whereas the <span class="monospace">expt_id</span> refers to a <b>single</b> scheme.
         </p>
 
         <p>
         Additionally, there are two terms that we will use in the description: "stream" and
         "session". When a Puffer client watches TV for the first time or reloads the
-        player page, it starts a new "session". When it switches channels, it enters into a
+        player page, it starts a new "session", identified by <span class="monospace">session_id</span>
+        in the CSVs. When a client switches channels, it enters into a
         different "stream" but still remains in the same "session", which uses the same
-        TCP connection. Please let us know if there is any inconsistent usage of the terms
-        in the code.
+        TCP connection. Each CSV contains an <span class="monospace">index</span> field solely
+        used to group streams. Two datapoints are considered part of the same stream if and only if
+        they share both <span class="monospace">session_id</span> and <span class="monospace">index</span>.
+        The values of <span class="monospace">session_id</span> and <span class="monospace">index</span>
+        are not meaningful otherwise.
         </p>
 
         <p>
         Finally, the data format of each type of file:
         <ul>
           <li>
-            <b><span class="monospace">expt_Y.json</span></b>: The value of each key
-            <span class="monospace">expt_id</span> contains the corresponding experiment
-            configuration such as congestion control, ABR algorithm and the associated parameters.
+            <b><span class="monospace">logs/expt_settings</span></b>: Each line begins with the
+            <span class="monospace">expt_id</span> and contains the corresponding
+            configuration such as congestion control, ABR algorithm, and associated parameters.
             Note that the field <span class="monospace">abr_name</span> is simply a meaningful
             name for a specific combination of <span class="monospace">abr</span> and
             <span class="monospace">abr_config</span>.
           </li>
 
           <li>
-            <b><span class="monospace">video_sent_X.csv:</span></b> each line represents a data
-            point collected every time when a Puffer server sends a video chunk to a client.
-            It contains the fields below in order:
+            <b><span class="monospace">video_sent_X.csv:</span></b> Each line represents a data
+            point collected when the Puffer server sent a video chunk to a client.
+            The line contains the fields below in order:
             <ul>
-              <li><span class="monospace">time:</span> timestamp (milliseconds since Unix epoch)
+              <li><span class="monospace">time:</span> timestamp (nanoseconds since Unix epoch)
                   when the chunk is sent</li>
               <li><span class="monospace">session_id:</span> unique ID for the video session</li>
+              <li><span class="monospace">index</span></li>
               <li><span class="monospace">expt_id</span></li>
               <li><span class="monospace">channel:</span> TV channel name. Recall that
               a different channel suggests a different stream given the same
@@ -135,15 +158,16 @@
           </li>
 
           <li>
-            <b><span class="monospace">video_acked_X.csv:</span></b> each line represents a data
-            point collected every time when a Puffer server receives a video chunk acknowledgement
+            <b><span class="monospace">video_acked_X.csv:</span></b> Each line represents a data
+            point collected when the Puffer server receives a video chunk acknowledgement
             from a client. Note that this is not when a chunk is received by the client.
             It contains the fields below in order:
             <ul>
               <li><span class="monospace">time:</span> timestamp
-                (milliseconds since Unix epoch) when the server receives a chunk acknowledgement
+                (nanoseconds since Unix epoch) when the server receives a chunk acknowledgement
                 from the client</li>
               <li><span class="monospace">session_id</span></li>
+              <li><span class="monospace">index</span></li>
               <li><span class="monospace">expt_id</span></li>
               <li><span class="monospace">channel</span></li>
               <li><span class="monospace">video_ts:</span> presentation timestamp of the chunk,
@@ -158,13 +182,14 @@
           </li>
 
           <li>
-            <b><span class="monospace">client_buffer_X.csv:</span></b> each line represents a data
+            <b><span class="monospace">client_buffer_X.csv:</span></b> Each line represents a data
             point containing a message reported by the client, when certain events occur and on a
             regular interval. It contains the fields below in order:
             <ul>
-              <li><span class="monospace">time:</span> timestamp (milliseconds since Unix epoch)
+              <li><span class="monospace">time:</span> timestamp (nanoseconds since Unix epoch)
                 when the server receives the client message</li>
               <li><span class="monospace">session_id</span></li>
+              <li><span class="monospace">index</span></li>
               <li><span class="monospace">expt_id</span></li>
               <li><span class="monospace">channel</span></li>
               <li>
@@ -194,40 +219,43 @@
         </ul>
         </p>
 
-        <br><h5>Data Download</h5><hr>
-        <p>Once again, please download the small
-          <a href="https://storage.googleapis.com/puffer-deprecated-data-release/puffer-fake-sample.tar.gz">fake data</a>
-          first to determine if the full data is indeed what you need, and we would be grateful
-          if you could download the data from our server only once. Click
-          <a data-toggle="collapse" href="#collapse-data-list" aria-expanded="false"
-             aria-controls="collapseExample">
-            here
-          </a>
-          to see the URLs to download the full data archive.
+        <br><h5>Plots</h5><hr>
+        <p>
+        In addition to raw data, the <a href="{% url 'results' %}">Experiment Results</a> page
+        contains up to ten plots per day. The plots summarize the relative performance over
+        several time periods of the schemes run on that day.
+        Each time period in the set {day, week, two weeks, month, duration} is plotted if
+        <b>all</b> schemes that ran on the day of interest (i.e. the last day of each period) ran on
+        <b>every</b> day of the period. Duration is the longest contiguous period over which all schemes
+        in the day's group ran.
+        For each such period, we plot the SSIM and stall ratio of
+        each scheme, averaged over all stream speeds as well as slow streams only.
         </p>
-        <div class="collapse" id="collapse-data-list">
-          <div class="card card-body border-0 table-responsive">
-            <table class="table table-sm table-striped w-auto">
-              <thead>
-                <tr>
-                  <th scope="col">Filename</th>
-                  <th scope="col" class="text-right">Size</th>
-                  <th scope="col">SHA256</th>
-                </tr>
-              </thead>
 
-              <tbody class="monospace">
-                {% for filename, filesize, sha256 in files %}
-                <tr>
-                  <td><a href="https://storage.googleapis.com/puffer-deprecated-data-release/{{filename}}">{{filename}}</a></td>
-                  <td class="text-right">{{filesize}}</td>
-                  <td>{{sha256}}</td>
-                </tr>
-                {% endfor %}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        <p>
+        The plots show 95% confidence intervals. Confidence intervals are particularly important in Puffer:
+        As discussed in the <a href="{% static 'puffer/documents/puffer-paper.pdf' %}">research paper</a>,
+        we find that the variable and heavy-tailed nature of video streaming requires remarkably large
+        amounts of data in order to draw statistically significant conclusions about a scheme’s performance.
+        For instance, notice that many of the single-day plots show little significant difference between the
+        schemes, and separation often only becomes apparent over longer time periods.
+        </p>
+
+        <p>
+        The <a href="{% url 'results' %}">Experiment Results</a> page is updated daily with the most
+        recent data available. If the page does not allow the current day
+        to be selected, its data may not yet be available; please check again later in the day.
+        </p>
+
+        <br><h5>Other Results</h5><hr>
+        <p>
+        The <a href="{% url 'results' %}">Experiment Results</a> page links to the storage bucket
+        containing all the anonymous data collected on each day.
+        In addition to the raw data and plots described above, this bucket includes metadata files such as a list of
+        days each scheme ran. Please see the
+        <a href="https://github.com/StanfordSNR/puffer-statistics">puffer-statistics</a>
+        README for a detailed description of these files.
+        </p>
       </div>
     </div>
   </div>

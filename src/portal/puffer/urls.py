@@ -14,6 +14,6 @@ urlpatterns = [
     path('results/', views.results, name='results'),
     re_path(r'^results/(?P<input_date>[0-9]{4}-[0-9]{2}-[0-9]{2})/$',
             views.results, name='results'),
-    path('data/', views.data, name='data'),
+    path('data-description/', views.data_description, name='data-description'),
     path('error_reporting/', views.error_reporting, name='error_reporting'),
 ]
