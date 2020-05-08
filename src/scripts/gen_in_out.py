@@ -26,10 +26,10 @@ VIDEO_ACKED_FILE_PREFIX = 'video_acked_'
 CLIENT_BUFFER_FILE_PREFIX = 'client_buffer_'
 FILE_SUFFIX = 'T11.csv'
 FILE_CHUNK_SIZE = 10000
-VIDEO_SENT_KEYS=['timestamp', 'session_id',	
+VIDEO_SENT_KEYS=['timestamp', 'session_id',	'index',
 'experiment_id', 'channel_name', 'chunk_presentation_timestamp', 'resolution',
 'chunk_size', 'ssim_index',	'cwnd', 'in_flight', 'min_rtt','rtt','delivery_rate']
-VIDEO_ACKED_KEYS=['timestamp', 'session_id',	
+VIDEO_ACKED_KEYS=['timestamp', 'session_id', 'index',	
 'experiment_id', 'channel_name', 'chunk_presentation_timestamp']
 CLIENT_BUFFER_KEYS=['timestamp', 'session_id',	
 'experiment_id', 'channel_name', 'event', 'playback_buffer', 'cumulative_rebuffer']
@@ -67,7 +67,12 @@ def read_csv_to_rows(args, data_file):
     return rows
 def process_raw_csv_data(video_sent_rows, video_acked_rows, cc):
     # calculate chunk transmission times
-    print("process_raw_csv_data ", len(video_sent_rows), " ", len(video_acked_rows))
+    # print("process_raw_csv_data ", len(video_sent_rows), " ", len(video_acked_rows))
+    # skip the header
+    video_sent_rows = video_sent_rows[1:]
+    video_acked_rows = video_acked_rows[1:]
+    print(video_sent_rows[0])
+    print(video_acked_rows[0])
     d = {}
     last_video_ts = {}
     cnt = 0
@@ -106,8 +111,6 @@ def process_raw_csv_data(video_sent_rows, video_acked_rows, cc):
     cnt = 0
 
 
-    f = open("logge400", "w")
-
     for row in video_acked_rows:
         pt = row_to_dict(row, VIDEO_ACKED_KEYS)
         expt_id = pt['experiment_id']
@@ -122,17 +125,13 @@ def process_raw_csv_data(video_sent_rows, video_acked_rows, cc):
             continue
         dsv = d[session][video_ts]  # short name
         # calculate transmission time
-        sent_ts = dsv['sent_ts']
+        sent_ts = int(dsv['sent_ts'])
         #acked_ts = np.datetime64(pt['timestamp'], 'ms')
-        acked_ts =  pt['timestamp']
+        acked_ts =  int(pt['timestamp'])
         dsv['acked_ts'] = acked_ts
         #dsv['trans_time'] = (acked_ts - sent_ts) / np.timedelta64(1, 's')
         dsv['trans_time'] = (acked_ts - sent_ts) / 1000
-        
-        if dsv['trans_time'] > 400:
-            line = " "+ str(video_ts)+" "+ str(acked_ts)+ " "+str(sent_ts)+ " "+ str(dsv)
-            f.write(line+"\n")
-            print(">400 "," ", video_ts,  " ", acked_ts, " ", sent_ts, " ", dsv)
+
         cnt += 1
         if cnt % 100000==0:
             print(" video_acked_rows cnt=",cnt)
@@ -301,17 +300,18 @@ def main():
     #read_and_write_csv_proc(0, args, start_dt, None )
 
 
-    partition = int(day_num /4)
+    partition = int(day_num /1)
     start_idx = 0
     end_idx = start_idx + partition
-    for j in range(4):  
+    for j in range(1):  
         start_idx = j* partition
         end_idx  = start_idx + partition
         if j ==3:
             end_idx = day_num
         print("startidx =", start_idx, " endidx=", end_idx)
         
-        pool = Pool(processes= (end_idx-start_idx))
+        #pool = Pool(processes= (end_idx-start_idx))
+        pool = Pool(processes= (4))
         result = [] 
         for i in range(start_idx, end_idx): 
         #for i in range(20, 21): 

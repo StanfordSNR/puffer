@@ -169,6 +169,10 @@ class Model:
             y = torch.from_numpy(output_data).to(device=DEVICE)
 
             y_scores = self.model(x)
+            # print("y_scores :", y_scores.shape)
+            # print(y_scores)
+            # print("y:", y.shape)
+            # print(y)           
             loss = self.loss_fn(y_scores, y)
 
             return loss.item()
@@ -213,9 +217,11 @@ class Model:
             y_tensor = torch.from_numpy(y_arr)
             y_scores = self.model(x_tensor)
             y_predicted = torch.max(y_scores, 1)[1].to(device=DEVICE)
+            # print("y_tensor shape ", y_tensor.shape)
+            # print("y_predicted shape ", y_predicted.shape)
             compare_result = (y_predicted == y_tensor)
             correct += compare_result.sum().item()
-            compare_result = list(compare_result.numpy())
+            compare_result = [y_predicted.numpy(), y_tensor.numpy()]
         
         return correct / total, compare_result
 
@@ -353,16 +359,15 @@ def train(i, args, model, input_data, output_data):
                              .format(i, model_path))
 
 
-def train_or_eval_model(i, args, raw_in_data, raw_out_data):
+def train_or_eval_model(i, args, raw_in_data, raw_out_data, model):
     # reduce number of threads as we're running FUTURE_CHUNKS parallel processes
     num_threads = max(1, int(torch.get_num_threads() / Model.FUTURE_CHUNKS))
     torch.set_num_threads(num_threads)
-
-    # create or load a model
-    model = Model()
-    if args.static_training is False:
-        #model_path = path.join(args.load_model, 'py-{}.pt'.format(i))
-        model.load(args.load_model)
+    # # create or load a model
+    # model = Model()
+    # if args.static_training is False:
+    #     #model_path = path.join(args.load_model, 'py-{}.pt'.format(i))
+    #     model.load(args.load_model)
     input_data = model.normalize_input(raw_in_data, update_obs=True)
     # discretize output data
     output_data = model.discretize_output(raw_out_data)
@@ -370,48 +375,62 @@ def train_or_eval_model(i, args, raw_in_data, raw_out_data):
     # train a neural network with data
     train(i, args, model, input_data, output_data)
 
-def test_model(proc_id, args, raw_in_data, raw_out_data):
+def test_model(proc_id, args, raw_in_data, raw_out_data, model):
     # normalize input data
-    model = Model()
-    model.set_model_eval()
-    if args.load_model:
-        model_path = args.load_model
-        model.load(model_path)
-        sys.stderr.write('[{}] Loaded model from {}\n'.format(proc_id, model_path))
-    else:
-        sys.stderr.write('No model path specified\n')
+    # model = Model()
+    # model.set_model_eval()
+    # if args.load_model:
+    #     model_path = args.load_model
+    #     model.load(model_path)
+    #     sys.stderr.write('[{}] Loaded model from {}\n'.format(proc_id, model_path))
+    # else:
+    #     sys.stderr.write('No model path specified\n')
+    write_line = ""
     input_data = model.normalize_input(raw_in_data, update_obs=False)
     output_data = raw_out_data
     print("out_data ", len(output_data))
-    result = model.compute_mse(proc_id, input_data, output_data)
-    print("result= ", result)
+    write_line += "out_data " + str(len(output_data))+"\n"
+    mse = model.compute_mse(proc_id, input_data, output_data)
+    print("result= ", mse)
+    write_line += "result= " + str(mse)+"\n"
     input_data = np.array(input_data)
     output_data = np.array(output_data)
     accuracy, result_arr = model.compute_accuracy(input_data, output_data)
     print("result= ", accuracy)
+    predicted_values = result_arr[0].tolist()
+    original_values = result_arr[1].tolist()
+
+    with open("comp", "w") as cmpf:
+        for i in range(len(predicted_values)):
+            cmpf.write(str(predicted_values[i])+"\t"+str(original_values[i])+"\n")
+    write_line += "result= "+ str(accuracy)+"\n"
+    if args.save_model is not None:
+        result_file = open(args.save_model+"-result", "w" )
+        result_file.write(write_line)
     if args.add_suffix is not None:
         args.test_data += args.add_suffix
-    # We classify the test data into two parts. 
-    # Positive ones are correctly predicted by the model
-    # Negative ones are not correctly predicted by the model
-    pos_in = open(args.test_data+"-pos.in", "w")
-    pos_out = open(args.test_data+"-pos.out", "w")
-    neg_in = open(args.test_data+"-neg.in", "w")
-    neg_out = open(args.test_data+"-neg.out", "w")
-    for i in range(len(result_arr)):
-        if result_arr[i] == 1:
-            pos_in.write(str(raw_in_data[i])+"\n")
-            pos_out.write(str([raw_out_data[i]])+"\n")
-        else:
-            neg_in.write(str(raw_in_data[i])+"\n")
-            neg_out.write(str([raw_out_data[i]])+"\n")
-    pos_in.close()
-    pos_out.close()
-    neg_in.close()
-    neg_out.close()
+    if args.classify is True:
+        # We classify the test data into two parts. 
+        # Positive ones are correctly predicted by the model
+        # Negative ones are not correctly predicted by the model
+        pos_in = open(args.test_data+"-pos.in", "w")
+        pos_out = open(args.test_data+"-pos.out", "w")
+        neg_in = open(args.test_data+"-neg.in", "w")
+        neg_out = open(args.test_data+"-neg.out", "w")
+        for i in range(len(result_arr)):
+            if result_arr[i] == 1:
+                pos_in.write(str(raw_in_data[i])+"\n")
+                pos_out.write(str([raw_out_data[i]])+"\n")
+            else:
+                neg_in.write(str(raw_in_data[i])+"\n")
+                neg_out.write(str([raw_out_data[i]])+"\n")
+        pos_in.close()
+        pos_out.close()
+        neg_in.close()
+        neg_out.close()
 
 
-def read_data(file_name, sample_size):
+def read_data(file_name, sample_size, lazy_read=None):
     ret_in = []
     ret_out = []
     in_file_name = file_name+".in"
@@ -423,6 +442,8 @@ def read_data(file_name, sample_size):
             cnt += 1
             if cnt % 10000 == 0:
                 print("cnt = ", cnt)
+            if lazy_read is True and cnt >= sample_size:
+                break;
             
     f.close()
     out_file_name = file_name+".out"
@@ -432,6 +453,7 @@ def read_data(file_name, sample_size):
             ret_out.extend(arr)
     ret_out=ret_out[:len(ret_in)]
     f.close()
+    print("read finished")
     if sample_size is None:
         return ret_in, ret_out
     perm_indices = np.random.permutation(len(ret_in))[:sample_size]
@@ -452,6 +474,10 @@ def main():
                         help='static training (or continual learning)')
     parser.add_argument('--compute-mse', dest='compute_mse', action='store_true', 
                         help='whether compute the mean square error')
+    parser.add_argument('--train-and-test', dest='train_and_test', action='store_true', 
+                        help='train and test')
+    parser.add_argument('--classify', dest='classify', action='store_true', 
+                        help='output positive and negative samples')
     # While training the model, the training data may come from two sources
     # For example, suppose we are training a model on 20200120, we may use the data 
     # sampled from 20200120, besides, we may also use the data collected before 20200120, 
@@ -480,7 +506,31 @@ def main():
     
     args = parser.parse_args()
 
-    if args.is_training:
+    if args.train_and_test:
+        ret_in, ret_out = read_data(args.fresh_data, args.fresh_size)
+        if args.old_data is not None:
+            old_in, old_out = read_data(args.old_data, args.old_size, True)
+            ret_in.extend(old_in)
+            ret_out.extend(old_out)
+        # shuffle the training data
+        perm_indices = np.random.permutation(len(ret_in))
+        ret_in = np.array(ret_in)
+        ret_out = np.array(ret_out)
+        ret_in = ret_in[perm_indices]
+        ret_out = ret_out[perm_indices]
+        # For the train/test, it can be parallelized with multiprocessing 
+        # (The first parameter in train_or_eval_model/test_model is the proc-no). 
+        # However, for convenience, I only use single process, and train/test one model at a time.
+        model = Model()
+        if args.static_training is False:
+            #model_path = path.join(args.load_model, 'py-{}.pt'.format(i))
+            model.load(args.load_model)
+        train_or_eval_model(0, args, ret_in, ret_out, model)
+        ret_in, ret_out = read_data(args.test_data, args.test_size)
+        model = Model()
+        model.load(args.save_model)
+        test_model(0, args, ret_in, ret_out, model)      
+    elif args.is_training:
         # train
         ret_in, ret_out = read_data(args.fresh_data, args.fresh_size)
         if args.old_data is not None:
@@ -489,16 +539,32 @@ def main():
             ret_out.extend(old_out)
         # shuffle the training data
         perm_indices = np.random.permutation(len(ret_in))
+        ret_in = np.array(ret_in)
+        ret_out = np.array(ret_out)
         ret_in = ret_in[perm_indices]
         ret_out = ret_out[perm_indices]
         # For the train/test, it can be parallelized with multiprocessing 
         # (The first parameter in train_or_eval_model/test_model is the proc-no). 
         # However, for convenience, I only use single process, and train/test one model at a time.
-        train_or_eval_model(0, args, ret_in, ret_out)
+            # create or load a model
+        model = Model()
+        if args.static_training is False:
+            #model_path = path.join(args.load_model, 'py-{}.pt'.format(i))
+            model.load(args.load_model)
+        train_or_eval_model(0, args, ret_in, ret_out, model)
     else:
         # test
         ret_in, ret_out = read_data(args.test_data, args.test_size)
-        test_model(0, args, ret_in, ret_out)
+            # normalize input data
+        model = Model()
+        model.set_model_eval()
+        if args.load_model:
+            model_path = args.load_model
+            model.load(model_path)
+            sys.stderr.write('[{}] Loaded model from {}\n'.format(0, model_path))
+        else:
+            sys.stderr.write('No model path specified\n')
+        test_model(0, args, ret_in, ret_out, model)
 
 
 

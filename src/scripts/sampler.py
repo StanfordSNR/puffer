@@ -47,27 +47,34 @@ def main():
     parser.add_argument('--start-date', dest='start_date',
                         help='start date of the training data (e.g.20190301)')  
     parser.add_argument('--end-date', dest='end_date',
-                        help='end date of the training data')    
+                        help='end date of the training data')  
+    parser.add_argument('--original-file', dest='original_file',
+                        help='original file to sample')  
     parser.add_argument('--number', dest='number', type = int,
                         help='sampled number ')
     parser.add_argument('--save-path', dest='save_path',
                         help='the file path to save the data ')
     
     args = parser.parse_args()
-    start_dt = datetime.strptime(args.start_date,"%Y%m%d")
-    end_dt = datetime.strptime(args.end_date,"%Y%m%d")
-    day_num = (end_dt - start_dt).days+1
-    in_data = []
-    out_data = []
-    for i in range(day_num):
-        dt =start_dt + timedelta(days=i)
-        fname = str(dt.year)+"-"+str(dt.month).zfill(2)+"-"+str(dt.day).zfill(2)+"-1"
-        file_name = "{repo}{fname}".format(repo=args.repo, fname= fname)
-        ret_in, ret_out =read_data(file_name, args.number//day_num+100)
-        in_data.extend(ret_in)
-        out_data.extend(ret_out)
-    in_data = np.array(in_data)
-    out_data = np.array(out_data)
+    if args.original_file is not None:
+        ret_in, ret_out =read_data(args.original_file, args.number)
+        in_data = np.array(ret_in)
+        out_data = np.array(ret_out)
+    else:
+        start_dt = datetime.strptime(args.start_date,"%Y%m%d")
+        end_dt = datetime.strptime(args.end_date,"%Y%m%d")
+        day_num = (end_dt - start_dt).days+1
+        in_data = []
+        out_data = []
+        for i in range(day_num):
+            dt =start_dt + timedelta(days=i)
+            fname = str(dt.year)+"-"+str(dt.month).zfill(2)+"-"+str(dt.day).zfill(2)+"-1"
+            file_name = "{repo}{fname}".format(repo=args.repo, fname= fname)
+            ret_in, ret_out =read_data(file_name, args.number//day_num+100)
+            in_data.extend(ret_in)
+            out_data.extend(ret_out)
+        in_data = np.array(in_data)
+        out_data = np.array(out_data)
     perm_indices = np.random.permutation(len(in_data))
     in_data = in_data[perm_indices]
     out_data = out_data[perm_indices]
@@ -77,7 +84,7 @@ def main():
     sampled_out = open(args.save_path+".out", "w")
     for i in range(len(in_data)):
         sampled_in.write(in_data[i])
-        sampled_out.write(str([out_ddata[i]])+"\n")
+        sampled_out.write(str([out_data[i]])+"\n")
     sampled_in.close()
     sampled_out.close()
 

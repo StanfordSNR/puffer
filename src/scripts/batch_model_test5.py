@@ -5,6 +5,7 @@ import argparse
 import yaml
 import datetime
 import sys
+import time
 import os
 from datetime import datetime, timedelta
 import numpy as np
@@ -13,6 +14,7 @@ import pandas as pd
 import matplotlib
 import subprocess
 import gc
+import subprocess
 from csv_parser_n import(    
     read_csv_to_rows,
     process_raw_csv_data,
@@ -122,6 +124,17 @@ def model_test_on_one_portion(date_item, model_idx):
     cmd = "rm -f "+ data_file
     subprocess.call(cmd, shell=True)
     return 1
+
+#python batch_model_test2.py --start-date 20191003
+def wait_for_pre_process():
+    while True:
+        ret = subprocess.check_output("pgrep -f 'batch_model_test2.py'", shell=True)
+        ret_arr =ret.decode().split("\n")
+        if len(ret_arr) > 2:
+            print("Wait ", ret_arr)
+            time.sleep(10)
+        else:
+            break
 def main():
     parser = argparse.ArgumentParser()                     
     parser.add_argument('--start-date', dest='start_date',
@@ -135,6 +148,7 @@ def main():
     day_num = (end_dt - start_dt).days+1
     num_process = 10
 
+    wait_for_pre_process()
     suites = []
     for i in range(0, day_num, num_process):
         date_item = start_dt + timedelta(days=i)
@@ -146,16 +160,16 @@ def main():
         start_dt = suite[0]
         day_num = suite[1]
         result_procs = []
-        # pool = Pool(processes= day_num)
-        # for i in range(day_num):
-        #     date_item = start_dt + timedelta(days=i)
-        #     print(date_item, " Start Processing File")
-        #     result_procs.append(pool.apply_async(convert_data, args=(date_item,)))
-        # for result in result_procs:
-        #     result.get()    
-        # pool.close()
-        # pool.join()
-        # print("Write Fin")
+        pool = Pool(processes= day_num)
+        for i in range(day_num):
+            date_item = start_dt + timedelta(days=i)
+            print(date_item, " Start Processing File")
+            result_procs.append(pool.apply_async(convert_data, args=(date_item,)))
+        for result in result_procs:
+            result.get()    
+        pool.close()
+        pool.join()
+        print("Write Fin")
         pool = Pool(processes=2*FUTURE_CHUNKS)
         for i in range(0, day_num, 2):
             date_item = start_dt + timedelta(days=i)

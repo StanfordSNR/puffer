@@ -87,7 +87,8 @@ def process_raw_csv_data(video_sent_rows, video_acked_rows, cc):
     for row in video_sent_rows:
         pt = row_to_dict(row, VIDEO_SENT_KEYS)
         # session_id + channel_name + experiment_id can uniquely identify one data point
-        session = str(pt["session_id"])+ "|"+str(pt['channel_name'])+"|"+ str(pt['experiment_id'])
+        #session = str(pt["session_id"])+ "|"+str(pt['channel_name'])+"|"+ str(pt['experiment_id'])
+        session = str(pt["session_id"])+ "|"+str(pt['index'])
         # Filter data points by congestion control
         # If cc is not specified (i.e. cc is None), we just parse all the data, regardless of the
         # congestion control they use.
@@ -121,7 +122,8 @@ def process_raw_csv_data(video_sent_rows, video_acked_rows, cc):
     for row in video_acked_rows:
         pt = row_to_dict(row, VIDEO_ACKED_KEYS)
         expt_id = pt['experiment_id']
-        session = str(pt["session_id"])+ "|"+str(pt['channel_name'])+"|"+ str(pt['experiment_id'])
+        #session = str(pt["session_id"])+ "|"+str(pt['channel_name'])+"|"+ str(pt['experiment_id'])
+        session = str(pt["session_id"])+ "|"+str(pt['index'])
         # Filter data points by congestion control
         if cc is not None and is_cc(expt_id, cc):
             continue
@@ -135,7 +137,8 @@ def process_raw_csv_data(video_sent_rows, video_acked_rows, cc):
         sent_ts = int(dsv['sent_ts'])
         acked_ts = int(pt['timestamp'])
         dsv['acked_ts'] = acked_ts
-        dsv['trans_time'] = (acked_ts - sent_ts) / 1000 # milliseconds to seconds
+        #dsv['trans_time'] = (acked_ts - sent_ts) / 1000 # milliseconds to seconds
+        dsv['trans_time'] = (acked_ts - sent_ts) / 1000000000 # nanseconds to seconds
         cnt += 1
         if cnt % 10000==0:
             print(" video_acked_rows cnt=",cnt)
@@ -309,3 +312,5 @@ if __name__ == '__main__':
 # python batch_model_test.py --start-date 20190801 --end-date 20191030
 # python batch_model_test.py --start-date 20191101 --end-date 20200131
 # python batch_model_test.py --start-date 20200201 --end-date 20200430
+
+#python csv_parser_n.py --file-path ./training_data/ --output-path ./test_out --start-date 20200425 --end-date 20200425
