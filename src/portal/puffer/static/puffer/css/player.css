@@ -42,7 +42,6 @@
   bottom: 0;
   left: 0;
   right: 0;
-  padding: 5px;
   background-color: white;
 }
 
@@ -51,10 +50,12 @@
   width: 25px;
   height: 25px;
   border: 0;
+  outline: none;
   background-color: white;
   position: absolute;
   left: 5px;
-  padding: 5px;
+  top: 5px;
+  cursor:pointer;
 }
 
 #mute-button:hover {
@@ -64,15 +65,16 @@
 #volume-bar {
   -webkit-appearance: none;
   appearance: none;
-  width: 100px;
-  height: 10px;
+  width: 70px;
+  height: 9px;
   border-radius: 5px;
-  background: #aaaaaa;
   outline: none;
+  background: #aaaaaa;
   -webkit-transition: .2s;
   transition: opacity .2s;
-  position: relative;
-  left: 30px;
+  position: absolute;
+  left: 35px;
+  top: 13px;
 }
 
 #volume-bar:hover {
@@ -82,32 +84,32 @@
 #volume-bar::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  width: 25px;
-  height: 25px;
+  width: 18px;
+  height: 18px;
   border-radius: 50%;
   background: #000000;
   cursor: pointer;
 }
 
 #volume-bar::-moz-range-thumb {
-  width: 25px;
-  height: 25px;
+  width: 18px;
+  height: 18px;
   border-radius: 50%;
   background: black;
   cursor: pointer;
 }
 
 #full-screen-button {
-  background-image: url(/static/puffer/dist/images/full-screen-button.svg);
   background-size: 25px;
   width: 25px;
   height: 25px;
   border: 0;
+  outline: none;
   background-color: white;
   position: absolute;
-  top: 5px;
   right: 5px;
-  padding: 5px;
+  top: 5px;
+  cursor:pointer;
 }
 
 #full-screen-button:hover {
