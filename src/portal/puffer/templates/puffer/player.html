@@ -105,12 +105,25 @@
         </div>
       </div>
     </div>
-
+    <hr>
     <div>
-      <button class="btn btn-info" type="button" data-toggle="collapse"
-              data-target="#debug-info" aria-expanded="false" aria-controls="debug-info">
-        Show debug info
-      </button>
+      <span>
+        <img src="{% static 'puffer/dist/images/forum.svg' %}" class="icon">
+        <a href="https://groups.google.com/forum/#!forum/puffer-stanford">Contact us</a>
+      </span>
+      |
+      <span>
+        <img src="{% static 'puffer/dist/images/star.svg' %}" class="icon">
+        <a href="https://github.com/stanfordsnr/puffer">Star our repo</a></span>
+      </span>
+      |
+      <span>
+        <img src="{% static 'puffer/dist/images/wrench.svg' %}" class="icon">
+        <a data-toggle="collapse" href="#debug-info"
+           aria-expanded="false" aria-controls="debug-info">
+          Debug info
+        </a>
+      </span>
       <div class="collapse py-2" id="debug-info">
         Video playback buffer (s): <span id="video-buf">N/A</span><br>
         Video resolution: <span id="video-res">N/A</span><br>

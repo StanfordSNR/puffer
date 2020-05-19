@@ -184,3 +184,7 @@
   border-width: 15px 0 15px 30px;
   border-color: transparent transparent transparent #f3f3f3;
 }
+
+.icon {
+  height: 20px;
+}
