@@ -22,11 +22,13 @@ def gen_mm_trace(s_str, e_str):
 
     data = {}
     for line in csv_fh:
-        epoch_ts, session_id, chunk_size, trans_time, min_rtt = line.split(',')
+        (epoch_ts, session_id, chunk_size,
+         trans_time, min_rtt, cum_rebuffer) = line.split(',')
         epoch_ts = int(epoch_ts)
         chunk_size = float(chunk_size) / PKT_BYTES  # packets
         trans_time = float(trans_time)  # ms
         min_rtt = float(min_rtt)  # ms
+        cum_rebuffer = float(cum_rebuffer)  # ms
 
         pkts_per_ms = chunk_size / (trans_time - min_rtt / 2)  # pkts / ms
 

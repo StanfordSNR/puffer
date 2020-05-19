@@ -16,8 +16,6 @@ backup_hour = 11  # back up at 11 AM (UTC) every day
 args = None
 yaml_settings = None
 
-session_map = {}  # { stream_key: session_id }
-
 
 def gen_session_id(stream_key):
     m = hashlib.sha256()
@@ -25,19 +23,6 @@ def gen_session_id(stream_key):
     m.update(struct.pack('>I', stream_key[1]))
     m.update(struct.pack('>I', stream_key[2]))
     return base64.b64encode(m.digest()).decode('ascii')
-
-
-def find_session_id(stream_key):
-    global session_map
-
-    for i in range(1, 11):
-        prev_stream_key = (stream_key[0], int(stream_key[1] - i), int(stream_key[2]))
-        if prev_stream_key in session_map:
-            session_map[stream_key] = session_map[prev_stream_key]
-            return session_map[stream_key]
-
-    session_map[stream_key] = gen_session_id(stream_key)
-    return session_map[stream_key]
 
 
 def parse_video_sent(s_str, e_str, d):
@@ -84,10 +69,11 @@ def parse_video_acked(s_str, e_str, d):
             (acked_ts - dsv['sent_ts']) / np.timedelta64(1, 'ms'))  # ms
 
         epoch_ts = dsv['sent_ts'].astype('datetime64[ms]').astype('int')  # ms
-        session_id = find_session_id(stream_key)
+        session_id = gen_session_id(stream_key)
 
         csv_fh.write(','.join(map(str, [
-            epoch_ts, session_id, dsv['size'], trans_time, dsv['min_rtt']
+            epoch_ts, session_id, dsv['size'], trans_time, dsv['min_rtt'],
+            float(pt['cum_rebuffer']) * 1000
         ])) + '\n')
 
     csv_fh.close()
