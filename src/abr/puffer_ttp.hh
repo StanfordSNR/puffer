@@ -3,6 +3,7 @@
 
 #include "puffer.hh"
 #include "torch/script.h"
+#include <math.h>
 
 #include <deque>
 
@@ -31,10 +32,40 @@ private:
   bool is_mle_ {false};
   bool no_tcp_info_ {false};
 
+  /* params for Gaussian Blur **/
+  double mean_val_{0.0};
+  double std_val_{0.0};
+  int kernel_size_{0}; 
+  std::vector<double> gaussian_kernel_vals_{};
+
   /* preprocess the data */
   void normalize_in_place(size_t i, std::vector<double> & input);
 
   void reinit_sending_time() override;
+
+  /* calculate the values for gaussian kernel (blur case) */
+  void calculate_gaussian_values();
+
+  /* blur probability */
+  void blur_probability(int horizontal_index, int format_index);
 };
 
 #endif /* PUFFER_TTP_HH */
+
+/************************************************
+ *  Test Under the Following Setting
+experiments:
+  - num_servers: 1
+    fingerprint:
+      abr: puffer_ttp
+      abr_config:
+        model_dir: /root/bbr-20190202-1
+        rebuffer_length_coeff: 100
+        blur_params:
+          mean_val: 0.0
+          std_val: 1.0
+          kernel_size: 21 
+      abr_name: puffer_ttp_20190202
+      cc: bbr   
+ *************************************************
+ */
