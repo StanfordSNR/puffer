@@ -3,7 +3,7 @@
 
 #include "puffer.hh"
 #include "torch/script.h"
-
+#include <cmath>
 #include <deque>
 
 class PufferTTP : public Puffer
@@ -31,10 +31,22 @@ private:
   bool is_mle_ {false};
   bool no_tcp_info_ {false};
 
+  /* params for Gaussian Blur **/
+  double mean_val_ {0.0};
+  double std_val_ {0.0};
+  int kernel_size_ {0};
+  std::vector<double> gaussian_kernel_vals_ {};
+
   /* preprocess the data */
   void normalize_in_place(size_t i, std::vector<double> & input);
 
   void reinit_sending_time() override;
+
+  /* calculate the values for gaussian kernel (blur case) */
+  void calculate_gaussian_values();
+
+  /* blur probability */
+  void blur_probability(int horizontal_index, int format_index);
 };
 
 #endif /* PUFFER_TTP_HH */
