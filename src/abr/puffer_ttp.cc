@@ -7,19 +7,22 @@ PufferTTP::PufferTTP(const WebSocketClient & client,
                      const string & abr_name, const YAML::Node & abr_config)
   : Puffer(client, abr_name, abr_config)
 {
+  cerr << "abr_name = " << abr_name_ << endl;
+
   /* load neural networks */
   if (abr_config["model_dir"]) {
     fs::path model_dir = abr_config["model_dir"].as<string>();
+    cerr << "model_dir = " << model_dir << endl;
 
     for (size_t i = 0; i < MAX_LOOKAHEAD_HORIZON; i++) {
-      // load PyTorch models
+      /* load PyTorch models */
       string model_path = model_dir / ("cpp-" + to_string(i) + ".pt");
       ttp_modules_[i] = torch::jit::load(model_path.c_str());
       if (not ttp_modules_[i]) {
         throw runtime_error("Model " + model_path + " does not exist");
       }
 
-      // load normalization weights
+      /* load normalization weights */
       ifstream ifs(model_dir / ("cpp-meta-" + to_string(i) + ".json"));
       json j = json::parse(ifs);
 
@@ -34,6 +37,28 @@ PufferTTP::PufferTTP(const WebSocketClient & client,
     if (abr_name == "puffer_ttp_no_tcp_info") {
       ttp_input_dim_ = 17;
       no_tcp_info_ = true;
+    }
+
+    if (abr_config["blur_params"]) {
+      mean_val_ = abr_config["blur_params"]["mean_val"].as<double>();
+      std_val_ = abr_config["blur_params"]["std_val"].as<double>();
+      kernel_size_ = abr_config["blur_params"]["kernel_size"].as<int>();
+
+      /* In our current blur cases, kernel size has been fixed to the number
+       * of bins (21), so the following runtime_error should never been
+       * triggered, but keep the check for future compatibility */
+      if (kernel_size_ % 2 == 0) {
+        throw runtime_error("kernel size is even, we want odd number to blur");
+      }
+
+      if (std_val_ <= 0) {
+        throw runtime_error("invalid std params, should > 0");
+      }
+
+      cerr << "blur_params: " << mean_val_ << ", "
+           << std_val_ << ", " << kernel_size_ << endl;
+      gaussian_kernel_vals_.resize(kernel_size_);
+      calculate_gaussian_values();
     }
   } else {
     throw runtime_error("Puffer requires specifying model_dir in abr_config");
@@ -51,6 +76,54 @@ void PufferTTP::normalize_in_place(size_t i, vector<double> & input)
     if (obs_std_[i][j] != 0) {
       input[j] /= obs_std_[i][j];
     }
+  }
+}
+
+void PufferTTP::calculate_gaussian_values()
+{
+  double gaussian_coefficient = 1.0 / (std_val_ * sqrt(2.0 * M_PI));
+  int right_pos = kernel_size_ >> 1;
+  int left_pos = -right_pos;
+
+  /*  In our current case, kernel_size=21, so right_pos=10, left_pos=-10
+   *  To construct the kernel for bluring, we sample the points
+   *  whose x-axis is [-10,10] */
+  for (int x = left_pos; x <= right_pos; x++) {
+    double exp_idx = -(x - mean_val_) * (x - mean_val_) /
+                     (2.0 * std_val_ * std_val_);
+    double gaussian_val = gaussian_coefficient * exp(exp_idx);
+    gaussian_kernel_vals_[x - left_pos] = gaussian_val;
+  }
+}
+
+/* For future flexibility, this function just blurs one row at a time */
+void PufferTTP::blur_probability(int horizontal_index, int format_index)
+{
+  int right = kernel_size_ >> 1;
+  int left = -right;
+
+  double sum_prob = 0.0;
+  size_t dim_num = dis_sending_time_ + 1;
+  vector<double> orignial_prob(dim_num);
+  for (size_t k = 0; k < dim_num; k++) {
+    orignial_prob[k] = sending_time_prob_[horizontal_index][format_index][k];
+  }
+
+  for (size_t k = 0; k < dim_num; k++) {
+    double blurred_val = 0.0;
+    for (int j = left; j <= right; j++) {
+      int gaussian_index = j + (kernel_size_ >> 1);
+      int covolute_index = (k + j + dim_num) % dim_num;
+      blurred_val += gaussian_kernel_vals_[gaussian_index] *
+                     orignial_prob[covolute_index];
+    }
+    sending_time_prob_[horizontal_index][format_index][k] = blurred_val;
+    sum_prob += blurred_val;
+  }
+
+  /* normalized to make the sum of prob as 1.0 */
+  for (size_t k = 0; k < dim_num; k++) {
+    sending_time_prob_[horizontal_index][format_index][k] /= sum_prob;
   }
 }
 
@@ -129,13 +202,14 @@ void PufferTTP::reinit_sending_time()
     /* feed in the input batch and get the output batch */
     vector<torch::jit::IValue> torch_inputs;
 
+    /* Here from_blob has reshaped the input of one chunk
+     * in to [num_formats, DIM-IN-SIZE] */
     torch_inputs.push_back(torch::from_blob(inputs,
                            {(int) num_formats_, (int)ttp_input_dim_},
                            torch::kF64));
 
-    at::Tensor output = torch::softmax(ttp_modules_[i - 1]->forward(torch_inputs)
-                                       .toTensor(), 1);
-
+    at::Tensor output = torch::softmax(
+        ttp_modules_[i - 1]->forward(torch_inputs).toTensor(), 1);
     assert((size_t) output.sizes()[1] > dis_sending_time_);
 
     /* extract distribution from the output */
@@ -198,6 +272,13 @@ void PufferTTP::reinit_sending_time()
 
     if (is_all_ban) {
       deal_all_ban(i);
+    }
+  }
+
+  /* Blur sending_time_prob_(in-place) */
+  for (size_t i = 1; i <= lookahead_horizon_; i++) {
+    for (size_t j = 0; j < num_formats_; j++) {
+      blur_probability(i, j);
     }
   }
 }
