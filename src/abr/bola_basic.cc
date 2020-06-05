@@ -6,28 +6,30 @@
 
 using namespace std;
 
-BolaBasic::BolaBasic(const WebSocketClient & client,
-									   const string & abr_name)
+BolaBasic::BolaBasic(const WebSocketClient & client, const string & abr_name)
   : ABRAlgo(client, abr_name)
 {
   // TODO: Make gamma and V configurable
 }
 
 /* Note BOLA uses the raw value of utility directly. */
-double BolaBasic::utility(double raw_ssim) const {
+double BolaBasic::utility(double raw_ssim) const
+{
   return ssim_db(raw_ssim);
 }
 
 /* Size units affect objective value, but not the decision */
 /* Note: X_buf_chunks represents a number of chunks, but may be fractional (as in paper) */
-double BolaBasic::objective(const Encoded & encoded, double client_buf_chunks, double chunk_duration_s) const {
+double BolaBasic::objective(const Encoded & encoded, double client_buf_chunks, double chunk_duration_s) const
+{
   // paper uses V rather than Vp for objective
   double V = params.Vp / chunk_duration_s;
   return (V * (encoded.utility + params.gp) - client_buf_chunks) / encoded.size;
 }
 
 BolaBasic::Encoded BolaBasic::choose_max_objective(const std::vector<Encoded> & encoded_formats,
-																									 double client_buf_chunks, double chunk_duration_s) const {
+		double client_buf_chunks, double chunk_duration_s) const
+{
   const auto chosen =
     max_element(encoded_formats.begin(), encoded_formats.end(),
           [this, client_buf_chunks, chunk_duration_s](const Encoded& a, const Encoded& b) {
@@ -40,7 +42,7 @@ BolaBasic::Encoded BolaBasic::choose_max_objective(const std::vector<Encoded> & 
 }
 
 void BolaBasic::do_logging(const std::vector<Encoded> & encoded_formats,
-													 double chunk_duration_s, uint64_t vts, const string & channel_name) const
+		double chunk_duration_s, uint64_t vts, const string & channel_name) const
 {
   /* Log objectives and decisions (for Fig 1/2) */
   fig_1(encoded_formats, chunk_duration_s, vts, channel_name);
@@ -75,7 +77,7 @@ VideoFormat BolaBasic::select_video_format()
 }
 
 void BolaBasic::fig_1(const vector<Encoded> & encoded_formats,
-											double chunk_duration_s, uint64_t vts, const string & channel_name) const
+		double chunk_duration_s, uint64_t vts, const string & channel_name) const
 {
   const string outfilename = "abr/test/" + channel_name + "/fig1_vts" + to_string(vts) + "_out.txt";
 
