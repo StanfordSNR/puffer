@@ -3,8 +3,7 @@
 
 #include "puffer.hh"
 #include "torch/script.h"
-#include <math.h>
-
+#include <cmath>
 #include <deque>
 
 class PufferTTP : public Puffer
@@ -33,10 +32,10 @@ private:
   bool no_tcp_info_ {false};
 
   /* params for Gaussian Blur **/
-  double mean_val_{0.0};
-  double std_val_{0.0};
-  int kernel_size_{0}; 
-  std::vector<double> gaussian_kernel_vals_{};
+  double mean_val_ 0.0};
+  double std_val_ {0.0};
+  int kernel_size_ {0}; 
+  std::vector<double> gaussian_kernel_vals_ {};
 
   /* preprocess the data */
   void normalize_in_place(size_t i, std::vector<double> & input);
@@ -51,21 +50,3 @@ private:
 };
 
 #endif /* PUFFER_TTP_HH */
-
-/************************************************
- *  Test Under the Following Setting
-experiments:
-  - num_servers: 1
-    fingerprint:
-      abr: puffer_ttp
-      abr_config:
-        model_dir: /root/bbr-20190202-1
-        rebuffer_length_coeff: 100
-        blur_params:
-          mean_val: 0.0
-          std_val: 1.0
-          kernel_size: 21 
-      abr_name: puffer_ttp_20190202
-      cc: bbr   
- *************************************************
- */
