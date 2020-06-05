@@ -108,7 +108,7 @@ void BolaBasic::fig_1(const vector<Encoded> & encoded_formats,
 }
 
 void BolaBasic::fig_2(const vector<Encoded> & encoded_formats,
-											double chunk_duration_s, uint64_t vts, const string & channel_name) const
+    double chunk_duration_s, uint64_t vts, const string & channel_name) const
 {
   const string outfilename = "abr/test/" + channel_name + "/fig2_vts" + to_string(vts) + "_out.txt";
 
