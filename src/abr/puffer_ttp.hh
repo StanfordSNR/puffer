@@ -32,7 +32,7 @@ private:
   bool no_tcp_info_ {false};
 
   /* params for Gaussian Blur **/
-  double mean_val_ 0.0};
+  double mean_val_ {0.0};
   double std_val_ {0.0};
   int kernel_size_ {0}; 
   std::vector<double> gaussian_kernel_vals_ {};
