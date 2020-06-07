@@ -50,7 +50,7 @@ PufferTTP::PufferTTP(const WebSocketClient & client,
       std::cerr << mean_val_ << " "
                 << std_val_ << " "
                 << kernel_size_ << std::endl;
-      gaussian_kernel_vals_.resize(kernel_size_)
+      gaussian_kernel_vals_.resize(kernel_size_);
       calculate_gaussian_values();
     }
   } else {
@@ -82,7 +82,7 @@ void PufferTTP::calculate_gaussian_values() {
     // In our current case, kernel_size=21, so right_pos = 10, left_pos = -10
     // To construct the kernel for bluring, we sample
     // the points whose x-axis is [-10,10]
-    for (int x = left_pos; x <= right_pos; x += 1.0) {
+    for (int x = left_pos; x <= right_pos; x++) {
         double exp_idx = -(x-mean_val_)*(x-mean_val_)/(2.0*std_val_*std_val_);
         double gaussian_val = gaussian_coefficient * exp(exp_idx);
         gaussian_kernel_vals_[x-left_pos] = gaussian_val;
@@ -93,28 +93,28 @@ void PufferTTP::calculate_gaussian_values() {
 // For future flexibility, this function just blurs one row at a time
 void PufferTTP::blur_probability(int horizontal_index, int format_index) {
   int right =  (kernel_size_>>1);
-  int left = -right;
-  double sum_prob = 0.0;
-  size_t dim_num = dis_sending_time_ + 1;
-  std::vector<double> orignial_prob_vals(dim_num);
-  for (size_t k = 0; k < dim_num; k++) {
-    orignial_prob_vals[k] = sending_time_prob_[horizontal_index][format_index][k];
-  }
-  
-  for (size_t k = 0; k < dim_num; k++) {
-    double blurred_val = 0.0;
-    for (int j = left; j <= right; j++) {
-      int gaussian_index = j + (kernel_size_ >> 1);
-      int covolute_index = (k + j + dim_num) % dim_num;
-      blurred_val += gaussian_kernel_vals_[gaussian_index] * orignial_prob_vals[covolute_index];
+    int left = -right;
+    double sum_prob = 0.0;
+    size_t dim_num = dis_sending_time_ + 1;
+    std::vector<double> orignial_prob_vals(dim_num);
+    for (size_t k = 0; k < dim_num; k++) {
+      orignial_prob_vals[k] = sending_time_prob_[horizontal_index][format_index][k];
     }
-    sending_time_prob_[horizontal_index][format_index][k] = blurred_val;
-    sum_prob += blurred_val;
-  }
-  // normalized to make the sum of prob as 1.0
-  for (size_t k = 0; k < dim_num; k++) {
-    sending_time_prob_[horizontal_index][format_index][k] /= sum_prob;
-  }
+    
+    for (size_t k = 0; k < dim_num; k++) {
+      double blurred_val = 0.0;
+      for (int j = left; j <= right; j++) {
+        int gaussian_index = j + (kernel_size_ >> 1);
+        int covolute_index = (k + j + dim_num) % dim_num;
+        blurred_val += gaussian_kernel_vals_[gaussian_index] * orignial_prob_vals[covolute_index];
+      }
+      sending_time_prob_[horizontal_index][format_index][k] = blurred_val;
+      sum_prob += blurred_val;
+    }
+    // normalized to make the sum of prob as 1.0
+    for (size_t k = 0; k < dim_num; k++) {
+      sending_time_prob_[horizontal_index][format_index][k] /= sum_prob;
+    }
 
 }
 
