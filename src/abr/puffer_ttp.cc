@@ -275,10 +275,12 @@ void PufferTTP::reinit_sending_time()
     }
   }
 
-  /* Blur sending_time_prob_(in-place) */
-  for (size_t i = 1; i <= lookahead_horizon_; i++) {
-    for (size_t j = 0; j < num_formats_; j++) {
-      blur_probability(i, j);
+  /* Blur sending_time_prob_ (in place) if kernel_size_ > 0 */
+  if (kernel_size_ > 0) {
+    for (size_t i = 1; i <= lookahead_horizon_; i++) {
+      for (size_t j = 0; j < num_formats_; j++) {
+        blur_probability(i, j);
+      }
     }
   }
 }
