@@ -5,6 +5,7 @@
 #include "pensieve.hh"
 #include "puffer_raw.hh"
 #include "puffer_ttp.hh"
+#include "bola_basic.hh"
 #include "timestamp.hh"
 #include "exception.hh"
 
@@ -219,6 +220,8 @@ void WebSocketClient::init_abr_algo()
     abr_algo_ = make_unique<PufferTTP>(*this, abr_name_, abr_config_);
   } else if (abr_name_ == "puffer_ttp_mle") {
     abr_algo_ = make_unique<PufferTTP>(*this, abr_name_, abr_config_);
+  } else if (abr_name_ == "bola_basic") {
+    abr_algo_ = make_unique<BolaBasic>(*this, abr_name_);
   } else {
     throw runtime_error("undefined ABR algorithm");
   }
