@@ -47,6 +47,10 @@ PufferTTP::PufferTTP(const WebSocketClient & client,
       /* In our current blur cases, kernel size has been fixed to the number
        * of bins (21), so the following runtime_error should never been
        * triggered, but keep the check for future compatibility */
+      if (kernel_size_ < 0) {
+        throw runtime_error("invalid kernel_size, we need a positive value");
+      }
+
       if (kernel_size_ % 2 == 0) {
         throw runtime_error("kernel size is even, we want odd number to blur");
       }
