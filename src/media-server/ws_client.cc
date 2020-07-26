@@ -220,7 +220,9 @@ void WebSocketClient::init_abr_algo()
     abr_algo_ = make_unique<PufferTTP>(*this, abr_name_, abr_config_);
   } else if (abr_name_ == "puffer_ttp_mle") {
     abr_algo_ = make_unique<PufferTTP>(*this, abr_name_, abr_config_);
-  } else if (abr_name_ == "bola_basic") {
+  } else if (abr_name_ == "bola_basic_v1") {
+    abr_algo_ = make_unique<BolaBasic>(*this, abr_name_);
+  } else if (abr_name_ == "bola_basic_v2") {
     abr_algo_ = make_unique<BolaBasic>(*this, abr_name_);
   } else {
     throw runtime_error("undefined ABR algorithm");

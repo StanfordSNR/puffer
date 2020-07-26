@@ -9,13 +9,15 @@
 #include "ws_client.hh"
 
 /*
-* BOLA-BASIC, with V and gamma set statically based on min/max buffer level:
+* BOLA-BASIC, with V and gamma set statically based on min/max buffer level,
+* as in v3 of the paper:
+*
 * Min buffer: Intersection of objectives for smallest and next-smallest formats
 *    i.e. set objectives equal, using Q = min buf
-*    This is an extrapolation from the paper.
 * Max buffer: If buffer > max buf, don't send (enforced by media server)
-*    i.e. V(utility_best + gp) = max buf
-*    This is directly from the paper.
+*    i.e. V(utility_high + gp) = max buf,
+*    where utility_high is the maximum in the static ladder for BOLA_BASIC_v1,
+*    or the maximum possible utility for BOLA_BASIC_v2.
 */
 class BolaBasic : public ABRAlgo
 {
@@ -26,6 +28,16 @@ public:
   VideoFormat select_video_format() override;
 
 private:
+  /* Version of BOLA-BASIC */
+  enum Version {
+    // Original
+    BOLA_BASIC_v1,
+    // With changes suggested in kspiteri's 2020-07-18 email
+    BOLA_BASIC_v2,
+  };
+
+  Version version = BOLA_BASIC_v1;
+
   /* BOLA parameters V and gamma, multiplied by p */
   struct Parameters {
     double Vp;
@@ -62,35 +74,18 @@ private:
   /* Min buf must be strictly less than max */
   static_assert(MIN_BUF_S < MAX_BUF_S);
 
-  /* vf is not meaningful, since these are averages over past encodings across
-   * channels */
-  const VideoFormat fake = VideoFormat("11x11-11");
-  const Encoded smallest = { fake,
-    size_ladder_bytes.front(), utility(ssim_index_ladder.front()) };
-  const Encoded second_smallest = { fake,
-    size_ladder_bytes.at(1), utility(ssim_index_ladder.at(1)) };
-  const Encoded largest = { fake,
-    size_ladder_bytes.back(), utility(ssim_index_ladder.back()) };
+  /* Calculate parameters appropriate for BOLA version. */
+  Parameters calculate_params(Version version) const;
 
-  const size_t size_delta = second_smallest.size - smallest.size;
+  /* Calculate both versions of parameters statically,
+   * then choose dynamically based on config. */
+  const Parameters PARAMS_V1 = calculate_params(BOLA_BASIC_v1);
+  const Parameters PARAMS_V2 = calculate_params(BOLA_BASIC_v2);
+  Parameters params = PARAMS_V1;
 
-  /* Size/buf units don't affect gp (if consistent). Utility units do. */
-  const double gp = (
-    MAX_BUF_S * ( second_smallest.size * smallest.utility -
-                  smallest.size * second_smallest.utility ) -
-    /* Best utility = largest (assumes utility is nondecreasing with size,
-     * as required by BOLA.) */
-    largest.utility * MIN_BUF_S * size_delta
-  ) / (
-    (MIN_BUF_S - MAX_BUF_S) * size_delta
-  );
-
-  const double Vp = MAX_BUF_S / (largest.utility + gp);
-
-  const Parameters params = {Vp, gp};
-
-  /* A format's utility to the client. */
-  double utility(double raw_ssim) const;
+  /* A format's utility to the client.
+   * Takes version as arg, to allow use before configured version is known. */
+  static double utility(double raw_ssim, Version version);
 
   /* Definition of objective from paper. */
   double objective(const Encoded & encoded, double client_buf_chunks,
@@ -100,6 +95,9 @@ private:
   Encoded choose_max_objective(const std::vector<Encoded> & encoded_formats,
                                double client_buf_chunks,
                                double chunk_duration_s) const;
+
+  /* Return format with maximum (utility + gp). */
+  Encoded choose_max_scaled_utility(const std::vector<Encoded> & encoded_formats) const;
 };
 
 #endif /* BOLA_BASIC_HH */
