@@ -32,6 +32,9 @@ def terms(request):
 def data_description(request):
     return render(request, 'puffer/data-description.html')
 
+def bola(request):
+    return render(request, 'puffer/bola.html')
+
 
 def results(request, input_date=''):
     context = {'input_date': input_date}

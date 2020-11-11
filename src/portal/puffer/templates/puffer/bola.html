@@ -1,0 +1,306 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <!-- Global site tag (gtag.js) - Google Analytics -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=UA-117951942-2"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'UA-117951942-2');
+    gtag('config', 'AW-771906819');
+  </script>
+  <link rel="stylesheet" href="{% static 'puffer/dist/css/bootstrap.min.css' %}">
+  <link rel="stylesheet" href="{% static 'puffer/css/common.css' %}">
+  <title>Puffer</title>
+  <link rel="icon" href="{% static 'puffer/dist/images/favicon.ico' %}">
+</head>
+
+<body>
+  <!-- Navigation -->
+  {% include "puffer/navigation.html" %}
+
+  <div class="container py-4">
+    <div class="text-center pb-1">
+      <h4>Implementing BOLA-BASIC on Puffer:</h4>
+      <h5>Lessons for the use of SSIM in ABR logic</h5>
+      <h6>Emily Marx, Francis Yan, Keith Winstein</h6> 
+    </div>
+    <br>
+    <div class="row justify-content-md-center">
+      <div class="col-md-10 text-justify">
+        <p> One ABR algorithm implemented on Puffer is BOLA-BASIC, the simplest
+        variant of BOLA. BOLA finds wide use in industry, notably in the
+        MPEG-DASH reference player used as the basis for video players at
+        Akamai, BBC, Orange, and CBS<a href="#footnote-1"><sup>1</sup></a>. 
+        The overall goal of BOLA is to maximize
+        each encoded chunk’s video quality while minimizing rebuffering. To
+        measure video quality,  Puffer uses the structural similarity metric
+        SSIM, whereas BOLA and other ABR algorithms like BBA, MPC, and Pensieve
+        are more commonly implemented using bitrate (or a variant of bitrate).  </p>
+
+        <p> While bitrate is frequently used, BOLA allows the video provider to
+        define its own proxy of video quality as the algorithm’s "utility"
+        function. However, using SSIM as utility proved surprisingly complex for
+        BOLA-BASIC, despite the algorithm’s simplicity. Given the rising
+        popularity of SSIM and related quality metrics, we anticipate that a
+        growing number of Puffer-like systems will face similar challenges. We
+        hope developers of such systems find our experiences informative as they
+        implement algorithms designed with bitrate-based utility in mind.  </p>
+
+        <br><h5>Background: SSIM and video quality</h5><hr>
+        <p> ABR algorithms like BOLA decide the bitrate at which to download each chunk
+        of video into the client’s buffer. As the throughput of the network varies, the
+        goal is to minimize stalls caused by an empty buffer while choosing
+        high-quality encodings (see the <a href="{% static 'puffer/documents/puffer-paper.pdf' %}">
+        Puffer paper</a> for more background on
+        ABR). Much recent work has focused on objective metrics for an
+        encoding’s subjective quality. Measuring perceived video quality is
+        difficult, and no metric is perfect. Recently, Netflix’s VMAF has
+        attempted to combine the strengths of several metrics by using them as
+        input to a machine-learning model<a href="#footnote-1"><sup>2</sup></a>.  </p>
+
+        <p> In the BOLA paper and DASH player, the "utility" metric that
+        measures video quality is the normalized logarithm of encoded chunk
+        size. Using size as utility is effectively equivalent to using bitrate
+        and is a common choice. Bitrate is also easily computed, and is already
+        made available to the ABR logic in DASH and other streaming 
+        protocols<a href="#footnote-1"><sup>3</sup></a>.
+        However, video quality does not correlate directly with 
+        bitrate<a href="#footnote-1"><sup>3</sup></a>. When
+        the content of a video changes over time, like the live TV streamed on
+        Puffer, some chunks are easier to encode than others. For instance, a
+        stream may have a black screen for several seconds, followed by a
+        fast-moving scene. The all-black chunks can be encoded more efficiently
+        than the scene, so they are likely to both look better <i>and</i> be smaller
+        than more complex chunks.  </p>
+
+        <p> SSIM<a href="#footnote-1"><sup>4</sup></a>
+        is one of many metrics that attempt to capture this variation.
+        Unlike bitrate, SSIM is a compute-intensive metric, and Puffer is
+        unusual in providing it at runtime. In fact, 18 of Puffer’s cores are
+        solely devoted to SSIM. Many systems use metrics like SSIM, or the older
+        PSNR, to evaluate chunks <i>after</i> they are chosen by the ABR algorithm.
+        However, to our knowledge Puffer is the first study to use SSIM or PSNR
+        as a factor in the ABR decision.  </p>
+
+        <br><h5>BOLA-BASIC on Puffer</h5><hr>
+        <p> Unlike many other ABR
+        algorithms, BOLA-BASIC is very simple in implementation. The objective
+        is a function of each encoded chunk’s utility and size, along with the
+        buffer level and two control parameters. If the buffer is not too full,
+        the algorithm chooses the encoded chunk with the highest objective.
+        Otherwise, BOLA elects not to download any chunk before the next
+        decision opportunity<a href="#footnote-1"><sup>1</sup></a>.  </p>
+
+        <p> The first implementation of BOLA-BASIC on Puffer was a direct
+        representation of the algorithm as presented in the 
+        paper<a href="#footnote-1"><sup>1</sup></a>, using SSIM
+        in decibels (SSIMdB) as the utility function. Puffer also uses SSIMdB to
+        measure video quality in the other ABR algorithms implemented on the
+        platform, as well as to measure their performance (in conjunction with
+        stall ratio).  </p>
+
+        <br><h5>A less basic BOLA-BASIC</h5><hr>
+        <p> The BOLA authors shared
+        their expertise to help optimize the initial implementation of
+        BOLA-BASIC. This resulted in three changes.  </p>
+
+        <p> The first two changes related to BOLA’s decision thresholds, i.e.
+        the buffer levels at which BOLA changes its bitrate decision. At the
+        first threshold, BOLA switches from choosing the smallest to the
+        second-smallest encoding. At the last threshold, BOLA switches from the
+        largest chunk to no chunk at all.  </p>
+
+        <p> The decision thresholds in the average case are shown in Figure 1.
+        BOLA’s control parameters <i>V</i> and <i>ɣ</i> are calculated statically, using
+        long-term averages for the utility and size of each of the ten encoded
+        formats. So, Figure 1 shows the decisions BOLA would make if the ten
+        options produced by the encoder at some time slot exactly matched the
+        averages used to calculate the parameters. Puffer uses 3 and 15 seconds
+        for minimum and maximum buffer size, which correspond to the first and
+        last thresholds in the average case.  </p>
+
+        <p> <img src="{% static 'puffer/dist/images/bola/average-objectives-decisions-v1.svg' %}" alt=""> 
+        <b>Figure 1.</b> Decision thresholds for average SSIM/sizes in
+        BOLA-BASIC "v1". Dashed lines mark min/max buffer level. Thresholds
+        beyond max buffer are hypothetical.  </p>
+
+        <p> Figure 2 shows the thresholds over a 10-minute CBS clip, using the
+        naive implementation of BOLA-BASIC. Each line corresponds to the
+        encodings produced for one chunk. Notice that many of the thresholds
+        appear above the maximum buffer level of 15 seconds.  </p>
+
+        <p> <img src="{% static 'puffer/dist/images/bola/cbs-decisions-v1.svg' %}" alt=""> 
+        <b>Figure 2.</b> Decision thresholds for BOLA-BASIC "v1" over a
+        10-minute clip. Each line represents a single 120-frame chunk. Dashed
+        lines mark min/max buffer level. Thresholds beyond max buffer are
+        hypothetical.  </p>
+
+        <p> Since BOLA elects not to send a chunk at buffer levels above the
+        maximum, BOLA will never exercise any of the thresholds beyond 15
+        seconds. To mitigate the appearance of such thresholds, the authors
+        suggested two modifications to the utility function.  </p>
+
+        <p> The first change in BOLA-BASIC "v2" is to use the raw value of SSIM,
+        without converting to decibels. Although the data correlating SSIMdB
+        with perceived quality is noisy, there is some evidence that the decibel
+        transformation creates an approximately linear relationship with human
+        preference<a href="#footnote-1"><sup>5</sup></a>.
+        However, the transformation to decibels expands the values
+        in the upper SSIM range, as shown in Figure 3.  </p>
+
+        <img src="{% static 'puffer/dist/images/bola/SSIM-dB-vs-raw.svg' %}" alt=""> 
+        <p> <b>Figure 3.</b> Conversion of SSIM to decibels is asymptotic in
+        the upper range.  </p>
+
+        <p> As a result, the utility of higher-quality encodings is inflated
+        using SSIMdB relative to SSIM, pushing the thresholds to the right. So,
+        the BOLA authors expected the algorithm to behave better with raw SSIM.
+        </p>
+
+        <p> As a second adjustment to the utility function, the authors
+        suggested using the maximum <i>possible</i> utility (i.e. 1.0 for raw
+        SSIM) in the parameter calculations, rather than the maximum
+        <i>average</i> utility. On average, the highest-quality encoding
+        available is 0.983, so using 1.0 instead is a significant change.  </p>
+
+        <p> As shown in Figure 4, most of the decision thresholds shift below
+        the maximum buffer size after making these two changes.  </p>
+
+        <p> <img src="{% static 'puffer/dist/images/bola/cbs-decisions-v2.svg' %}" alt=""> 
+        <b>Figure 4.</b> Updated version of Figure 2 for BOLA-BASIC
+        "v2".  </p>
+
+        <p> Separately, the authors suggested a third change, relating to the
+        case where the objective is negative for all available encodings. In
+        this situation, the DASH reference implementation pauses until the
+        buffer has drained enough so that some objective is non-negative. Puffer
+        implements ABR on the server, so this pause was simulated to avoid
+        introducing BOLA-specific logic in the server. Specifically, the authors
+        suggested that if all objectives are negative, BOLA-BASIC "v2" should
+        choose the chunk with highest utility rather than highest objective.
+        This simulates the client’s pause, since the point at which the
+        objective becomes positive is a factor only of utility, not the size in
+        the denominator (see Figure 5).  </p>
+
+        <br><h5>BOLA-BASIC and SSIM</h5><hr>
+        <p> The changes in the second
+        implementation of BOLA-BASIC on Puffer do not address a fundamental
+        issue with the use of SSIM (whether decibels or raw) in BOLA. The BOLA
+        parameters are calculated statically, but SSIM varies dynamically with
+        bitrate. According to the paper, BOLA can use any utility function as
+        long as the utility of the available encodings for each chunk is
+        nondecreasing with respect to their size. In fact, the paper identifies
+        the ability to define utility in "very general" ways as a unique
+        strength of BOLA. SSIM satisfies BOLA’s requirement of monotonicity
+        w.r.t. size <i>within</i> the encodings for each chunk (120 frames on
+        Puffer). However, as discussed above, utility can vary independently of
+        size, and therefore bitrate, <i>across</i> chunks.  </p>
+
+        <p> Unlike direct functions of bitrate, SSIM captures this variation.
+        However, this causes BOLA to behave very differently when choosing
+        between a set of format options with low utility than when choosing
+        between higher-quality chunks. Due to the way utility is used in BOLA’s
+        objective (Figure 5), when utility is near <i>-ɣp</i>, a small gain in utility
+        can outweigh a large bitrate increase, particularly if the buffer is
+        near empty. For instance, BOLA could prefer a format twice as large
+        offering only a 0.4dB SSIM increase. While downloading this much larger
+        chunk, the near-empty buffer may drain completely. In contrast, when
+        choosing between chunks whose utility is larger in magnitude relative to
+        <i>-ɣp</i>, the same utility gain has less impact relative to the bitrate
+        difference.  </p>
+
+        <img src="{% static 'puffer/dist/images/bola/objective-function.svg' %}" alt="" width=25%>
+        <p> <b>Figure 5.</b> BOLA’s objective. <i>V</i> and <i>ɣ</i> are control
+        parameters, <i>p</i> is chunk duration, <i>Q(t<sub>k</sub>)</i> is buffer level, 
+        <i>S<sub>m</sub></i> is size, and <i>v<sub>m</sub></i> is utility.  </p>
+        
+        <p> It seems that the static parameter
+        calculation inherent to BOLA is fundamentally incompatible with a
+        utility function involving variables beyond bitrate. It’s
+        interesting that the variation of SSIM with bitrate is a strength
+        of SSIM as a utility metric, but makes SSIM less amenable to
+        algorithms based on more approximate utility metrics.  </p>
+
+        <br><h5>Results</h5><hr>
+        <p> Figure 6 shows the performance of the
+        initial "v1" implementation of BOLA-BASIC, as well as the "v2"
+        implementation with the three changes discussed above. Also shown are
+        BBA and two ML-based ABR algorithms developed on Puffer. Each of the
+        five algorithms has over 3.5 cumulative stream-years of data.  </p>
+
+        <img src="{% static 'puffer/dist/images/bola/results-all.svg' %}" alt=""> 
+        <img src="{% static 'puffer/dist/images/bola/results-slow.svg' %}" alt=""> 
+        <p> <b>Figure 6.</b> Performance of both versions of BOLA-BASIC on Puffer (95%
+        confidence intervals), for all stream speeds (top plot) and slow
+        streams only (bottom plot). Both plots show data from 2020-07-26 to
+        2020-11-07 (see the <a href="{% url 'results' %}">Experiment Results</a> page for latest
+        data). All speeds comprises 685,022 streams (17.7 stream-years);
+        slow speeds comprises 96,646 streams (1.5 stream-years).  </p>
+
+        <p> The two versions of BOLA-BASIC are broadly similar at this
+        timescale, with "v2" showing slight improvement in SSIMdB and stall
+        ratio. Relative to BBA, both versions improve SSIMdB while increasing
+        stall time.  </p> 
+        
+        <br><h5>Conclusions</h5><hr>
+        <p> It should be noted that BOLA-BASIC is considerably simpler than
+        production implementations of BOLA, e.g. BOLA-E and BOLA-O in the DASH
+        reference player. Also, Puffer has several architectural differences
+        from DASH and other client-side players (see the 
+        <a href="{% static 'puffer/documents/puffer-paper.pdf' %}">Puffer paper</a> for
+        detail). For these reasons, we don’t intend to present these results as
+        a comment on the general performance of BOLA relative to the other
+        algorithms. Instead, we see these results as an indication of the
+        surprising complexity possible when using SSIM in even the simplest ABR
+        algorithms.  </p>
+
+        <p> Newer video quality metrics like SSIM more accurately reflect human
+        perception. However, existing ABR algorithms may not always be designed
+        to take full advantage of these metrics. If measurements like SSIM are
+        the future of ABR, Puffer will not be alone in facing these challenges.
+        </p>
+
+        <p> Many thanks to the BOLA authors for their extensive advice. Any
+        questions can be sent to the 
+        <a href="https://groups.google.com/forum/#!forum/puffer-stanford">Google Group</a>. </p>
+        
+        <br><h5>References</h5><hr>
+        <p id="footnote-1">1. K. Spiteri, R. Urgaonkar and R. K. Sitaraman, 
+        "BOLA: Near-Optimal Bitrate Adaptation for Online Videos," in 
+        <i>IEEE/ACM Transactions on Networking</i>, vol. 28, no. 4, pp. 1698-1711, 
+        Aug. 2020, doi: 10.1109/TNET.2020.2996964.  </p>
+        <p id="footnote-2">2. Z. Li, A. Aaron, I. Katsavounidis, A. Moorthy, and M. Manohara, 
+        "Toward a practical perceptual video quality metric," <i>The Netflix Tech Blog</i>, June 2016.
+        <p id="footnote-3">3. Y. Quin, S. Hao, K. R. Pattipati, F.
+        Qian, S. Sen, B. Wang, and C. Yue, 
+        "ABR streaming of VBR-encoded videos: characterization, challenges, and solutions," 
+        in <i>Proceedings of the 14th International Conference on emerging
+        Networking EXperiments and Technologies</i>, pp. 366-378, Dec. 2018, doi:
+        10.1145/3281411.3281439.  </p>
+        <p id="footnote-4">4. Z. Wang, A. C. Bovik, H. R. Sheikh and E. P. Simoncelli, 
+        "Image quality assessment: from error visibility to structural similarity," in 
+        <i>IEEE Transactions on Image Processing</i>, vol. 13, no. 4, pp. 600-612, 
+        April 2004, doi: 10.1109/TIP.2003.819861.
+        <p id="footnote-5">5. S. Fouladi, J. Emmons, E. Orbay, C. Wu,
+        R. S. Wahby, and K. Winstein,
+        "Salsify: Low-latency network video through tighter integration between a video codec 
+        and a transport protocol," in 
+        <i>15th USENIX Symposium on Networked Systems Design and Implementation
+          (NSDI 18)</i>, pp. 267–282, 2018.
+      </div>
+    </div> 
+  </div>
+
+  <script src="{% static 'puffer/dist/js/jquery-3.3.1.slim.min.js' %}"></script>
+  <script src="{% static 'puffer/dist/js/bootstrap.bundle.min.js' %}"></script>
+</body>
+
+</html>
