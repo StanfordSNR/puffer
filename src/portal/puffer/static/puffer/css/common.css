@@ -66,3 +66,13 @@
 .perf-img {
   max-width: 500px;
 }
+
+.img-max-600 {
+  width: 100%;
+  max-width: 600px;
+}
+
+.img-max-800 {
+  width: 100%;
+  max-width: 800px;
+}
