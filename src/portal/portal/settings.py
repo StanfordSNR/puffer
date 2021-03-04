@@ -18,7 +18,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PUFFER_BASE_DIR = os.path.dirname(os.path.dirname(BASE_DIR));
 
 # Modify if needed: path of Puffer's YAML configuration file
-yaml_config_path = os.path.join(PUFFER_BASE_DIR, 'src', 'puffer_machine.yml')
+yaml_config_path = os.path.join(PUFFER_BASE_DIR, 'src', 'settings_offline.yml')
 
 # load YAML configuration
 with open(yaml_config_path, 'r') as fh:
