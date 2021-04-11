@@ -106,33 +106,29 @@
       </div>
     </div>
     <hr>
-    <div>
-      <span>
+    <div class="d-flex flex-row button-row">
+      <div class="mx-1">
         <img src="{% static 'puffer/dist/images/forum.svg' %}" class="icon">
         <a href="https://groups.google.com/forum/#!forum/puffer-stanford">Contact us</a>
-      </span>
-      |
-      <span>
-        <img src="{% static 'puffer/dist/images/star.svg' %}" class="icon">
-        <a href="https://github.com/stanfordsnr/puffer">Star our repo</a></span>
-      </span>
-      |
-      <span>
+      </div>
+      <div class="mx-1">
         <img src="{% static 'puffer/dist/images/wrench.svg' %}" class="icon">
         <a data-toggle="collapse" href="#debug-info"
            aria-expanded="false" aria-controls="debug-info">
           Debug info
         </a>
-      </span>
-      <div class="collapse py-2" id="debug-info">
-        Video playback buffer (s): <span id="video-buf">N/A</span><br>
-        Video resolution: <span id="video-res">N/A</span><br>
-        Video encoding setting (CRF): <span id="video-crf">N/A</span><br>
-        Video quality (SSIM dB): <span id="video-ssim">N/A</span><br>
-        Video bitrate (kbps): <span id="video-bitrate">N/A</span>
+      </div>
+      <div class="mx-1">
+        <a class="github-button" href="https://github.com/stanfordsnr/puffer" aria-label="Star stanfordsnr/puffer on GitHub">Star</a><script async defer src="https://buttons.github.io/buttons.js"></script>
       </div>
     </div>
-
+    <div class="collapse py-2" id="debug-info">
+      Video playback buffer (s): <span id="video-buf">N/A</span><br>
+      Video resolution: <span id="video-res">N/A</span><br>
+      Video encoding setting (CRF): <span id="video-crf">N/A</span><br>
+      Video quality (SSIM dB): <span id="video-ssim">N/A</span><br>
+      Video bitrate (kbps): <span id="video-bitrate">N/A</span>
+    </div>
   </div>
 
   <script src="{% static 'puffer/dist/js/jquery-3.3.1.slim.min.js' %}"></script>

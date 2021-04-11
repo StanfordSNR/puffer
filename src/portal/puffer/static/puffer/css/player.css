@@ -186,5 +186,9 @@
 }
 
 .icon {
-  height: 20px;
+  height: 16px;
+}
+
+.button-row {
+  font-size: 14px;
 }
