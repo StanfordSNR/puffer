@@ -1,4 +1,4 @@
-# Puffer [![Build Status](https://travis-ci.org/StanfordSNR/puffer.svg?branch=master)](https://travis-ci.org/StanfordSNR/puffer)
+# Puffer
 
 Puffer ([puffer.stanford.edu](https://puffer.stanford.edu)) is a free and open-source live TV streaming website,
 and also a research study at Stanford University using machine learning to
