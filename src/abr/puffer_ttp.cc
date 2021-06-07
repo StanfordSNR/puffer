@@ -17,10 +17,10 @@ PufferTTP::PufferTTP(const WebSocketClient & client,
     for (size_t i = 0; i < MAX_LOOKAHEAD_HORIZON; i++) {
       /* load PyTorch models */
       string model_path = model_dir / ("cpp-" + to_string(i) + ".pt");
-      ttp_modules_[i] = torch::jit::load(model_path.c_str());
-      if (not ttp_modules_[i]) {
+      if (not fs::exists(model_path)) {
         throw runtime_error("Model " + model_path + " does not exist");
       }
+      ttp_modules_[i] = torch::jit::load(model_path);
 
       /* load normalization weights */
       ifstream ifs(model_dir / ("cpp-meta-" + to_string(i) + ".json"));
@@ -213,7 +213,7 @@ void PufferTTP::reinit_sending_time()
                            torch::kF64));
 
     at::Tensor output = torch::softmax(
-        ttp_modules_[i - 1]->forward(torch_inputs).toTensor(), 1);
+        ttp_modules_[i - 1].forward(torch_inputs).toTensor(), 1);
     assert((size_t) output.sizes()[1] > dis_sending_time_);
 
     /* extract distribution from the output */

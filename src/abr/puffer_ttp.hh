@@ -21,7 +21,7 @@ private:
 
   double ban_prob_ {BAN_PROB_};
 
-  std::shared_ptr<torch::jit::script::Module> ttp_modules_[MAX_LOOKAHEAD_HORIZON];
+  torch::jit::script::Module ttp_modules_[MAX_LOOKAHEAD_HORIZON];
 
   /* stats of training data used for normalization */
   std::vector<double> obs_mean_[MAX_LOOKAHEAD_HORIZON];
