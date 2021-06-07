@@ -161,3 +161,6 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'puffer', 'static')
 # Redirect to homepage after login and logout
 LOGIN_REDIRECT_URL = '/'
 LOGOUT_REDIRECT_URL = '/'
+
+# Customize type of auto-created primary keys
+DEFAULT_AUTO_FIELD = 'django.db.models.AutoField'
