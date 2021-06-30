@@ -155,6 +155,9 @@
               (<span class="monospace">tcpi_rtt</span>)</li>
               <li><span class="monospace">delivery_rate:</span> TCP's estimation of delivery rate
               in byte/second (<span class="monospace">tcpi_delivery_rate</span>)</li>
+              <li><span class="monospace">buffer:</span> playback buffer size in seconds*</li>
+              <li><span class="monospace">cum_rebuf:</span> total time in seconds that
+                  the client has spent rebuffering in the current stream*</li>
             </ul>
           </li>
 
@@ -179,6 +182,9 @@
                 (e.g., when Puffer's encoding pipeline is restarted). Therefore, it is not
                 guaranteed to be universally unique, but duplicate matches within a short period
                 of time are extremely rare in practice.</li>
+              <li><span class="monospace">buffer:</span> playback buffer size in seconds*</li>
+              <li><span class="monospace">cum_rebuf:</span> total time in seconds that
+                  the client has spent rebuffering in the current stream*</li>
             </ul>
           </li>
 
@@ -212,12 +218,31 @@
                       when the client's browser tab becomes inactive.</li>
                 </ul>
               </li>
-              <li><span class="monospace">buffer:</span> playback buffer size in seconds</li>
+              <li><span class="monospace">buffer:</span> playback buffer size in seconds*</li>
               <li><span class="monospace">cum_rebuf:</span> total time in seconds that
-                  the client has spent rebuffering in the current stream</li>
+                  the client has spent rebuffering in the current stream*</li>
             </ul>
           </li>
         </ul>
+        </p>
+
+        <p>
+        *Note on <span class="monospace">buffer</span>/<span class="monospace">cum_rebuf</span>:
+        The server updates its record of a client’s
+        <span class="monospace">buffer</span>/<span class="monospace">cum_rebuf</span>
+        when it receives a <span class="monospace">video_acked</span> or
+        <span class="monospace">client_buffer</span> message, or an audio ack. The
+        <span class="monospace">buffer</span>/<span class="monospace">cum_rebuf</span> values
+        in <span class="monospace">video_sent</span> are those last recorded. These
+        fields are included in <span class="monospace">video_sent_X.csv</span>/<!--
+        --><span class="monospace">video_acked_X.csv</span>/<span class="monospace">client_buffer_X.csv</span>
+        starting with 2021-06-12T11_2021-06-13T11. Before then,
+        <span class="monospace">video_sent_X.csv</span>/<span class="monospace">video_acked_X.csv</span>
+        do not include <span class="monospace">buffer</span>/<span class="monospace">cum_rebuf</span>,
+        although the values for <span class="monospace">video_sent</span> are in
+        separate <span class="monospace">buf_video_sent_X.csv</span> in the
+        <a href="https://console.cloud.google.com/storage/browser/puffer-data-release/buf_video_sent">
+        buf_video_sent</a> directory.
         </p>
 
         <br><h5>Plots</h5><hr>
