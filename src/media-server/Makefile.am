@@ -20,6 +20,7 @@ ws_media_server_SOURCES = ws_media_server.cc \
 	../abr/puffer_raw.hh ../abr/puffer_raw.cc \
 	../abr/puffer_ttp.cc ../abr/puffer_ttp.hh \
 	../abr/bola_basic.cc ../abr/bola_basic.hh \
+	../abr/python_ipc.hh ../abr/python_ipc.cc \
 	../../third_party/json.upstream/single_include/nlohmann/json.hpp
 ws_media_server_LDFLAGS = -L../../third_party/libtorch/lib \
 	'-Wl,-rpath,$$ORIGIN/../../third_party/libtorch/lib'
