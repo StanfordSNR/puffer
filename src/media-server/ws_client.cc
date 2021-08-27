@@ -6,6 +6,7 @@
 #include "puffer_raw.hh"
 #include "puffer_ttp.hh"
 #include "bola_basic.hh"
+#include "python_ipc.hh"
 #include "timestamp.hh"
 #include "exception.hh"
 
@@ -224,6 +225,8 @@ void WebSocketClient::init_abr_algo()
     abr_algo_ = make_unique<BolaBasic>(*this, abr_name_);
   } else if (abr_name_ == "bola_basic_v2") {
     abr_algo_ = make_unique<BolaBasic>(*this, abr_name_);
+  } else if (abr_name_ == "tara") {
+    abr_algo_ = make_unique<PythonIPC>(*this, abr_name_, abr_config_);
   } else {
     throw runtime_error("undefined ABR algorithm");
   }
