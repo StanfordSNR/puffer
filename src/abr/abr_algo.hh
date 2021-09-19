@@ -1,6 +1,7 @@
 #ifndef ABR_ALGO_HH
 #define ABR_ALGO_HH
 
+#include <iostream>
 #include "media_formats.hh"
 #include "yaml.hh"
 
@@ -36,7 +37,8 @@ public:
 
 protected:
   ABRAlgo(const WebSocketClient & client, const std::string & abr_name)
-    : client_(client), abr_name_(abr_name) {}
+    : client_(client), abr_name_(abr_name)
+  { std::cerr << "abr_name = " << abr_name << std::endl; }
 
   /* it is safe to hold a reference to the parent as the parent lives longer */
   const WebSocketClient & client_;

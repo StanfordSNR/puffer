@@ -7,8 +7,6 @@ PufferTTP::PufferTTP(const WebSocketClient & client,
                      const string & abr_name, const YAML::Node & abr_config)
   : Puffer(client, abr_name, abr_config)
 {
-  cerr << "abr_name = " << abr_name_ << endl;
-
   /* load neural networks */
   if (abr_config["model_dir"]) {
     fs::path model_dir = abr_config["model_dir"].as<string>();
