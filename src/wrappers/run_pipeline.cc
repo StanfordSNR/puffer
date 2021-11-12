@@ -338,10 +338,13 @@ void run_pipeline(ProcessManager & proc_manager,
   run_depcleaner(proc_manager, vwork, vready);
   run_depcleaner(proc_manager, awork, aready);
 
-  /* run windowcleaner to clean up files in ready/ */
-  unsigned int clean_window_ts = clean_window_s * global_timescale;
-  run_windowcleaner(proc_manager, vready, clean_window_ts);
-  run_windowcleaner(proc_manager, aready, clean_window_ts);
+  if (not config["clean_ready_media"] or
+      config["clean_ready_media"].as<bool>()) {
+    /* run windowcleaner to clean up files in ready/ */
+    unsigned int clean_window_ts = clean_window_s * global_timescale;
+    run_windowcleaner(proc_manager, vready, clean_window_ts);
+    run_windowcleaner(proc_manager, aready, clean_window_ts);
+  }
 
   /* run decoder */
   if (not no_decoder) {
