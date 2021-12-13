@@ -9,6 +9,7 @@ from os import path
 from datetime import datetime, timedelta
 import numpy as np
 from multiprocessing import Process
+import gc
 
 import matplotlib
 matplotlib.use('Agg')
@@ -523,6 +524,7 @@ def prepare_cl_data(args):
 
         sys.stderr.write('Sampled {} data vs required {} data in day -{}\n'
                          .format(sample_size, max_size, day + 1))
+        gc.collect()
 
     return ret
 
@@ -663,9 +665,8 @@ def train(i, args, model, input_data, output_data):
 
 
 def train_or_eval_model(i, args, raw_in_data, raw_out_data):
-    # reduce number of threads as we're running FUTURE_CHUNKS parallel processes
-    num_threads = max(1, int(torch.get_num_threads() / Model.FUTURE_CHUNKS))
-    torch.set_num_threads(num_threads)
+    # does not seem to benefit from intra-op parallelism
+    torch.set_num_threads(1)
 
     # create or load a model
     model = Model()
@@ -732,6 +733,8 @@ def main():
     else:
         # continual learning
         raw_in_out = prepare_cl_data(args)
+
+    gc.collect()
 
     # train or test FUTURE_CHUNKS models
     proc_list = []
