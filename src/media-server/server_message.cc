@@ -98,12 +98,12 @@ ServerErrorMsg::ServerErrorMsg(const unsigned int init_id,
   } else if (error_type == Type::Unavailable) {
     error_type_str = "unavailable";
     error_message = "Sorry, the channel is not currently available. "
-      "Please try another channel or refresh the page.";
+      "Please try again later.";
   } else if (error_type == Type::Limit) {
     error_type_str = "limit";
     error_message = "Sorry, this server has reached the limit of concurrent "
       "viewers; our research study only allows up to 500 people to watch "
-      "Puffer at a time (see FAQ). Please refresh or try again later.";
+      "Puffer at a time (see FAQ). Please try again later.";
   }
 
   msg_ = {

@@ -712,7 +712,7 @@ function WebSocketClient(session_key, username_in, settings_debug, port_in,
         reconnect_backoff = reconnect_backoff * 2;
       } else {
         set_fatal_error(
-          'Error: failed to connect to server. Please refresh the page.'
+          'Error: failed to connect to server. Please try again later.'
         );
         report_error(init_id, 'abort reconnect');
       }
