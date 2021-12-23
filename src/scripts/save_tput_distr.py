@@ -35,7 +35,7 @@ cnt_2 = 0
 def process_session(session, s, tputs, tput_diffs):
     pre = None
     for curr_ts in s:
-        curr = s[curr_ts]['trans_time'] / s[curr_ts]['size'] # bytes/sec
+        curr = s[curr_ts]['size'] / s[curr_ts]['trans_time'] # bytes/sec
         tputs.append(curr)
         if pre != None:
             tput_diffs.append(abs(curr - pre))
