@@ -1,4 +1,5 @@
 #include "formatter.hh"
+#include <stdexcept>
 
 using namespace std;
 
