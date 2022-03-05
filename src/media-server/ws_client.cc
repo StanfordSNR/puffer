@@ -227,6 +227,10 @@ void WebSocketClient::init_abr_algo()
     abr_algo_ = make_unique<BolaBasic>(*this, abr_name_);
   } else if (abr_name_ == "tara") {
     abr_algo_ = make_unique<PythonIPC>(*this, abr_name_, abr_config_);
+  } else if (abr_name_ == "maguro") {
+    abr_algo_ = make_unique<PythonIPC>(*this, abr_name_, abr_config_);
+  } else if (abr_name_ == "unagi") {
+    abr_algo_ = make_unique<PythonIPC>(*this, abr_name_, abr_config_);
   } else {
     throw runtime_error("undefined ABR algorithm");
   }
