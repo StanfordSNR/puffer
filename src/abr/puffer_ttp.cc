@@ -132,7 +132,7 @@ void PufferTTP::blur_probability(int horizontal_index, int format_index)
 void PufferTTP::reinit_sending_time()
 {
   /* prepare the raw inputs for ttp */
-  const auto & curr_tcp_info = client_.tcp_info().value();
+  const auto curr_tcp_info = client_.tcp_info().value();
   vector<double> raw_input;
 
   size_t num_past_chunks = past_chunks_.size();
