@@ -79,7 +79,11 @@ string_view::const_iterator FileDescriptor::write( const string_view::const_iter
 
   ssize_t bytes_written = CheckSystemCall( "write", ::write( fd_, &*begin, end - begin ) );
   if ( bytes_written == 0 ) {
-    throw runtime_error( "write returned 0" );
+    if (bytes_written == -1 and errno == EWOULDBLOCK) {
+      return begin;
+    } else {
+      throw runtime_error( "other write errors" );
+    }
   }
 
   register_write();
