@@ -248,12 +248,14 @@ pid_t ProcessManager::run_as_child(const string & program,
   return pid;
 }
 
-int ProcessManager::wait()
+int ProcessManager::wait(bool fail_silently)
 {
   while (not child_processes_.empty()) {
     auto ret = poller_.poll(-1);
-    if (ret.result != Poller::Result::Type::Success) {
-      return ret.exit_status;
+    if (not fail_silently) {
+      if (ret.result != Poller::Result::Type::Success) {
+        return ret.exit_status;
+      }
     }
   }
 
@@ -305,8 +307,8 @@ Result ProcessManager::handle_signal(const signalfd_siginfo & sig)
               callback_it->second(it->first);
             } else {
               child_processes_.clear();
-              throw runtime_error("ProcessManager: PID " + to_string(it->first) +
-                                " exits abnormally");
+              throw runtime_error("ProcessManager: PID " + to_string(it->first)
+                                  + " exits abnormally");
             }
           }
 
@@ -325,8 +327,8 @@ Result ProcessManager::handle_signal(const signalfd_siginfo & sig)
               callback_it->second(it->first);
             } else {
               child_processes_.clear();
-              throw runtime_error("ProcessManager: PID " + to_string(it->first) +
-                                " is not running");
+              throw runtime_error("ProcessManager: PID " + to_string(it->first)
+                                  + " is not running");
             }
           }
 

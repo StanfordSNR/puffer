@@ -77,8 +77,8 @@ public:
                      const callback_t & error_callback = {},
                      const std::string & log_path = "");
 
-  /* return when all the child processes exit */
-  int wait();
+  /* return when all the child processes exit; true: allows children to fail */
+  int wait(bool fail_silently = false);
 
   /* loop forever even if all the child processes exit and return only on error
    * especially helpful when the exposed poller also polls on other events */

@@ -105,7 +105,8 @@ int run_maintenance_servers()
     }
   }
 
-  return proc_manager.wait();
+  /* true: allows a child to fail silently */
+  return proc_manager.wait(true);
 }
 
 int run_ws_media_servers()
@@ -171,8 +172,8 @@ int run_ws_media_servers()
     }
   }
 
-  return proc_manager.wait();
-
+  /* true: allows a child to fail silently */
+  return proc_manager.wait(true);
 }
 
 int main(int argc, char * argv[])
