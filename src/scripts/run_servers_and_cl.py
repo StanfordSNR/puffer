@@ -12,7 +12,7 @@ from datetime import datetime, timedelta
 from helpers import Popen, check_call
 
 
-CL_HOUR = 8  # perform continual learning at 8:00 (UTC)
+CL_HOUR = 4  # perform continual learning at 4:00 (UTC)
 
 
 def run_ttp(ttp_path, yaml_settings_path):
@@ -106,6 +106,7 @@ def main():
     yaml_settings_path = path.abspath(args.yaml_settings)
     src_dir = path.dirname(path.dirname(path.abspath(__file__)))
     run_servers_path = path.join(src_dir, 'media-server', 'run_servers')
+    cleaner_path = path.join(src_dir, 'cleaner', 'cleaner')
     ttp_path = path.join(src_dir, 'scripts', 'ttp.py')
 
     try:
@@ -141,6 +142,10 @@ def main():
 
             # restart Gunicorn
             check_call('sudo systemctl restart gunicorn', shell=True)
+
+            # clean old video files
+            check_call('{} -r -p "\d+\.(m4s|chk|ssim)" '
+                       '-t 600 /dev/shm/media'.format(cleaner_path), shell=True)
 
             run_servers_proc = Popen([run_servers_path, yaml_settings_path],
                                      preexec_fn=os.setsid, stderr=logfile)
