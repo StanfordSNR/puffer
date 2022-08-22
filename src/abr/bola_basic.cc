@@ -12,9 +12,12 @@ BolaBasic::BolaBasic(const WebSocketClient & client, const string & abr_name)
   if (abr_name_ == "bola_basic_v1") {
     version = BOLA_BASIC_v1;
     params = PARAMS_V1;
-  } else {
+  } else if (abr_name == "bola_basic_v2") {
     version = BOLA_BASIC_v2;
     params = PARAMS_V2;
+  } else if (abr_name == "bola_causalsim") {
+    version = BOLA_BASIC_v1;
+    params = {0.80502, 1.06592}; /* from CausalSim: reservoir 8s, cushion 5s */
   }
 }
 
@@ -66,6 +69,7 @@ double BolaBasic::objective(const Encoded & encoded, double client_buf_chunks,
 {
   // paper uses V rather than Vp for objective
   double V = params.Vp / chunk_duration_s;
+
   return (V * (encoded.utility + params.gp) - client_buf_chunks) / encoded.size;
 }
 
