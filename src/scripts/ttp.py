@@ -379,14 +379,18 @@ def prepare_raw_data(yaml_settings_path, time_start, time_end, cc):
         video_sent_query += ' WHERE ' + time_clause
     video_sent_results = influx_client.query(video_sent_query)
     if not video_sent_results:
-        sys.exit('Error: no results returned from query: ' + video_sent_query)
+        sys.stderr.write('Warning: no results returned from query: '
+                         + video_sent_query)
+        return None
 
     video_acked_query = 'SELECT * FROM video_acked'
     if time_clause is not None:
         video_acked_query += ' WHERE ' + time_clause
     video_acked_results = influx_client.query(video_acked_query)
     if not video_acked_results:
-        sys.exit('Error: no results returned from query: ' + video_acked_query)
+        sys.stderr.write('Warning: no results returned from query: '
+                         + video_acked_query)
+        return None
 
     # create a client connected to Postgres
     postgres_client = connect_to_postgres(yaml_settings)
@@ -474,6 +478,10 @@ def prepare_input_output(d):
 def cl_sample(args, time_start, time_end, max_size, ret):
     raw_data = prepare_raw_data(args.yaml_settings,
                                 time_start, time_end, args.cc)
+    if not raw_data:
+        # failed to sample valid data
+        return 0
+
     raw_in_out = prepare_input_output(raw_data)
 
     ret_sample_size = None
