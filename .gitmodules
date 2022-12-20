@@ -16,3 +16,6 @@
 [submodule "third_party/causalsim_rl_deploy"]
 	path = third_party/causalsim_rl_deploy
 	url = https://github.com/pouyahmdn/causalsim_rl_deploy.git
+[submodule "third_party/epsilon-greedy-bba"]
+	path = third_party/epsilon-greedy-bba
+	url = https://github.com/arashne/epsilon-greedy-bba
