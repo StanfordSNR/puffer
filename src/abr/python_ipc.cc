@@ -138,6 +138,7 @@ VideoFormat PythonIPC::select_video_format()
   j["sizes"] = chunk_sizes; // Mb
   j["ssims"] = chunk_ssims; // unitless
   j["channel_name"] = channel->name(); // eg. fox, abc
+  j["ts"] = next_ts; // timestamp
   uint16_t json_len = j.dump().length();
 
   connection_->write(put_field(json_len) + j.dump());
