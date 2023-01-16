@@ -3,7 +3,6 @@
 #include <vector>
 #include <tuple>
 #include <set>
-#include <getopt.h>
 
 #include "filesystem.hh"
 #include "path.hh"
@@ -21,12 +20,10 @@ static fs::path src_path;
 static fs::path media_dir;
 static string notifier;
 
-static bool no_decoder = false;
-
 void print_usage(const string & program_name)
 {
   cerr <<
-  "Usage: " << program_name << " <YAML configuration> [--no-decoder]"
+  "Usage: " << program_name << " <YAML configuration>"
   << endl;
 }
 
@@ -305,9 +302,6 @@ void run_pipeline(ProcessManager & proc_manager,
   /* create output directory if it does not exist */
   fs::create_directories(output_path);
 
-  /* create a tmp directory for decoder to output raw media chunks */
-  fs::create_directories(output_path / "tmp" / "raw");
-
   /* run video_canonicalizer */
   run_video_canonicalizer(proc_manager, output_path, vwork);
 
@@ -347,7 +341,10 @@ void run_pipeline(ProcessManager & proc_manager,
   }
 
   /* run decoder */
-  if (not no_decoder) {
+  if (not config["decoder"] or config["decoder"].as<bool>()) {
+    /* create a tmp directory for decoder to output raw media chunks */
+    fs::create_directories(output_path / "tmp" / "raw");
+
     run_decoder(proc_manager, output_path, channel_name, channel_config);
   }
 }
@@ -358,34 +355,13 @@ int main(int argc, char * argv[])
     abort();
   }
 
-  const option cmd_line_opts[] = {
-    {"no-decoder", no_argument, nullptr, 'd'},
-    { nullptr,     0,           nullptr,  0 },
-  };
-
-  while (true) {
-    const int opt = getopt_long(argc, argv, "d", cmd_line_opts, nullptr);
-    if (opt == -1) {
-      break;
-    }
-
-    switch (opt) {
-    case 'd':
-      no_decoder = true;
-      break;
-    default:
-      print_usage(argv[0]);
-      return EXIT_FAILURE;
-    }
-  }
-
-  if (optind != argc - 1) {
+  if (argc != 2) {
     print_usage(argv[0]);
     return EXIT_FAILURE;
   }
 
   /* load YAML configuration */
-  string yaml_config = fs::absolute(argv[optind]);
+  string yaml_config = fs::absolute(argv[1]);
   YAML::Node config = YAML::LoadFile(yaml_config);
 
   /* get the path of wrappers directory and notifier */
