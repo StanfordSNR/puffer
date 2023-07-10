@@ -80,38 +80,51 @@ void Socket::connect( const Address & address )
     register_write();
 }
 
-/* send datagram to specified address */
-void UDPSocket::sendto( const Address & destination, const string & payload )
+bool UDPSocket::check_bytes_sent(const ssize_t bytes_sent,
+                                 const size_t target) const
 {
-    const ssize_t bytes_sent =
-        CheckSystemCall( "sendto", ::sendto( fd_num(),
-                                             payload.data(),
-                                             payload.size(),
-                                             0,
-                                             &destination.to_sockaddr(),
-                                             destination.size() ) );
-
-    register_write();
-
-    if ( size_t( bytes_sent ) != payload.size() ) {
-        throw runtime_error( "datagram payload too big for sendto()" );
+  if (bytes_sent <= 0) {
+    if (bytes_sent == -1 and errno == EWOULDBLOCK) {
+      return false; // return false to indicate EWOULDBLOCK
     }
+
+    throw unix_error("UDPSocket:send()/sendto()");
+  }
+
+  if (static_cast<size_t>(bytes_sent) != target) {
+    throw runtime_error("UDPSocket failed to deliver target number of bytes");
+  }
+
+  return true;
 }
 
 /* send datagram to connected address */
-void UDPSocket::send( const string & payload )
+bool UDPSocket::send(const string_view data)
 {
-    const ssize_t bytes_sent =
-        CheckSystemCall( "send", ::send( fd_num(),
-                                         payload.data(),
-                                         payload.size(),
-                                         0 ) );
+  if (data.empty()) {
+    throw runtime_error("attempted to send empty data");
+  }
 
-    register_write();
+  const ssize_t bytes_sent = ::send(fd_num(), data.data(), data.size(), 0);
 
-    if ( size_t( bytes_sent ) != payload.size() ) {
-        throw runtime_error( "datagram payload too big for send()" );
-    }
+  register_write();
+
+  return check_bytes_sent(bytes_sent, data.size());
+}
+
+/* send datagram to specified address */
+bool UDPSocket::sendto(const Address & dst_addr, const string_view data)
+{
+  if (data.empty()) {
+    throw runtime_error("attempted to send empty data");
+  }
+
+  const ssize_t bytes_sent = ::sendto(fd_num(), data.data(), data.size(), 0,
+                                      &dst_addr.to_sockaddr(), dst_addr.size());
+
+  register_write();
+
+  return check_bytes_sent(bytes_sent, data.size());
 }
 
 /* mark the socket as listening for incoming connections */
@@ -162,32 +175,58 @@ void UDPSocket::set_timestamps( void )
     setsockopt( SOL_SOCKET, SO_TIMESTAMPNS, int( true ) );
 }
 
-pair<Address, string> UDPSocket::recvfrom( void )
+bool UDPSocket::check_bytes_received(const ssize_t bytes_received) const
 {
-    static const ssize_t RECEIVE_MTU = 65536;
-
-    /* receive source address and payload */
-    Address::raw datagram_source_address;
-    char buffer[ RECEIVE_MTU ];
-
-    socklen_t fromlen = sizeof( datagram_source_address );
-
-    ssize_t recv_len = CheckSystemCall( "recvfrom",
-                                        ::recvfrom( fd_num(),
-                                                    buffer,
-                                                    sizeof( buffer ),
-                                                    MSG_TRUNC,
-                                                    &datagram_source_address.as_sockaddr,
-                                                    &fromlen ) );
-
-    if ( recv_len > RECEIVE_MTU ) {
-        throw runtime_error( "recvfrom (oversized datagram)" );
+  if (bytes_received < 0) {
+    if (bytes_received == -1 and errno == EWOULDBLOCK) {
+      return false; // return false to indicate EWOULDBLOCK
     }
 
-    register_read();
+    throw unix_error("UDPSocket:recv()/recvfrom()");
+  }
 
-    return make_pair( Address( datagram_source_address, fromlen ),
-                      string( buffer, recv_len ) );
+  if (static_cast<size_t>(bytes_received) > UDP_MTU) {
+    throw runtime_error("UDPSocket::recv()/recvfrom(): datagram truncated");
+  }
+
+  return true;
+}
+
+optional<string> UDPSocket::recv()
+{
+  // data to receive
+  vector<char> buf(UDP_MTU);
+
+  const ssize_t bytes_received = ::recv(fd_num(), buf.data(),
+                                        UDP_MTU, MSG_TRUNC);
+
+  register_read();
+
+  if (not check_bytes_received(bytes_received)) {
+    return nullopt;
+  }
+
+  return string{buf.data(), static_cast<size_t>(bytes_received)};
+}
+
+pair<Address, optional<string>> UDPSocket::recvfrom()
+{
+  // data to receive and its source address
+  vector<char> buf(UDP_MTU);
+  sockaddr src_addr;
+  socklen_t src_addr_len = sizeof(src_addr);
+
+  const ssize_t bytes_received = ::recvfrom(
+      fd_num(), buf.data(), UDP_MTU, MSG_TRUNC, &src_addr, &src_addr_len);
+
+  register_read();
+
+  if (not check_bytes_received(bytes_received)) {
+    return { Address{src_addr, src_addr_len}, nullopt };
+  }
+
+  return { Address{src_addr, src_addr_len},
+           string{buf.data(), static_cast<size_t>(bytes_received)} };
 }
 
 Address TCPSocket::original_dest( void ) const

@@ -4,6 +4,9 @@
 #define SOCKET_HH
 
 #include <functional>
+#include <string>
+#include <string_view>
+#include <optional>
 
 #include "address.hh"
 #include "file_descriptor.hh"
@@ -50,19 +53,28 @@ public:
 class UDPSocket : public Socket
 {
 public:
-    UDPSocket() : Socket( AF_INET, SOCK_DGRAM ) {}
+    UDPSocket() : Socket(AF_INET, SOCK_DGRAM) {}
 
-    /* receive datagram and where it came from */
-    std::pair<Address, std::string> recvfrom( void );
+    /* receive a datagram (*supposedly* from a connected address) */
+    /* return nullopt to indicate EWOULDBLOCK in nonblocking I/O mode */
+    std::optional<std::string> recv();
 
-    /* send datagram to specified address */
-    void sendto( const Address & peer, const std::string & payload );
+    /* receive a datagram and its source address */
+    std::pair<Address, std::optional<std::string>> recvfrom();
 
-    /* send datagram to connected address */
-    void send( const std::string & payload );
+    /* return true if data is sent in its entirety */
+    /* return false to indicate EWOULDBLOCK in nonblocking I/O mode */
+    bool send(const std::string_view data);
+    bool sendto(const Address & dst_addr, const std::string_view data);
 
     /* turn on timestamps on receipt */
-    void set_timestamps( void );
+    void set_timestamps();
+
+private:
+    bool check_bytes_sent(const ssize_t bytes_sent, const size_t target) const;
+    bool check_bytes_received(const ssize_t bytes_received) const;
+
+    static constexpr size_t UDP_MTU = 65536; // bytes
 };
 
 /* tcp_info of our interest; keep the units used in the kernel */
