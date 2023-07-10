@@ -55,9 +55,13 @@ public:
   /* read and write methods */
   std::string read( const size_t limit = BUFFER_SIZE );
   std::string read_exactly( const size_t length, const bool fail_silently = false );
-  std::string_view::const_iterator write( const std::string_view & buffer, const bool write_all = true );
-  std::string_view::const_iterator write( const std::string_view::const_iterator & begin,
-                                          const std::string_view::const_iterator & end );
+  std::string_view::const_iterator write( const std::string_view buffer );
+  std::string_view::const_iterator write( const std::string_view::const_iterator begin,
+                                          const std::string_view::const_iterator end );
+
+  // non-blocking write
+  // returns 0 on EWOULDBLOCK, or otherwise the bytes written
+  size_t nb_write( const std::string_view buffer );
 
   /* manipulate file offset */
   uint64_t seek(const int64_t offset, const int whence);

@@ -108,15 +108,42 @@ string FileDescriptor::read( const size_t limit )
 }
 
 /* write method */
-string_view::const_iterator FileDescriptor::write( const string_view & buffer, const bool write_all )
+string_view::const_iterator FileDescriptor::write( const string_view buffer )
 {
   auto it = buffer.begin();
 
-  do {
-    it = write( it, buffer.end() );
-  } while ( write_all and (it != buffer.end()) );
+  while (it != buffer.end()) {
+    auto new_it = write(it, buffer.end());
+
+    if (new_it == it) { // EWOULDBLOCK
+      throw runtime_error("cannot write all");
+    }
+
+    it = new_it;
+  }
 
   return it;
+}
+
+size_t FileDescriptor::nb_write( const string_view buffer )
+{
+  if (buffer.empty()) {
+    throw runtime_error("attempted to write empty data");
+  }
+
+  const ssize_t bytes_written = ::write(fd_, buffer.data(), buffer.size());
+
+  if (bytes_written <= 0) {
+    if (bytes_written == -1 and errno == EWOULDBLOCK) {
+      return 0; // return 0 to indicate EWOULDBLOCK
+    }
+
+    throw unix_error("FileDescriptor::nb_write()");
+  }
+
+  register_write();
+
+  return bytes_written;
 }
 
 string FileDescriptor::read_exactly( const size_t length,
