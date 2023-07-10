@@ -26,7 +26,7 @@ shared_ptr<WebmElement> WebmElement::find_first(const uint32_t tag)
   if (tag_ == tag) {
     return shared_from_this();
   } else {
-    for (const auto elem : children_) {
+    for (const auto & elem : children_) {
       auto result = elem->find_first(tag);
       if (result) {
         return result;
@@ -42,8 +42,8 @@ set<shared_ptr<WebmElement>> WebmElement::find_all(const uint32_t tag)
   if (tag_ == tag) {
     result.insert(shared_from_this());
   } else {
-    for (const auto elem : children_) {
-      for (const auto r : elem->find_all(tag)) {
+    for (const auto & elem : children_) {
+      for (const auto & r : elem->find_all(tag)) {
         result.insert(r);
       }
     }
@@ -182,7 +182,7 @@ uint32_t WebmInfo::get_duration(uint32_t timescale)
 {
   /* get duration from TAG */
   auto tags = parser_.find_all(ElementTagID::SimpleTag);
-  for (const auto tag : tags) {
+  for (const auto & tag : tags) {
     auto name_tag = tag->find_first(ElementTagID::TagName);
     if (name_tag) {
       string tag_name = name_tag->value();
