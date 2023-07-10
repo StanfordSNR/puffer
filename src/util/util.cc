@@ -68,3 +68,14 @@ string expand_user(const string & path)
 
   return expanded + remain;
 }
+
+string date_time()
+{
+  time_t t = time(0);
+  tm * now = localtime(&t);
+
+  char buf[80];
+  strftime(buf, sizeof(buf), "%Y-%m-%d %X", now);
+
+  return buf;
+}

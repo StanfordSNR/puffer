@@ -6,6 +6,7 @@
 #include "strict_conversions.hh"
 #include "socket.hh"
 #include "poller.hh"
+#include "util.hh"
 
 using namespace std;
 using namespace PollerShortNames;
@@ -42,9 +43,9 @@ void accept_one_client(TCPSocket & listening_socket, const uint16_t udp_port)
 
   /* read datagrams from UDP socket into the buffer */
   poller.add_action(Poller::Action(udp_socket, Direction::In,
-    [&udp_socket, &buffer, &buffer_size]() {
+    [&udp_socket, &buffer, &buffer_size, &udp_port]() {
       while (true) {
-        const auto & [ignore, data] = udp_socket.recvfrom();
+        const auto [ignore, data] = udp_socket.recvfrom();
 
         if (not data) { // EWOULDBLOCK; try again when data is available
           break;
@@ -54,8 +55,10 @@ void accept_one_client(TCPSocket & listening_socket, const uint16_t udp_port)
 
         buffer.emplace_back(move(*data));
 
-        if (buffer_size > 1024 * 1024) {
-          cerr << "Warning: buffer size (bytes) is " << buffer_size << endl;
+        if (buffer_size > 10 * 1024 * 1024) {
+          cerr << "[" << date_time() << "] "
+               << "port=" << udp_port << ", "
+               << "buffer=" << buffer_size << endl;
         }
       }
 
