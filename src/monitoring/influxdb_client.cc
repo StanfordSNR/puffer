@@ -34,21 +34,14 @@ InfluxDBClient::InfluxDBClient(Poller & poller,
   poller.add_action(Poller::Action(sock_, Direction::Out,
     [this]()->Result {
       while (not buffer_.empty()) {
-        const string & data = buffer_.front();
-        /* convert to string_view to avoid copy */
-        string_view data_view = data;
+        string & data = buffer_.front();
 
-        /* set write_all to false because socket might be unable to write all */
-        const auto view_it = sock_.write(
-            data_view.substr(buffer_offset_), false);
-
-        if (view_it != data_view.cend()) {
-          /* save the offset of the remaining string */
-          buffer_offset_ = view_it - data_view.cbegin();
+        const size_t bytes_written = sock_.nb_write(data);
+        if (bytes_written == 0) { // EWOULDBLOCK
           break;
-        } else {
-          /* move onto the next item in the deque */
-          buffer_offset_ = 0;
+        } else if (bytes_written < data.size()) { // partial write
+          data.erase(0, bytes_written);
+        } else { // full write
           buffer_.pop_front();
         }
       }

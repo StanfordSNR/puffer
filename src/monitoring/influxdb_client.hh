@@ -25,5 +25,4 @@ private:
   std::string password_ {};
 
   std::deque<std::string> buffer_ {};
-  size_t buffer_offset_ {0};
 };

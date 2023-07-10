@@ -10,8 +10,6 @@
 using namespace std;
 using namespace PollerShortNames;
 
-static const int MAX_BUFFER_BYTES = 128 * 1000 * 1000;  /* 128 MB */
-
 void print_usage(const string & program_name)
 {
   cerr <<
@@ -41,35 +39,24 @@ void accept_one_client(TCPSocket & listening_socket, const uint16_t udp_port)
   /* start forwarding */
   deque<string> buffer;
   uint64_t buffer_size = 0;
-  size_t buffer_offset = 0;
 
   /* read datagrams from UDP socket into the buffer */
   poller.add_action(Poller::Action(udp_socket, Direction::In,
-    [&udp_socket, &buffer, &buffer_size, &buffer_offset]() {
-      string data = udp_socket.read();
+    [&udp_socket, &buffer, &buffer_size]() {
+      while (true) {
+        const auto & [ignore, data] = udp_socket.recvfrom();
 
-      if (data.empty()) {
-        cerr << "Received empty data from UDP socket" << endl;
-        return ResultType::Exit;
-      }
+        if (not data) { // EWOULDBLOCK; try again when data is available
+          break;
+        }
 
-      buffer_size += data.size();
+        buffer_size += data->size();
 
-      buffer.emplace_back(move(data));
+        buffer.emplace_back(move(*data));
 
-      /* keep dropping old data until the buffer_size is within limit */
-      while (buffer_size >= MAX_BUFFER_BYTES) {
-        const string & old_data = buffer.front();
-
-        /* update buffer_size with buffer_offset taken into account */
-        auto size_to_drop = old_data.size() - buffer_offset;
-        buffer_size -= size_to_drop;
-
-        /* drop the first item */
-        buffer_offset = 0;
-        buffer.pop_front();
-
-        cerr << "Warning: dropped old data " << size_to_drop << endl;
+        if (buffer_size > 1024 * 1024) {
+          cerr << "Warning: buffer size (bytes) is " << buffer_size << endl;
+        }
       }
 
       return ResultType::Continue;
@@ -78,30 +65,20 @@ void accept_one_client(TCPSocket & listening_socket, const uint16_t udp_port)
 
   /* write datagrams to TCP client socket from the buffer */
   poller.add_action(Poller::Action(client, Direction::Out,
-    [&client, &buffer, &buffer_size, &buffer_offset]() {
+    [&client, &buffer, &buffer_size]() {
       while (not buffer.empty()) {
-        const string & data = buffer.front();
-        /* convert to string_view to avoid copy */
-        string_view data_view = data;
+        string & data = buffer.front();
 
-        /* set write_all to false because socket might be unable to write all */
-        const auto view_it = client.write(
-            data_view.substr(buffer_offset), false);
-
-        if (view_it != data_view.cend()) {
-          /* update buffer_size */
-          auto new_offset = view_it - data_view.cbegin();
-          buffer_size -= new_offset - buffer_offset;
-
-          /* save the offset of the remaining string */
-          buffer_offset = new_offset;
+        const size_t bytes_written = client.nb_write(data);
+        if (bytes_written == 0) { // EWOULDBLOCK
           break;
-        } else {
-          /* update buffer_size with buffer_offset taken into account */
-          buffer_size -= data.size() - buffer_offset;
+        }
 
-          /* move onto the next item in the deque */
-          buffer_offset = 0;
+        buffer_size -= bytes_written;
+
+        if (bytes_written < data.size()) { // partial write
+          data.erase(0, bytes_written);
+        } else { // full write
           buffer.pop_front();
         }
       }
