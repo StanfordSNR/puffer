@@ -70,15 +70,16 @@ FileDescriptor::~FileDescriptor()
 }
 
 /* attempt to write a portion of a string */
-string_view::const_iterator FileDescriptor::write( const string_view::const_iterator & begin,
-                                                   const string_view::const_iterator & end )
+string_view::const_iterator FileDescriptor::write( const string_view::const_iterator begin,
+                                                   const string_view::const_iterator end )
 {
   if ( begin >= end ) {
     throw runtime_error( "nothing to write" );
   }
 
-  ssize_t bytes_written = CheckSystemCall( "write", ::write( fd_, &*begin, end - begin ) );
-  if ( bytes_written == 0 ) {
+  ssize_t bytes_written = ::write( fd_, &*begin, end - begin );
+
+  if ( bytes_written <= 0 ) {
     if (bytes_written == -1 and errno == EWOULDBLOCK) {
       return begin;
     } else {
