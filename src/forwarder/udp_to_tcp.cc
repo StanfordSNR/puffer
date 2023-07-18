@@ -43,7 +43,7 @@ void accept_one_client(TCPSocket & listening_socket, const uint16_t udp_port)
 
   /* read datagrams from UDP socket into the buffer */
   poller.add_action(Poller::Action(udp_socket, Direction::In,
-    [&udp_socket, &buffer, &buffer_size, &udp_port]() {
+    [&udp_socket, &udp_port, &buffer, &buffer_size, &client]() {
       while (true) {
         const auto [ignore, data] = udp_socket.recvfrom();
 
@@ -56,6 +56,10 @@ void accept_one_client(TCPSocket & listening_socket, const uint16_t udp_port)
         buffer.emplace_back(move(*data));
 
         if (buffer_size > 50 * 1024 * 1024) { // 50 MB
+          /* try to gracefully close sockets */
+          client.close();
+          udp_socket.close();
+
           throw runtime_error("Error: give up forwarding data");
         } else if (buffer_size > 10 * 1024 * 1024) { // 10 MB
           cerr << "[" << date_time() << "] "
