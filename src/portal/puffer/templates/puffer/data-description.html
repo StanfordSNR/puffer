@@ -71,8 +71,9 @@
         For example, "2019-11-04T11_2019-11-05T11" means the data was collected between
         2019-11-04T11:00:00Z and 2019-11-05T11:00:00Z (UTC is the default time zone).
         In addition to these three CSVs, we also release
-        <span class="monospace">ssim_X.csv</span> and
-        <span class="monospace">video_size_X.csv</span>.
+        <span class="monospace">video_size_X.csv</span> and
+        <span class="monospace">ssim_X.csv</span>
+        that are described below.
         </p>
 
         <p>
@@ -222,6 +223,28 @@
               <li><span class="monospace">buffer:</span> playback buffer size in seconds*</li>
               <li><span class="monospace">cum_rebuf:</span> total time in seconds that
                   the client has spent rebuffering in the current stream*</li>
+            </ul>
+          </li>
+
+          <li>
+            <b><span class="monospace">video_size_X.csv</span> &
+               <span class="monospace">ssim_X.csv:</span></b>
+            These two files contain the sizes and SSIMs of all video chunks encoded
+            by Puffer for streaming during a single day.
+            For each TV channel, every video chunk should be available
+            in 10 formats (the bitrate ladder), unless cut off at the day's boundaries.
+            Each line consists of the following fields (refer to
+            <span class="monospace">video_sent_X.csv</span> for any fields not explained here):
+            <ul>
+              <li><span class="monospace">time:</span> timestamp
+                (nanoseconds since Unix epoch) when an encoded video chunk is reported
+                to the server</li>
+              <li><span class="monospace">format</span></li>
+              <li><span class="monospace">channel</span></li>
+              <li><span class="monospace">video_ts</span></li>
+              <li><span class="monospace">size</span> (in <span class="monospace">video_size_X.csv</span>)
+                or <span class="monospace">ssim_index</span> (in <span class="monospace">ssim_X.csv</span>)
+              </li>
             </ul>
           </li>
         </ul>
