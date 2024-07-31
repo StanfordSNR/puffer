@@ -3,6 +3,7 @@
 #include <memory>
 #include <iostream>
 #include <vector>
+#include <algorithm>
 #include <endian.h>
 
 #include <sndfile.hh>
@@ -24,6 +25,7 @@ const unsigned int NUM_SAMPLES_IN_OUTPUT = 230400; /* 48kHz * 4.8s */
 const unsigned int NUM_SAMPLES_IN_INPUT = OVERLAP_SAMPLES_PREPENDED + NUM_SAMPLES_IN_OUTPUT;
 const unsigned int MAX_COMPRESSED_FRAME_SIZE = 131072; /* bytes */
 const unsigned int WEBM_TIMEBASE = 1000;
+const float VOLUME_FACTOR = 2.0; /* amplify the volume by 2x */
 
 /* make sure target file length is integer number of Opus frames */
 static_assert( (NUM_SAMPLES_IN_OUTPUT / NUM_SAMPLES_IN_OPUS_FRAME) * NUM_SAMPLES_IN_OPUS_FRAME
@@ -158,8 +160,16 @@ public:
       throw runtime_error( "wav_frame is not 20 ms long" );
     }
 
+    /* make a copy of wav_frame data to adjust the volume */
+    std::vector<int16_t> adjusted_wav_frame( wav_frame.begin(), wav_frame.end() );
+    for ( size_t i = 0; i < adjusted_wav_frame.size(); i++ ) {
+      int32_t sample = static_cast<int32_t>( adjusted_wav_frame[i] * VOLUME_FACTOR );
+      sample = clamp( sample, INT16_MIN, INT16_MAX );
+      adjusted_wav_frame[i] = sample;
+    }
+
     opus_frame.first = opus_check( opus_encode( encoder_.get(),
-                                                wav_frame.data(),
+                                                adjusted_wav_frame.data(),
                                                 NUM_SAMPLES_IN_OPUS_FRAME,
                                                 opus_frame.second.data(),
                                                 opus_frame.second.size() ) );
