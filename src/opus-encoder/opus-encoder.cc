@@ -25,7 +25,7 @@ const unsigned int NUM_SAMPLES_IN_OUTPUT = 230400; /* 48kHz * 4.8s */
 const unsigned int NUM_SAMPLES_IN_INPUT = OVERLAP_SAMPLES_PREPENDED + NUM_SAMPLES_IN_OUTPUT;
 const unsigned int MAX_COMPRESSED_FRAME_SIZE = 131072; /* bytes */
 const unsigned int WEBM_TIMEBASE = 1000;
-const float VOLUME_FACTOR = 2.0; /* amplify the volume by 2x */
+const float VOLUME_FACTOR = 10.0; /* amplify the volume by 10x */
 
 /* make sure target file length is integer number of Opus frames */
 static_assert( (NUM_SAMPLES_IN_OUTPUT / NUM_SAMPLES_IN_OPUS_FRAME) * NUM_SAMPLES_IN_OPUS_FRAME
