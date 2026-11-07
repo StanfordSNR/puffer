@@ -267,8 +267,8 @@ void TCPSocket::verify_no_errors() const
 
 void TCPSocket::set_congestion_control( const string & cc )
 {
-    char optval[ TCP_CC_NAME_MAX ];
-    strncpy( optval, cc.c_str(), TCP_CC_NAME_MAX );
+    char optval[ TCP_CC_NAME_MAX ] = {};
+    strncpy( optval, cc.c_str(), TCP_CC_NAME_MAX - 1 );
 
     try {
       setsockopt( IPPROTO_TCP, TCP_CONGESTION, optval );
