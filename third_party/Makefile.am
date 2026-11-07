@@ -1,5 +1,5 @@
 all-local:
-	mkdir -p ./libwebm && cd ./libwebm && cmake -DENABLE_WEBMTS=OFF -DENABLE_WEBMINFO=OFF $(abs_srcdir)/libwebm.fork && $(MAKE) $(AM_MAKEFLAGS)
+	mkdir -p ./libwebm && cd ./libwebm && cmake -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DENABLE_WEBMTS=OFF -DENABLE_WEBMINFO=OFF $(abs_srcdir)/libwebm.fork && $(MAKE) $(AM_MAKEFLAGS)
 
 clean-local:
 	rm -rf libwebm
