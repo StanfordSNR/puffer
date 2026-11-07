@@ -12,6 +12,7 @@
 #include <queue>
 #include <optional>
 #include <cmath>
+#include <cstdint>
 
 #include <unistd.h>
 #include <sys/types.h>

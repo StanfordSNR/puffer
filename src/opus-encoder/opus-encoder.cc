@@ -4,6 +4,7 @@
 #include <iostream>
 #include <vector>
 #include <algorithm>
+#include <array>
 #include <endian.h>
 
 #include <sndfile.hh>
@@ -272,8 +273,6 @@ public:
       audio_stream_(),
       header_written_( false )
   {
-    av_register_all();
-
     if ( output_filename.substr( output_filename.size() - 5 ) != ".webm" ) {
       throw runtime_error( "output filename must be a .webm" );
     }
@@ -300,7 +299,7 @@ public:
     audio_stream_->codecpar->codec_id = AV_CODEC_ID_OPUS;
     audio_stream_->codecpar->bit_rate = bit_rate;
     audio_stream_->codecpar->bits_per_coded_sample = 16;
-    audio_stream_->codecpar->channels = NUM_CHANNELS;
+    av_channel_layout_default( &audio_stream_->codecpar->ch_layout, NUM_CHANNELS );
     audio_stream_->codecpar->sample_rate = SAMPLE_RATE;
     audio_stream_->codecpar->initial_padding = 0;
     audio_stream_->codecpar->trailing_padding = 0;
