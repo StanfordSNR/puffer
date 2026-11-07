@@ -112,16 +112,23 @@ int main(int argc, char * argv[])
   Poller poller;
   poller.add_action(Poller::Action(listening_socket, Direction::In,
     [&poller, &listening_socket, &global_client_id, &clients]()->ResultType {
-      TCPSocket client_sock = listening_socket.accept();
+      Address peer_addr;
+      TCPSocket client_sock = listening_socket.accept(peer_addr);
+
+      /* check if the peer has gone, e.g., it reset the connection right away */
+      try {
+        client_sock.peer_address();
+      } catch (const exception & e) {
+        cerr << "[" << date_time() << "] Peer " << peer_addr.str()
+             << " has gone: " << e.what() << endl;
+        return ResultType::Continue;
+      }
 
       /* check allowed origin */
-      if (not allowed_origin.empty()) {
-        string client_ip = client_sock.peer_address().ip();
-        if (client_ip != allowed_origin) {
-          cout << "[" << date_time() << "] Rejected connection from "
-               << client_ip << endl;
-          return ResultType::Continue;
-        }
+      if (not allowed_origin.empty() and peer_addr.ip() != allowed_origin) {
+        cout << "[" << date_time() << "] Rejected connection from "
+             << peer_addr.str() << endl;
+        return ResultType::Continue;
       }
 
       /* create a new Client */
@@ -138,7 +145,12 @@ int main(int argc, char * argv[])
           const string & data = client.socket.read();
 
           if (data.empty()) {  // EOF
-            client.write_to_file();
+            try {
+              client.write_to_file();
+            } catch (const exception & e) {
+              cerr << "Warning: ignoring client " << client.id << ": "
+                   << e.what() << endl;
+            }
             clients.erase(client.id);
             return ResultType::CancelAll;
           }

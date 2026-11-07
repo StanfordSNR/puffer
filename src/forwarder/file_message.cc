@@ -20,6 +20,10 @@ FileMsg::FileMsg(const string & str)
 
   dst_path_len = get_uint16(data);
   dst_path = str.substr(sizeof(dst_path_len), dst_path_len);
+
+  if (dst_path.empty() or dst_path.size() != dst_path_len) {
+    throw runtime_error("FileMsg does not contain a valid dst_path");
+  }
 }
 
 string FileMsg::to_string() const
