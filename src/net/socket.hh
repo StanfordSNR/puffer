@@ -103,6 +103,10 @@ public:
     /* accept a new incoming connection */
     TCPSocket accept( void );
 
+    /* accept a new incoming connection and report the peer address recorded
+       by the kernel; this works even if the peer has already gone */
+    TCPSocket accept( Address & peer_addr );
+
     /* original destination of a DNAT connection */
     Address original_dest( void ) const;
 

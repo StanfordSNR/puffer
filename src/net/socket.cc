@@ -140,6 +140,21 @@ TCPSocket TCPSocket::accept( void )
     return TCPSocket( FileDescriptor( CheckSystemCall( "accept", ::accept( fd_num(), nullptr, nullptr ) ) ) );
 }
 
+/* accept a new incoming connection and report the peer address */
+TCPSocket TCPSocket::accept( Address & peer_addr )
+{
+    register_read();
+
+    Address::raw raw_addr;
+    socklen_t size = sizeof( raw_addr );
+
+    FileDescriptor fd( CheckSystemCall( "accept",
+        ::accept( fd_num(), &raw_addr.as_sockaddr, &size ) ) );
+    peer_addr = Address( raw_addr, size );
+
+    return TCPSocket( std::move( fd ) );
+}
+
 /* get socket option */
 template <typename option_type>
 socklen_t Socket::getsockopt( const int level, const int option, option_type & option_value ) const
