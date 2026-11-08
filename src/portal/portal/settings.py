@@ -158,6 +158,10 @@ USE_TZ = False
 STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'puffer', 'static')
 
+# nginx terminates TLS and sets X-Forwarded-Proto (via proxy_params); trust it
+# so Django knows requests are HTTPS (needed by the CSRF origin check)
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
 # Redirect to homepage after login and logout
 LOGIN_REDIRECT_URL = '/'
 LOGOUT_REDIRECT_URL = '/'
